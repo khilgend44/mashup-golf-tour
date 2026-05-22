@@ -2,6 +2,7 @@ export function applyFormat(scorecards, format, event = null) {
   switch (format.type) {
     case 'ringer':          return calcRinger(scorecards, format);
     case 'escalator-doom':  return calcEscalatorDoom(scorecards, format, event);
+    case 'lone-ranger':     return calcLoneRanger(scorecards, format, event);
     default: throw new Error(`Unknown format: ${format.type}`);
   }
 }
@@ -179,6 +180,127 @@ function calcEscalatorDoom(scorecards, format, event) {
   });
 
   // Sort: team total → net aggregate tiebreaker
+  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+
+  for (let i = 0; i < results.length; i++) {
+    if (i > 0) {
+      const prev = results[i - 1], curr = results[i];
+      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+      curr.position = trulyTied ? prev.position : i + 1;
+      if (trulyTied) { curr.tied = true; prev.tied = true; }
+    } else results[0].position = 1;
+  }
+  return results;
+}
+
+// ─── 3-Man Lone Ranger ──────────────────────────────────────────────────────
+
+function calcLoneRanger(scorecards, format, event) {
+  const cardsByPlayer = {};
+  for (const card of scorecards) {
+    if (card.status === 'Completed') cardsByPlayer[card.player_name.toLowerCase()] = card;
+  }
+
+  const teams = {};
+  for (const card of scorecards) {
+    if (card.status !== 'Completed') continue;
+    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
+    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    if (!teams[key]) {
+      teams[key] = {
+        displayMembers: [...rawMembers],
+        players: [],
+        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
+        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
+      };
+    }
+    teams[key].players.push({
+      name: card.player_name,
+      isSub: false,
+      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      totalNet: card.total_net,
+    });
+  }
+
+  for (const sub of (event?.substitutions ?? [])) {
+    const origKey = sub.originalPlayers.map(p => p.toLowerCase()).sort().join('|');
+    const team = teams[origKey];
+    const subCard = cardsByPlayer[sub.with.toLowerCase()];
+    if (!team || !subCard) continue;
+    team.players.push({
+      name: sub.with,
+      isSub: true,
+      net: Array.from({ length: 18 }, (_, i) => subCard[`hole${i + 1}_net`]),
+      totalNet: subCard.total_net,
+    });
+    const ri = team.displayMembers.findIndex(p => p.toLowerCase() === sub.replace.toLowerCase());
+    if (ri >= 0) team.displayMembers[ri] = sub.with + ' (sub)';
+  }
+
+  // Build slot lookup: sorted player key → [slot1, slot2, slot3]
+  const slotMap = {};
+  for (const slots of (event?.teamSlots ?? [])) {
+    const key = slots.map(p => p.toLowerCase()).sort().join('|');
+    slotMap[key] = slots;
+  }
+
+  const results = Object.values(teams).map(team => {
+    const adjPars = team.pars.map(p => p * 2);
+
+    const teamKey = team.players.map(p => p.name.toLowerCase()).sort().join('|');
+    const slots = slotMap[teamKey] ?? team.players.map(p => p.name);
+
+    const playerByName = {};
+    for (const p of team.players) playerByName[p.name.toLowerCase()] = p;
+    const slotPlayers = slots.map(s => playerByName[s.toLowerCase()]);
+
+    const countingPlayers = [];
+    const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
+      const lrPlayer = slotPlayers[h % 3];
+      const others = slotPlayers.filter((_, i) => i !== h % 3);
+
+      const lrScore = lrPlayer.net[h];
+      let bbScore = Infinity, bbPlayer = null;
+      for (const op of others) {
+        if (op.net[h] < bbScore) { bbScore = op.net[h]; bbPlayer = op; }
+      }
+
+      const counting = new Array(team.players.length).fill(false);
+      const lrIdx = team.players.findIndex(p => p.name.toLowerCase() === lrPlayer.name.toLowerCase());
+      if (lrIdx >= 0) counting[lrIdx] = true;
+      if (bbPlayer) {
+        const bbIdx = team.players.findIndex(p => p.name.toLowerCase() === bbPlayer.name.toLowerCase());
+        if (bbIdx >= 0) counting[bbIdx] = true;
+      }
+      countingPlayers.push(counting);
+      return lrScore + bbScore;
+    });
+
+    const out = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inn = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);
+    const outPar = adjPars.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inPar = adjPars.slice(9).reduce((a, b) => a + b, 0);
+    const total = out + inn;
+    const totalPar = outPar + inPar;
+    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+
+    return {
+      isTeam: true,
+      displayMembers: team.displayMembers,
+      players: team.players,
+      slots,
+      teamHoleScores,
+      countingPlayers,
+      pars: team.pars,
+      adjPars,
+      indices: team.indices,
+      out, inn, outPar, inPar, total, totalPar,
+      toPar: total - totalPar,
+      aggregate,
+      prize: null,
+    };
+  });
+
   results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
 
   for (let i = 0; i < results.length; i++) {

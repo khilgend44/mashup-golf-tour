@@ -209,7 +209,7 @@
     }
 
     function renderLeaderboard(results, event, format) {
-      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event); return; }
+      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format); return; }
       renderSoloLeaderboard(results, event);
     }
     function renderSoloLeaderboard(results, event) {
@@ -301,7 +301,7 @@
     }
 
     // ── Team event leaderboard ───────────────────────────────────────────────
-    function renderTeamLeaderboard(results, event) {
+    function renderTeamLeaderboard(results, event, format) {
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
 
@@ -374,7 +374,7 @@
               <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">
                 Team Scorecard — ${team.displayMembers.join(' / ')}
               </div>
-              ${buildTeamScorecardHTML(team)}
+              ${buildTeamScorecardHTML(team, format)}
             </div>
           </td>
         `;
@@ -392,12 +392,19 @@
       }
     }
 
-    function buildTeamScorecardHTML(team) {
+    function buildTeamScorecardHTML(team, format) {
       const front = [0,1,2,3,4,5,6,7,8];
       const back  = [9,10,11,12,13,14,15,16,17];
+      const isLoneRanger = format?.type === 'lone-ranger';
 
       // Segment label for a hole index (0-based)
       function segLabel(h) {
+        if (isLoneRanger) {
+          const s = (h % 3) + 1;
+          return s === 1 ? { label: 'S1', cls: 'text-blue-400' }
+               : s === 2 ? { label: 'S2', cls: 'text-amber-400' }
+               :            { label: 'S3', cls: 'text-flame' };
+        }
         if (h < 6)  return { label: '1BB', cls: 'text-blue-400' };
         if (h < 12) return { label: '2BB', cls: 'text-amber-400' };
         return { label: 'ALL', cls: 'text-flame' };
@@ -492,11 +499,18 @@
             </tbody>
           </table>
         </div>
-        <div class="flex flex-wrap gap-4 mt-3 text-xs text-gray-600">
+        <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-gray-600">
+          ${isLoneRanger ? `
+          <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">S1</span> <span>${team.slots[0]} — LR on holes 1,4,7,10,13,16</span>
+          <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">S2</span> <span>${team.slots[1]} — LR on holes 2,5,8,11,14,17</span>
+          <span class="text-flame font-heading font-600 text-[10px] tracking-widest">S3</span> <span>${team.slots[2]} — LR on holes 3,6,9,12,15,18</span>
+          <span class="text-gray-700 w-full mt-0.5">LR score is mandatory · other score is best ball of remaining two · dimmed = doesn't count</span>
+          ` : `
           <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span> <span>Holes 1–6: 1 best ball</span>
           <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span> <span>Holes 7–12: 2 best ball</span>
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">ALL</span> <span>Holes 13–18: all 3 scores</span>
           <span class="ml-2 text-gray-700">Dimmed scores don't count toward team total</span>
+          `}
         </div>`;
     }
 

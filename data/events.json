@@ -67,5 +67,59 @@
       { "hole": 11, "player": "ribsismokeem", "amount": 42 },
       { "hole": 16, "player": "ribsismokeem", "amount": 42 }
     ]
+  },
+  {
+    "id": "event-52653",
+    "tournamentId": 52653,
+    "season": "season-9",
+    "name": "Week 3 — 3-Man Lone Ranger",
+    "week": 3,
+    "date": "2026-03-30",
+    "format": "lone-ranger",
+    "course": "Royal Hague Golf and Country Club",
+    "teeType": "Yellow",
+    "rating": "72.9",
+    "slope": 148,
+    "status": "completed",
+    "notes": "dmac029 unable to play; humdinger selected as substitute. humdinger's scorecard counts for both their original team and as dmac029's replacement.",
+    "payoutPot": { "1": 228, "2": 150 },
+    "teamSlots": [
+      ["winch99",    "jboettner",   "trock"],
+      ["boiler_kh",  "tigerstew84", "dirthydiesel"],
+      ["adamw19",    "gil3s",       "finlayson7434"],
+      ["julzdad",    "betteri",     "notthatjt"],
+      ["talbeezie",  "jonty",       "ccondon30"],
+      ["sully",      "mesky",       "TheRiot22"],
+      ["iljayo",     "garyn2732",   "brianemann"],
+      ["salfrado",   "mrsnowman",   "pjo336"],
+      ["magic",      "bdc5e",       "tjak"],
+      ["humdinger",  "jibbsy",      "gaz77"],
+      ["jarhead",    "tztop",       "cloverlinksgolf"],
+      ["tofty31",    "ryanlane10",  "r3noble"],
+      ["pottsy",     "toursauce86", "ribsismokeem"],
+      ["humdinger",  "nojo",        "boilertimmay"]
+    ],
+    "substitutions": [
+      {
+        "originalPlayers": ["nojo", "boilertimmay", "dmac029"],
+        "replace": "dmac029",
+        "with": "humdinger",
+        "reason": "dmac029 unable to play; humdinger as substitute"
+      }
+    ],
+    "payouts": [
+      { "place": 1, "player": "betteri",    "amount": 76 },
+      { "place": 1, "player": "notthatjt",  "amount": 76 },
+      { "place": 1, "player": "julzdad",    "amount": 76 },
+      { "place": 2, "player": "magic",      "amount": 50 },
+      { "place": 2, "player": "bdc5e",      "amount": 50 },
+      { "place": 2, "player": "tjak",       "amount": 50 }
+    ],
+    "ctp": [
+      { "hole": 4,  "player": "TheRiot22",  "amount": 42 },
+      { "hole": 8,  "player": "tztop",      "amount": 42 },
+      { "hole": 12, "player": "tofty31",    "amount": 42 },
+      { "hole": 17, "player": "bdc5e",      "amount": 42 }
+    ]
   }
 ]

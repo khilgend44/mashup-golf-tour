@@ -30,5 +30,18 @@
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
     ]
+  },
+  "lone-ranger": {
+    "id": "lone-ranger",
+    "name": "3-Man Lone Ranger",
+    "shortName": "Lone Ranger",
+    "description": "3-player teams declare slot order (1/2/3) before play. Each hole: the Lone Ranger's net score is mandatory, plus the best ball of the other two. Slot 1 is LR on holes 1,4,7,10,13,16 · Slot 2 on 2,5,8,11,14,17 · Slot 3 on 3,6,9,12,15,18. Adjusted par is 2× per hole. Tiebreaker: team net aggregate.",
+    "scoringBasis": "net",
+    "type": "lone-ranger",
+    "lowScoreWins": true,
+    "teamSize": 3,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+    ]
   }
 }
