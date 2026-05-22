@@ -1,0 +1,71 @@
+[
+  {
+    "id": "event-50774",
+    "tournamentId": 50774,
+    "season": "season-9",
+    "name": "Week 1 — Solo Ringer",
+    "week": 1,
+    "date": "2026-03-16",
+    "format": "solo-ringer",
+    "course": "Chatham Hills",
+    "teeType": "Yellow",
+    "rating": "74.1",
+    "slope": 141,
+    "status": "completed",
+    "notes": "Administrative adjustment: tjak excluded from payout; remaining places shifted up.",
+    "payoutPot": { "1": 125, "2": 99, "3": 75, "4": 60, "5": 50, "6": 33, "7": 20 },
+    "payouts": [
+      { "place": 1, "player": "Gaz77",          "amount": 125 },
+      { "place": 2, "player": "GIL3S",           "amount": 99  },
+      { "place": 3, "player": "bdc5e",           "amount": 75  },
+      { "place": 4, "player": "Tigerstew84",     "amount": 60  },
+      { "place": 5, "player": "cloverlinksgolf", "amount": 50  },
+      { "place": 6, "player": "finlayson7434",   "amount": 33  },
+      { "place": 7, "player": "ryanlane10",      "amount": 20  }
+    ],
+    "ctp": [
+      { "hole": 2,  "player": "Tztop",        "amount": 42 },
+      { "hole": 8,  "player": "toursauce86",  "amount": 42 },
+      { "hole": 11, "player": "Tigerstew84",  "amount": 42 },
+      { "hole": 14, "player": "finlayson7434","amount": 42 }
+    ]
+  },
+  {
+    "id": "event-51554",
+    "tournamentId": 51554,
+    "season": "season-9",
+    "name": "Week 2 — Escalator of Doom",
+    "week": 2,
+    "date": "2026-03-23",
+    "format": "escalator-doom",
+    "course": "The Frog Golf Club",
+    "teeType": "Yellow",
+    "rating": "69.9",
+    "slope": 128,
+    "status": "completed",
+    "notes": "jonty injured; ryanlane10 selected as blind-draw substitute. ryanlane10's scorecard counts for both their original team and as jonty's replacement.",
+    "payoutPot": { "1": 228, "2": 150 },
+    "substitutions": [
+      {
+        "originalPlayers": ["boilertimmay", "jonty", "ribsismokeem"],
+        "replace": "jonty",
+        "with": "ryanlane10",
+        "reason": "jonty injured; blind-draw replacement"
+      }
+    ],
+    "payouts": [
+      { "place": 1, "player": "ryanlane10",   "amount": 76 },
+      { "place": 1, "player": "boilertimmay", "amount": 76 },
+      { "place": 1, "player": "ribsismokeem", "amount": 76 },
+      { "place": 2, "player": "cloverlinksgolf", "amount": 50 },
+      { "place": 2, "player": "theriot22",    "amount": 50 },
+      { "place": 2, "player": "ccondon30",    "amount": 50 }
+    ],
+    "ctp": [
+      { "hole": 3,  "player": "adamw19",      "amount": 42 },
+      { "hole": 8,  "player": "finlayson7434","amount": 42 },
+      { "hole": 11, "player": "ribsismokeem", "amount": 42 },
+      { "hole": 16, "player": "ribsismokeem", "amount": 42 }
+    ]
+  }
+]

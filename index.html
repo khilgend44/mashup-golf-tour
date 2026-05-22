@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MashUp Golf Tour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .hero-glow {
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(249,115,22,0.18) 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 30% at 50% 0%, rgba(249,115,22,0.08) 0%, transparent 60%);
+    }
+    .card-shadow {
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+    .flame-shadow {
+      box-shadow: 0 0 20px rgba(249,115,22,0.25), 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
+    .event-card:hover { background: #252525; transform: translateY(-1px); }
+    .event-card { transition: background 0.15s, transform 0.15s; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf Tour" class="h-9 w-auto" />
+        <span class="font-heading font-700 text-lg tracking-wide text-white hidden sm:block">MashUp Golf Tour</span>
+      </a>
+      <div class="flex items-center gap-6 text-sm font-heading font-600 tracking-wider">
+        <a href="index.html" class="text-flame">HOME</a>
+        <a href="#seasons" class="text-gray-400 hover:text-white transition-colors">SEASONS</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero-glow pt-16 pb-12 px-4 text-center">
+    <div class="max-w-2xl mx-auto">
+      <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf Tour" class="h-36 w-auto mx-auto mb-6 drop-shadow-2xl" />
+      <h1 class="font-display text-6xl sm:text-7xl tracking-widest text-white mb-3">MASHUP GOLF TOUR</h1>
+      <p class="text-gray-400 font-body text-base tracking-wide">Simulator golf. Custom formats. Real competition.</p>
+    </div>
+  </section>
+
+  <!-- CONTENT -->
+  <main id="content" class="max-w-6xl mx-auto px-4 pb-20">
+    <div id="loading" class="text-center py-20">
+      <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500 text-sm">Loading tour data…</p>
+    </div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border text-center py-8 text-gray-600 text-xs font-body">
+    <p>MashUp Golf Tour &nbsp;·&nbsp; Powered by <a href="https://simulatorgolftour.com" target="_blank" class="text-gray-500 hover:text-flame transition-colors">SimulatorGolfTour.com</a></p>
+  </footer>
+
+  <script type="module">
+    import { loadSeasons, loadEvents } from './js/api.js';
+
+    async function init() {
+      const [seasons, events] = await Promise.all([loadSeasons(), loadEvents()]);
+      const loading = document.getElementById('loading');
+      const app = document.getElementById('app');
+      loading.classList.add('hidden');
+      app.classList.remove('hidden');
+      app.innerHTML = renderApp(seasons, events);
+    }
+
+    function renderApp(seasons, events) {
+      const activeSeason = seasons.find(s => s.status === 'active') || seasons[0];
+      const seasonEvents = events
+        .filter(e => e.season === activeSeason?.id)
+        .sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return new Date(b.date) - new Date(a.date);
+        });
+
+      const completed = seasonEvents.filter(e => e.status === 'completed');
+      const upcoming = seasonEvents.filter(e => e.status !== 'completed');
+
+      return `
+        <!-- Season header -->
+        <section id="seasons" class="mb-10">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Active Season</div>
+              <h2 class="font-display text-4xl tracking-wider text-white">${activeSeason.name}</h2>
+              <p class="text-gray-500 text-sm mt-1">${activeSeason.description}</p>
+            </div>
+            <a href="season.html?id=${activeSeason.id}"
+               class="hidden sm:inline-flex items-center gap-2 border border-border px-4 py-2 rounded text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame hover:text-flame transition-colors">
+              SEASON STANDINGS →
+            </a>
+          </div>
+
+          <!-- Stats -->
+          <div class="grid grid-cols-3 gap-3 mb-8">
+            ${statCard(seasonEvents.length, 'Events')}
+            ${statCard(completed.length, 'Completed')}
+            ${statCard(upcoming.length, 'Upcoming')}
+          </div>
+        </section>
+
+        <!-- Upcoming -->
+        ${upcoming.length ? `
+        <section class="mb-10">
+          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Upcoming</h3>
+          <div class="space-y-2">
+            ${upcoming.map(e => eventRow(e, false)).join('')}
+          </div>
+        </section>` : ''}
+
+        <!-- Results -->
+        <section>
+          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Results</h3>
+          ${completed.length
+            ? `<div class="space-y-2">${completed.map(e => eventRow(e, true)).join('')}</div>`
+            : `<p class="text-gray-600 text-sm py-6">No completed events yet.</p>`}
+        </section>
+
+        <!-- All seasons -->
+        ${seasons.length > 1 ? `
+        <section class="mt-14">
+          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">All Seasons</h3>
+          <div class="grid sm:grid-cols-2 gap-3">
+            ${seasons.map(s => seasonCard(s)).join('')}
+          </div>
+        </section>` : ''}
+      `;
+    }
+
+    function statCard(value, label) {
+      return `
+        <div class="card-shadow bg-card rounded-lg p-4 text-center border border-border">
+          <div class="font-display text-3xl text-flame">${value}</div>
+          <div class="font-heading text-xs tracking-widest text-gray-500 uppercase mt-1">${label}</div>
+        </div>`;
+    }
+
+    function eventRow(e, showLink) {
+      const statusDot = e.status === 'completed'
+        ? '<span class="status-dot bg-emerald-500"></span>'
+        : '<span class="status-dot bg-amber-500 animate-pulse"></span>';
+      const statusLabel = e.status === 'completed' ? 'Completed' : 'Open';
+      const dateStr = e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
+
+      const inner = `
+        <div class="card-shadow event-card bg-card border border-border rounded-lg px-5 py-4 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="font-heading font-700 text-base text-white truncate">${e.name}</div>
+            <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+              <span>${dateStr}</span>
+              <span>·</span>
+              <span>${e.format.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+              ${e.buyIn ? `<span>·</span><span>$${e.buyIn} buy-in</span>` : ''}
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-heading tracking-wider text-gray-400 shrink-0">
+            ${statusDot} ${statusLabel}
+          </div>
+          ${showLink ? '<span class="text-flame text-sm shrink-0">→</span>' : ''}
+        </div>`;
+
+      return showLink
+        ? `<a href="event.html?id=${e.tournamentId}" class="block">${inner}</a>`
+        : `<div>${inner}</div>`;
+    }
+
+    function seasonCard(s) {
+      const dot = s.status === 'active' ? '<span class="status-dot bg-flame"></span>' : '<span class="status-dot bg-gray-600"></span>';
+      return `
+        <a href="season.html?id=${s.id}" class="card-shadow event-card bg-card border border-border rounded-lg px-5 py-4 block">
+          <div class="flex items-center gap-2 mb-1">
+            ${dot}
+            <span class="font-heading font-700 text-white">${s.name}</span>
+          </div>
+          <p class="text-xs text-gray-500">${s.description}</p>
+        </a>`;
+    }
+
+    init().catch(err => {
+      document.getElementById('loading').innerHTML =
+        `<p class="text-red-400 text-sm">Failed to load: ${err.message}</p>`;
+    });
+  </script>
+</body>
+</html>

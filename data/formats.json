@@ -1,0 +1,34 @@
+{
+  "solo-ringer": {
+    "id": "solo-ringer",
+    "name": "Solo Ringer",
+    "shortName": "Ringer",
+    "description": "Players play 2 rounds. Best net score on each hole across both rounds forms the ringer card. Lowest ringer total wins. Single-round scores count if a player only completes one round.",
+    "scoringBasis": "net",
+    "type": "ringer",
+    "lowScoreWins": true,
+    "teamSize": 1,
+    "tiebreakers": [
+      { "type": "total-net-all-rounds", "label": "36-hole net total (both rounds combined)" },
+      { "type": "index-countback",      "label": "Handicap index countback (index 1 first, then 2, etc.)" }
+    ]
+  },
+  "escalator-doom": {
+    "id": "escalator-doom",
+    "name": "Escalator of Doom",
+    "shortName": "Escalator",
+    "description": "3-player teams. Holes 1–6: 1 net best ball. Holes 7–12: 2 net best ball (sum of 2 lowest). Holes 13–18: all 3 net scores. Team total vs. adjusted par. Tiebreaker: team net aggregate.",
+    "scoringBasis": "net",
+    "type": "escalator-doom",
+    "lowScoreWins": true,
+    "teamSize": 3,
+    "segments": [
+      { "startHole": 1,  "endHole": 6,  "count": 1, "label": "1 Best Ball"  },
+      { "startHole": 7,  "endHole": 12, "count": 2, "label": "2 Best Ball"  },
+      { "startHole": 13, "endHole": 18, "count": 3, "label": "All 3 Scores" }
+    ],
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+    ]
+  }
+}

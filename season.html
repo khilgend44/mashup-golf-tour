@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Season — MashUp Golf Tour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .hero-glow { background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(249,115,22,0.12) 0%, transparent 70%); }
+    .event-card { transition: background 0.12s, transform 0.12s; }
+    .event-card:hover { background: #252525; transform: translateY(-1px); }
+    .standings-row:hover { background: rgba(255,255,255,0.03); }
+    .standings-row { transition: background 0.1s; }
+    .under { color: #4ade80; }
+    .format-badge {
+      display: inline-flex; align-items: center;
+      background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.25);
+      color: #fb923c; font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      padding: 1px 7px; border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf Tour" class="h-9 w-auto" />
+        <span class="font-heading font-700 text-lg tracking-wide text-white hidden sm:block">MashUp Golf Tour</span>
+      </a>
+      <div id="breadcrumb" class="text-xs font-heading tracking-wider text-gray-500"></div>
+    </div>
+  </nav>
+
+  <!-- SEASON HEADER -->
+  <section class="hero-glow border-b border-border">
+    <div class="max-w-6xl mx-auto px-4 py-8" id="season-header">
+      <div class="h-4 bg-surface rounded w-32 mb-2 animate-pulse"></div>
+      <div class="h-10 bg-surface rounded w-56 animate-pulse"></div>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <main class="max-w-6xl mx-auto px-4 py-8 pb-20">
+    <div id="loading" class="text-center py-20">
+      <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500 text-sm">Loading season…</p>
+    </div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border text-center py-8 text-gray-600 text-xs font-body">
+    <p>MashUp Golf Tour &nbsp;·&nbsp; <a href="https://simulatorgolftour.com" target="_blank" class="text-gray-500 hover:text-flame transition-colors">SimulatorGolfTour.com</a></p>
+  </footer>
+
+  <script type="module">
+    import { loadSeasons, loadEvents } from './js/api.js';
+
+    const params = new URLSearchParams(window.location.search);
+
+    async function init() {
+      const [seasons, events] = await Promise.all([loadSeasons(), loadEvents()]);
+      const seasonId = params.get('id') || seasons.find(s => s.status === 'active')?.id || seasons[0]?.id;
+      const season = seasons.find(s => s.id === seasonId);
+      if (!season) { showError(`Season "${seasonId}" not found.`); return; }
+
+      const seasonEvents = events
+        .filter(e => e.season === seasonId)
+        .sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return new Date(a.date) - new Date(b.date);
+        });
+
+      renderHeader(season, seasonEvents);
+
+      document.getElementById('breadcrumb').innerHTML =
+        `<a href="index.html" class="hover:text-gray-300 transition-colors">Home</a> <span class="mx-1">›</span> <span class="text-gray-300">${season.name}</span>`;
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('app').innerHTML = renderApp(season, seasonEvents);
+      document.title = `${season.name} — MashUp Golf Tour`;
+    }
+
+    function renderHeader(season, events) {
+      const completed = events.filter(e => e.status === 'completed').length;
+      const statusLabel = season.status === 'active' ? '● ACTIVE' : 'COMPLETED';
+      const statusColor = season.status === 'active' ? 'text-flame' : 'text-gray-500';
+
+      document.getElementById('season-header').innerHTML = `
+        <div class="text-xs font-heading font-600 tracking-widest ${statusColor} uppercase mb-2">${statusLabel}</div>
+        <h1 class="font-display text-5xl tracking-wider text-white mb-2">${season.name}</h1>
+        <p class="text-gray-500 text-sm">${season.description} &nbsp;·&nbsp; ${season.year}</p>
+        <div class="flex gap-4 mt-4 text-xs text-gray-600">
+          <span><b class="text-gray-300">${events.length}</b> Events</span>
+          <span><b class="text-gray-300">${completed}</b> Completed</span>
+        </div>
+      `;
+    }
+
+    function renderApp(season, events) {
+      const completed = events.filter(e => e.status === 'completed');
+      const upcoming  = events.filter(e => e.status !== 'completed');
+
+      // Build money standings from payouts
+      const standings = buildStandings(completed);
+
+      return `
+        <!-- Season Standings — full width -->
+        <section class="mb-10">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Season Standings</h2>
+          ${standings.length
+            ? standingsTable(standings)
+            : `<div class="card-shadow bg-card border border-border rounded-lg p-6 text-center text-gray-600 text-sm">Standings will appear once events have payouts recorded.</div>`}
+        </section>
+
+        <!-- Events list — full width -->
+        ${upcoming.length ? `
+        <section class="mb-8">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Upcoming</h2>
+          <div class="space-y-2">${upcoming.map(e => eventCard(e)).join('')}</div>
+        </section>` : ''}
+
+        <section>
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Results</h2>
+          ${completed.length
+            ? `<div class="space-y-2">${completed.map(e => eventCard(e)).join('')}</div>`
+            : `<p class="text-gray-600 text-sm py-6">No completed events yet.</p>`}
+        </section>
+      `;
+    }
+
+    function eventCard(e) {
+      const dateStr = e.date
+        ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'Date TBD';
+      const isCompleted = e.status === 'completed';
+      const dot = isCompleted
+        ? '<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>'
+        : '<span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse mr-1.5"></span>';
+
+      const inner = `
+        <div class="card-shadow event-card bg-card border border-border rounded-lg px-5 py-4 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="font-heading font-700 text-base text-white truncate">${e.name}</div>
+            <div class="flex flex-wrap items-center gap-2 mt-1.5">
+              <span class="text-xs text-gray-500">${dateStr}</span>
+              <span class="format-badge">${e.format.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+              ${e.buyIn ? `<span class="text-xs text-gray-600">$${e.buyIn} buy-in</span>` : ''}
+            </div>
+          </div>
+          <div class="flex items-center text-xs font-heading tracking-wider text-gray-500 shrink-0">
+            ${dot}${isCompleted ? 'Done' : 'Open'}
+          </div>
+          ${isCompleted ? '<span class="text-flame text-sm shrink-0">→</span>' : ''}
+        </div>`;
+
+      return isCompleted
+        ? `<a href="event.html?id=${e.tournamentId}" class="block">${inner}</a>`
+        : `<div>${inner}</div>`;
+    }
+
+    function buildStandings(completedEvents) {
+      const players = {};
+
+      function ensure(name) {
+        const key = name.toLowerCase();
+        if (!players[key]) players[key] = { name, earnings: 0, ctpEarnings: 0, wins: 0, events: new Set() };
+        return players[key];
+      }
+
+      for (const e of completedEvents) {
+        // Regular payouts
+        for (const p of (e.payouts || [])) {
+          if (!p.player) continue;
+          const rec = ensure(p.player);
+          rec.earnings += p.amount || 0;
+          rec.events.add(e.id);
+          if (p.place === 1) rec.wins++;
+        }
+        // CTP payouts
+        for (const c of (e.ctp || [])) {
+          if (!c.player) continue;
+          const rec = ensure(c.player);
+          rec.ctpEarnings += c.amount || 0;
+          rec.events.add(e.id);
+        }
+      }
+
+      return Object.values(players)
+        .map(p => ({ ...p, total: p.earnings + p.ctpEarnings, events: p.events.size }))
+        .sort((a, b) => b.total - a.total);
+    }
+
+    function standingsTable(standings) {
+      return `
+        <div class="card-shadow rounded-xl overflow-hidden border border-border">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-surface">
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-10">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
+                <th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Wins</th>
+                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Earnings</th>
+                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">CTP</th>
+                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${standings.map((p, i) => `
+                <tr class="standings-row border-t border-border">
+                  <td class="px-3 py-3 text-center font-heading font-700 text-sm ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
+                  <td class="px-4 py-3 font-medium text-white">${p.name}</td>
+                  <td class="px-4 py-3 text-center text-gray-400">${p.wins > 0 ? p.wins : '—'}</td>
+                  <td class="px-4 py-3 text-right text-gray-300 font-mono text-sm">$${p.earnings.toLocaleString()}</td>
+                  <td class="px-4 py-3 text-right text-gray-400 font-mono text-sm">${p.ctpEarnings > 0 ? '$' + p.ctpEarnings.toLocaleString() : '—'}</td>
+                  <td class="px-4 py-3 text-right font-semibold text-flame font-mono">$${p.total.toLocaleString()}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').innerHTML =
+        `<div class="bg-red-900/20 border border-red-800 rounded-lg p-6 text-center max-w-md mx-auto">
+          <p class="text-red-400 font-medium">Error</p>
+          <p class="text-gray-400 text-sm mt-1">${msg}</p>
+        </div>`;
+    }
+
+    init().catch(err => showError(err.message));
+  </script>
+</body>
+</html>
