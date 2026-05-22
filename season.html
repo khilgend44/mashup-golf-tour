@@ -230,8 +230,8 @@
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-10">Pos</th>
                 <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
                 <th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Wins</th>
-                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Earnings</th>
-                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">CTP</th>
+                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Earnings</th>
+                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">CTP</th>
                 <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
               </tr>
             </thead>
@@ -241,8 +241,8 @@
                   <td class="px-3 py-3 text-center font-heading font-700 text-sm ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
                   <td class="px-4 py-3 font-medium text-white">${p.name}</td>
                   <td class="px-4 py-3 text-center text-gray-400">${p.wins > 0 ? p.wins : '—'}</td>
-                  <td class="px-4 py-3 text-right text-gray-300 font-mono text-sm">$${p.earnings.toLocaleString()}</td>
-                  <td class="px-4 py-3 text-right text-gray-400 font-mono text-sm">${p.ctpEarnings > 0 ? '$' + p.ctpEarnings.toLocaleString() : '—'}</td>
+                  <td class="px-4 py-3 text-right text-gray-300 font-mono text-sm hidden sm:table-cell">$${p.earnings.toLocaleString()}</td>
+                  <td class="px-4 py-3 text-right text-gray-400 font-mono text-sm hidden sm:table-cell">${p.ctpEarnings > 0 ? '$' + p.ctpEarnings.toLocaleString() : '—'}</td>
                   <td class="px-4 py-3 text-right font-semibold text-flame font-mono">$${p.total.toLocaleString()}</td>
                 </tr>`).join('')}
             </tbody>
