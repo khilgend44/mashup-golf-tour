@@ -208,5 +208,34 @@
       { "hole": 12, "player": "nojo",    "amount": 40 },
       { "hole": 16, "player": "nojo",    "amount": 40 }
     ]
+  },
+  {
+    "id": "event-invitational-s9",
+    "tournamentId": null,
+    "season": "season-9",
+    "name": "Season 9 Invitational — Final",
+    "week": null,
+    "date": "2026-05-14",
+    "format": "invitational",
+    "status": "completed",
+    "notes": "Invitational playoff series. Earlier rounds eliminated teams; these are the final standings.",
+    "payouts": [
+      { "place": 1, "player": "betteri",      "amount": 200 },
+      { "place": 1, "player": "theriot22",    "amount": 200 },
+      { "place": 1, "player": "ribsismokeem", "amount": 200 },
+      { "place": 2, "player": "magic",        "amount": 140 },
+      { "place": 2, "player": "talbeezie",    "amount": 140 },
+      { "place": 2, "player": "jibbsy",       "amount": 140 },
+      { "place": 3, "player": "ryanlane10",   "amount": 91  },
+      { "place": 3, "player": "finlayson7434","amount": 91  },
+      { "place": 3, "player": "trock",        "amount": 91  },
+      { "place": 4, "player": "winch99",      "amount": 40  },
+      { "place": 4, "player": "bdc5e",        "amount": 40  },
+      { "place": 4, "player": "dirthydiesel", "amount": 40  }
+    ],
+    "ctp": [
+      { "player": "ryanlane10",   "amount": 75 },
+      { "player": "betteri",      "amount": 25 }
+    ]
   }
 ]

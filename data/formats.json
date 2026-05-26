@@ -83,5 +83,13 @@
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
     ]
+  },
+  "invitational": {
+    "id": "invitational",
+    "name": "Invitational",
+    "shortName": "Invitational",
+    "description": "Playoff invitational tournament. Players qualify from season standings. Earlier rounds eliminate teams; only the final standings and payouts are recorded here.",
+    "type": "invitational",
+    "teamSize": 3
   }
 }

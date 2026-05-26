@@ -175,23 +175,22 @@
     import { applyFormat, applyPayouts, formatToPar, holeScoreClass } from './js/scoring.js';
 
     const params = new URLSearchParams(window.location.search);
-    const tournamentId = parseInt(params.get('id'));
+    const idParam = params.get('id');
+    const numericId = parseInt(idParam);
 
     async function init() {
-      if (!tournamentId) {
-        showError('No tournament ID in URL. Use ?id=XXXXX');
+      if (!idParam) {
+        showError('No event ID in URL. Use ?id=XXXXX');
         return;
       }
 
-      const [events, formats, scorecards] = await Promise.all([
-        loadEvents(),
-        loadFormats(),
-        fetchScorecards(tournamentId),
-      ]);
+      const [events, formats] = await Promise.all([loadEvents(), loadFormats()]);
 
-      const event = events.find(e => e.tournamentId === tournamentId);
+      const event = events.find(e =>
+        (numericId && e.tournamentId === numericId) || e.id === idParam
+      );
       if (!event) {
-        showError(`Event ${tournamentId} not found in events.json.`);
+        showError(`Event "${idParam}" not found in events.json.`);
         return;
       }
 
@@ -200,6 +199,20 @@
         showError(`Format "${event.format}" not defined in formats.json.`);
         return;
       }
+
+      const breadcrumb = `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
+
+      // Invitational: no scorecards — show final results only
+      if (format.type === 'invitational') {
+        renderHeader(event, format, event.payouts.length);
+        document.getElementById('breadcrumb').innerHTML = breadcrumb;
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        renderInvitationalResults(event);
+        return;
+      }
+
+      const scorecards = await fetchScorecards(event.tournamentId);
 
       // Devil's Draw live-entry / reveal mode (?reveal=true) — takes priority over pre-draw view
       const revealMode = params.get('reveal') === 'true';
@@ -334,9 +347,9 @@
         <div class="flex flex-wrap items-start gap-3 mb-2">
           <span class="status-badge ${statusClass}">${statusLabel}</span>
           <span class="format-badge">⛳ ${format.name.toUpperCase()}</span>
-          <span class="format-badge" style="color:#a0a0a0;background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.1)">
+          ${(event.teeType || event.rating) ? `<span class="format-badge" style="color:#a0a0a0;background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.1)">
             ${event.teeType ? event.teeType + ' Tees' : ''} ${event.rating ? '· ' + event.rating + '/' + event.slope : ''}
-          </span>
+          </span>` : ''}
         </div>
         <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white mt-3 mb-2">${event.name}</h1>
         <p class="text-gray-500 text-sm">${dateStr} &nbsp;·&nbsp; ${playerCount} Players ${event.buyIn ? '&nbsp;·&nbsp; $' + event.buyIn + ' Buy-in' : ''}</p>
@@ -1282,6 +1295,77 @@
       }
 
       render();
+    }
+
+    function renderInvitationalResults(event) {
+      const placeLabel = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th' };
+      const placeColor = { 1: 'text-flame', 2: 'text-amber-400', 3: 'text-gray-300', 4: 'text-gray-500' };
+
+      const byPlace = {};
+      for (const p of (event.payouts || [])) {
+        if (!byPlace[p.place]) byPlace[p.place] = [];
+        byPlace[p.place].push(p);
+      }
+
+      const placesHtml = Object.entries(byPlace)
+        .sort((a, b) => a[0] - b[0])
+        .map(([place, players]) => {
+          const amount = players[0].amount;
+          const col = placeColor[place] || 'text-gray-500';
+          const label = placeLabel[place] || `${place}th`;
+          const names = players.map(p =>
+            `<span class="text-white font-medium">${p.player}</span>`
+          ).join('<span class="text-gray-600 mx-1">·</span>');
+          return `
+            <tr class="standings-row border-t border-border">
+              <td class="px-3 py-4 text-center font-heading font-700 text-base ${col}">${label}</td>
+              <td class="px-4 py-4 leading-relaxed">${names}</td>
+              <td class="px-4 py-4 text-right font-mono font-semibold text-flame">$${(amount * players.length).toLocaleString()}</td>
+              <td class="px-4 py-4 text-right font-mono text-gray-400 hidden sm:table-cell">$${amount.toLocaleString()} each</td>
+            </tr>`;
+        }).join('');
+
+      const ctpRows = (event.ctp || []).map(c => `
+        <tr class="standings-row border-t border-border">
+          <td class="px-4 py-3 font-medium text-white">${c.player}</td>
+          <td class="px-4 py-3 text-right font-mono font-semibold text-flame">$${c.amount}</td>
+        </tr>`).join('');
+
+      const ctpSection = ctpRows ? `
+        <section class="mt-8">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">CTP Winnings</h2>
+          <div class="card-shadow rounded-xl overflow-hidden border border-border">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-surface">
+                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
+                  <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Winnings</th>
+                </tr>
+              </thead>
+              <tbody>${ctpRows}</tbody>
+            </table>
+          </div>
+        </section>` : '';
+
+      document.getElementById('app').innerHTML = `
+        ${event.notes ? `<div class="flex items-start gap-2 bg-surface border border-border rounded-lg px-4 py-3 mb-5 text-xs text-gray-400"><span class="mt-0.5 shrink-0">ℹ</span><span>${event.notes}</span></div>` : ''}
+        <section>
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Final Standings</h2>
+          <div class="card-shadow rounded-xl overflow-hidden border border-border">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-surface">
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-16">Place</th>
+                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
+                  <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team Total</th>
+                  <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Per Player</th>
+                </tr>
+              </thead>
+              <tbody>${placesHtml}</tbody>
+            </table>
+          </div>
+        </section>
+        ${ctpSection}`;
     }
 
     function showError(msg) {
