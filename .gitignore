@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Secrets
+.env
+*.env
+secrets.sh
+
+# Dev server logs
+*.log
+
+# Temporary screenshots (local only)
+temporary screenshots/

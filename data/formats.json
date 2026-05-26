@@ -1,0 +1,87 @@
+{
+  "solo-ringer": {
+    "id": "solo-ringer",
+    "name": "Solo Ringer",
+    "shortName": "Ringer",
+    "description": "Players play 2 rounds. Best net score on each hole across both rounds forms the ringer card. Lowest ringer total wins. Single-round scores count if a player only completes one round.",
+    "scoringBasis": "net",
+    "type": "ringer",
+    "lowScoreWins": true,
+    "teamSize": 1,
+    "tiebreakers": [
+      { "type": "total-net-all-rounds", "label": "36-hole net total (both rounds combined)" },
+      { "type": "index-countback",      "label": "Handicap index countback (index 1 first, then 2, etc.)" }
+    ]
+  },
+  "escalator-doom": {
+    "id": "escalator-doom",
+    "name": "Escalator of Doom",
+    "shortName": "Escalator",
+    "description": "3-player teams. Holes 1–6: 1 net best ball. Holes 7–12: 2 net best ball (sum of 2 lowest). Holes 13–18: all 3 net scores. Team total vs. adjusted par. Tiebreaker: team net aggregate.",
+    "scoringBasis": "net",
+    "type": "escalator-doom",
+    "lowScoreWins": true,
+    "teamSize": 3,
+    "segments": [
+      { "startHole": 1,  "endHole": 6,  "count": 1, "label": "1 Best Ball"  },
+      { "startHole": 7,  "endHole": 12, "count": 2, "label": "2 Best Ball"  },
+      { "startHole": 13, "endHole": 18, "count": 3, "label": "All 3 Scores" }
+    ],
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+    ]
+  },
+  "devils-draw": {
+    "id": "devils-draw",
+    "name": "Devil's Draw",
+    "shortName": "Devil's Draw",
+    "description": "3-player teams. After all play concludes, 18 holes are drawn live into 4 categories: 5 holes as 3-net best ball (all 3 scores), 6 holes as 2-net best ball, 5 holes as 1-net best ball, and 2 holes score ZERO (don't count). Since the draw is unknown during play, all players must score every hole.",
+    "scoringBasis": "net",
+    "type": "devils-draw",
+    "lowScoreWins": true,
+    "teamSize": 3,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+    ]
+  },
+  "best2-worst2-all3": {
+    "id": "best2-worst2-all3",
+    "name": "Best 2, Worst 2, All 3",
+    "shortName": "B2/W2/All",
+    "description": "3-player teams. Par 5s: best 2 net scores. Par 4s: worst 2 net scores. Par 3s: all 3 net scores. Adjusted par is 2× on par 4s and 5s, 3× on par 3s. Tiebreaker: team net aggregate.",
+    "scoringBasis": "net",
+    "type": "best2-worst2-all3",
+    "lowScoreWins": true,
+    "teamSize": 3,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+    ]
+  },
+  "shamble-2man": {
+    "id": "shamble-2man",
+    "name": "2-Man Shamble",
+    "shortName": "Shamble",
+    "description": "2-player teams. Both players tee off, select the best drive, then each plays their own ball. Team records the best net score per hole. Tiebreakers: team net aggregate, then scorecard countback starting from index hole 1.",
+    "scoringBasis": "net",
+    "type": "shamble-2man",
+    "lowScoreWins": true,
+    "teamSize": 2,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of both players' net totals)" },
+      { "type": "index-countback",    "label": "Scorecard countback from index hole 1" }
+    ]
+  },
+  "lone-ranger": {
+    "id": "lone-ranger",
+    "name": "3-Man Lone Ranger",
+    "shortName": "Lone Ranger",
+    "description": "3-player teams declare slot order (1/2/3) before play. Each hole: the Lone Ranger's net score is mandatory, plus the best ball of the other two. Slot 1 is LR on holes 1,4,7,10,13,16 · Slot 2 on 2,5,8,11,14,17 · Slot 3 on 3,6,9,12,15,18. Adjusted par is 2× per hole. Tiebreaker: team net aggregate.",
+    "scoringBasis": "net",
+    "type": "lone-ranger",
+    "lowScoreWins": true,
+    "teamSize": 3,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+    ]
+  }
+}

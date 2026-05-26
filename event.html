@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event — MashUp Golf Tour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+
+    .card-shadow {
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+    .hero-glow {
+      background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(249,115,22,0.14) 0%, transparent 70%);
+    }
+
+    /* Leaderboard */
+    .lb-row { transition: background 0.12s, opacity 0.12s; }
+    .lb-row:hover { background: rgba(255,255,255,0.04); }
+    .lb-row.expanded { background: rgba(249,115,22,0.06); }
+    .lb-row td { border-bottom: 1px solid #1f1f1f; }
+    .pos-col { min-width: 3rem; }
+
+    /* To-par colors */
+    .under { color: #4ade80; }
+    .over  { color: #f87171; }
+    .even  { color: #f5f5f5; }
+
+    /* Scorecard */
+    .sc-wrap { overflow-x: auto; }
+    .sc-table { border-collapse: collapse; min-width: 700px; width: 100%; }
+    .sc-table th, .sc-table td {
+      text-align: center;
+      padding: 5px 6px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .sc-table .hole-hdr th {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: #666;
+      padding-bottom: 6px;
+    }
+    .sc-table .par-row td { color: #888; background: #161616; }
+    .sc-table .idx-row td { color: #444; background: #111; font-size: 10px; }
+    .sc-table .score-row td { font-weight: 600; font-size: 13px; background: #1a1a1a; }
+    .sc-table .name-cell { text-align: left; padding-left: 12px; font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; color: #e0e0e0; min-width: 90px; }
+    .sc-table .sub-cell { color: #aaa; font-weight: 500; background: #141414 !important; border-left: 1px solid #2a2a2a; border-right: 1px solid #2a2a2a; }
+    .sc-table .total-cell { font-weight: 700; background: #141414 !important; }
+    .sc-table .topar-cell { font-weight: 700; background: #141414 !important; }
+    .sc-table .divider { border-left: 1px solid #2a2a2a; }
+
+    /* Hole score badges */
+    .sc-score { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700; }
+    .eagle  .sc-score { background: #fbbf24; color: #000; }
+    .birdie .sc-score { background: #3b82f6; color: #fff; }
+    .par-score .sc-score { color: #e0e0e0; }
+    .bogey  .sc-score { color: #f87171; }
+    .double .sc-score { background: #ef4444; color: #fff; border-radius: 2px; }
+
+    /* Round badge on ringer card */
+    .rnd-badge { font-size: 9px; color: #555; display: block; line-height: 1; margin-top: 1px; }
+
+    .format-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(249,115,22,0.12); border: 1px solid rgba(249,115,22,0.3);
+      color: #fb923c; font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      padding: 2px 8px; border-radius: 3px;
+    }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      padding: 2px 8px; border-radius: 3px;
+    }
+    .status-completed { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.25); color: #4ade80; }
+    .status-active    { background: rgba(251,191,36,0.1);  border: 1px solid rgba(251,191,36,0.25);  color: #fbbf24; }
+
+    /* Devil's Draw reveal tiles */
+    .dd-tile { perspective: 600px; width: 52px; height: 68px; flex-shrink: 0; }
+    .dd-tile-inner {
+      position: relative; width: 100%; height: 100%;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+    .dd-tile.no-transition .dd-tile-inner { transition: none; }
+    .dd-tile.flipped .dd-tile-inner { transform: rotateY(180deg); }
+    .dd-tile-front, .dd-tile-back {
+      position: absolute; inset: 0;
+      -webkit-backface-visibility: hidden; backface-visibility: hidden;
+      border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    }
+    .dd-tile-front { background: #1a1a1a; border: 1px solid #2a2a2a; }
+    .dd-tile.next-up .dd-tile-front { border-color: rgba(249,115,22,0.55); box-shadow: 0 0 14px rgba(249,115,22,0.22); }
+    .dd-tile-back { transform: rotateY(180deg); }
+    .dd-cat-3bb  .dd-tile-back { background: rgba(249,115,22,0.18); border: 1px solid rgba(249,115,22,0.45); }
+    .dd-cat-2bb  .dd-tile-back { background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.4);  }
+    .dd-cat-1bb  .dd-tile-back { background: rgba(59,130,246,0.15);  border: 1px solid rgba(59,130,246,0.4);  }
+    .dd-cat-zero .dd-tile-back { background: rgba(80,80,80,0.12);    border: 1px solid rgba(80,80,80,0.3);    }
+    .dd-q    { font-family: 'Bebas Neue', cursive; font-size: 24px; color: #333; line-height: 1; }
+    .dd-hnum { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 600; color: #3a3a3a; }
+    .dd-tile.next-up .dd-q    { color: #f97316; }
+    .dd-tile.next-up .dd-hnum { color: #c2530f; }
+    .dd-cat-lbl   { font-family: 'Bebas Neue', cursive; font-size: 15px; letter-spacing: 0.04em; line-height: 1; }
+    .dd-hnum-back { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; color: rgba(255,255,255,0.3); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf Tour" class="h-9 w-auto" />
+        <span class="font-heading font-700 text-lg tracking-wide text-white hidden sm:block">MashUp Golf Tour</span>
+      </a>
+      <div id="breadcrumb" class="text-xs font-heading tracking-wider text-gray-500"></div>
+    </div>
+  </nav>
+
+  <!-- EVENT HEADER -->
+  <section class="hero-glow border-b border-border">
+    <div class="max-w-6xl mx-auto px-4 py-8" id="event-header">
+      <div class="h-4 bg-surface rounded w-48 mb-3 animate-pulse"></div>
+      <div class="h-8 bg-surface rounded w-80 mb-4 animate-pulse"></div>
+      <div class="flex gap-2">
+        <div class="h-6 bg-surface rounded w-24 animate-pulse"></div>
+        <div class="h-6 bg-surface rounded w-24 animate-pulse"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEADERBOARD -->
+  <main class="max-w-6xl mx-auto px-4 py-8 pb-20">
+    <div id="loading" class="text-center py-20">
+      <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500 text-sm">Fetching scorecards…</p>
+    </div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border text-center py-8 text-gray-600 text-xs font-body">
+    <p>MashUp Golf Tour &nbsp;·&nbsp; <a href="https://simulatorgolftour.com" target="_blank" class="text-gray-500 hover:text-flame transition-colors">SimulatorGolfTour.com</a></p>
+  </footer>
+
+  <script type="module">
+    import { fetchScorecards, loadEvents, loadFormats } from './js/api.js';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass } from './js/scoring.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const tournamentId = parseInt(params.get('id'));
+
+    async function init() {
+      if (!tournamentId) {
+        showError('No tournament ID in URL. Use ?id=XXXXX');
+        return;
+      }
+
+      const [events, formats, scorecards] = await Promise.all([
+        loadEvents(),
+        loadFormats(),
+        fetchScorecards(tournamentId),
+      ]);
+
+      const event = events.find(e => e.tournamentId === tournamentId);
+      if (!event) {
+        showError(`Event ${tournamentId} not found in events.json.`);
+        return;
+      }
+
+      const format = formats[event.format];
+      if (!format) {
+        showError(`Format "${event.format}" not defined in formats.json.`);
+        return;
+      }
+
+      // Devil's Draw live-entry / reveal mode (?reveal=true) — takes priority over pre-draw view
+      const revealMode = params.get('reveal') === 'true';
+      if (format.type === 'devils-draw' && revealMode) {
+        const completed = scorecards.filter(c => c.status === 'Completed');
+        renderHeader(event, format, completed.length);
+        document.getElementById('breadcrumb').innerHTML =
+          `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        renderDevilsDrawReveal(scorecards, event, format);
+        return;
+      }
+
+      // Devil's Draw: show pre-draw aggregate leaderboard if draw hasn't happened yet
+      if (format.type === 'devils-draw' && !event.devilsDraw) {
+        const teamsMap = {};
+        for (const card of scorecards) {
+          if (card.status !== 'Completed') continue;
+          const members = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
+          const key = members.map(p => p.toLowerCase()).sort().join('|');
+          if (!teamsMap[key]) {
+            teamsMap[key] = {
+              displayMembers: [...members],
+              players: [],
+              pars:    Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
+              indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
+            };
+          }
+          teamsMap[key].players.push({
+            name:     card.player_name,
+            totalNet: card.total_net,
+            net:      Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+          });
+        }
+
+        const preDrawTeams = Object.values(teamsMap)
+          .map(t => ({ ...t, aggregate: t.players.reduce((s, p) => s + p.totalNet, 0) }))
+          .sort((a, b) => a.aggregate - b.aggregate);
+
+        // [holeIdx][teamIdx] → transpose to [teamIdx][holeIdx]
+        const rootingByHole = computeRootingAnalysis(preDrawTeams);
+        const rootingByTeam = preDrawTeams.map((_, ti) => rootingByHole.map(h => h[ti]));
+
+        renderHeader(event, format, preDrawTeams.length * 3);
+        document.getElementById('breadcrumb').innerHTML =
+          `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
+
+        const rows = preDrawTeams.map((t, i) => {
+          const memberHtml = t.players.map(p =>
+            `<div class="text-xs text-gray-300">${p.name} <span class="text-gray-500 font-mono">(${p.totalNet})</span></div>`
+          ).join('');
+          return `
+            <tr class="lb-row cursor-pointer select-none border-t border-border" data-team-idx="${i}">
+              <td class="px-3 py-3 text-center font-heading font-700 text-sm ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
+              <td class="px-4 py-3 leading-snug">${memberHtml}</td>
+              <td class="px-4 py-3 text-right font-semibold font-mono text-white whitespace-nowrap">${t.aggregate}</td>
+              <td class="px-3 py-3 text-right text-xs text-gray-600 whitespace-nowrap">expand ›</td>
+            </tr>
+            <tr id="pre-draw-detail-${i}" class="hidden">
+              <td colspan="99" class="p-0 border-b border-border">
+                ${buildPreDrawExpansion(t, rootingByTeam[i])}
+              </td>
+            </tr>`;
+        }).join('');
+
+        document.getElementById('app').innerHTML = `
+          <div class="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mb-5 text-xs text-amber-400/80">
+            <span class="mt-0.5 shrink-0">⚠</span>
+            <span><strong>Draw Pending</strong> — hole categories will be assigned after the live draw. Rankings below are by team aggregate net score. Click any row to see the Rooting Guide and scorecard.</span>
+          </div>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Pre-Draw Rankings</h2>
+            <span class="text-xs text-gray-600">${preDrawTeams.length} teams &nbsp;·&nbsp; click to expand</span>
+          </div>
+          <div class="card-shadow rounded-xl overflow-hidden border border-border">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-surface">
+                    <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-10">Pos</th>
+                    <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Players &amp; Net</th>
+                    <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Aggregate</th>
+                    <th class="px-3 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>`;
+
+        document.querySelectorAll('[data-team-idx]').forEach(row => {
+          row.addEventListener('click', () => {
+            const idx = row.dataset.teamIdx;
+            const detail = document.getElementById(`pre-draw-detail-${idx}`);
+            if (!detail) return;
+            const opening = detail.classList.contains('hidden');
+            detail.classList.toggle('hidden');
+            row.classList.toggle('expanded', opening);
+            const chevron = row.querySelector('td:last-child');
+            if (chevron) chevron.textContent = opening ? 'collapse ↑' : 'expand ›';
+          });
+        });
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        return;
+      }
+
+      const results = applyFormat(scorecards, format, event);
+      applyPayouts(results, event.payouts);
+
+      renderHeader(event, format, results.length);
+      renderLeaderboard(results, event, format);
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+
+      // breadcrumb
+      const bc = document.getElementById('breadcrumb');
+      bc.innerHTML = `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
+    }
+
+    function renderHeader(event, format, playerCount) {
+      const dateStr = event.date
+        ? new Date(event.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })
+        : 'Date TBD';
+      const statusClass = event.status === 'completed' ? 'status-completed' : 'status-active';
+      const statusLabel = event.status === 'completed' ? '✓ COMPLETED' : '● LIVE';
+
+      document.getElementById('event-header').innerHTML = `
+        <div class="flex flex-wrap items-start gap-3 mb-2">
+          <span class="status-badge ${statusClass}">${statusLabel}</span>
+          <span class="format-badge">⛳ ${format.name.toUpperCase()}</span>
+          <span class="format-badge" style="color:#a0a0a0;background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.1)">
+            ${event.teeType ? event.teeType + ' Tees' : ''} ${event.rating ? '· ' + event.rating + '/' + event.slope : ''}
+          </span>
+        </div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white mt-3 mb-2">${event.name}</h1>
+        <p class="text-gray-500 text-sm">${dateStr} &nbsp;·&nbsp; ${playerCount} Players ${event.buyIn ? '&nbsp;·&nbsp; $' + event.buyIn + ' Buy-in' : ''}</p>
+        <p class="text-gray-600 text-xs mt-2 italic">${format.description}</p>
+      `;
+      document.title = `${event.name} — MashUp Golf Tour`;
+    }
+
+    function renderLeaderboard(results, event, format) {
+      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format); return; }
+      renderSoloLeaderboard(results, event);
+    }
+    function renderSoloLeaderboard(results, event) {
+      const hasPrizes = results.some(r => r.prize);
+      const app = document.getElementById('app');
+
+      const notesHtml = event.notes
+        ? `<div class="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mb-5 text-xs text-amber-400/80">
+             <span class="mt-0.5 shrink-0">⚠</span><span>${event.notes}</span>
+           </div>`
+        : '';
+
+      app.innerHTML = `
+        ${notesHtml}
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Leaderboard</h2>
+          <span class="text-xs text-gray-600">${results.length} players &nbsp;·&nbsp; Click a row to expand scorecard</span>
+        </div>
+        <div class="card-shadow rounded-xl overflow-hidden border border-border">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-surface">
+                  <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
+                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Rnds</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                  ${hasPrizes ? '<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Prize</th>' : ''}
+                </tr>
+              </thead>
+              <tbody id="lb-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="ctp-section"></div>
+      `;
+
+      const tbody = document.getElementById('lb-body');
+      results.forEach(player => {
+        const posStr = player.tied ? `T${player.position}` : player.position;
+        const toParStr = formatToPar(player.toPar);
+        const toParCls = player.toPar < 0 ? 'under' : player.toPar > 0 ? 'over' : 'even';
+        const prizeStr = player.prize != null ? `$${player.prize.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '—';
+        const isLeader = player.position === 1;
+
+        // Main row
+        const tr = document.createElement('tr');
+        tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'bg-[rgba(249,115,22,0.04)]' : ''}`;
+        tr.innerHTML = `
+          <td class="pos-col px-3 py-3.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-400'}">${posStr}</td>
+          <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
+          <td class="px-3 py-3.5 text-center text-gray-500 text-xs hidden sm:table-cell">${player.roundsPlayed}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${player.out}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${player.inn}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono">${player.total}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
+          ${hasPrizes ? `<td class="px-4 py-3.5 text-center font-semibold text-flame">${prizeStr}</td>` : ''}
+        `;
+
+        // Scorecard row (hidden by default)
+        const cardTr = document.createElement('tr');
+        cardTr.className = 'hidden';
+        cardTr.innerHTML = `
+          <td colspan="99" class="p-0 border-b border-border">
+            <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+              <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">Ringer Card — ${player.player_name}</div>
+              ${buildScorecardHTML(player)}
+            </div>
+          </td>
+        `;
+
+        tr.addEventListener('click', () => {
+          const open = !cardTr.classList.contains('hidden');
+          cardTr.classList.toggle('hidden');
+          tr.classList.toggle('expanded', !open);
+        });
+
+        tbody.appendChild(tr);
+        tbody.appendChild(cardTr);
+      });
+
+      // CTP section
+      if (event.ctp && event.ctp.length) {
+        document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
+      }
+    }
+
+    // ── Team event leaderboard ───────────────────────────────────────────────
+    function renderTeamLeaderboard(results, event, format) {
+      const hasPrizes = results.some(r => r.prize);
+      const app = document.getElementById('app');
+
+      const notesHtml = event.notes
+        ? `<div class="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mb-5 text-xs text-amber-400/80">
+             <span class="mt-0.5 shrink-0">⚠</span><span>${event.notes}</span>
+           </div>`
+        : '';
+
+      app.innerHTML = `
+        ${notesHtml}
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Leaderboard</h2>
+          <span class="text-xs text-gray-600">${results.length} teams &nbsp;·&nbsp; Click a row to expand scorecard</span>
+        </div>
+        <div class="card-shadow rounded-xl overflow-hidden border border-border">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-surface">
+                  <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
+                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Team Agg</th>
+                  ${hasPrizes ? '<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Prize</th>' : ''}
+                </tr>
+              </thead>
+              <tbody id="lb-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="ctp-section"></div>
+      `;
+
+      const tbody = document.getElementById('lb-body');
+      results.forEach(team => {
+        const posStr  = team.tied ? `T${team.position}` : team.position;
+        const toParStr = formatToPar(team.toPar);
+        const toParCls = team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
+        const prizeStr = team.prize != null
+          ? `$${team.prize} <span class="text-gray-500 font-normal text-xs">/ea</span>`
+          : '—';
+        const isLeader = team.position === 1;
+
+        const memberHtml = team.displayMembers.map(m =>
+          `<div class="text-xs text-gray-300">${m}</div>`
+        ).join('');
+
+        const tr = document.createElement('tr');
+        tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'bg-[rgba(249,115,22,0.04)]' : ''}`;
+        tr.innerHTML = `
+          <td class="pos-col px-3 py-3 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-400'}">${posStr}</td>
+          <td class="px-4 py-3 leading-snug">${memberHtml}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${team.out}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${team.inn}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono">${team.total}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
+          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs hidden md:table-cell">${team.aggregate}</td>
+          ${hasPrizes ? `<td class="px-4 py-3 text-center font-semibold text-flame">${prizeStr}</td>` : ''}
+        `;
+
+        const cardTr = document.createElement('tr');
+        cardTr.className = 'hidden';
+        cardTr.innerHTML = `
+          <td colspan="99" class="p-0 border-b border-border">
+            <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+              <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">
+                Team Scorecard — ${team.displayMembers.join(' / ')}
+              </div>
+              ${buildTeamScorecardHTML(team, format)}
+            </div>
+          </td>
+        `;
+
+        tr.addEventListener('click', () => {
+          cardTr.classList.toggle('hidden');
+          tr.classList.toggle('expanded', cardTr.classList.contains('hidden') === false);
+        });
+        tbody.appendChild(tr);
+        tbody.appendChild(cardTr);
+      });
+
+      if (event.ctp && event.ctp.length) {
+        document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
+      }
+    }
+
+    function buildTeamScorecardHTML(team, format) {
+      const front = [0,1,2,3,4,5,6,7,8];
+      const back  = [9,10,11,12,13,14,15,16,17];
+      const isLoneRanger  = format?.type === 'lone-ranger';
+      const isShamble     = format?.type === 'shamble-2man';
+      const isB2W2All3    = format?.type === 'best2-worst2-all3';
+      const isDevilsDraw  = format?.type === 'devils-draw';
+
+      // Segment label for a hole index (0-based)
+      function segLabel(h) {
+        if (isLoneRanger) {
+          const s = (h % 3) + 1;
+          return s === 1 ? { label: 'S1', cls: 'text-blue-400' }
+               : s === 2 ? { label: 'S2', cls: 'text-amber-400' }
+               :            { label: 'S3', cls: 'text-flame' };
+        }
+        if (isB2W2All3) {
+          const par = team.pars[h];
+          if (par === 5) return { label: 'B2',  cls: 'text-emerald-400' };
+          if (par === 3) return { label: 'ALL', cls: 'text-flame' };
+          return { label: 'W2', cls: 'text-red-400' };
+        }
+        if (isDevilsDraw) {
+          const count = team.holeCount?.[h + 1] ?? 1;
+          if (count === 3) return { label: '3BB', cls: 'text-flame' };
+          if (count === 2) return { label: '2BB', cls: 'text-amber-400' };
+          if (count === 1) return { label: '1BB', cls: 'text-blue-400' };
+          return { label: 'ZERO', cls: 'text-gray-600' };
+        }
+        if (h < 6)  return { label: '1BB', cls: 'text-blue-400' };
+        if (h < 12) return { label: '2BB', cls: 'text-amber-400' };
+        return { label: 'ALL', cls: 'text-flame' };
+      }
+
+      // Segment header row spanning front/back 9
+      function segHeaderCells(holes) {
+        return holes.map(h => {
+          const s = segLabel(h);
+          return `<th class="text-[9px] font-heading font-600 tracking-widest ${s.cls} py-1">${s.label}</th>`;
+        }).join('');
+      }
+
+      // Player score cell — dimmed if not counting
+      function playerCell(playerIdx, holeIdx) {
+        const score   = team.players[playerIdx].net[holeIdx];
+        const par     = team.pars[holeIdx];
+        const counts  = team.countingPlayers[holeIdx][playerIdx];
+        const scoreCls = holeScoreClass(score, par);
+        const opacity  = counts ? '' : 'opacity-20';
+        return `<td class="${opacity}" style="padding:3px 4px">
+          <span class="sc-score ${scoreCls}">${score}</span>
+        </td>`;
+      }
+
+      // Team hole score cell (colour vs adjusted par)
+      function teamCell(holeIdx) {
+        const score  = team.teamHoleScores[holeIdx];
+        const adjPar = team.adjPars[holeIdx];
+        const diff   = score - adjPar;
+        const cls    = diff < 0 ? 'under' : diff > 0 ? 'over' : 'even';
+        return `<td class="font-semibold ${cls} font-mono" style="padding:3px 4px;font-size:12px">${score}</td>`;
+      }
+
+      const frontTeamOut = team.teamHoleScores.slice(0,9).reduce((a,b)=>a+b,0);
+      const backTeamIn   = team.teamHoleScores.slice(9).reduce((a,b)=>a+b,0);
+      const outAdjPar    = team.adjPars.slice(0,9).reduce((a,b)=>a+b,0);
+      const inAdjPar     = team.adjPars.slice(9).reduce((a,b)=>a+b,0);
+      const toParCls     = team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
+
+      return `
+        <div class="sc-wrap">
+          <table class="sc-table">
+            <thead>
+              <tr>${segHeaderCells(front)}<th></th>${segHeaderCells(back)}<th></th><th></th><th></th></tr>
+              <tr class="hole-hdr">
+                <th class="text-left pl-3">HOLE</th>
+                ${front.map(i=>`<th>${i+1}</th>`).join('')}
+                <th class="divider">OUT</th>
+                ${back.map(i=>`<th>${i+1}</th>`).join('')}
+                <th class="divider">IN</th>
+                <th class="divider">TOT</th>
+                <th>+/−</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="par-row">
+                <td class="text-left pl-3">${isShamble ? 'PAR' : 'ADJ PAR'}</td>
+                ${front.map(i=>`<td>${team.adjPars[i]}</td>`).join('')}
+                <td class="sub-cell">${outAdjPar}</td>
+                ${back.map(i=>`<td>${team.adjPars[i]}</td>`).join('')}
+                <td class="sub-cell">${inAdjPar}</td>
+                <td class="sub-cell">${team.totalPar}</td>
+                <td></td>
+              </tr>
+              <tr class="idx-row">
+                <td class="text-left pl-3">IDX</td>
+                ${front.map(i=>`<td>${team.indices[i]}</td>`).join('')}
+                <td class="sub-cell"></td>
+                ${back.map(i=>`<td>${team.indices[i]}</td>`).join('')}
+                <td class="sub-cell"></td><td class="sub-cell"></td><td></td>
+              </tr>
+              ${team.players.map((p, pi) => `
+              <tr class="score-row">
+                <td class="name-cell">${p.name}</td>
+                ${front.map(h => playerCell(pi, h)).join('')}
+                <td class="sub-cell" style="font-size:11px;color:#777">${p.net.slice(0,9).reduce((a,b)=>a+b,0)}</td>
+                ${back.map(h => playerCell(pi, h)).join('')}
+                <td class="sub-cell" style="font-size:11px;color:#777">${p.net.slice(9).reduce((a,b)=>a+b,0)}</td>
+                <td class="sub-cell" style="font-size:11px;color:#777">${p.totalNet}</td>
+                <td></td>
+              </tr>`).join('')}
+              <tr class="score-row" style="border-top:1px solid #333">
+                <td class="name-cell" style="color:#f97316">TEAM</td>
+                ${front.map(h => teamCell(h)).join('')}
+                <td class="sub-cell">${frontTeamOut}</td>
+                ${back.map(h => teamCell(h)).join('')}
+                <td class="sub-cell">${backTeamIn}</td>
+                <td class="total-cell">${team.total}</td>
+                <td class="topar-cell ${toParCls}">${formatToPar(team.toPar)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-gray-600">
+          ${isShamble ? `
+          <span class="text-gray-700">Team score = best net ball per hole · Dimmed score didn't count</span>
+          ` : isDevilsDraw ? `
+          <span class="text-flame font-heading font-600 text-[10px] tracking-widest">3BB</span> <span>All 3 net scores</span>
+          <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span> <span>Best 2 net scores</span>
+          <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span> <span>Best 1 net score</span>
+          <span class="text-gray-600 font-heading font-600 text-[10px] tracking-widest">ZERO</span> <span>Hole doesn't count</span>
+          <span class="text-gray-700 w-full mt-0.5">Dimmed scores don't count toward team total</span>
+          ` : isB2W2All3 ? `
+          <span class="text-emerald-400 font-heading font-600 text-[10px] tracking-widest">B2</span> <span>Par 5s: best 2 net scores</span>
+          <span class="text-red-400 font-heading font-600 text-[10px] tracking-widest">W2</span> <span>Par 4s: worst 2 net scores</span>
+          <span class="text-flame font-heading font-600 text-[10px] tracking-widest">ALL</span> <span>Par 3s: all 3 net scores</span>
+          <span class="text-gray-700 w-full mt-0.5">Dimmed scores don't count toward team total</span>
+          ` : isLoneRanger ? `
+          <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">S1</span> <span>${team.slots[0]} — LR on holes 1,4,7,10,13,16</span>
+          <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">S2</span> <span>${team.slots[1]} — LR on holes 2,5,8,11,14,17</span>
+          <span class="text-flame font-heading font-600 text-[10px] tracking-widest">S3</span> <span>${team.slots[2]} — LR on holes 3,6,9,12,15,18</span>
+          <span class="text-gray-700 w-full mt-0.5">LR score is mandatory · other score is best ball of remaining two · dimmed = doesn't count</span>
+          ` : `
+          <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span> <span>Holes 1–6: 1 best ball</span>
+          <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span> <span>Holes 7–12: 2 best ball</span>
+          <span class="text-flame font-heading font-600 text-[10px] tracking-widest">ALL</span> <span>Holes 13–18: all 3 scores</span>
+          <span class="ml-2 text-gray-700">Dimmed scores don't count toward team total</span>
+          `}
+        </div>`;
+    }
+
+    function buildCtpHtml(ctpList) {
+      const rows = ctpList.map(c => `
+        <div class="flex items-center justify-between py-3 border-b border-border last:border-0">
+          <div class="flex items-center gap-4">
+            <span class="font-display text-2xl text-flame leading-none">${c.hole}</span>
+            <div>
+              <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">Hole ${c.hole}</div>
+              <div class="font-medium text-white">${c.player}</div>
+            </div>
+          </div>
+          <div class="font-semibold text-flame">$${c.amount}</div>
+        </div>`).join('');
+
+      return `
+        <div class="mt-8">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Closest to the Pin</h2>
+          <div class="card-shadow bg-card border border-border rounded-xl px-5">
+            ${rows}
+          </div>
+        </div>`;
+    }
+
+    function buildScorecardHTML(p) {
+      const front = [0,1,2,3,4,5,6,7,8];
+      const back  = [9,10,11,12,13,14,15,16,17];
+
+      function holeCell(i) {
+        const score = p.ringerCard[i];
+        const par   = p.pars[i];
+        const cls   = holeScoreClass(score, par);
+        const rnd   = p.ringerRound[i];
+        return `<td class="${cls}" style="padding:3px 4px">
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <span class="sc-score">${score}</span>
+            <span class="rnd-badge">R${rnd}</span>
+          </div>
+        </td>`;
+      }
+
+      const frontOut = p.ringerCard.slice(0,9).reduce((a,b)=>a+b,0);
+      const backIn   = p.ringerCard.slice(9).reduce((a,b)=>a+b,0);
+      const toParCls = p.toPar < 0 ? 'under' : p.toPar > 0 ? 'over' : 'even';
+
+      return `
+        <div class="sc-wrap">
+          <table class="sc-table">
+            <thead>
+              <tr class="hole-hdr">
+                <th class="text-left pl-3">HOLE</th>
+                ${front.map(i => `<th>${i+1}</th>`).join('')}
+                <th class="divider">OUT</th>
+                ${back.map(i => `<th>${i+1}</th>`).join('')}
+                <th class="divider">IN</th>
+                <th class="divider">TOT</th>
+                <th>+/−</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="par-row">
+                <td class="text-left pl-3">PAR</td>
+                ${front.map(i => `<td>${p.pars[i]}</td>`).join('')}
+                <td class="sub-cell">${p.outPar}</td>
+                ${back.map(i => `<td>${p.pars[i]}</td>`).join('')}
+                <td class="sub-cell">${p.inPar}</td>
+                <td class="sub-cell">${p.totalPar}</td>
+                <td></td>
+              </tr>
+              <tr class="idx-row">
+                <td class="text-left pl-3">IDX</td>
+                ${front.map(i => `<td>${p.indices[i]}</td>`).join('')}
+                <td class="sub-cell"></td>
+                ${back.map(i => `<td>${p.indices[i]}</td>`).join('')}
+                <td class="sub-cell"></td>
+                <td class="sub-cell"></td>
+                <td></td>
+              </tr>
+              <tr class="score-row">
+                <td class="name-cell">${p.player_name}</td>
+                ${front.map(i => holeCell(i)).join('')}
+                <td class="sub-cell">${frontOut}</td>
+                ${back.map(i => holeCell(i)).join('')}
+                <td class="sub-cell">${backIn}</td>
+                <td class="total-cell">${p.total}</td>
+                <td class="topar-cell ${toParCls}">${formatToPar(p.toPar)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex flex-wrap gap-4 mt-3 text-xs text-gray-600">
+          <span><span class="sc-score eagle inline-flex" style="width:16px;height:16px;font-size:9px">◆</span> Eagle+</span>
+          <span><span class="sc-score birdie inline-flex" style="width:16px;height:16px;font-size:9px">◆</span> Birdie</span>
+          <span class="text-gray-500">Par · <span class="bogey">Bogey</span> · <span class="double" style="background:#ef4444;color:#fff;padding:0 2px;border-radius:2px">Dbl+</span></span>
+          <span class="ml-2 text-gray-700">R1/R2 = round that contributed the score</span>
+          ${p.roundsPlayed > 1 ? `<span class="ml-auto text-gray-600">36-hole net total: <span class="text-gray-400 font-medium">${p.totalNetAllRounds}</span> (tiebreaker)</span>` : ''}
+        </div>
+      `;
+    }
+
+    // ── Devil's Draw rooting analysis ───────────────────────────────────────
+
+    // Returns [holeIdx][teamIdx]: { adv, best, worst, par, nets }
+    // adv = strokes better than top-6 average per category (positive = good for team)
+    // preDrawTeams must be sorted best-first (lowest aggregate first)
+    function computeRootingAnalysis(preDrawTeams) {
+      const TOP_N = Math.min(6, preDrawTeams.length);
+      return Array.from({ length: 18 }, (_, h) => {
+        const hd = preDrawTeams.map(team => {
+          const nets = team.players.map(p => p.net[h]);
+          const s = [...nets].sort((a, b) => a - b);
+          const par = team.pars[h];
+          return {
+            nets,
+            par,
+            tp_1bb: s[0] - par,
+            tp_2bb: (s[0] + s[1]) - par * 2,
+            tp_3bb: (s[0] + s[1] + s[2]) - par * 3,
+          };
+        });
+        // Averages computed from top-6 contenders only
+        const top = hd.slice(0, TOP_N);
+        const avg1 = top.reduce((s, t) => s + t.tp_1bb, 0) / TOP_N;
+        const avg2 = top.reduce((s, t) => s + t.tp_2bb, 0) / TOP_N;
+        const avg3 = top.reduce((s, t) => s + t.tp_3bb, 0) / TOP_N;
+
+        return hd.map(t => {
+          const adv = {
+            '3bb':  Math.round((avg3 - t.tp_3bb) * 10) / 10,
+            '2bb':  Math.round((avg2 - t.tp_2bb) * 10) / 10,
+            '1bb':  Math.round((avg1 - t.tp_1bb) * 10) / 10,
+            'zero': 0,
+          };
+          const ranked = Object.entries(adv).sort((a, b) => b[1] - a[1]);
+          return {
+            adv,
+            best:  { cat: ranked[0][0], val: ranked[0][1] },
+            worst: { cat: ranked[ranked.length - 1][0], val: ranked[ranked.length - 1][1] },
+            par: t.par,
+            nets: t.nets,
+          };
+        });
+      });
+    }
+
+    // Expanded panel: rooting guide grid + raw net scorecard
+    function buildPreDrawExpansion(team, analysis) {
+      const rCat = {
+        '3bb':  { label: '3BB',  bg: 'rgba(249,115,22,0.2)',  border: 'rgba(249,115,22,0.45)', text: '#f97316' },
+        '2bb':  { label: '2BB',  bg: 'rgba(251,191,36,0.17)', border: 'rgba(251,191,36,0.4)',  text: '#fbbf24' },
+        '1bb':  { label: '1BB',  bg: 'rgba(59,130,246,0.17)', border: 'rgba(59,130,246,0.4)',  text: '#60a5fa' },
+        'zero': { label: 'ZERO', bg: 'rgba(80,80,80,0.12)',   border: 'rgba(80,80,80,0.3)',    text: '#6b7280' },
+      };
+
+      function rootTile(h) {
+        const d    = analysis[h];
+        const info = rCat[d.best.cat];
+        const n    = Math.round(d.best.val);
+        const adv  = n > 0 ? `+${n}` : n < 0 ? `${n}` : '—';
+        const ac   = n > 0 ? '#4ade80' : n < 0 ? '#f87171' : '#6b7280';
+        const tip  = `H${h+1} vs top-6 avg: 3BB${d.adv['3bb']>=0?'+':''}${Math.round(d.adv['3bb'])} | 2BB${d.adv['2bb']>=0?'+':''}${Math.round(d.adv['2bb'])} | 1BB${d.adv['1bb']>=0?'+':''}${Math.round(d.adv['1bb'])}`;
+        return `<div title="${tip}" style="width:36px;height:52px;flex-shrink:0;background:${info.bg};
+                  border:1px solid ${info.border};border-radius:6px;
+                  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:10px;color:#555;line-height:1">H${h+1}</div>
+          <div style="font-family:'Bebas Neue',cursive;font-size:12px;color:${info.text};line-height:1">${info.label}</div>
+          <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:${ac};line-height:1">${adv}</div>
+        </div>`;
+      }
+
+      const front9 = Array.from({ length: 9 }, (_, i) => rootTile(i)).join('');
+      const back9  = Array.from({ length: 9 }, (_, i) => rootTile(i + 9)).join('');
+
+      const front = [0,1,2,3,4,5,6,7,8];
+      const back  = [9,10,11,12,13,14,15,16,17];
+      const fPar  = team.pars.slice(0, 9).reduce((a, b) => a + b, 0);
+      const bPar  = team.pars.slice(9).reduce((a, b) => a + b, 0);
+
+      const playerRows = team.players.map(p => {
+        const fc = front.map(h => {
+          const cls = holeScoreClass(p.net[h], team.pars[h]);
+          return `<td style="padding:3px 4px"><span class="sc-score ${cls}">${p.net[h]}</span></td>`;
+        }).join('');
+        const bc = back.map(h => {
+          const cls = holeScoreClass(p.net[h], team.pars[h]);
+          return `<td style="padding:3px 4px"><span class="sc-score ${cls}">${p.net[h]}</span></td>`;
+        }).join('');
+        const fo = front.reduce((s, h) => s + p.net[h], 0);
+        const bi = back.reduce((s, h) => s + p.net[h], 0);
+        return `<tr class="score-row">
+          <td class="name-cell">${p.name}</td>
+          ${fc}<td class="sub-cell" style="font-size:11px;color:#777">${fo}</td>
+          ${bc}<td class="sub-cell" style="font-size:11px;color:#777">${bi}</td>
+          <td class="sub-cell total-cell">${p.totalNet}</td><td></td>
+        </tr>`;
+      }).join('');
+
+      return `
+        <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+          <div class="text-xs font-heading font-600 tracking-wider text-flame uppercase mb-0.5">Rooting Guide</div>
+          <div class="text-xs text-gray-600 mb-3">Best draw category per hole vs. top 6 teams — hover a tile for full breakdown</div>
+
+          <div class="text-[10px] font-heading tracking-widest text-gray-600 uppercase mb-1">Front 9</div>
+          <div class="flex flex-wrap gap-1.5 mb-3">${front9}</div>
+          <div class="text-[10px] font-heading tracking-widest text-gray-600 uppercase mb-1">Back 9</div>
+          <div class="flex flex-wrap gap-1.5 mb-4">${back9}</div>
+
+          <div class="flex flex-wrap gap-x-4 gap-y-1 mb-5 text-xs text-gray-600">
+            <span style="color:#f97316;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700">3BB</span><span>Root for all 3 scores</span>
+            <span style="color:#fbbf24;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700">2BB</span><span>Root for best 2</span>
+            <span style="color:#60a5fa;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700">1BB</span><span>Root for best 1</span>
+            <span style="color:#6b7280;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700">ZERO</span><span>Root for it not to count</span>
+            <span class="w-full text-gray-700 mt-0.5">+number = strokes better than top-6 average under that category</span>
+          </div>
+
+          <div class="text-xs font-heading font-600 tracking-wider text-gray-500 uppercase mb-2">Net Scorecard</div>
+          <div class="sc-wrap">
+            <table class="sc-table">
+              <thead>
+                <tr class="hole-hdr">
+                  <th class="text-left pl-3">HOLE</th>
+                  ${front.map(i => `<th>${i+1}</th>`).join('')}
+                  <th class="divider">OUT</th>
+                  ${back.map(i => `<th>${i+1}</th>`).join('')}
+                  <th class="divider">IN</th>
+                  <th class="divider">TOT</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="par-row">
+                  <td class="text-left pl-3">PAR</td>
+                  ${front.map(i => `<td>${team.pars[i]}</td>`).join('')}
+                  <td class="sub-cell">${fPar}</td>
+                  ${back.map(i => `<td>${team.pars[i]}</td>`).join('')}
+                  <td class="sub-cell">${bPar}</td>
+                  <td class="sub-cell">${fPar + bPar}</td>
+                  <td></td>
+                </tr>
+                <tr class="idx-row">
+                  <td class="text-left pl-3">IDX</td>
+                  ${front.map(i => `<td>${team.indices[i]}</td>`).join('')}
+                  <td class="sub-cell"></td>
+                  ${back.map(i => `<td>${team.indices[i]}</td>`).join('')}
+                  <td class="sub-cell"></td><td class="sub-cell"></td><td></td>
+                </tr>
+                ${playerRows}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    // ── Devil's Draw reveal mode (?reveal=true) ─────────────────────────────
+    function renderDevilsDrawReveal(scorecards, event, format) {
+      const lsKey = `devils_draw_${tournamentId}`;
+      const MAX = { '3bb': 5, '2bb': 6, '1bb': 5, 'zero': 2 };
+
+      const catInfo = {
+        '3bb':  { label: '3BB',  textCls: 'text-flame',     catCls: 'dd-cat-3bb'  },
+        '2bb':  { label: '2BB',  textCls: 'text-amber-400', catCls: 'dd-cat-2bb'  },
+        '1bb':  { label: '1BB',  textCls: 'text-blue-400',  catCls: 'dd-cat-1bb'  },
+        'zero': { label: 'ZERO', textCls: 'text-gray-500',  catCls: 'dd-cat-zero' },
+      };
+
+      function loadState() {
+        try {
+          const s = localStorage.getItem(lsKey);
+          if (s) return JSON.parse(s);
+        } catch(e) {}
+        // Pre-load from event.devilsDraw if already saved in events.json
+        if (event.devilsDraw) {
+          return { draw: event.devilsDraw, revealOrder: event.revealOrder || Object.values(event.devilsDraw).flat() };
+        }
+        return { draw: { '3bb': [], '2bb': [], '1bb': [], 'zero': [] }, revealOrder: [] };
+      }
+
+      let state = loadState();
+      let selectedHole = null;
+
+      function saveState() { localStorage.setItem(lsKey, JSON.stringify(state)); }
+
+      function getHoleCat(hole) {
+        for (const [cat, holes] of Object.entries(state.draw)) {
+          if (holes.includes(hole)) return cat;
+        }
+        return null;
+      }
+
+      function remaining(cat) { return MAX[cat] - state.draw[cat].length; }
+      function totalAssigned() { return Object.values(state.draw).flat().length; }
+
+      function assignHole(hole, cat) {
+        for (const c of Object.keys(state.draw)) state.draw[c] = state.draw[c].filter(h => h !== hole);
+        state.revealOrder = state.revealOrder.filter(h => h !== hole);
+        state.draw[cat].push(hole);
+        state.revealOrder.push(hole);
+        saveState();
+      }
+
+      function unassignHole(hole) {
+        for (const c of Object.keys(state.draw)) state.draw[c] = state.draw[c].filter(h => h !== hole);
+        state.revealOrder = state.revealOrder.filter(h => h !== hole);
+        saveState();
+      }
+
+      // Unassigned holes score as zero during live entry
+      function buildScoringDraw() {
+        const partial = {
+          '3bb': [...state.draw['3bb']], '2bb': [...state.draw['2bb']],
+          '1bb': [...state.draw['1bb']], 'zero': [...state.draw['zero']],
+        };
+        for (let h = 1; h <= 18; h++) {
+          if (!getHoleCat(h)) partial['zero'].push(h);
+        }
+        return partial;
+      }
+
+      function renderLeaderboard(done) {
+        const lbEl = document.getElementById('reveal-leaderboard');
+        if (!lbEl) return;
+        const n = totalAssigned();
+        if (n === 0) {
+          lbEl.innerHTML = `<div class="text-center text-gray-600 text-sm py-8">Assign a hole to see the Devil Score leaderboard.</div>`;
+          return;
+        }
+
+        const results = applyFormat(scorecards, format, { ...event, devilsDraw: buildScoringDraw() });
+        if (done) applyPayouts(results, event.payouts);
+
+        const rows = results.map((team, ri) => {
+          const posStr   = team.tied ? `T${team.position}` : team.position;
+          const toParStr = formatToPar(team.toPar);
+          const toParCls = team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
+          const isLeader = team.position === 1;
+          const memberHtml = team.displayMembers.map(m => `<div class="text-xs text-gray-300">${m}</div>`).join('');
+
+          if (done) {
+            const scHtml = buildTeamScorecardHTML(team, format);
+            const prizeStr = team.prize != null ? `$${team.prize}` : '—';
+            return `
+              <tr class="lb-row border-t border-border cursor-pointer select-none" data-lb-row="${ri}">
+                <td class="px-3 py-2.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-500'}">${posStr}</td>
+                <td class="px-4 py-2.5 leading-snug">${memberHtml}</td>
+                <td class="px-3 py-2.5 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
+                <td class="px-3 py-2.5 text-center text-gray-400 font-mono text-xs hidden sm:table-cell">${team.aggregate}</td>
+                <td class="px-4 py-2.5 text-center font-semibold ${team.prize != null ? 'text-flame' : 'text-gray-700'}">${prizeStr}</td>
+              </tr>
+              <tr id="lb-sc-${ri}" class="hidden">
+                <td colspan="99" class="p-0 border-b border-border">
+                  <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+                    <div class="text-xs font-heading tracking-wider text-gray-500 uppercase mb-3">Team Scorecard — ${team.displayMembers.join(' / ')}</div>
+                    ${scHtml}
+                  </div>
+                </td>
+              </tr>`;
+          }
+
+          return `
+            <tr class="border-t border-border hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+              <td class="px-3 py-2.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-500'}">${posStr}</td>
+              <td class="px-4 py-2.5 leading-snug">${memberHtml}</td>
+              <td class="px-3 py-2.5 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
+              <td class="px-3 py-2.5 text-center text-gray-400 font-mono text-xs hidden sm:table-cell">${team.aggregate}</td>
+            </tr>`;
+        }).join('');
+
+        lbEl.innerHTML = `
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">
+            ${done ? 'Final Standings' : 'Devil Score — Live'}
+            <span class="text-gray-600 font-400 normal-case tracking-normal text-xs ml-2">${n}/18 holes</span>
+          </h2>
+          <div class="card-shadow rounded-xl overflow-hidden border border-border">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-surface">
+                    <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-10">Pos</th>
+                    <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
+                    <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                    <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Agg</th>
+                    ${done ? '<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Prize</th>' : ''}
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>`;
+
+        if (done) {
+          if (event.ctp?.length) lbEl.insertAdjacentHTML('beforeend', buildCtpHtml(event.ctp));
+          lbEl.querySelectorAll('[data-lb-row]').forEach(row => {
+            row.addEventListener('click', () => {
+              const ri = row.dataset.lbRow;
+              const sc = document.getElementById(`lb-sc-${ri}`);
+              if (sc) { sc.classList.toggle('hidden'); row.classList.toggle('expanded', !sc.classList.contains('hidden')); }
+            });
+          });
+        }
+      }
+
+      function render() {
+        const app = document.getElementById('app');
+        const n    = totalAssigned();
+        const done = n === 18;
+
+        // Count tracker
+        const countsHtml = Object.entries(MAX).map(([cat, max]) => {
+          const used = state.draw[cat].length;
+          const left = max - used;
+          const info = catInfo[cat];
+          return `
+            <div class="flex items-center gap-2">
+              <span class="${info.textCls} font-heading font-700 text-sm tracking-wider">${info.label}</span>
+              <span class="text-xs font-mono ${left === 0 ? 'text-gray-600' : 'text-gray-300'}">${used}/${max}</span>
+              <span class="text-[10px] text-gray-600">${left === 0 ? '✓ full' : left + ' left'}</span>
+            </div>`;
+        }).join('');
+
+        // Tile grid
+        const tilesHtml = Array.from({ length: 18 }, (_, i) => {
+          const hole = i + 1;
+          const cat  = getHoleCat(hole);
+          const isSel = selectedHole === hole;
+          const info  = cat ? catInfo[cat] : null;
+
+          let cls = 'dd-tile';
+          if (cat) cls += ` flipped no-transition ${info.catCls}`;
+          if (isSel && !cat) cls += ' next-up';
+
+          return `
+            <div class="${cls}" data-hole="${hole}" id="tile-${hole}" style="cursor:pointer">
+              <div class="dd-tile-inner">
+                <div class="dd-tile-front"
+                     style="${isSel && cat ? 'border-color:rgba(249,115,22,0.5);box-shadow:0 0 14px rgba(249,115,22,0.2)' : ''}">
+                  <div class="dd-q">${hole}</div>
+                  <div class="dd-hnum">${isSel ? '↓' : ''}</div>
+                </div>
+                <div class="dd-tile-back ${isSel ? 'ring-1 ring-white/20' : ''}">
+                  <div class="dd-cat-lbl ${info?.textCls || 'text-gray-500'}">${info?.label || '?'}</div>
+                  <div class="dd-hnum-back">H${hole}</div>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+
+        // Assignment panel
+        let assignHtml = '';
+        if (!done) {
+          if (selectedHole !== null) {
+            const curCat = getHoleCat(selectedHole);
+            const catBtns = Object.entries(catInfo).map(([cat, info]) => {
+              const rem       = remaining(cat);
+              const isCurrent = curCat === cat;
+              const disabled  = rem <= 0 && !isCurrent;
+              return `
+                <button data-assign-cat="${cat}" ${disabled ? 'disabled' : ''}
+                  class="flex-1 min-w-[72px] px-3 py-3 rounded-lg font-heading font-700 text-sm tracking-widest
+                    ${isCurrent ? 'ring-2 ring-white/25 ' : ''}
+                    ${disabled  ? 'opacity-25 cursor-not-allowed ' : ''}
+                    ${cat === '3bb'  ? 'bg-[rgba(249,115,22,0.2)] border border-[rgba(249,115,22,0.45)] text-flame' : ''}
+                    ${cat === '2bb'  ? 'bg-[rgba(251,191,36,0.17)] border border-[rgba(251,191,36,0.4)] text-amber-400' : ''}
+                    ${cat === '1bb'  ? 'bg-[rgba(59,130,246,0.17)] border border-[rgba(59,130,246,0.4)] text-blue-400' : ''}
+                    ${cat === 'zero' ? 'bg-[rgba(80,80,80,0.12)] border border-[rgba(80,80,80,0.35)] text-gray-400' : ''}
+                  " style="transition:background 0.12s">
+                  <div>${info.label}</div>
+                  <div class="text-[10px] font-400 opacity-60 mt-0.5 normal-case tracking-normal">
+                    ${isCurrent ? 'current' : disabled ? 'full' : rem + ' remaining'}
+                  </div>
+                </button>`;
+            }).join('');
+
+            assignHtml = `
+              <div class="bg-[#1a1a1a] border border-border rounded-xl px-4 py-3 mb-5">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="text-xs font-heading tracking-widest text-gray-400 uppercase">
+                    Assign Hole <span class="text-white font-700">${selectedHole}</span>
+                    ${curCat ? `<span class="ml-2 text-gray-600 normal-case tracking-normal font-400">currently ${catInfo[curCat].label}</span>` : ''}
+                  </div>
+                  <div class="flex gap-3">
+                    ${curCat ? `<button data-unassign class="text-xs text-red-500/70 hover:text-red-400 font-heading tracking-wider uppercase" style="transition:color 0.12s">Remove</button>` : ''}
+                    <button data-deselect class="text-xs text-gray-600 hover:text-gray-400 font-heading tracking-wider uppercase" style="transition:color 0.12s">Cancel</button>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2">${catBtns}</div>
+              </div>`;
+          } else {
+            assignHtml = `
+              <div class="border border-border border-dashed rounded-xl px-5 py-4 mb-5 text-center text-xs text-gray-600">
+                Click any hole tile above, then assign its category
+              </div>`;
+          }
+        }
+
+        // JSON output when all 18 are done
+        let jsonHtml = '';
+        if (done) {
+          const revStr = JSON.stringify(state.revealOrder);
+          const drawStr = JSON.stringify(state.draw, null, 2).replace(/^/gm, '        ').trimStart();
+          jsonHtml = `
+            <div class="mt-6 bg-emerald-900/10 border border-emerald-800/30 rounded-xl px-5 py-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-xs font-heading font-600 tracking-widest text-emerald-400 uppercase">Draw Complete — Save to events.json</div>
+                <button id="btn-copy" class="text-xs bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-700/40 text-emerald-400 rounded px-3 py-1.5 font-heading tracking-wider" style="transition:background 0.12s">Copy</button>
+              </div>
+              <p class="text-xs text-gray-600 mb-3">Paste these two fields into the Week 6 event in data/events.json, then reload the regular event page to see final results.</p>
+              <pre id="json-out" class="text-xs text-gray-300 bg-[#0c0c0c] rounded-lg p-4 overflow-x-auto leading-relaxed font-mono">"devilsDraw": ${drawStr},
+"revealOrder": ${revStr}</pre>
+            </div>`;
+        }
+
+        app.innerHTML = `
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Devil's Draw — Live Entry</div>
+              <div class="text-sm text-gray-400">
+                <span class="text-white font-semibold">${n}</span>/18 holes assigned
+                ${done ? ' <span class="text-emerald-400 ml-1">● Complete</span>' : ''}
+              </div>
+            </div>
+            <button id="btn-reset" class="text-xs text-gray-600 hover:text-gray-400 border border-border rounded px-3 py-1.5 font-heading tracking-wider uppercase" style="transition:color 0.12s">Reset</button>
+          </div>
+
+          <div class="flex flex-wrap gap-4 mb-5 px-1">${countsHtml}</div>
+
+          <div class="flex flex-wrap gap-2 justify-center mb-4">${tilesHtml}</div>
+
+          <div class="flex flex-wrap gap-x-5 gap-y-1 justify-center mb-5 text-xs text-gray-600">
+            <span class="text-flame font-heading font-600 text-[10px] tracking-widest">3BB</span><span>All 3 scores (5 holes)</span>
+            <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span><span>Best 2 (6 holes)</span>
+            <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span><span>Best 1 (5 holes)</span>
+            <span class="text-gray-500 font-heading font-600 text-[10px] tracking-widest">ZERO</span><span>Doesn't count (2 holes)</span>
+          </div>
+
+          ${assignHtml}
+
+          <div id="reveal-leaderboard"></div>
+          ${jsonHtml}
+        `;
+
+        // Reset
+        document.getElementById('btn-reset').addEventListener('click', () => {
+          if (!confirm('Reset the entire draw? This cannot be undone.')) return;
+          localStorage.removeItem(lsKey);
+          state = { draw: { '3bb': [], '2bb': [], '1bb': [], 'zero': [] }, revealOrder: [] };
+          selectedHole = null;
+          render();
+        });
+
+        // Tile click → select / deselect
+        document.querySelectorAll('[data-hole]').forEach(tile => {
+          tile.addEventListener('click', () => {
+            const hole = parseInt(tile.dataset.hole);
+            selectedHole = (selectedHole === hole) ? null : hole;
+            render();
+          });
+        });
+
+        // Cancel selection
+        document.querySelector('[data-deselect]')?.addEventListener('click', e => {
+          e.stopPropagation();
+          selectedHole = null;
+          render();
+        });
+
+        // Remove assignment
+        document.querySelector('[data-unassign]')?.addEventListener('click', e => {
+          e.stopPropagation();
+          if (selectedHole !== null) { unassignHole(selectedHole); selectedHole = null; render(); }
+        });
+
+        // Assign category — flip animation on the newly assigned tile
+        document.querySelectorAll('[data-assign-cat]').forEach(btn => {
+          if (btn.disabled) return;
+          btn.addEventListener('click', () => {
+            if (selectedHole === null) return;
+            const hole = selectedHole;
+            const cat  = btn.dataset.assignCat;
+            assignHole(hole, cat);
+            selectedHole = null;
+            render(); // tile now has flipped+no-transition; we undo that for animation
+            const tile = document.getElementById(`tile-${hole}`);
+            if (tile) {
+              tile.classList.remove('flipped', 'no-transition');
+              void tile.offsetWidth; // force reflow so transition fires
+              tile.classList.add('flipped');
+            }
+          });
+        });
+
+        // Copy JSON
+        document.getElementById('btn-copy')?.addEventListener('click', () => {
+          const el = document.getElementById('json-out');
+          if (!el) return;
+          navigator.clipboard.writeText(el.textContent).then(() => {
+            const btn = document.getElementById('btn-copy');
+            if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 2000); }
+          });
+        });
+
+        renderLeaderboard(done);
+      }
+
+      render();
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').innerHTML =
+        `<div class="bg-red-900/20 border border-red-800 rounded-lg p-6 text-center max-w-md mx-auto">
+          <p class="text-red-400 font-medium">Error</p>
+          <p class="text-gray-400 text-sm mt-1">${msg}</p>
+        </div>`;
+    }
+
+    init().catch(err => showError(err.message));
+  </script>
+</body>
+</html>
