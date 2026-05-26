@@ -193,7 +193,7 @@
         </div>`;
 
       return showLink
-        ? `<a href="event.html?id=${e.tournamentId}" class="block">${inner}</a>`
+        ? `<a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="block">${inner}</a>`
         : `<div>${inner}</div>`;
     }
 
