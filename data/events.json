@@ -141,10 +141,29 @@
     "status": "completed",
     "notes": "Hole categories were drawn live after play concluded on April 20, 2026.",
     "payoutPot": { "1": 228, "2": 150 },
-    "devilsDraw": null,
-    "revealOrder": null,
-    "payouts": [],
-    "ctp": []
+    "devilsDraw": {
+      "3bb":  [3, 5, 6, 13, 15],
+      "2bb":  [1, 2, 4, 10, 11, 18],
+      "1bb":  [7, 9, 12, 14, 16],
+      "zero": [8, 17]
+    },
+    "revealOrder": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
+    "payouts": [
+      { "place": 1,        "player": "Gaz77",          "amount": 76 },
+      { "place": 1,        "player": "notthatjt",       "amount": 76 },
+      { "place": 1,        "player": "ribsismokeem",    "amount": 76 },
+      { "place": 2,        "player": "cloverlinksgolf", "amount": 50 },
+      { "place": 2,        "player": "jarhead",         "amount": 50 },
+      { "place": 2,        "player": "boiler_kh",       "amount": 50 },
+      { "place": "side-1", "player": "humdinger",       "amount": 45 },
+      { "place": "side-2", "player": "ryanlane10",      "amount": 39 }
+    ],
+    "ctp": [
+      { "hole": 3,  "player": "finlayson7434", "amount": 42 },
+      { "hole": 6,  "player": "ryanlane10",    "amount": 42 },
+      { "hole": 15, "player": "tofty31",       "amount": 42 },
+      { "hole": 17, "player": "ryanlane10",    "amount": 42 }
+    ]
   },
   {
     "id": "event-54130",
