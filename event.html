@@ -397,6 +397,7 @@
             </table>
           </div>
         </div>
+        <div id="side-section"></div>
         <div id="ctp-section"></div>
       `;
 
@@ -444,10 +445,9 @@
         tbody.appendChild(cardTr);
       });
 
-      // CTP section
-      if (event.ctp && event.ctp.length) {
-        document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
-      }
+      // Side pots + CTP
+      if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
+      if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
     }
 
     // ── Team event leaderboard ───────────────────────────────────────────────
@@ -486,6 +486,7 @@
             </table>
           </div>
         </div>
+        <div id="side-section"></div>
         <div id="ctp-section"></div>
       `;
 
@@ -537,9 +538,8 @@
         tbody.appendChild(cardTr);
       });
 
-      if (event.ctp && event.ctp.length) {
-        document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
-      }
+      if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
+      if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
     }
 
     function buildTeamScorecardHTML(team, format) {
@@ -709,6 +709,30 @@
       return `
         <div class="mt-8">
           <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Closest to the Pin</h2>
+          <div class="card-shadow bg-card border border-border rounded-xl px-5">
+            ${rows}
+          </div>
+        </div>`;
+    }
+
+    function buildSidePotsHtml(payouts) {
+      const sides = payouts.filter(p => typeof p.place === 'string' && p.place.startsWith('side-'));
+      if (!sides.length) return '';
+      const label = { 'side-1': '1st Side Pot', 'side-2': '2nd Side Pot', 'side-3': '3rd Side Pot' };
+      const rows = sides.map(p => `
+        <div class="flex items-center justify-between py-3 border-b border-border last:border-0">
+          <div class="flex items-center gap-4">
+            <span class="font-display text-2xl text-amber-400 leading-none">${p.place === 'side-1' ? '①' : p.place === 'side-2' ? '②' : '③'}</span>
+            <div>
+              <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">${label[p.place] || p.place}</div>
+              <div class="font-medium text-white">${p.player}</div>
+            </div>
+          </div>
+          <div class="font-semibold text-amber-400">$${p.amount}</div>
+        </div>`).join('');
+      return `
+        <div class="mt-8">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Side Pots</h2>
           <div class="card-shadow bg-card border border-border rounded-xl px-5">
             ${rows}
           </div>
