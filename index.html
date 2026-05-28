@@ -49,26 +49,20 @@
   <!-- NAV -->
   <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
     <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-      <a href="index.html" class="flex items-center gap-3">
-        <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf" class="h-9 w-auto" />
-        <span class="font-heading font-700 text-lg tracking-wide text-white hidden sm:block">MashUp Golf</span>
+      <button id="menu-btn" aria-label="Menu" class="flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md border border-border bg-surface hover:border-gray-600" style="transition:border-color 0.15s">
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+      </button>
+      <a href="https://simulatorgolftour.com" target="_blank"
+         class="flex items-center gap-2 bg-surface border border-border rounded-full pl-1.5 pr-3 py-1 hover:border-[#d03f25]/50 group"
+         style="transition:all 0.15s">
+        <img src="brand_assets/sgt_emblem.svg" class="h-6 w-auto" alt="SGT" />
+        <div class="flex flex-col leading-none">
+          <span class="text-[8px] font-heading font-600 tracking-widest text-gray-600 uppercase group-hover:text-gray-500">Powered by</span>
+          <span class="text-[11px] font-heading font-600 tracking-wider text-gray-300 group-hover:text-white">Simulator Golf Tour</span>
+        </div>
       </a>
-      <div class="flex items-center gap-3">
-        <a href="https://simulatorgolftour.com" target="_blank"
-           class="flex items-center gap-2 bg-surface border border-border rounded-full pl-1.5 pr-3 py-1 hover:border-[#d03f25]/50 group"
-           style="transition:all 0.15s">
-          <img src="brand_assets/sgt_emblem.svg" class="h-6 w-auto" alt="SGT" />
-          <div class="flex flex-col leading-none">
-            <span class="text-[8px] font-heading font-600 tracking-widest text-gray-600 uppercase group-hover:text-gray-500">Powered by</span>
-            <span class="text-[11px] font-heading font-600 tracking-wider text-gray-300 group-hover:text-white">Simulator Golf Tour</span>
-          </div>
-        </a>
-        <button id="menu-btn" aria-label="Menu" class="flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md border border-border bg-surface hover:border-gray-600" style="transition:border-color 0.15s">
-          <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-          <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-          <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-        </button>
-      </div>
     </div>
   </nav>
 
