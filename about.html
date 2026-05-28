@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MashUp Golf</title>
+  <title>About Us — MashUp Golf</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <script>
@@ -36,12 +36,7 @@
     .card-shadow {
       box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
     }
-    .flame-shadow {
-      box-shadow: 0 0 20px rgba(249,115,22,0.25), 0 4px 16px rgba(0,0,0,0.5);
-    }
-    .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
-    .event-card:hover { background: #252525; transform: translateY(-1px); }
-    .event-card { transition: background 0.15s, transform 0.15s; }
+    .section-accent { border-left: 2px solid rgba(249,115,22,0.35); }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
@@ -88,22 +83,43 @@
     </div>
   </div>
 
-  <!-- HERO -->
+  <!-- PAGE HEADER -->
   <section class="hero-glow pt-16 pb-12 px-4 text-center">
     <div class="max-w-2xl mx-auto">
-      <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf" class="h-36 w-auto mx-auto mb-6 drop-shadow-2xl" />
-      <h1 class="font-display text-6xl sm:text-7xl tracking-widest text-white mb-3">MASHUP GOLF</h1>
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">The League</div>
+      <h1 class="font-display text-5xl sm:text-6xl tracking-wider text-white mb-3">ABOUT MASHUP GOLF</h1>
       <p class="text-gray-400 font-body text-base tracking-wide">Simulator golf. Custom formats. Real competition.</p>
     </div>
   </section>
 
   <!-- CONTENT -->
-  <main id="content" class="max-w-6xl mx-auto px-4 pb-20">
-    <div id="loading" class="text-center py-20">
-      <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p class="text-gray-500 text-sm">Loading tour data…</p>
+  <main class="max-w-3xl mx-auto px-4 py-12 pb-20 space-y-6">
+
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">What We Are</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">WHAT IS MASHUP GOLF?</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px]">MashUp Golf is a weekly simulator golf league that brings the energy of a real money tour to the sim. Each season features a rotating lineup of formats — team scrambles, ringer contests, shambles, escalators, and more — so every week feels like a new challenge. Whether you're a scratch player or carrying a handicap, there's always a format that will test a different part of your game.</p>
     </div>
-    <div id="app" class="hidden"></div>
+
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">The Name</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">WHY "MASHUP"?</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px]">The name says it all. We take all the formats we love about golf — best ball, scramble, stroke play, match play — and mash them into one season. The variety keeps things exciting, rewards different skills each week, and makes sure no single player dominates just by hitting it long. Fresh challenge, every week.</p>
+    </div>
+
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Culture</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">OUR COMMUNITY</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px] mb-4">MashUp Golf is built on good competition, good banter, and mutual respect. We're a tight-knit group of sim golfers who take the game seriously — without taking ourselves too seriously.</p>
+      <p class="text-gray-400 leading-relaxed text-[15px]">Golf is a gentleman's game, and we hold that standard here. Players are expected to treat each other with civility on stream, in Discord, and on the virtual course. Compete hard, have fun, and represent the game well. Poor sportsmanship or disrespectful behavior may result in exclusion from future seasons.</p>
+    </div>
+
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Powered By</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">SIMULATOR GOLF TOUR</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px]">MashUp Golf runs on the <a href="https://simulatorgolftour.com" target="_blank" class="text-gray-300 hover:text-white underline underline-offset-2" style="transition:color 0.12s">Simulator Golf Tour</a> platform — the home of competitive simulator golf leagues. All scoring, handicaps, and tournament results are managed through SGT, giving the league a professional structure with a real competitive backbone.</p>
+    </div>
+
   </main>
 
   <!-- FOOTER -->
@@ -131,137 +147,6 @@
     </div>
   </footer>
 
-  <script type="module">
-    import { loadSeasons, loadEvents } from './js/api.js';
-
-    async function init() {
-      const [seasons, events] = await Promise.all([loadSeasons(), loadEvents()]);
-      const loading = document.getElementById('loading');
-      const app = document.getElementById('app');
-      loading.classList.add('hidden');
-      app.classList.remove('hidden');
-      app.innerHTML = renderApp(seasons, events);
-    }
-
-    function renderApp(seasons, events) {
-      const activeSeason = seasons.find(s => s.status === 'active') || seasons[0];
-      const seasonEvents = events
-        .filter(e => e.season === activeSeason?.id)
-        .sort((a, b) => {
-          if (!a.date && !b.date) return 0;
-          if (!a.date) return 1;
-          if (!b.date) return -1;
-          return new Date(b.date) - new Date(a.date);
-        });
-
-      const completed = seasonEvents.filter(e => e.status === 'completed');
-      const upcoming = seasonEvents.filter(e => e.status !== 'completed');
-
-      return `
-        <!-- Season header -->
-        <section id="seasons" class="mb-10">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <div>
-              <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Active Season</div>
-              <h2 class="font-display text-4xl tracking-wider text-white">${activeSeason.name}</h2>
-              <p class="text-gray-500 text-sm mt-1">${activeSeason.description}</p>
-            </div>
-            <a href="season.html?id=${activeSeason.id}"
-               class="inline-flex self-start sm:self-auto shrink-0 items-center gap-2 border border-border px-4 py-2 rounded text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame hover:text-flame transition-colors whitespace-nowrap">
-              SEASON STANDINGS →
-            </a>
-          </div>
-
-          <!-- Stats -->
-          <div class="grid grid-cols-3 gap-3 mb-8">
-            ${statCard(seasonEvents.length, 'Events')}
-            ${statCard(completed.length, 'Completed')}
-            ${statCard(upcoming.length, 'Upcoming')}
-          </div>
-        </section>
-
-        <!-- Upcoming -->
-        ${upcoming.length ? `
-        <section class="mb-10">
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Upcoming</h3>
-          <div class="space-y-2">
-            ${upcoming.map(e => eventRow(e, false)).join('')}
-          </div>
-        </section>` : ''}
-
-        <!-- Results -->
-        <section>
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Results</h3>
-          ${completed.length
-            ? `<div class="space-y-2">${completed.map(e => eventRow(e, true)).join('')}</div>`
-            : `<p class="text-gray-600 text-sm py-6">No completed events yet.</p>`}
-        </section>
-
-        <!-- All seasons -->
-        ${seasons.length > 1 ? `
-        <section class="mt-14">
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">All Seasons</h3>
-          <div class="grid sm:grid-cols-2 gap-3">
-            ${seasons.map(s => seasonCard(s)).join('')}
-          </div>
-        </section>` : ''}
-      `;
-    }
-
-    function statCard(value, label) {
-      return `
-        <div class="card-shadow bg-card rounded-lg p-4 text-center border border-border">
-          <div class="font-display text-3xl text-flame">${value}</div>
-          <div class="font-heading text-xs tracking-widest text-gray-500 uppercase mt-1">${label}</div>
-        </div>`;
-    }
-
-    function eventRow(e, showLink) {
-      const statusDot = e.status === 'completed'
-        ? '<span class="status-dot bg-emerald-500"></span>'
-        : '<span class="status-dot bg-amber-500 animate-pulse"></span>';
-      const statusLabel = e.status === 'completed' ? 'Completed' : 'Open';
-      const dateStr = e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
-
-      const inner = `
-        <div class="card-shadow event-card bg-card border border-border rounded-lg px-5 py-4 flex items-center gap-4">
-          <div class="flex-1 min-w-0">
-            <div class="font-heading font-700 text-base text-white truncate">${e.name}</div>
-            <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
-              <span>${dateStr}</span>
-              <span>·</span>
-              <span>${e.format.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
-              ${e.buyIn ? `<span>·</span><span>$${e.buyIn} buy-in</span>` : ''}
-            </div>
-          </div>
-          <div class="flex items-center gap-2 text-xs font-heading tracking-wider text-gray-400 shrink-0">
-            ${statusDot} ${statusLabel}
-          </div>
-          ${showLink ? '<span class="text-flame text-sm shrink-0">→</span>' : ''}
-        </div>`;
-
-      return showLink
-        ? `<a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="block">${inner}</a>`
-        : `<div>${inner}</div>`;
-    }
-
-    function seasonCard(s) {
-      const dot = s.status === 'active' ? '<span class="status-dot bg-flame"></span>' : '<span class="status-dot bg-gray-600"></span>';
-      return `
-        <a href="season.html?id=${s.id}" class="card-shadow event-card bg-card border border-border rounded-lg px-5 py-4 block">
-          <div class="flex items-center gap-2 mb-1">
-            ${dot}
-            <span class="font-heading font-700 text-white">${s.name}</span>
-          </div>
-          <p class="text-xs text-gray-500">${s.description}</p>
-        </a>`;
-    }
-
-    init().catch(err => {
-      document.getElementById('loading').innerHTML =
-        `<p class="text-red-400 text-sm">Failed to load: ${err.message}</p>`;
-    });
-  </script>
   <script>
     (function() {
       const btn  = document.getElementById('menu-btn');

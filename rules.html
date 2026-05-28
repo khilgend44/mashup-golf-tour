@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rules — MashUp Golf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .hero-glow {
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34,197,94,0.18) 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 30% at 50% 0%, rgba(34,197,94,0.08) 0%, transparent 60%);
+    }
+    .card-shadow {
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+    .section-accent { border-left: 2px solid rgba(249,115,22,0.35); }
+    .rule-item { border-bottom: 1px solid #1f1f1f; }
+    .rule-item:last-child { border-bottom: none; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <button id="menu-btn" aria-label="Menu" class="flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md border border-border bg-surface hover:border-gray-600" style="transition:border-color 0.15s">
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+      </button>
+      <a href="https://simulatorgolftour.com" target="_blank"
+         class="flex items-center gap-2 bg-surface border border-border rounded-full pl-1.5 pr-3 py-1 hover:border-[#d03f25]/50 group"
+         style="transition:all 0.15s">
+        <img src="brand_assets/sgt_emblem.svg" class="h-6 w-auto" alt="SGT" />
+        <div class="flex flex-col leading-none">
+          <span class="text-[8px] font-heading font-600 tracking-widest text-gray-600 uppercase group-hover:text-gray-500">Powered by</span>
+          <span class="text-[11px] font-heading font-600 tracking-wider text-gray-300 group-hover:text-white">Simulator Golf Tour</span>
+        </div>
+      </a>
+    </div>
+  </nav>
+
+  <!-- NAV DROPDOWN -->
+  <div id="nav-menu" class="fixed top-14 left-0 right-0 z-40 bg-[#0c0c0c] border-b border-border hidden" style="box-shadow:0 8px 24px rgba(0,0,0,0.5)">
+    <div class="max-w-6xl mx-auto px-4 py-3">
+      <a href="index.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">⌂</span> Home
+      </a>
+      <a href="season.html?id=season-9" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">◎</span> Season 9
+      </a>
+      <div class="border-t border-border my-2"></div>
+      <a href="about.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">◎</span> About Us
+      </a>
+      <a href="requirements.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">◎</span> How to Join
+      </a>
+      <a href="rules.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">◎</span> Rules
+      </a>
+    </div>
+  </div>
+
+  <!-- PAGE HEADER -->
+  <section class="hero-glow pt-16 pb-12 px-4 text-center">
+    <div class="max-w-2xl mx-auto">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">The Fine Print</div>
+      <h1 class="font-display text-5xl sm:text-6xl tracking-wider text-white mb-3">RULES</h1>
+      <p class="text-gray-400 font-body text-base tracking-wide">How we keep things fair and competitive for everyone.</p>
+    </div>
+  </section>
+
+  <!-- CONTENT -->
+  <main class="max-w-3xl mx-auto px-4 py-12 pb-20 space-y-6">
+
+    <!-- Weekly Schedule -->
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Schedule</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">THE WEEKLY SCHEDULE</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px]">Each event typically runs Sunday to Sunday, with some overlap between weeks. You don't have to play every event, but consistency is encouraged. If you know you won't be able to make a week, give the admin team a heads-up as early as possible — ideally by end of day Tuesday. The earlier you let us know, the smoother the logistics for everyone.</p>
+    </div>
+
+    <!-- Partners & Teams -->
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Team Formats</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">PARTNERS &amp; TEAMS</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px] mb-4">For partner events, you'll select your partner one week in advance. If you haven't paired up 24 hours before the event window opens, you'll be randomly matched with another unpaired player.</p>
+      <p class="text-gray-400 leading-relaxed text-[15px]">For larger team formats — three-player scrambles and group events — teams are either pre-assigned or randomly drawn. The format details are posted before each event so you'll always know what to expect.</p>
+    </div>
+
+    <!-- Substitutions -->
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Life Happens</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">SUBSTITUTIONS</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px] mb-5">The admin team maintains a substitution bench of trusted players for situations when someone can't make it. Substitution requests should come in by Tuesday. Here's how no-shows are handled depending on the format:</p>
+      <div class="space-y-0">
+        <div class="rule-item flex items-start gap-4 py-3.5">
+          <span class="text-flame shrink-0 font-heading font-700 text-sm mt-0.5">▸</span>
+          <div>
+            <div class="font-heading font-700 text-white text-sm tracking-wide mb-0.5">Random-draw team events</div>
+            <p class="text-gray-500 text-sm leading-relaxed">A no-show gets a blind-draw replacement from the substitution bench. The sub's scorecard counts for that team.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-4 py-3.5">
+          <span class="text-flame shrink-0 font-heading font-700 text-sm mt-0.5">▸</span>
+          <div>
+            <div class="font-heading font-700 text-white text-sm tracking-wide mb-0.5">Pick-your-partner events</div>
+            <p class="text-gray-500 text-sm leading-relaxed">A no-show results in the team forfeiting that week. Choose your partner wisely.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scoring & DQs -->
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Integrity</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">SCORING &amp; DISQUALIFICATIONS</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px] mb-5">We hold everyone to the same standard. Here are the situations that result in disqualification from that week's competition:</p>
+      <div class="space-y-0">
+        <div class="rule-item flex items-start gap-4 py-3.5">
+          <span class="text-flame shrink-0 font-heading font-700 text-sm mt-0.5">01</span>
+          <p class="text-gray-400 text-sm leading-relaxed">Incomplete rounds are disqualified unless a genuine emergency occurred.</p>
+        </div>
+        <div class="rule-item flex items-start gap-4 py-3.5">
+          <span class="text-flame shrink-0 font-heading font-700 text-sm mt-0.5">02</span>
+          <p class="text-gray-400 text-sm leading-relaxed">SimDrop (virtual ball drop) requires at least one real escape attempt first. Skipping that attempt or misusing SimDrop is not allowed.</p>
+        </div>
+        <div class="rule-item flex items-start gap-4 py-3.5">
+          <span class="text-flame shrink-0 font-heading font-700 text-sm mt-0.5">03</span>
+          <p class="text-gray-400 text-sm leading-relaxed">Rounds played without a valid live stream are disqualified from the competition pot. If you forget to stream, you may replay the round — but your worst score will count.</p>
+        </div>
+        <div class="rule-item flex items-start gap-4 py-3.5">
+          <span class="text-flame shrink-0 font-heading font-700 text-sm mt-0.5">04</span>
+          <p class="text-gray-400 text-sm leading-relaxed">Missing or incorrect data tiles on stream result in disqualification.</p>
+        </div>
+        <div class="rule-item flex items-start gap-4 py-3.5">
+          <span class="text-flame shrink-0 font-heading font-700 text-sm mt-0.5">05</span>
+          <p class="text-gray-400 text-sm leading-relaxed">Cheating of any kind results in immediate disqualification.</p>
+        </div>
+        <div class="flex items-start gap-4 py-3.5">
+          <span class="text-flame shrink-0 font-heading font-700 text-sm mt-0.5">06</span>
+          <p class="text-gray-400 text-sm leading-relaxed">Practice shots taken during a teammate's or opponent's turn: first offense is a warning, second offense is a 2-stroke penalty.</p>
+        </div>
+      </div>
+      <div class="mt-5 bg-[#161616] border border-border rounded-lg p-4">
+        <p class="text-gray-500 text-sm leading-relaxed">Scoring concerns — phantom reads, system glitches, anything that looks off — should be reported publicly in the Discord with the admin team tagged. Admins review all issues and make the final call.</p>
+      </div>
+    </div>
+
+    <!-- Course Setup -->
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">The Venue</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">COURSE SETUP</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px]">All players use identical tee boxes each week — no exceptions. Courses are selected to play between 6,200 and 6,700 yards. Handicaps are calibrated to account for skill variation across the entire field, keeping the competition level for everyone from scratch to high handicap.</p>
+    </div>
+
+    <!-- Tiebreakers -->
+    <div class="card-shadow section-accent bg-card border border-border rounded-lg p-6 sm:p-8">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Dead Heats</div>
+      <h2 class="font-display text-3xl tracking-wider text-white mb-4">TIEBREAKERS</h2>
+      <p class="text-gray-400 leading-relaxed text-[15px]">The default tiebreaker is a split — tied players share the pot equally. When a format calls for a specific tiebreaker (such as a scorecard countback or aggregate net total), it will be announced before the event begins so everyone knows the rules going in.</p>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border">
+    <div class="max-w-6xl mx-auto px-4 py-10 flex flex-col sm:flex-row items-center justify-between gap-8">
+      <div class="flex items-center gap-5">
+        <img src="brand_assets/sgt_emblem.svg" alt="SimulatorGolfTour.com" class="h-16 w-auto shrink-0 opacity-90" />
+        <div>
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1">Powered by</div>
+          <a href="https://simulatorgolftour.com" target="_blank"
+             class="font-display text-2xl tracking-wider text-gray-300 hover:text-[#d03f25] transition-colors leading-none block">
+            Simulator Golf Tour
+          </a>
+          <p class="text-xs text-gray-600 mt-1">The home of simulator golf leagues</p>
+        </div>
+      </div>
+      <a href="https://simulatorgolftour.com" target="_blank"
+         class="flex items-center gap-2 border border-border rounded-lg px-5 py-3 text-sm font-heading font-600 tracking-wider text-gray-400 hover:text-white hover:border-[#d03f25]/50 bg-surface shrink-0"
+         style="transition:all 0.15s">
+        Visit Simulator Golf Tour <span class="text-[#d03f25]">→</span>
+      </a>
+    </div>
+    <div class="border-t border-border text-center py-4 text-gray-600 text-xs font-body">
+      MashUp Golf &nbsp;·&nbsp; A Simulator Golf League
+    </div>
+  </footer>
+
+  <script>
+    (function() {
+      const btn  = document.getElementById('menu-btn');
+      const menu = document.getElementById('nav-menu');
+      const bars = btn.querySelectorAll('.menu-bar');
+      let open = false;
+      function setOpen(val) {
+        open = val;
+        menu.classList.toggle('hidden', !open);
+        bars[0].style.transform = open ? 'translateY(8px) rotate(45deg)' : '';
+        bars[1].style.opacity   = open ? '0' : '1';
+        bars[2].style.transform = open ? 'translateY(-8px) rotate(-45deg)' : '';
+      }
+      btn.addEventListener('click', e => { e.stopPropagation(); setOpen(!open); });
+      document.addEventListener('click', e => { if (open && !menu.contains(e.target)) setOpen(false); });
+    })();
+  </script>
+</body>
+</html>
