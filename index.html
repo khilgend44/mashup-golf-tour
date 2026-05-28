@@ -53,11 +53,7 @@
         <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf" class="h-9 w-auto" />
         <span class="font-heading font-700 text-lg tracking-wide text-white hidden sm:block">MashUp Golf</span>
       </a>
-      <div class="flex items-center gap-5">
-        <div class="hidden sm:flex items-center gap-6 text-sm font-heading font-600 tracking-wider">
-          <a href="index.html" class="text-flame">HOME</a>
-          <a href="#seasons" class="text-gray-400 hover:text-white transition-colors">SEASONS</a>
-        </div>
+      <div class="flex items-center gap-3">
         <a href="https://simulatorgolftour.com" target="_blank"
            class="flex items-center gap-2 bg-surface border border-border rounded-full pl-1.5 pr-3 py-1 hover:border-[#d03f25]/50 group"
            style="transition:all 0.15s">
@@ -67,9 +63,34 @@
             <span class="text-[11px] font-heading font-600 tracking-wider text-gray-300 group-hover:text-white">Simulator Golf Tour</span>
           </div>
         </a>
+        <button id="menu-btn" aria-label="Menu" class="flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md border border-border bg-surface hover:border-gray-600" style="transition:border-color 0.15s">
+          <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+          <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+          <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        </button>
       </div>
     </div>
   </nav>
+
+  <!-- NAV DROPDOWN -->
+  <div id="nav-menu" class="fixed top-14 left-0 right-0 z-40 bg-[#0c0c0c] border-b border-border hidden" style="box-shadow:0 8px 24px rgba(0,0,0,0.5)">
+    <div class="max-w-6xl mx-auto px-4 py-3">
+      <a href="index.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">⌂</span> Home
+      </a>
+      <a href="season.html?id=season-9" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">◎</span> Season 9
+      </a>
+      <div class="border-t border-border my-2"></div>
+      <div class="px-3 py-1 text-[10px] font-heading tracking-widest text-gray-600 uppercase">Coming Soon</div>
+      <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg font-heading font-600 tracking-wider text-sm text-gray-700 cursor-default">
+        <span>○</span> About Us
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg font-heading font-600 tracking-wider text-sm text-gray-700 cursor-default">
+        <span>○</span> Rules
+      </div>
+    </div>
+  </div>
 
   <!-- HERO -->
   <section class="hero-glow pt-16 pb-12 px-4 text-center">
@@ -244,6 +265,23 @@
       document.getElementById('loading').innerHTML =
         `<p class="text-red-400 text-sm">Failed to load: ${err.message}</p>`;
     });
+  </script>
+  <script>
+    (function() {
+      const btn  = document.getElementById('menu-btn');
+      const menu = document.getElementById('nav-menu');
+      const bars = btn.querySelectorAll('.menu-bar');
+      let open = false;
+      function setOpen(val) {
+        open = val;
+        menu.classList.toggle('hidden', !open);
+        bars[0].style.transform = open ? 'translateY(8px) rotate(45deg)' : '';
+        bars[1].style.opacity   = open ? '0' : '1';
+        bars[2].style.transform = open ? 'translateY(-8px) rotate(-45deg)' : '';
+      }
+      btn.addEventListener('click', e => { e.stopPropagation(); setOpen(!open); });
+      document.addEventListener('click', e => { if (open && !menu.contains(e.target)) setOpen(false); });
+    })();
   </script>
 </body>
 </html>
