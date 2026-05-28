@@ -53,9 +53,18 @@
         <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf Tour" class="h-9 w-auto" />
         <span class="font-heading font-700 text-lg tracking-wide text-white hidden sm:block">MashUp Golf Tour</span>
       </a>
-      <div class="flex items-center gap-6 text-sm font-heading font-600 tracking-wider">
-        <a href="index.html" class="text-flame">HOME</a>
-        <a href="#seasons" class="text-gray-400 hover:text-white transition-colors">SEASONS</a>
+      <div class="flex items-center gap-5">
+        <div class="hidden sm:flex items-center gap-6 text-sm font-heading font-600 tracking-wider">
+          <a href="index.html" class="text-flame">HOME</a>
+          <a href="#seasons" class="text-gray-400 hover:text-white transition-colors">SEASONS</a>
+        </div>
+        <a href="https://simulatorgolftour.com" target="_blank"
+           class="flex items-center gap-1.5 bg-surface border border-border rounded-full px-3 py-1.5 hover:border-flame/40 hover:text-white group"
+           style="transition:all 0.15s">
+          <span class="text-[9px] font-heading font-600 tracking-widest text-gray-500 uppercase group-hover:text-gray-400">Powered by</span>
+          <span class="text-xs font-heading font-600 tracking-wider text-gray-300">SGT</span>
+          <span class="text-flame text-xs">↗</span>
+        </a>
       </div>
     </div>
   </nav>
@@ -79,8 +88,25 @@
   </main>
 
   <!-- FOOTER -->
-  <footer class="border-t border-border text-center py-8 text-gray-600 text-xs font-body">
-    <p>MashUp Golf Tour &nbsp;·&nbsp; Powered by <a href="https://simulatorgolftour.com" target="_blank" class="text-gray-500 hover:text-flame transition-colors">SimulatorGolfTour.com</a></p>
+  <footer class="border-t border-border">
+    <div class="max-w-6xl mx-auto px-4 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div class="text-center sm:text-left">
+        <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Powered by</div>
+        <a href="https://simulatorgolftour.com" target="_blank"
+           class="font-display text-3xl tracking-wider text-gray-400 hover:text-flame transition-colors">
+          SimulatorGolfTour.com
+        </a>
+        <p class="text-xs text-gray-600 mt-1">The home of simulator golf leagues</p>
+      </div>
+      <a href="https://simulatorgolftour.com" target="_blank"
+         class="flex items-center gap-2 border border-border rounded-lg px-5 py-3 text-sm font-heading font-600 tracking-wider text-gray-400 hover:text-white hover:border-flame/40 bg-surface"
+         style="transition:all 0.15s">
+        Visit SGT.com <span class="text-flame">→</span>
+      </a>
+    </div>
+    <div class="border-t border-border text-center py-4 text-gray-600 text-xs font-body">
+      MashUp Golf Tour &nbsp;·&nbsp; A SimulatorGolfTour.com League
+    </div>
   </footer>
 
   <script type="module">
