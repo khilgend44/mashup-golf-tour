@@ -158,14 +158,14 @@
       return `
         <!-- Season header -->
         <section id="seasons" class="mb-10">
-          <div class="flex items-center justify-between mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div>
               <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Active Season</div>
               <h2 class="font-display text-4xl tracking-wider text-white">${activeSeason.name}</h2>
               <p class="text-gray-500 text-sm mt-1">${activeSeason.description}</p>
             </div>
             <a href="season.html?id=${activeSeason.id}"
-               class="inline-flex shrink-0 items-center gap-2 border border-border px-4 py-2 rounded text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame hover:text-flame transition-colors whitespace-nowrap">
+               class="inline-flex self-start sm:self-auto shrink-0 items-center gap-2 border border-border px-4 py-2 rounded text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame hover:text-flame transition-colors whitespace-nowrap">
               SEASON STANDINGS →
             </a>
           </div>
