@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Event — MashUp Golf Tour</title>
+  <title>Event — MashUp Golf</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -137,8 +137,8 @@
   <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
     <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
       <a href="index.html" class="flex items-center gap-3">
-        <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf Tour" class="h-9 w-auto" />
-        <span class="font-heading font-700 text-lg tracking-wide text-white hidden sm:block">MashUp Golf Tour</span>
+        <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf" class="h-9 w-auto" />
+        <span class="font-heading font-700 text-lg tracking-wide text-white hidden sm:block">MashUp Golf</span>
       </a>
       <div class="flex items-center gap-4">
         <div id="breadcrumb" class="text-xs font-heading tracking-wider text-gray-500 hidden sm:block"></div>
@@ -192,7 +192,7 @@
       </a>
     </div>
     <div class="border-t border-border text-center py-4 text-gray-600 text-xs font-body">
-      MashUp Golf Tour &nbsp;·&nbsp; A SimulatorGolfTour.com League
+      MashUp Golf &nbsp;·&nbsp; A SimulatorGolfTour.com League
     </div>
   </footer>
 
@@ -381,7 +381,7 @@
         <p class="text-gray-500 text-sm">${dateStr} &nbsp;·&nbsp; ${playerCount} Players ${event.buyIn ? '&nbsp;·&nbsp; $' + event.buyIn + ' Buy-in' : ''}</p>
         <p class="text-gray-600 text-xs mt-2 italic">${format.description}</p>
       `;
-      document.title = `${event.name} — MashUp Golf Tour`;
+      document.title = `${event.name} — MashUp Golf`;
     }
 
     function renderLeaderboard(results, event, format) {
