@@ -394,7 +394,7 @@
 
       if (event.status !== 'completed') {
         const season = seasons.find(s => s.id === event.season);
-        renderStreamForm(event, season?.players || []);
+        renderStreamForm(event, season?.players || [], format);
       }
 
       document.getElementById('loading').classList.add('hidden');
@@ -427,124 +427,162 @@
       document.title = `${event.name} — MashUp Golf`;
     }
 
-    function renderStreamForm(event, players) {
+    function renderStreamForm(event, players, format) {
       const container = document.getElementById('stream-form-container');
       if (!container) return;
 
-      const options = players.map(p => `<option value="${p}">${p}</option>`).join('');
+      const isRinger = format?.type === 'ringer';
+      const selectCls = 'w-full bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 font-heading tracking-wide focus:outline-none focus:border-flame';
+      const inputCls  = 'w-full bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-flame';
+      const options   = players.map(p => `<option value="${p}">${p}</option>`).join('');
 
-      container.innerHTML = `
-        <div class="card-shadow bg-card border border-border rounded-lg p-5 mb-2">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-lg">🎥</span>
-            <div>
-              <div class="font-heading font-700 text-white tracking-wide">Submit Your Stream Link</div>
-              <div class="text-xs text-gray-500 mt-0.5">Select all players in your stream, then paste your YouTube URL.</div>
+      if (isRinger) {
+        container.innerHTML = `
+          <div class="card-shadow bg-card border border-border rounded-lg p-5 mb-2">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-lg">🎥</span>
+              <div>
+                <div class="font-heading font-700 text-white tracking-wide">Submit Your Stream Links</div>
+                <div class="text-xs text-gray-500 mt-0.5">Solo Ringer — select your username and submit a link for each round you've completed.</div>
+              </div>
             </div>
-          </div>
-
-          <div class="space-y-3 mb-4">
-            <div id="player-selects" class="space-y-2">
-              <select id="player-0" class="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 font-heading tracking-wide focus:outline-none focus:border-flame" style="transition:border-color 0.15s">
+            <div class="space-y-3 mb-4">
+              <select id="ringer-player" class="${selectCls}" style="transition:border-color 0.15s">
                 <option value="">Select your username…</option>
                 ${options}
               </select>
+              <input id="r1-url" type="url" placeholder="Round 1 — https://youtube.com/live/…" autocomplete="off"
+                class="${inputCls}" style="transition:border-color 0.15s" />
+              <input id="r2-url" type="url" placeholder="Round 2 — https://youtube.com/live/… (leave blank if not yet played)"
+                autocomplete="off" class="${inputCls}" style="transition:border-color 0.15s" />
             </div>
-            <button id="add-player-btn" type="button"
-              class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame flex items-center gap-1"
-              style="transition:color 0.15s">
-              <span>+</span> Add another player
-            </button>
-          </div>
+            <div class="flex items-center gap-3">
+              <button id="stream-submit-btn" type="button"
+                class="flex items-center gap-2 bg-flame/10 border border-flame/40 hover:bg-flame/20 hover:border-flame/70 text-flame font-heading font-700 tracking-wider text-sm px-4 py-2 rounded"
+                style="transition:all 0.15s">
+                Submit Stream Links
+              </button>
+              <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
+            </div>
+          </div>`;
 
-          <div class="mb-4">
-            <input id="youtube-url" type="url" placeholder="https://youtube.com/live/..." autocomplete="off"
-              class="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-flame"
-              style="transition:border-color 0.15s" />
-          </div>
-
-          <div class="flex items-center gap-3">
-            <button id="stream-submit-btn" type="button"
-              class="flex items-center gap-2 bg-flame/10 border border-flame/40 hover:bg-flame/20 hover:border-flame/70 text-flame font-heading font-700 tracking-wider text-sm px-4 py-2 rounded"
-              style="transition:all 0.15s">
-              Submit Stream Link
-            </button>
-            <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
-          </div>
-        </div>
-      `;
-
-      let extraCount = 0;
-
-      document.getElementById('add-player-btn').addEventListener('click', () => {
-        if (extraCount >= 3) return;
-        extraCount++;
-        const idx = extraCount;
-        const wrap = document.createElement('div');
-        wrap.className = 'flex items-center gap-2';
-        wrap.id = `player-wrap-${idx}`;
-        wrap.innerHTML = `
-          <select id="player-${idx}" class="flex-1 bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 font-heading tracking-wide focus:outline-none focus:border-flame" style="transition:border-color 0.15s">
-            <option value="">Select player…</option>
-            ${options}
-          </select>
-          <button type="button" class="text-gray-600 hover:text-red-400 text-lg leading-none px-1" style="transition:color 0.15s"
-            onclick="document.getElementById('player-wrap-${idx}').remove(); extraCount--;">×</button>
-        `;
-        document.getElementById('player-selects').appendChild(wrap);
-        if (extraCount >= 3) document.getElementById('add-player-btn').classList.add('hidden');
-      });
-
-      document.getElementById('stream-submit-btn').addEventListener('click', async () => {
-        const status = document.getElementById('stream-status');
-        const btn = document.getElementById('stream-submit-btn');
-
-        const players = [];
-        for (let i = 0; i <= 3; i++) {
-          const sel = document.getElementById(`player-${i}`);
-          if (sel && sel.value) players.push(sel.value);
-        }
-        const youtubeUrl = document.getElementById('youtube-url').value.trim();
-
-        if (players.length === 0) {
-          showStatus(status, 'Please select at least one player.', 'error'); return;
-        }
-        if (!youtubeUrl) {
-          showStatus(status, 'Please enter your YouTube stream URL.', 'error'); return;
-        }
-
-        btn.disabled = true;
-        btn.textContent = 'Submitting…';
-        status.classList.add('hidden');
-
-        try {
-          const res = await fetch('/.netlify/functions/submit-stream', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              players,
-              youtubeUrl,
-              eventId: event.id,
-              eventName: event.name,
-            }),
-          });
-
-          if (res.ok) {
-            showStatus(status, '✓ Stream posted to Discord! Updating leaderboard…', 'success');
-            btn.textContent = 'Submitted';
-            setTimeout(() => location.reload(), 1800);
-          } else {
-            const msg = await res.text();
-            showStatus(status, msg || 'Something went wrong.', 'error');
-            btn.disabled = false;
-            btn.textContent = 'Submit Stream Link';
+        document.getElementById('stream-submit-btn').addEventListener('click', async () => {
+          const status  = document.getElementById('stream-status');
+          const btn     = document.getElementById('stream-submit-btn');
+          const player  = document.getElementById('ringer-player').value;
+          const r1      = document.getElementById('r1-url').value.trim();
+          const r2      = document.getElementById('r2-url').value.trim();
+          if (!player)     { showStatus(status, 'Please select your username.', 'error'); return; }
+          if (!r1 && !r2)  { showStatus(status, 'Enter at least one stream URL.', 'error'); return; }
+          btn.disabled = true; btn.textContent = 'Submitting…'; status.classList.add('hidden');
+          try {
+            const res = await fetch('/.netlify/functions/submit-stream', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ players: [player], round1Url: r1 || undefined, round2Url: r2 || undefined, eventId: event.id, eventName: event.name }),
+            });
+            if (res.ok) {
+              showStatus(status, '✓ Stream(s) posted to Discord! Updating leaderboard…', 'success');
+              btn.textContent = 'Submitted';
+              setTimeout(() => location.reload(), 1800);
+            } else {
+              showStatus(status, (await res.text()) || 'Something went wrong.', 'error');
+              btn.disabled = false; btn.textContent = 'Submit Stream Links';
+            }
+          } catch {
+            showStatus(status, 'Network error — please try again.', 'error');
+            btn.disabled = false; btn.textContent = 'Submit Stream Links';
           }
-        } catch {
-          showStatus(status, 'Network error — please try again.', 'error');
-          btn.disabled = false;
-          btn.textContent = 'Submit Stream Link';
-        }
-      });
+        });
+
+      } else {
+        // All other formats: multi-player, single URL
+        let extraCount = 0;
+        container.innerHTML = `
+          <div class="card-shadow bg-card border border-border rounded-lg p-5 mb-2">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-lg">🎥</span>
+              <div>
+                <div class="font-heading font-700 text-white tracking-wide">Submit Your Stream Link</div>
+                <div class="text-xs text-gray-500 mt-0.5">Select all players in your stream, then paste your YouTube URL.</div>
+              </div>
+            </div>
+            <div class="space-y-3 mb-4">
+              <div id="player-selects" class="space-y-2">
+                <select id="player-0" class="${selectCls}" style="transition:border-color 0.15s">
+                  <option value="">Select your username…</option>
+                  ${options}
+                </select>
+              </div>
+              <button id="add-player-btn" type="button"
+                class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame flex items-center gap-1"
+                style="transition:color 0.15s">
+                <span>+</span> Add another player
+              </button>
+            </div>
+            <div class="mb-4">
+              <input id="youtube-url" type="url" placeholder="https://youtube.com/live/…" autocomplete="off"
+                class="${inputCls}" style="transition:border-color 0.15s" />
+            </div>
+            <div class="flex items-center gap-3">
+              <button id="stream-submit-btn" type="button"
+                class="flex items-center gap-2 bg-flame/10 border border-flame/40 hover:bg-flame/20 hover:border-flame/70 text-flame font-heading font-700 tracking-wider text-sm px-4 py-2 rounded"
+                style="transition:all 0.15s">
+                Submit Stream Link
+              </button>
+              <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
+            </div>
+          </div>`;
+
+        document.getElementById('add-player-btn').addEventListener('click', () => {
+          if (extraCount >= 3) return;
+          extraCount++;
+          const idx = extraCount;
+          const wrap = document.createElement('div');
+          wrap.className = 'flex items-center gap-2';
+          wrap.id = `player-wrap-${idx}`;
+          wrap.innerHTML = `
+            <select id="player-${idx}" class="flex-1 bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 font-heading tracking-wide focus:outline-none focus:border-flame" style="transition:border-color 0.15s">
+              <option value="">Select player…</option>${options}
+            </select>
+            <button type="button" class="text-gray-600 hover:text-red-400 text-lg leading-none px-1" style="transition:color 0.15s"
+              onclick="document.getElementById('player-wrap-${idx}').remove(); extraCount--;">×</button>`;
+          document.getElementById('player-selects').appendChild(wrap);
+          if (extraCount >= 3) document.getElementById('add-player-btn').classList.add('hidden');
+        });
+
+        document.getElementById('stream-submit-btn').addEventListener('click', async () => {
+          const status = document.getElementById('stream-status');
+          const btn    = document.getElementById('stream-submit-btn');
+          const selectedPlayers = [];
+          for (let i = 0; i <= 3; i++) {
+            const sel = document.getElementById(`player-${i}`);
+            if (sel?.value) selectedPlayers.push(sel.value);
+          }
+          const youtubeUrl = document.getElementById('youtube-url').value.trim();
+          if (selectedPlayers.length === 0) { showStatus(status, 'Please select at least one player.', 'error'); return; }
+          if (!youtubeUrl)                  { showStatus(status, 'Please enter your YouTube stream URL.', 'error'); return; }
+          btn.disabled = true; btn.textContent = 'Submitting…'; status.classList.add('hidden');
+          try {
+            const res = await fetch('/.netlify/functions/submit-stream', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ players: selectedPlayers, youtubeUrl, eventId: event.id, eventName: event.name }),
+            });
+            if (res.ok) {
+              showStatus(status, '✓ Stream posted to Discord! Updating leaderboard…', 'success');
+              btn.textContent = 'Submitted';
+              setTimeout(() => location.reload(), 1800);
+            } else {
+              showStatus(status, (await res.text()) || 'Something went wrong.', 'error');
+              btn.disabled = false; btn.textContent = 'Submit Stream Link';
+            }
+          } catch {
+            showStatus(status, 'Network error — please try again.', 'error');
+            btn.disabled = false; btn.textContent = 'Submit Stream Link';
+          }
+        });
+      }
 
       function showStatus(el, msg, type) {
         el.textContent = msg;
@@ -553,33 +591,41 @@
       }
     }
 
-    function streamIcon(url) {
-      if (url) return `
-        <a href="${url}" target="_blank" rel="noopener" title="Watch stream on YouTube"
-           onclick="event.stopPropagation()" class="flex items-center justify-center w-6 h-5 rounded hover:opacity-80" style="transition:opacity 0.15s">
-          <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
-            <path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#ef4444"/>
-            <path d="M8 10 13.2 7 8 4v6z" fill="white"/>
-          </svg>
-        </a>`;
-      return `<span class="flex items-center justify-center w-6 h-5" title="No stream submitted">
-        <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
-          <path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#222"/>
-          <path d="M8 10 13.2 7 8 4v6z" fill="#3a3a3a"/>
-        </svg>
-      </span>`;
+    function ytIconSvg(active) {
+      return active
+        ? `<svg width="18" height="13" viewBox="0 0 20 14" fill="none"><path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#ef4444"/><path d="M8 10 13.2 7 8 4v6z" fill="white"/></svg>`
+        : `<svg width="18" height="13" viewBox="0 0 20 14" fill="none"><path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#222"/><path d="M8 10 13.2 7 8 4v6z" fill="#3a3a3a"/></svg>`;
     }
 
-    function getStreamUrl(streams, playerName) {
-      const lower = playerName.toLowerCase();
-      return streams[lower] || null;
+    // Returns HTML for stream icon cell — one icon for normal events, two for ringer
+    function streamIconCell(playerStreams, isRinger) {
+      if (isRinger) {
+        const r1 = playerStreams?.['1'] || null;
+        const r2 = playerStreams?.['2'] || null;
+        const icon1 = r1
+          ? `<a href="${r1}" target="_blank" rel="noopener" title="Round 1 stream" onclick="event.stopPropagation()" class="flex flex-col items-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}<span style="font-size:8px;color:#ef4444;line-height:1.2;font-family:'Barlow Condensed',sans-serif;font-weight:700">R1</span></a>`
+          : `<span class="flex flex-col items-center" title="No Round 1 stream">${ytIconSvg(false)}<span style="font-size:8px;color:#3a3a3a;line-height:1.2;font-family:'Barlow Condensed',sans-serif">R1</span></span>`;
+        const icon2 = r2
+          ? `<a href="${r2}" target="_blank" rel="noopener" title="Round 2 stream" onclick="event.stopPropagation()" class="flex flex-col items-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}<span style="font-size:8px;color:#ef4444;line-height:1.2;font-family:'Barlow Condensed',sans-serif;font-weight:700">R2</span></a>`
+          : `<span class="flex flex-col items-center" title="No Round 2 stream">${ytIconSvg(false)}<span style="font-size:8px;color:#3a3a3a;line-height:1.2;font-family:'Barlow Condensed',sans-serif">R2</span></span>`;
+        return `<div class="flex items-center gap-1">${icon1}${icon2}</div>`;
+      }
+      const url = playerStreams?.['1'] || null;
+      return url
+        ? `<a href="${url}" target="_blank" rel="noopener" title="Watch stream on YouTube" onclick="event.stopPropagation()" class="flex items-center justify-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}</a>`
+        : `<span class="flex items-center justify-center" title="No stream submitted">${ytIconSvg(false)}</span>`;
+    }
+
+    function getPlayerStreams(streams, playerName) {
+      return streams[playerName.toLowerCase()] || null;
     }
 
     function renderLeaderboard(results, event, format, streams = {}) {
       if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams); return; }
-      renderSoloLeaderboard(results, event, streams);
+      renderSoloLeaderboard(results, event, format, streams);
     }
-    function renderSoloLeaderboard(results, event, streams = {}) {
+    function renderSoloLeaderboard(results, event, format, streams = {}) {
+      const isRinger = format?.type === 'ringer';
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
 
@@ -600,7 +646,7 @@
             <table class="w-full text-sm">
               <thead>
                 <tr class="bg-surface">
-                  <th class="w-8 pl-3 py-3"></th>
+                  <th class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3"></th>
                   <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
                   <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Rnds</th>
@@ -630,9 +676,9 @@
         // Main row
         const tr = document.createElement('tr');
         tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'bg-[rgba(249,115,22,0.04)]' : ''}`;
-        const streamUrl = getStreamUrl(streams, player.player_name);
+        const playerStreams = getPlayerStreams(streams, player.player_name);
         tr.innerHTML = `
-          <td class="w-8 pl-3 py-3.5">${streamIcon(streamUrl)}</td>
+          <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5">${streamIconCell(playerStreams, isRinger)}</td>
           <td class="pos-col px-3 py-3.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-400'}">${posStr}</td>
           <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
           <td class="px-3 py-3.5 text-center text-gray-500 text-xs hidden sm:table-cell">${player.roundsPlayed}</td>
@@ -722,7 +768,8 @@
         const isLeader = team.position === 1;
 
         const memberHtml = team.displayMembers.map(m => {
-          const url = getStreamUrl(streams, m);
+          const ps = getPlayerStreams(streams, m);
+          const url = ps?.['1'] || null;
           const icon = url
             ? `<a href="${url}" target="_blank" rel="noopener" title="Watch ${m}'s stream" onclick="event.stopPropagation()" class="shrink-0 hover:opacity-80" style="transition:opacity 0.15s"><svg width="16" height="11" viewBox="0 0 20 14" fill="none"><path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#ef4444"/><path d="M8 10 13.2 7 8 4v6z" fill="white"/></svg></a>`
             : `<span class="shrink-0"><svg width="16" height="11" viewBox="0 0 20 14" fill="none"><path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#222"/><path d="M8 10 13.2 7 8 4v6z" fill="#3a3a3a"/></svg></span>`;
