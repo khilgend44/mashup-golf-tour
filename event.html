@@ -382,14 +382,12 @@
       const results = applyFormat(scorecards, format, event);
       applyPayouts(results, event.payouts);
 
-      // Fetch stream links for active events (non-fatal if unavailable)
+      // Fetch stream links (non-fatal if unavailable)
       let streams = {};
-      if (event.status !== 'completed') {
-        try {
-          const sr = await fetch(`/.netlify/functions/get-streams?eventId=${event.id}`);
-          if (sr.ok) streams = await sr.json();
-        } catch { /* stream icons just won't show */ }
-      }
+      try {
+        const sr = await fetch(`/.netlify/functions/get-streams?eventId=${event.id}`);
+        if (sr.ok) streams = await sr.json();
+      } catch { /* stream icons just won't show */ }
 
       renderHeader(event, format, results.length);
       renderLeaderboard(results, event, format, streams);
