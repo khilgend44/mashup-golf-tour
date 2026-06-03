@@ -601,9 +601,13 @@ function calcLoneRanger(scorecards, format, event) {
 export function applyPayouts(results, payouts) {
   if (!payouts || !payouts.length) return;
 
-  if (payouts.some(p => p.player)) {
+  // Side pots are individual prizes shown in their own section — exclude from leaderboard prize column
+  const mainPayouts = payouts.filter(p => !String(p.place).startsWith('side-'));
+  if (!mainPayouts.length) return;
+
+  if (mainPayouts.some(p => p.player)) {
     const map = {};
-    for (const p of payouts) if (p.player) map[p.player.toLowerCase()] = p.amount;
+    for (const p of mainPayouts) if (p.player) map[p.player.toLowerCase()] = p.amount;
     for (const r of results) {
       if (r.isTeam) {
         const matched = r.players.filter(p => map[p.name.toLowerCase()] != null);
@@ -615,7 +619,7 @@ export function applyPayouts(results, payouts) {
       }
     }
   } else {
-    const amountMap = Object.fromEntries(payouts.map(p => [p.place, p.amount]));
+    const amountMap = Object.fromEntries(mainPayouts.map(p => [p.place, p.amount]));
     const groups = {};
     for (const r of results) {
       if (!groups[r.position]) groups[r.position] = [];
