@@ -599,10 +599,12 @@ function calcLoneRanger(scorecards, format, event) {
 // Manual payouts: { place, player, amount } — matched case-insensitively.
 // Auto payouts:   { place, amount }         — assigned by position, split on ties.
 export function applyPayouts(results, payouts) {
+  console.log('[scoring v3] applyPayouts called, payouts:', payouts?.length);
   if (!payouts || !payouts.length) return;
 
   // Side pots are individual prizes shown in their own section — exclude from leaderboard prize column
   const mainPayouts = payouts.filter(p => !String(p.place).startsWith('side-'));
+  console.log('[scoring v3] mainPayouts after side-pot filter:', mainPayouts?.length);
   if (!mainPayouts.length) return;
 
   if (mainPayouts.some(p => p.player)) {
