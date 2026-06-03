@@ -394,7 +394,7 @@
 
       if (event.status !== 'completed') {
         const season = seasons.find(s => s.id === event.season);
-        renderStreamForm(event, season?.players || [], format);
+        renderStreamForm(event, season?.players || [], format, streams);
       }
 
       document.getElementById('loading').classList.add('hidden');
@@ -427,7 +427,7 @@
       document.title = `${event.name} — MashUp Golf`;
     }
 
-    function renderStreamForm(event, players, format) {
+    function renderStreamForm(event, players, format, streams = {}) {
       const container = document.getElementById('stream-form-container');
       if (!container) return;
 
@@ -451,10 +451,16 @@
                 <option value="">Select your username…</option>
                 ${options}
               </select>
-              <input id="r1-url" type="url" placeholder="Round 1 — https://youtube.com/live/…" autocomplete="off"
-                class="${inputCls}" style="transition:border-color 0.15s" />
-              <input id="r2-url" type="url" placeholder="Round 2 — https://youtube.com/live/… (leave blank if not yet played)"
-                autocomplete="off" class="${inputCls}" style="transition:border-color 0.15s" />
+              <div>
+                <input id="r1-url" type="url" placeholder="Round 1 — https://youtube.com/live/…" autocomplete="off"
+                  class="${inputCls}" style="transition:border-color 0.15s,box-shadow 0.15s" />
+                <div id="r1-status" class="hidden mt-1 text-xs font-heading tracking-wide"></div>
+              </div>
+              <div>
+                <input id="r2-url" type="url" placeholder="Round 2 — https://youtube.com/live/… (leave blank if not yet played)"
+                  autocomplete="off" class="${inputCls}" style="transition:border-color 0.15s,box-shadow 0.15s" />
+                <div id="r2-status" class="hidden mt-1 text-xs font-heading tracking-wide"></div>
+              </div>
             </div>
             <div class="flex items-center gap-3">
               <button id="stream-submit-btn" type="button"
@@ -465,6 +471,48 @@
               <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
             </div>
           </div>`;
+
+        // When a player is selected, reflect their already-submitted rounds
+        document.getElementById('ringer-player').addEventListener('change', function () {
+          const key = this.value.toLowerCase();
+          const ps  = streams[key] || {};
+
+          const r1Input  = document.getElementById('r1-url');
+          const r2Input  = document.getElementById('r2-url');
+          const r1Status = document.getElementById('r1-status');
+          const r2Status = document.getElementById('r2-status');
+
+          // Reset both fields first
+          [r1Input, r2Input].forEach(el => {
+            el.disabled = false;
+            el.value = '';
+            el.style.borderColor = '';
+            el.style.boxShadow = '';
+          });
+          [r1Status, r2Status].forEach(el => { el.className = 'hidden mt-1 text-xs font-heading tracking-wide'; el.textContent = ''; });
+
+          if (ps['1']) {
+            r1Input.value = ps['1'];
+            r1Input.disabled = true;
+            r1Input.style.borderColor = '#22c55e';
+            r1Status.textContent = '✓ Round 1 already submitted';
+            r1Status.className = 'mt-1 text-xs font-heading tracking-wide text-emerald-400';
+          }
+
+          if (ps['2']) {
+            r2Input.value = ps['2'];
+            r2Input.disabled = true;
+            r2Input.style.borderColor = '#22c55e';
+            r2Status.textContent = '✓ Round 2 already submitted';
+            r2Status.className = 'mt-1 text-xs font-heading tracking-wide text-emerald-400';
+          } else if (ps['1']) {
+            // R1 done but R2 missing — draw attention to R2
+            r2Input.style.borderColor = 'rgba(249,115,22,0.7)';
+            r2Input.style.boxShadow = '0 0 0 3px rgba(249,115,22,0.12)';
+            r2Status.textContent = '← Paste your Round 2 stream link here';
+            r2Status.className = 'mt-1 text-xs font-heading tracking-wide text-flame';
+          }
+        });
 
         document.getElementById('stream-submit-btn').addEventListener('click', async () => {
           const status  = document.getElementById('stream-status');
