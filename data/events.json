@@ -11,7 +11,7 @@
     "teeType": "Yellow",
     "rating": "74.1",
     "slope": 141,
-    "status": "active",
+    "status": "completed",
     "notes": "Administrative adjustment: tjak excluded from payout; remaining places shifted up.",
     "payoutPot": { "1": 125, "2": 99, "3": 75, "4": 60, "5": 50, "6": 33, "7": 20 },
     "payouts": [
