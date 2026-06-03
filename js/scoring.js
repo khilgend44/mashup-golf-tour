@@ -1,3 +1,5 @@
+console.log('[scoring v3] MODULE LOADED');
+
 export function applyFormat(scorecards, format, event = null) {
   switch (format.type) {
     case 'ringer':          return calcRinger(scorecards, format);
