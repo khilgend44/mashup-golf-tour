@@ -1,3 +1,15 @@
+const KV_NAMESPACE_ID = 'a6cbb9bc3e784be88136dbffe9f9796f';
+
+async function kvPut(accountId, apiToken, key, value) {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${apiToken}`, 'Content-Type': 'text/plain' },
+    body: value,
+  });
+  if (!res.ok) throw new Error(`KV put failed: ${res.status}`);
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -16,12 +28,9 @@ export async function onRequestPost(context) {
 
   const isRinger = !!(round1Url || round2Url);
 
-  if (!isRinger && !youtubeUrl) {
-    return new Response('Missing YouTube URL', { status: 400 });
-  }
+  if (!isRinger && !youtubeUrl) return new Response('Missing YouTube URL', { status: 400 });
 
   const ytPattern = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/)/;
-
   if (isRinger) {
     if (round1Url && !ytPattern.test(round1Url)) return new Response('Invalid Round 1 YouTube URL', { status: 400 });
     if (round2Url && !ytPattern.test(round2Url)) return new Response('Invalid Round 2 YouTube URL', { status: 400 });
@@ -33,33 +42,37 @@ export async function onRequestPost(context) {
   const webhookUrl = env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) return new Response('Webhook not configured', { status: 500 });
 
-  if (isRinger) {
-    const player = players[0].toLowerCase();
-    if (round1Url) await env.STREAMS.put(`${eventId}:${player}:1`, round1Url);
-    if (round2Url) await env.STREAMS.put(`${eventId}:${player}:2`, round2Url);
+  const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+  const apiToken  = env.CLOUDFLARE_API_TOKEN;
+  if (!accountId || !apiToken) return new Response('Storage not configured', { status: 500 });
 
-    const lines = [];
-    if (round1Url) lines.push(`Round 1: ${round1Url}`);
-    if (round2Url) lines.push(`Round 2: ${round2Url}`);
-    await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `🎥 **${players[0]}** posted stream(s) for **${eventName || eventId}**\n${lines.join('\n')}`,
-      }),
-    });
-  } else {
-    for (const player of players) {
-      await env.STREAMS.put(`${eventId}:${player.toLowerCase()}:1`, youtubeUrl);
+  try {
+    if (isRinger) {
+      const player = players[0].toLowerCase();
+      if (round1Url) await kvPut(accountId, apiToken, `${eventId}:${player}:1`, round1Url);
+      if (round2Url) await kvPut(accountId, apiToken, `${eventId}:${player}:2`, round2Url);
+
+      const lines = [];
+      if (round1Url) lines.push(`Round 1: ${round1Url}`);
+      if (round2Url) lines.push(`Round 2: ${round2Url}`);
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: `🎥 **${players[0]}** posted stream(s) for **${eventName || eventId}**\n${lines.join('\n')}` }),
+      });
+    } else {
+      for (const player of players) {
+        await kvPut(accountId, apiToken, `${eventId}:${player.toLowerCase()}:1`, youtubeUrl);
+      }
+      const playerList = players.join(', ');
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: `🎥 **${playerList}** ${players.length > 1 ? 'are' : 'is'} live for **${eventName || eventId}**\n${youtubeUrl}` }),
+      });
     }
-    const playerList = players.join(', ');
-    await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `🎥 **${playerList}** ${players.length > 1 ? 'are' : 'is'} live for **${eventName || eventId}**\n${youtubeUrl}`,
-      }),
-    });
+  } catch (err) {
+    return new Response(`Storage error: ${err.message}`, { status: 502 });
   }
 
   return Response.json({ ok: true });
