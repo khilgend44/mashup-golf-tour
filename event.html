@@ -752,6 +752,14 @@
             <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
               <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">Ringer Card — ${player.player_name}</div>
               ${buildScorecardHTML(player)}
+              <div class="mt-4 pt-3 border-t border-border">
+                <a href="https://simulatorgolftour.com/profile/${player.player_name}" target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
+                   style="transition:color 0.15s">
+                  <img src="brand_assets/sgt_emblem.svg" class="h-3.5 w-auto opacity-50" />
+                  SGT Profile <span class="text-[#d03f25]">→</span>
+                </a>
+              </div>
             </div>
           </td>
         `;
@@ -854,6 +862,15 @@
                 Team Scorecard — ${team.displayMembers.join(' / ')}
               </div>
               ${buildTeamScorecardHTML(team, format)}
+              <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
+                ${team.displayMembers.map(m => `
+                  <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
+                     class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
+                     style="transition:color 0.15s">
+                    <img src="brand_assets/sgt_emblem.svg" class="h-3.5 w-auto opacity-50" />
+                    ${m} <span class="text-[#d03f25]">→</span>
+                  </a>`).join('')}
+              </div>
             </div>
           </td>
         `;
@@ -1414,6 +1431,15 @@
                   <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
                     <div class="text-xs font-heading tracking-wider text-gray-500 uppercase mb-3">Team Scorecard — ${team.displayMembers.join(' / ')}</div>
                     ${scHtml}
+                    <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
+                      ${team.displayMembers.map(m => `
+                        <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
+                           style="transition:color 0.15s">
+                          <img src="brand_assets/sgt_emblem.svg" class="h-3.5 w-auto opacity-50" />
+                          ${m} <span class="text-[#d03f25]">→</span>
+                        </a>`).join('')}
+                    </div>
                   </div>
                 </td>
               </tr>`;
