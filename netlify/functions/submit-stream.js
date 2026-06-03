@@ -10,16 +10,20 @@ exports.handler = async function (event) {
     return { statusCode: 400, body: 'Invalid JSON' };
   }
 
-  const { player, youtubeUrl, eventId, eventName } = body;
+  const { players, youtubeUrl, eventId, eventName } = body;
 
-  if (!player || !youtubeUrl || !eventId) {
+  if (!players || !Array.isArray(players) || players.length === 0 || !youtubeUrl || !eventId) {
     return { statusCode: 400, body: 'Missing required fields' };
+  }
+
+  if (players.length > 4) {
+    return { statusCode: 400, body: 'Maximum 4 players per stream' };
   }
 
   // Basic YouTube URL validation
   const ytPattern = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/)/;
   if (!ytPattern.test(youtubeUrl)) {
-    return { statusCode: 400, body: 'Invalid YouTube URL' };
+    return { statusCode: 400, body: 'Please enter a valid YouTube URL' };
   }
 
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
@@ -27,9 +31,9 @@ exports.handler = async function (event) {
     return { statusCode: 500, body: 'Webhook not configured' };
   }
 
-  // Post to Discord
+  const playerList = players.join(', ');
   const discordMessage = {
-    content: `🎥 **${player}** is live for **${eventName || eventId}**\n${youtubeUrl}`,
+    content: `🎥 **${playerList}** ${players.length > 1 ? 'are' : 'is'} live for **${eventName || eventId}**\n${youtubeUrl}`,
   };
 
   const discordRes = await fetch(webhookUrl, {

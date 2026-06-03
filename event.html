@@ -190,6 +190,9 @@
     </div>
   </section>
 
+  <!-- STREAM FORM (active events only, populated by JS) -->
+  <div id="stream-form-container" class="max-w-6xl mx-auto px-4 pt-6"></div>
+
   <!-- LEADERBOARD -->
   <main class="max-w-6xl mx-auto px-4 py-8 pb-20">
     <div id="loading" class="text-center py-20">
@@ -225,7 +228,7 @@
   </footer>
 
   <script type="module">
-    import { fetchScorecards, loadEvents, loadFormats } from './js/api.js';
+    import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js';
     import { applyFormat, applyPayouts, formatToPar, holeScoreClass } from './js/scoring.js';
 
     const params = new URLSearchParams(window.location.search);
@@ -238,7 +241,7 @@
         return;
       }
 
-      const [events, formats] = await Promise.all([loadEvents(), loadFormats()]);
+      const [events, formats, seasons] = await Promise.all([loadEvents(), loadFormats(), loadSeasons()]);
 
       const event = events.find(e =>
         (numericId && e.tournamentId === numericId) || e.id === idParam
@@ -382,6 +385,11 @@
       renderHeader(event, format, results.length);
       renderLeaderboard(results, event, format);
 
+      if (event.status !== 'completed') {
+        const season = seasons.find(s => s.id === event.season);
+        renderStreamForm(event, season?.players || []);
+      }
+
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
 
@@ -410,6 +418,131 @@
         <p class="text-gray-600 text-xs mt-2 italic">${format.description}</p>
       `;
       document.title = `${event.name} — MashUp Golf`;
+    }
+
+    function renderStreamForm(event, players) {
+      const container = document.getElementById('stream-form-container');
+      if (!container) return;
+
+      const options = players.map(p => `<option value="${p}">${p}</option>`).join('');
+
+      container.innerHTML = `
+        <div class="card-shadow bg-card border border-border rounded-lg p-5 mb-2">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="text-lg">🎥</span>
+            <div>
+              <div class="font-heading font-700 text-white tracking-wide">Submit Your Stream Link</div>
+              <div class="text-xs text-gray-500 mt-0.5">Select all players in your stream, then paste your YouTube URL.</div>
+            </div>
+          </div>
+
+          <div class="space-y-3 mb-4">
+            <div id="player-selects" class="space-y-2">
+              <select id="player-0" class="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 font-heading tracking-wide focus:outline-none focus:border-flame" style="transition:border-color 0.15s">
+                <option value="">Select your username…</option>
+                ${options}
+              </select>
+            </div>
+            <button id="add-player-btn" type="button"
+              class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame flex items-center gap-1"
+              style="transition:color 0.15s">
+              <span>+</span> Add another player
+            </button>
+          </div>
+
+          <div class="mb-4">
+            <input id="youtube-url" type="url" placeholder="https://youtube.com/live/..." autocomplete="off"
+              class="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-flame"
+              style="transition:border-color 0.15s" />
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button id="stream-submit-btn" type="button"
+              class="flex items-center gap-2 bg-flame/10 border border-flame/40 hover:bg-flame/20 hover:border-flame/70 text-flame font-heading font-700 tracking-wider text-sm px-4 py-2 rounded"
+              style="transition:all 0.15s">
+              Submit Stream Link
+            </button>
+            <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
+          </div>
+        </div>
+      `;
+
+      let extraCount = 0;
+
+      document.getElementById('add-player-btn').addEventListener('click', () => {
+        if (extraCount >= 3) return;
+        extraCount++;
+        const idx = extraCount;
+        const wrap = document.createElement('div');
+        wrap.className = 'flex items-center gap-2';
+        wrap.id = `player-wrap-${idx}`;
+        wrap.innerHTML = `
+          <select id="player-${idx}" class="flex-1 bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 font-heading tracking-wide focus:outline-none focus:border-flame" style="transition:border-color 0.15s">
+            <option value="">Select player…</option>
+            ${options}
+          </select>
+          <button type="button" class="text-gray-600 hover:text-red-400 text-lg leading-none px-1" style="transition:color 0.15s"
+            onclick="document.getElementById('player-wrap-${idx}').remove(); extraCount--;">×</button>
+        `;
+        document.getElementById('player-selects').appendChild(wrap);
+        if (extraCount >= 3) document.getElementById('add-player-btn').classList.add('hidden');
+      });
+
+      document.getElementById('stream-submit-btn').addEventListener('click', async () => {
+        const status = document.getElementById('stream-status');
+        const btn = document.getElementById('stream-submit-btn');
+
+        const players = [];
+        for (let i = 0; i <= 3; i++) {
+          const sel = document.getElementById(`player-${i}`);
+          if (sel && sel.value) players.push(sel.value);
+        }
+        const youtubeUrl = document.getElementById('youtube-url').value.trim();
+
+        if (players.length === 0) {
+          showStatus(status, 'Please select at least one player.', 'error'); return;
+        }
+        if (!youtubeUrl) {
+          showStatus(status, 'Please enter your YouTube stream URL.', 'error'); return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+        status.classList.add('hidden');
+
+        try {
+          const res = await fetch('/.netlify/functions/submit-stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              players,
+              youtubeUrl,
+              eventId: event.id,
+              eventName: event.name,
+            }),
+          });
+
+          if (res.ok) {
+            showStatus(status, '✓ Stream posted to Discord!', 'success');
+            btn.textContent = 'Submitted';
+          } else {
+            const msg = await res.text();
+            showStatus(status, msg || 'Something went wrong.', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Submit Stream Link';
+          }
+        } catch {
+          showStatus(status, 'Network error — please try again.', 'error');
+          btn.disabled = false;
+          btn.textContent = 'Submit Stream Link';
+        }
+      });
+
+      function showStatus(el, msg, type) {
+        el.textContent = msg;
+        el.className = `text-xs font-heading tracking-wide ${type === 'success' ? 'text-emerald-400' : 'text-red-400'}`;
+        el.classList.remove('hidden');
+      }
     }
 
     function renderLeaderboard(results, event, format) {
