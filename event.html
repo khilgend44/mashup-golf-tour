@@ -484,7 +484,7 @@
             if (res.ok) {
               showStatus(status, '✓ Stream(s) posted to Discord! Updating leaderboard…', 'success');
               btn.textContent = 'Submitted';
-              setTimeout(() => location.reload(), 1800);
+              setTimeout(() => location.reload(), 3000);
             } else {
               showStatus(status, (await res.text()) || 'Something went wrong.', 'error');
               btn.disabled = false; btn.textContent = 'Submit Stream Links';
@@ -572,7 +572,7 @@
             if (res.ok) {
               showStatus(status, '✓ Stream posted to Discord! Updating leaderboard…', 'success');
               btn.textContent = 'Submitted';
-              setTimeout(() => location.reload(), 1800);
+              setTimeout(() => location.reload(), 3000);
             } else {
               showStatus(status, (await res.text()) || 'Something went wrong.', 'error');
               btn.disabled = false; btn.textContent = 'Submit Stream Link';

@@ -8,7 +8,7 @@ export default async (req) => {
     return new Response('Missing eventId', { status: 400 });
   }
 
-  const store = getStore('streams');
+  const store = getStore({ name: 'streams', consistency: 'strong' });
   const { blobs } = await store.list({ prefix: `${eventId}:` });
 
   // Group by player: { playerName: { "1": url, "2": url } }

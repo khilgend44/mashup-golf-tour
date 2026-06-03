@@ -39,7 +39,7 @@ export default async (req) => {
     return new Response('Webhook not configured', { status: 500 });
   }
 
-  const store = getStore('streams');
+  const store = getStore({ name: 'streams', consistency: 'strong' });
 
   if (isRinger) {
     // Solo ringer: one player, up to two rounds
