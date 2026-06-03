@@ -1,13 +1,9 @@
-import { getStore } from '@netlify/blobs';
-
-export default async (req) => {
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
-  }
+export async function onRequestPost(context) {
+  const { request, env } = context;
 
   let body;
   try {
-    body = await req.json();
+    body = await request.json();
   } catch {
     return new Response('Invalid JSON', { status: 400 });
   }
@@ -34,50 +30,37 @@ export default async (req) => {
     if (!ytPattern.test(youtubeUrl)) return new Response('Please enter a valid YouTube URL', { status: 400 });
   }
 
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  if (!webhookUrl) {
-    return new Response('Webhook not configured', { status: 500 });
-  }
-
-  const store = getStore({ name: 'streams', consistency: 'strong' });
+  const webhookUrl = env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl) return new Response('Webhook not configured', { status: 500 });
 
   if (isRinger) {
-    // Solo ringer: one player, up to two rounds
     const player = players[0].toLowerCase();
-    if (round1Url) await store.set(`${eventId}:${player}:1`, round1Url);
-    if (round2Url) await store.set(`${eventId}:${player}:2`, round2Url);
+    if (round1Url) await env.STREAMS.put(`${eventId}:${player}:1`, round1Url);
+    if (round2Url) await env.STREAMS.put(`${eventId}:${player}:2`, round2Url);
 
     const lines = [];
     if (round1Url) lines.push(`Round 1: ${round1Url}`);
     if (round2Url) lines.push(`Round 2: ${round2Url}`);
-    const discordMessage = {
-      content: `🎥 **${players[0]}** posted stream(s) for **${eventName || eventId}**\n${lines.join('\n')}`,
-    };
-    const discordRes = await fetch(webhookUrl, {
+    await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(discordMessage),
+      body: JSON.stringify({
+        content: `🎥 **${players[0]}** posted stream(s) for **${eventName || eventId}**\n${lines.join('\n')}`,
+      }),
     });
-    if (!discordRes.ok) return new Response('Failed to post to Discord', { status: 502 });
-
   } else {
-    // All other formats: up to 4 players sharing one stream
     for (const player of players) {
-      await store.set(`${eventId}:${player.toLowerCase()}:1`, youtubeUrl);
+      await env.STREAMS.put(`${eventId}:${player.toLowerCase()}:1`, youtubeUrl);
     }
     const playerList = players.join(', ');
-    const discordMessage = {
-      content: `🎥 **${playerList}** ${players.length > 1 ? 'are' : 'is'} live for **${eventName || eventId}**\n${youtubeUrl}`,
-    };
-    const discordRes = await fetch(webhookUrl, {
+    await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(discordMessage),
+      body: JSON.stringify({
+        content: `🎥 **${playerList}** ${players.length > 1 ? 'are' : 'is'} live for **${eventName || eventId}**\n${youtubeUrl}`,
+      }),
     });
-    if (!discordRes.ok) return new Response('Failed to post to Discord', { status: 502 });
   }
 
   return Response.json({ ok: true });
-};
-
-export const config = { path: '/.netlify/functions/submit-stream' };
+}

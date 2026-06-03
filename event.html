@@ -229,7 +229,7 @@
 
   <script type="module">
     import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass } from './js/scoring.js?v=4';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass } from './js/scoring.js';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -385,7 +385,7 @@
       // Fetch stream links (non-fatal if unavailable)
       let streams = {};
       try {
-        const sr = await fetch(`/.netlify/functions/get-streams?eventId=${event.id}`);
+        const sr = await fetch(`/api/get-streams?eventId=${event.id}`);
         if (sr.ok) streams = await sr.json();
       } catch { /* stream icons just won't show */ }
 
@@ -531,7 +531,7 @@
           if (!r1 && !r2)  { showStatus(status, 'Enter at least one stream URL.', 'error'); return; }
           btn.disabled = true; btn.textContent = 'Submitting…'; status.classList.add('hidden');
           try {
-            const res = await fetch('/.netlify/functions/submit-stream', {
+            const res = await fetch('/api/submit-stream', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ players: [player], round1Url: r1 || undefined, round2Url: r2 || undefined, eventId: event.id, eventName: event.name }),
@@ -619,7 +619,7 @@
           if (!youtubeUrl)                  { showStatus(status, 'Please enter your YouTube stream URL.', 'error'); return; }
           btn.disabled = true; btn.textContent = 'Submitting…'; status.classList.add('hidden');
           try {
-            const res = await fetch('/.netlify/functions/submit-stream', {
+            const res = await fetch('/api/submit-stream', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ players: selectedPlayers, youtubeUrl, eventId: event.id, eventName: event.name }),
