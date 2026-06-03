@@ -969,15 +969,12 @@
       const front = [0,1,2,3,4,5,6,7,8];
       const back  = [9,10,11,12,13,14,15,16,17];
 
-      function holeCell(i) {
-        const score = p.ringerCard[i];
-        const par   = p.pars[i];
-        const cls   = holeScoreClass(score, par);
-        const rnd   = p.ringerRound[i];
+      function scoreCell(score, par, extra = '') {
+        const cls = holeScoreClass(score, par);
         return `<td class="${cls}" style="padding:3px 4px">
           <div style="display:flex;flex-direction:column;align-items:center">
             <span class="sc-score">${score}</span>
-            <span class="rnd-badge">R${rnd}</span>
+            ${extra ? `<span class="rnd-badge">${extra}</span>` : ''}
           </div>
         </td>`;
       }
@@ -985,6 +982,26 @@
       const frontOut = p.ringerCard.slice(0,9).reduce((a,b)=>a+b,0);
       const backIn   = p.ringerCard.slice(9).reduce((a,b)=>a+b,0);
       const toParCls = p.toPar < 0 ? 'under' : p.toPar > 0 ? 'over' : 'even';
+
+      const showRounds = p.rounds && p.rounds.length > 1;
+
+      const roundRows = showRounds ? p.rounds.map(rnd => {
+        const rOut = rnd.net.slice(0,9).reduce((a,b)=>a+b,0);
+        const rIn  = rnd.net.slice(9).reduce((a,b)=>a+b,0);
+        const rTot = rnd.total;
+        const rToPar = rTot - p.totalPar;
+        const rCls = rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
+        return `
+          <tr class="score-row" style="opacity:0.65">
+            <td class="name-cell" style="color:#888">RND ${rnd.round}</td>
+            ${front.map(i => scoreCell(rnd.net[i], p.pars[i])).join('')}
+            <td class="sub-cell">${rOut}</td>
+            ${back.map(i => scoreCell(rnd.net[i], p.pars[i])).join('')}
+            <td class="sub-cell">${rIn}</td>
+            <td class="total-cell">${rTot}</td>
+            <td class="topar-cell ${rCls}">${formatToPar(rToPar)}</td>
+          </tr>`;
+      }).join('') : '';
 
       return `
         <div class="sc-wrap">
@@ -1019,11 +1036,12 @@
                 <td class="sub-cell"></td>
                 <td></td>
               </tr>
+              ${roundRows}
               <tr class="score-row">
-                <td class="name-cell">${p.player_name}</td>
-                ${front.map(i => holeCell(i)).join('')}
+                <td class="name-cell" style="${showRounds ? 'color:#f97316' : ''}">${showRounds ? 'RINGER' : p.player_name}</td>
+                ${front.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`)).join('')}
                 <td class="sub-cell">${frontOut}</td>
-                ${back.map(i => holeCell(i)).join('')}
+                ${back.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`)).join('')}
                 <td class="sub-cell">${backIn}</td>
                 <td class="total-cell">${p.total}</td>
                 <td class="topar-cell ${toParCls}">${formatToPar(p.toPar)}</td>
@@ -1035,8 +1053,8 @@
           <span><span class="sc-score eagle inline-flex" style="width:16px;height:16px;font-size:9px">◆</span> Eagle+</span>
           <span><span class="sc-score birdie inline-flex" style="width:16px;height:16px;font-size:9px">◆</span> Birdie</span>
           <span class="text-gray-500">Par · <span class="bogey">Bogey</span> · <span class="double" style="background:#ef4444;color:#fff;padding:0 2px;border-radius:2px">Dbl+</span></span>
-          <span class="ml-2 text-gray-700">R1/R2 = round that contributed the score</span>
-          ${p.roundsPlayed > 1 ? `<span class="ml-auto text-gray-600">36-hole net total: <span class="text-gray-400 font-medium">${p.totalNetAllRounds}</span> (tiebreaker)</span>` : ''}
+          ${showRounds ? `<span class="ml-2 text-gray-700">R1/R2 = round that contributed the ringer score</span>` : ''}
+          ${p.roundsPlayed > 1 ? `<span class="ml-auto text-gray-600">36-hole net: <span class="text-gray-400 font-medium">${p.totalNetAllRounds}</span> (tiebreaker)</span>` : ''}
         </div>
       `;
     }

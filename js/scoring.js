@@ -28,11 +28,17 @@ function calcRinger(scorecards, format) {
         indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
         roundsPlayed: 0,
         totalNetAllRounds: 0,
+        rounds: [],
       };
     }
     players[name].roundsPlayed++;
     players[name].totalNetAllRounds += card.total_net;
     const scores = Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_${basis}`]);
+    players[name].rounds.push({
+      round: card.round,
+      net: scores,
+      total: card.total_net,
+    });
     for (let i = 0; i < 18; i++) {
       const s = scores[i];
       if (s > 0 && (players[name].ringerCard[i] === null || s < players[name].ringerCard[i])) {
@@ -50,11 +56,13 @@ function calcRinger(scorecards, format) {
     const inPar = p.pars.slice(9).reduce((a, b) => a + b, 0);
     const total = out + inn;
     const totalPar = outPar + inPar;
+    const rounds = [...p.rounds].sort((a, b) => a.round - b.round);
     return {
       isTeam: false,
       player_name: p.player_name,
       ringerCard: card,
       ringerRound: p.ringerRound,
+      rounds,
       pars: p.pars,
       indices: p.indices,
       roundsPlayed: p.roundsPlayed,
