@@ -382,8 +382,17 @@
       const results = applyFormat(scorecards, format, event);
       applyPayouts(results, event.payouts);
 
+      // Fetch stream links for active events (non-fatal if unavailable)
+      let streams = {};
+      if (event.status !== 'completed') {
+        try {
+          const sr = await fetch(`/.netlify/functions/get-streams?eventId=${event.id}`);
+          if (sr.ok) streams = await sr.json();
+        } catch { /* stream icons just won't show */ }
+      }
+
       renderHeader(event, format, results.length);
-      renderLeaderboard(results, event, format);
+      renderLeaderboard(results, event, format, streams);
 
       if (event.status !== 'completed') {
         const season = seasons.find(s => s.id === event.season);
@@ -523,8 +532,9 @@
           });
 
           if (res.ok) {
-            showStatus(status, '✓ Stream posted to Discord!', 'success');
+            showStatus(status, '✓ Stream posted to Discord! Updating leaderboard…', 'success');
             btn.textContent = 'Submitted';
+            setTimeout(() => location.reload(), 1800);
           } else {
             const msg = await res.text();
             showStatus(status, msg || 'Something went wrong.', 'error');
@@ -545,11 +555,33 @@
       }
     }
 
-    function renderLeaderboard(results, event, format) {
-      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format); return; }
-      renderSoloLeaderboard(results, event);
+    function streamIcon(url) {
+      if (url) return `
+        <a href="${url}" target="_blank" rel="noopener" title="Watch stream on YouTube"
+           onclick="event.stopPropagation()" class="flex items-center justify-center w-6 h-5 rounded hover:opacity-80" style="transition:opacity 0.15s">
+          <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
+            <path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#ef4444"/>
+            <path d="M8 10 13.2 7 8 4v6z" fill="white"/>
+          </svg>
+        </a>`;
+      return `<span class="flex items-center justify-center w-6 h-5" title="No stream submitted">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
+          <path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#222"/>
+          <path d="M8 10 13.2 7 8 4v6z" fill="#3a3a3a"/>
+        </svg>
+      </span>`;
     }
-    function renderSoloLeaderboard(results, event) {
+
+    function getStreamUrl(streams, playerName) {
+      const lower = playerName.toLowerCase();
+      return streams[lower] || null;
+    }
+
+    function renderLeaderboard(results, event, format, streams = {}) {
+      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams); return; }
+      renderSoloLeaderboard(results, event, streams);
+    }
+    function renderSoloLeaderboard(results, event, streams = {}) {
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
 
@@ -570,6 +602,7 @@
             <table class="w-full text-sm">
               <thead>
                 <tr class="bg-surface">
+                  <th class="w-8 pl-3 py-3"></th>
                   <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
                   <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Rnds</th>
@@ -599,7 +632,9 @@
         // Main row
         const tr = document.createElement('tr');
         tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'bg-[rgba(249,115,22,0.04)]' : ''}`;
+        const streamUrl = getStreamUrl(streams, player.player_name);
         tr.innerHTML = `
+          <td class="w-8 pl-3 py-3.5">${streamIcon(streamUrl)}</td>
           <td class="pos-col px-3 py-3.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-400'}">${posStr}</td>
           <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
           <td class="px-3 py-3.5 text-center text-gray-500 text-xs hidden sm:table-cell">${player.roundsPlayed}</td>
@@ -638,7 +673,7 @@
     }
 
     // ── Team event leaderboard ───────────────────────────────────────────────
-    function renderTeamLeaderboard(results, event, format) {
+    function renderTeamLeaderboard(results, event, format, streams = {}) {
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
 
@@ -659,6 +694,7 @@
             <table class="w-full text-sm">
               <thead>
                 <tr class="bg-surface">
+                  <th class="w-8 pl-3 py-3"></th>
                   <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
                   <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
@@ -687,13 +723,18 @@
           : '—';
         const isLeader = team.position === 1;
 
-        const memberHtml = team.displayMembers.map(m =>
-          `<div class="text-xs text-gray-300">${m}</div>`
-        ).join('');
+        const memberHtml = team.displayMembers.map(m => {
+          const url = getStreamUrl(streams, m);
+          const icon = url
+            ? `<a href="${url}" target="_blank" rel="noopener" title="Watch ${m}'s stream" onclick="event.stopPropagation()" class="shrink-0 hover:opacity-80" style="transition:opacity 0.15s"><svg width="16" height="11" viewBox="0 0 20 14" fill="none"><path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#ef4444"/><path d="M8 10 13.2 7 8 4v6z" fill="white"/></svg></a>`
+            : `<span class="shrink-0"><svg width="16" height="11" viewBox="0 0 20 14" fill="none"><path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#222"/><path d="M8 10 13.2 7 8 4v6z" fill="#3a3a3a"/></svg></span>`;
+          return `<div class="flex items-center gap-1.5">${icon}<span class="text-xs text-gray-300">${m}</span></div>`;
+        }).join('');
 
         const tr = document.createElement('tr');
         tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'bg-[rgba(249,115,22,0.04)]' : ''}`;
         tr.innerHTML = `
+          <td class="w-8 pl-3 py-3"></td>
           <td class="pos-col px-3 py-3 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-400'}">${posStr}</td>
           <td class="px-4 py-3 leading-snug">${memberHtml}</td>
           <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${team.out}</td>
