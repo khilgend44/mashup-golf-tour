@@ -1,0 +1,6 @@
+name = "mashup-golf-tour"
+pages_build_output_dir = "."
+
+[[kv_namespaces]]
+binding = "STREAMS"
+id = "a6cbb9bc3e784be88136dbffe9f9796f"
