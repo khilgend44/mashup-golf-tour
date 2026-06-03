@@ -489,27 +489,34 @@
             el.style.borderColor = '';
             el.style.boxShadow = '';
           });
-          [r1Status, r2Status].forEach(el => { el.className = 'hidden mt-1 text-xs font-heading tracking-wide'; el.textContent = ''; });
+          [r1Status, r2Status].forEach(el => { el.className = 'hidden mt-1 text-xs font-heading tracking-wide'; el.innerHTML = ''; });
 
-          if (ps['1']) {
-            r1Input.value = ps['1'];
-            r1Input.disabled = true;
-            r1Input.style.borderColor = '#22c55e';
-            r1Status.textContent = '✓ Round 1 already submitted';
-            r1Status.className = 'mt-1 text-xs font-heading tracking-wide text-emerald-400';
+          function lockRound(input, statusEl, roundNum) {
+            input.disabled = true;
+            input.style.borderColor = '#22c55e';
+            input.style.boxShadow = '';
+            statusEl.className = 'mt-1 text-xs font-heading tracking-wide text-emerald-400 flex items-center gap-2';
+            statusEl.innerHTML = `✓ Round ${roundNum} already submitted &nbsp;·&nbsp; <button class="rnd-reset text-gray-500 hover:text-red-400 underline underline-offset-2" style="transition:color 0.12s" data-round="${roundNum}">Wrong link? Reset</button>`;
+            statusEl.querySelector('.rnd-reset').addEventListener('click', () => {
+              if (!confirm(`Replace your Round ${roundNum} stream link?`)) return;
+              input.disabled = false;
+              input.value = '';
+              input.style.borderColor = '';
+              input.style.boxShadow = '';
+              statusEl.className = 'hidden mt-1 text-xs font-heading tracking-wide';
+              statusEl.innerHTML = '';
+              input.focus();
+            });
           }
 
+          if (ps['1']) lockRound(r1Input, r1Status, 1);
+
           if (ps['2']) {
-            r2Input.value = ps['2'];
-            r2Input.disabled = true;
-            r2Input.style.borderColor = '#22c55e';
-            r2Status.textContent = '✓ Round 2 already submitted';
-            r2Status.className = 'mt-1 text-xs font-heading tracking-wide text-emerald-400';
+            lockRound(r2Input, r2Status, 2);
           } else if (ps['1']) {
-            // R1 done but R2 missing — draw attention to R2
             r2Input.style.borderColor = 'rgba(249,115,22,0.7)';
             r2Input.style.boxShadow = '0 0 0 3px rgba(249,115,22,0.12)';
-            r2Status.textContent = '← Paste your Round 2 stream link here';
+            r2Status.innerHTML = '← Paste your Round 2 stream link here';
             r2Status.className = 'mt-1 text-xs font-heading tracking-wide text-flame';
           }
         });
