@@ -35,7 +35,7 @@ jobs:
             data/events.json | while read tid; do
               echo "Fetching tournament $tid..."
               curl -sf \
-                "https://simulatorgolftour.com/sgt-api/mashup/tournaments/${tid}/scorecards?key=${SGT_API_KEY}/noTruncate" \
+                "https://simulatorgolftour.com/sgt-api/mashup/tournaments/${tid}/scorecards?key=${SGT_API_KEY}&noTruncate" \
                 -o "data/scorecards/${tid}.json"
               echo "  → saved data/scorecards/${tid}.json"
           done
