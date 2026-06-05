@@ -307,10 +307,13 @@
     }
 
     function statCard(label, value, sub) {
+      const valClass = String(value).length > 8
+        ? 'font-heading font-700 text-base sm:text-lg tracking-wide'
+        : 'font-display text-3xl sm:text-4xl tracking-wider';
       return `
         <div class="card-shadow bg-card border border-border rounded-lg px-4 py-5">
           <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1.5">${label}</div>
-          <div class="font-display text-3xl sm:text-4xl tracking-wider text-white leading-none">${value}</div>
+          <div class="${valClass} text-white leading-tight break-all">${value}</div>
           ${sub ? `<div class="text-xs text-gray-500 mt-1.5 font-body">${sub}</div>` : ''}
         </div>`;
     }
