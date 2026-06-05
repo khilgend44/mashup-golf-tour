@@ -340,14 +340,28 @@
       if (!standings.length) return '<p class="text-gray-600 text-sm">No data.</p>';
 
       const rows = standings.map((p, i) => {
-        const rank = i + 1;
-        const rankCell = rank === 1
+        // Tied players share the same rank (standard competition ranking)
+        const rank = i === 0 ? 1 : standings[i].points === standings[i - 1].points
+          ? null  // same rank as previous — resolved below
+          : i + 1;
+        // Walk back to find the true rank for tied groups
+        let displayRank = rank;
+        if (rank === null) {
+          let j = i - 1;
+          while (j > 0 && standings[j].points === standings[i].points) j--;
+          displayRank = standings[j].points === standings[i].points ? j + 1 : j + 2;
+        }
+        const isTied = standings.filter(s => s.points === p.points).length > 1 && p.points > 0;
+        const rankLabel = isTied ? `T${displayRank}` : `${displayRank}`;
+        const rankCell = displayRank === 1 && !isTied
           ? `<span class="font-display text-lg tracking-wider text-yellow-400">1</span>`
-          : rank === 2
-          ? `<span class="font-display text-lg tracking-wider text-slate-400">2</span>`
-          : rank === 3
-          ? `<span class="font-display text-lg tracking-wider text-amber-600">3</span>`
-          : `<span class="text-gray-600 font-heading text-sm">${rank}</span>`;
+          : displayRank === 1
+          ? `<span class="font-heading font-700 text-sm text-yellow-400">${rankLabel}</span>`
+          : displayRank === 2
+          ? `<span class="font-heading font-700 text-sm text-slate-400">${rankLabel}</span>`
+          : displayRank === 3
+          ? `<span class="font-heading font-700 text-sm text-amber-600">${rankLabel}</span>`
+          : `<span class="text-gray-600 font-heading text-sm">${rankLabel}</span>`;
 
         return `
           <tr class="table-row border-b border-border/40">
