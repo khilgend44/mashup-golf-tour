@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Season 9 Recap — MashUp Golf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .hero-glow {
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(249,115,22,0.15) 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 30% at 50% 0%, rgba(249,115,22,0.07) 0%, transparent 60%);
+    }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .table-row { transition: background 0.1s; }
+    .table-row:hover { background: rgba(255,255,255,0.03); }
+    .event-card { transition: background 0.12s, transform 0.12s; }
+    .event-card:hover { background: #252525; transform: translateY(-1px); }
+    .format-badge {
+      display: inline-flex; align-items: center;
+      background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.25);
+      color: #fb923c; font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      padding: 1px 7px; border-radius: 3px;
+    }
+    .finish-tag {
+      display: inline-flex; align-items: center;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 1px 6px; border-radius: 3px; white-space: nowrap;
+    }
+    .f1  { background: rgba(250,204,21,0.12); border: 1px solid rgba(250,204,21,0.28); color: #fde047; }
+    .f2  { background: rgba(148,163,184,0.10); border: 1px solid rgba(148,163,184,0.22); color: #cbd5e1; }
+    .f3  { background: rgba(180,83,9,0.12); border: 1px solid rgba(180,83,9,0.28); color: #fbbf24; }
+    .fx  { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #9ca3af; }
+    .fs  { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.2); color: #fb923c; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <button id="menu-btn" aria-label="Menu" class="flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md border border-border bg-surface hover:border-gray-600" style="transition:border-color 0.15s">
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+      </button>
+      <div class="flex items-center gap-3">
+        <div class="text-xs font-heading tracking-wider text-gray-500 hidden sm:block">
+          <a href="index.html" class="hover:text-gray-300 transition-colors">Home</a>
+          <span class="mx-1">›</span>
+          <a href="season.html?id=season-9" class="hover:text-gray-300 transition-colors">Season 9</a>
+          <span class="mx-1">›</span>
+          <span class="text-gray-300">Recap</span>
+        </div>
+        <a href="https://simulatorgolftour.com" target="_blank"
+           class="flex items-center gap-2 bg-surface border border-border rounded-full pl-1.5 pr-3 py-1 hover:border-[#d03f25]/50 group shrink-0"
+           style="transition:all 0.15s">
+          <img src="brand_assets/sgt_emblem.svg" class="h-6 w-auto" alt="SGT" />
+          <div class="flex flex-col leading-none">
+            <span class="text-[8px] font-heading font-600 tracking-widest text-gray-600 uppercase group-hover:text-gray-500">Powered by</span>
+            <span class="text-[11px] font-heading font-600 tracking-wider text-gray-300 group-hover:text-white">Simulator Golf Tour</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- NAV DROPDOWN -->
+  <div id="nav-menu" class="fixed top-14 left-0 right-0 z-40 bg-[#0c0c0c] border-b border-border hidden" style="box-shadow:0 8px 24px rgba(0,0,0,0.5)">
+    <div class="max-w-6xl mx-auto px-4 py-3">
+      <a href="index.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">⌂</span> Home
+      </a>
+      <a href="season.html?id=season-9" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> Season 9
+      </a>
+      <a href="recap.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface font-heading font-600 tracking-wider text-sm text-flame" style="transition:background 0.12s">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M7 1.5L8.8 5.2L13 5.8L10 8.7L10.7 13L7 11L3.3 13L4 8.7L1 5.8L5.2 5.2Z" fill="#f97316" opacity="0.8"/></svg> Season 9 Recap
+      </a>
+      <div class="border-t border-border my-2"></div>
+      <a href="about.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> About Us
+      </a>
+      <a href="requirements.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> How to Join
+      </a>
+      <a href="rules.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> Rules
+      </a>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero-glow border-b border-border">
+    <div class="max-w-6xl mx-auto px-4 py-10 sm:py-14">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Season 9 · 2026</div>
+      <h1 class="font-display text-5xl sm:text-7xl tracking-wider text-white mb-2">SEASON RECAP</h1>
+      <p class="text-gray-500 text-sm font-body">Full season results, earnings, and points standings</p>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <main class="max-w-6xl mx-auto px-4 py-8 pb-20">
+    <div id="loading" class="text-center py-20">
+      <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500 text-sm">Loading recap…</p>
+    </div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border">
+    <div class="max-w-6xl mx-auto px-4 py-10 flex flex-col sm:flex-row items-center justify-between gap-8">
+      <div class="flex items-center gap-5">
+        <img src="brand_assets/sgt_emblem.svg" alt="SimulatorGolfTour.com" class="h-16 w-auto shrink-0 opacity-90" />
+        <div>
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1">Powered by</div>
+          <a href="https://simulatorgolftour.com" target="_blank"
+             class="font-display text-2xl tracking-wider text-gray-300 hover:text-[#d03f25] transition-colors leading-none block">
+            Simulator Golf Tour
+          </a>
+          <p class="text-xs text-gray-600 mt-1">The home of simulator golf leagues</p>
+        </div>
+      </div>
+      <a href="https://simulatorgolftour.com" target="_blank"
+         class="flex items-center gap-2 border border-border rounded-lg px-5 py-3 text-sm font-heading font-600 tracking-wider text-gray-400 hover:text-white hover:border-[#d03f25]/50 bg-surface shrink-0"
+         style="transition:all 0.15s">
+        Visit Simulator Golf Tour <span class="text-[#d03f25]">→</span>
+      </a>
+    </div>
+    <div class="border-t border-border text-center py-4 text-gray-600 text-xs font-body">
+      MashUp Golf &nbsp;·&nbsp; A Simulator Golf League
+    </div>
+  </footer>
+
+  <script type="module">
+    import { loadEvents } from './js/api.js';
+
+    const SEASON_ID       = 'season-9';
+    const INVITATIONAL_ID = 'event-invitational-s9';
+    const POINTS_MAP      = { 1: 100, 2: 70, 3: 50, 4: 40, 5: 30, 6: 20, 7: 10, 'side-1': 25, 'side-2': 15 };
+
+    async function init() {
+      const events = await loadEvents();
+
+      const seasonEvents = events
+        .filter(e => e.season === SEASON_ID)
+        .sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return new Date(a.date) - new Date(b.date);
+        });
+
+      const regularCompleted = seasonEvents.filter(e => e.id !== INVITATIONAL_ID && e.status === 'completed');
+      const allCompleted     = seasonEvents.filter(e => e.status === 'completed');
+
+      const totalPrize = allCompleted.reduce((sum, e) =>
+        sum
+        + (e.payouts || []).reduce((s, p) => s + (p.amount || 0), 0)
+        + (e.ctp    || []).reduce((s, c) => s + (c.amount || 0), 0), 0);
+
+      const pointsStandings   = buildPointsStandings(regularCompleted);
+      const earningsStandings = buildEarningsStandings(allCompleted);
+      const ctpStandings      = buildCtpStandings(allCompleted);
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('app').innerHTML = renderApp({
+        regularCompleted, allCompleted, totalPrize,
+        pointsStandings, earningsStandings, ctpStandings
+      });
+    }
+
+    // ── Data builders ──────────────────────────────────────────────────
+
+    function buildPointsStandings(events) {
+      const players = {};
+      function ensure(name) {
+        const key = name.toLowerCase();
+        if (!players[key]) players[key] = { name, points: 0, finishes: {} };
+        return players[key];
+      }
+      for (const e of events) {
+        for (const p of (e.payouts || [])) {
+          if (!p.player) continue;
+          const pts = POINTS_MAP[p.place];
+          if (!pts) continue;
+          const rec = ensure(p.player);
+          rec.points += pts;
+          const k = String(p.place);
+          rec.finishes[k] = (rec.finishes[k] || 0) + 1;
+        }
+      }
+      return Object.values(players).sort((a, b) => b.points - a.points);
+    }
+
+    function buildEarningsStandings(events) {
+      const players = {};
+      function ensure(name) {
+        const key = name.toLowerCase();
+        if (!players[key]) players[key] = { name, earnings: 0, ctpEarnings: 0, wins: 0 };
+        return players[key];
+      }
+      for (const e of events) {
+        for (const p of (e.payouts || [])) {
+          if (!p.player) continue;
+          const rec = ensure(p.player);
+          rec.earnings += p.amount || 0;
+          if (p.place === 1) rec.wins++;
+        }
+        for (const c of (e.ctp || [])) {
+          if (!c.player) continue;
+          ensure(c.player).ctpEarnings += c.amount || 0;
+        }
+      }
+      return Object.values(players)
+        .map(p => ({ ...p, total: p.earnings + p.ctpEarnings }))
+        .sort((a, b) => b.total - a.total);
+    }
+
+    function buildCtpStandings(events) {
+      const players = {};
+      for (const e of events) {
+        for (const c of (e.ctp || [])) {
+          if (!c.player) continue;
+          const key = c.player.toLowerCase();
+          if (!players[key]) players[key] = { name: c.player, count: 0, earnings: 0 };
+          players[key].count++;
+          players[key].earnings += c.amount || 0;
+        }
+      }
+      return Object.values(players).sort((a, b) => b.count - a.count || b.earnings - a.earnings);
+    }
+
+    // ── Renderers ──────────────────────────────────────────────────────
+
+    function renderApp({ regularCompleted, allCompleted, totalPrize, pointsStandings, earningsStandings, ctpStandings }) {
+      const topEarner    = earningsStandings[0];
+      const pointsLeader = pointsStandings[0];
+      const ctpKing      = ctpStandings[0];
+
+      const fmt = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+      return `
+        <!-- Stat callout row -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10">
+          ${statCard('Events', regularCompleted.length, 'regular season')}
+          ${statCard('Prize Pool', fmt(totalPrize), 'distributed')}
+          ${statCard('Top Earner', topEarner?.name || '—', fmt(Math.round(topEarner?.total || 0)))}
+          ${statCard('Points Leader', pointsLeader?.name || '—', (pointsLeader?.points || 0) + ' pts')}
+        </div>
+
+        <!-- Points Standings -->
+        <section class="mb-10">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Season Points</h2>
+            <span class="text-xs text-gray-600 font-body">1st=100 · 2nd=70 · 3rd=50 · 4th=40 · 5th=30 · 6th=20 · 7th=10 · Side 1=25 · Side 2=15</span>
+          </div>
+          ${pointsTable(pointsStandings)}
+        </section>
+
+        <!-- Earnings + CTP side by side on desktop -->
+        <div class="grid sm:grid-cols-2 gap-6 mb-10">
+          <section>
+            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Top Earners</h2>
+            ${earningsTable(earningsStandings)}
+          </section>
+          <section>
+            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">CTP Leaders</h2>
+            ${ctpTable(ctpStandings)}
+          </section>
+        </div>
+
+        <!-- Event Highlights -->
+        <section class="mb-10">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Event Results</h2>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            ${regularCompleted.map(e => eventCard(e)).join('')}
+          </div>
+        </section>
+      `;
+    }
+
+    function statCard(label, value, sub) {
+      return `
+        <div class="card-shadow bg-card border border-border rounded-lg px-4 py-5">
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1.5">${label}</div>
+          <div class="font-display text-3xl sm:text-4xl tracking-wider text-white leading-none">${value}</div>
+          ${sub ? `<div class="text-xs text-gray-500 mt-1.5 font-body">${sub}</div>` : ''}
+        </div>`;
+    }
+
+    function finishTags(finishes) {
+      const ORDER = ['1','2','3','4','5','6','7','side-1','side-2'];
+      const LABELS = { '1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','6':'6th','7':'7th','side-1':'Side 1','side-2':'Side 2' };
+      const CSS    = { '1':'f1','2':'f2','3':'f3','side-1':'fs','side-2':'fs' };
+      return ORDER
+        .filter(k => finishes[k])
+        .map(k => {
+          const cls = CSS[k] || 'fx';
+          const n   = finishes[k];
+          return `<span class="finish-tag ${cls}">${n > 1 ? n + '× ' : ''}${LABELS[k]}</span>`;
+        })
+        .join('');
+    }
+
+    function pointsTable(standings) {
+      if (!standings.length) return '<p class="text-gray-600 text-sm">No data.</p>';
+
+      const rows = standings.map((p, i) => {
+        const rank = i + 1;
+        const rankCell = rank === 1
+          ? `<span class="font-display text-lg tracking-wider text-yellow-400">1</span>`
+          : rank === 2
+          ? `<span class="font-display text-lg tracking-wider text-slate-400">2</span>`
+          : rank === 3
+          ? `<span class="font-display text-lg tracking-wider text-amber-600">3</span>`
+          : `<span class="text-gray-600 font-heading text-sm">${rank}</span>`;
+
+        return `
+          <tr class="table-row border-b border-border/40">
+            <td class="py-3 px-4 text-center w-10">${rankCell}</td>
+            <td class="py-3 px-2 font-heading font-600 text-white text-sm">${p.name}</td>
+            <td class="py-3 px-2 hidden sm:table-cell">
+              <div class="flex flex-wrap gap-1">${finishTags(p.finishes)}</div>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <span class="font-display text-xl tracking-wider text-flame">${p.points}</span>
+            </td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-surface border-b border-border">
+                <th class="px-4 py-2.5 text-center text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase w-10">#</th>
+                <th class="px-2 py-2.5 text-left text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+                <th class="px-2 py-2.5 text-left text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase hidden sm:table-cell">Finishes</th>
+                <th class="px-4 py-2.5 text-right text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Pts</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function earningsTable(standings) {
+      if (!standings.length) return '<p class="text-gray-600 text-sm">No data.</p>';
+
+      const rows = standings.map((p, i) => {
+        const rank = i + 1;
+        const rankCell = rank === 1
+          ? `<span class="font-display text-base tracking-wider text-yellow-400">1</span>`
+          : rank === 2
+          ? `<span class="font-display text-base tracking-wider text-slate-400">2</span>`
+          : rank === 3
+          ? `<span class="font-display text-base tracking-wider text-amber-600">3</span>`
+          : `<span class="text-gray-600 font-heading text-xs">${rank}</span>`;
+
+        const fmt = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        return `
+          <tr class="table-row border-b border-border/40">
+            <td class="py-2.5 px-4 text-center w-10">${rankCell}</td>
+            <td class="py-2.5 px-2 font-heading font-600 text-white text-sm">${p.name}</td>
+            <td class="py-2.5 px-4 text-right font-heading font-600 text-white">${fmt(p.total)}</td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-surface border-b border-border">
+                <th class="px-4 py-2.5 text-center text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase w-10">#</th>
+                <th class="px-2 py-2.5 text-left text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+                <th class="px-4 py-2.5 text-right text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Earnings</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function ctpTable(standings) {
+      if (!standings.length) return '<p class="text-gray-600 text-sm">No data.</p>';
+
+      const rows = standings.map((p, i) => {
+        const rank = i + 1;
+        const pips = Array(Math.min(p.count, 8)).fill(
+          `<span class="inline-block w-1.5 h-1.5 rounded-full bg-flame opacity-80"></span>`
+        ).join('');
+        return `
+          <tr class="table-row border-b border-border/40">
+            <td class="py-2.5 px-4 text-center w-10 text-gray-600 font-heading text-xs">${rank}</td>
+            <td class="py-2.5 px-2 font-heading font-600 text-white text-sm">${p.name}</td>
+            <td class="py-2.5 px-2 hidden sm:table-cell">
+              <div class="flex gap-1 items-center">${pips}</div>
+            </td>
+            <td class="py-2.5 px-4 text-right">
+              <span class="font-display text-xl tracking-wider text-flame">${p.count}</span>
+              <span class="text-xs text-gray-600 ml-1">pin${p.count !== 1 ? 's' : ''}</span>
+            </td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-surface border-b border-border">
+                <th class="px-4 py-2.5 text-center text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase w-10">#</th>
+                <th class="px-2 py-2.5 text-left text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+                <th class="px-2 py-2.5 hidden sm:table-cell"></th>
+                <th class="px-4 py-2.5 text-right text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">CTPs</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function eventCard(e) {
+      const winners = (e.payouts || []).filter(p => p.place === 1).map(p => p.player);
+      const dateStr = e.date
+        ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : '';
+      const fmtName = (e.format || '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const href = e.tournamentId != null ? `event.html?id=${e.tournamentId}` : `event.html?id=${e.id}`;
+
+      return `
+        <a href="${href}" class="block">
+          <div class="card-shadow event-card bg-card border border-border rounded-lg p-4 h-full">
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <div class="min-w-0">
+                <div class="font-heading font-700 text-sm text-white leading-snug">${e.name}</div>
+                <div class="text-xs text-gray-600 mt-0.5">${e.course || ''}</div>
+              </div>
+              <span class="text-flame text-sm shrink-0">→</span>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-3">
+              <span class="format-badge">${fmtName}</span>
+              <span class="text-xs text-gray-600">${dateStr}</span>
+            </div>
+            ${winners.length ? `
+              <div class="mt-3 pt-3 border-t border-border/60 flex items-center gap-1.5">
+                <span class="text-sm">🏆</span>
+                <span class="text-xs font-heading font-600 text-gray-300 truncate">${winners.join(', ')}</span>
+              </div>` : ''}
+          </div>
+        </a>`;
+    }
+
+    init().catch(err => {
+      document.getElementById('loading').innerHTML =
+        `<div class="bg-red-900/20 border border-red-800 rounded-lg p-6 text-center max-w-md mx-auto">
+          <p class="text-red-400 font-medium">Error</p>
+          <p class="text-gray-400 text-sm mt-1">${err.message}</p>
+        </div>`;
+    });
+  </script>
+
+  <script>
+    (function() {
+      const btn  = document.getElementById('menu-btn');
+      const menu = document.getElementById('nav-menu');
+      const bars = btn.querySelectorAll('.menu-bar');
+      let open = false;
+      function setOpen(val) {
+        open = val;
+        menu.classList.toggle('hidden', !open);
+        bars[0].style.transform = open ? 'translateY(8px) rotate(45deg)' : '';
+        bars[1].style.opacity   = open ? '0' : '1';
+        bars[2].style.transform = open ? 'translateY(-8px) rotate(-45deg)' : '';
+      }
+      btn.addEventListener('click', e => { e.stopPropagation(); setOpen(!open); });
+      document.addEventListener('click', e => { if (open && !menu.contains(e.target)) setOpen(false); });
+    })();
+  </script>
+</body>
+</html>
