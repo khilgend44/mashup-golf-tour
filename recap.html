@@ -158,14 +158,16 @@
   </footer>
 
   <script type="module">
-    import { loadEvents } from './js/api.js';
+    import { loadEvents, loadSeasons } from './js/api.js';
 
     const SEASON_ID       = 'season-9';
     const INVITATIONAL_ID = 'event-invitational-s9';
     const POINTS_MAP      = { 1: 100, 2: 70, 3: 50, 4: 40, 5: 30, 6: 20, 7: 10, 'side-1': 25, 'side-2': 15 };
 
     async function init() {
-      const events = await loadEvents();
+      const [events, seasons] = await Promise.all([loadEvents(), loadSeasons()]);
+      const season = seasons.find(s => s.id === SEASON_ID);
+      const roster = season?.players || [];
 
       const seasonEvents = events
         .filter(e => e.season === SEASON_ID)
@@ -184,7 +186,7 @@
         + (e.payouts || []).reduce((s, p) => s + (p.amount || 0), 0)
         + (e.ctp    || []).reduce((s, c) => s + (c.amount || 0), 0), 0);
 
-      const pointsStandings   = buildPointsStandings(regularCompleted);
+      const pointsStandings   = buildPointsStandings(regularCompleted, roster);
       const earningsStandings = buildEarningsStandings(allCompleted);
       const ctpStandings      = buildCtpStandings(allCompleted);
 
@@ -198,13 +200,15 @@
 
     // ── Data builders ──────────────────────────────────────────────────
 
-    function buildPointsStandings(events) {
+    function buildPointsStandings(events, roster) {
       const players = {};
       function ensure(name) {
         const key = name.toLowerCase();
         if (!players[key]) players[key] = { name, points: 0, finishes: {} };
         return players[key];
       }
+      // Seed every roster player at 0 so they all appear in the table
+      for (const name of roster) ensure(name);
       for (const e of events) {
         for (const p of (e.payouts || [])) {
           if (!p.player) continue;
