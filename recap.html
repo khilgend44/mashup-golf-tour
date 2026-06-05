@@ -158,14 +158,15 @@
   </footer>
 
   <script type="module">
-    import { loadEvents, loadSeasons } from './js/api.js';
+    import { loadEvents, loadSeasons, loadFormats, fetchScorecards } from './js/api.js';
+    import { applyFormat } from './js/scoring.js';
 
     const SEASON_ID       = 'season-9';
     const INVITATIONAL_ID = 'event-invitational-s9';
     const POINTS_MAP      = { 1: 100, 2: 70, 3: 50, 4: 40, 5: 30, 6: 20, 7: 10, 'side-1': 25, 'side-2': 15 };
 
     async function init() {
-      const [events, seasons] = await Promise.all([loadEvents(), loadSeasons()]);
+      const [events, seasons, formats] = await Promise.all([loadEvents(), loadSeasons(), loadFormats()]);
       const season = seasons.find(s => s.id === SEASON_ID);
       const roster = season?.players || [];
 
@@ -186,7 +187,7 @@
         + (e.payouts || []).reduce((s, p) => s + (p.amount || 0), 0)
         + (e.ctp    || []).reduce((s, c) => s + (c.amount || 0), 0), 0);
 
-      const pointsStandings   = buildPointsStandings(regularCompleted, roster);
+      const pointsStandings   = await buildPointsStandings(regularCompleted, roster, formats);
       const earningsStandings = buildEarningsStandings(allCompleted);
       const ctpStandings      = buildCtpStandings(allCompleted);
 
@@ -200,18 +201,47 @@
 
     // ── Data builders ──────────────────────────────────────────────────
 
-    function buildPointsStandings(events, roster) {
+    async function buildPointsStandings(events, roster, formats) {
       const players = {};
       function ensure(name) {
         const key = name.toLowerCase();
         if (!players[key]) players[key] = { name, points: 0, finishes: {} };
         return players[key];
       }
-      // Seed every roster player at 0 so they all appear in the table
       for (const name of roster) ensure(name);
-      for (const e of events) {
+
+      await Promise.all(events.map(async e => {
+        if (!e.tournamentId || !e.format) return;
+        const formatDef = formats[e.format];
+        if (!formatDef || formatDef.type === 'invitational') return;
+
+        let scorecards;
+        try { scorecards = await fetchScorecards(e.tournamentId); }
+        catch { return; }
+        if (!scorecards || !scorecards.length) return;
+
+        let results;
+        try { results = applyFormat(scorecards, formatDef, e); }
+        catch { return; }
+
+        // Award position-based points from actual scored results
+        for (const result of results) {
+          const pts = POINTS_MAP[result.position];
+          if (!pts) continue;
+          const names = result.isTeam
+            ? result.players.map(p => p.name)
+            : [result.player_name];
+          for (const name of names) {
+            const rec = ensure(name);
+            rec.points += pts;
+            const k = String(result.position);
+            rec.finishes[k] = (rec.finishes[k] || 0) + 1;
+          }
+        }
+
+        // Side pots (side-1, side-2) aren't in scored results — read from payouts
         for (const p of (e.payouts || [])) {
-          if (!p.player) continue;
+          if (!p.player || !String(p.place).startsWith('side-')) continue;
           const pts = POINTS_MAP[p.place];
           if (!pts) continue;
           const rec = ensure(p.player);
@@ -219,7 +249,8 @@
           const k = String(p.place);
           rec.finishes[k] = (rec.finishes[k] || 0) + 1;
         }
-      }
+      }));
+
       return Object.values(players).sort((a, b) => b.points - a.points);
     }
 
