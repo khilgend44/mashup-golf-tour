@@ -2,7 +2,7 @@ name: Fetch Live Scorecards
 
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour, on the hour
+    - cron: '*/10 * * * *'   # every 10 minutes
   workflow_dispatch:        # also allows manual run from GitHub UI
 
 permissions:
