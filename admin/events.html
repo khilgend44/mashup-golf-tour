@@ -514,22 +514,42 @@
     }
 
     // ── Auto-extract tournament ID from URL ───────────────────
+    let scrapeTimer = null;
     document.getElementById('f-url').addEventListener('input', e => {
       const url = e.target.value.trim();
       const id  = extractTournamentId(url);
       const tidEl = document.getElementById('f-tournament-id');
       const msgEl = document.getElementById('url-extracted');
+
       if (id) {
         tidEl.value = id;
-        msgEl.textContent = `Tournament ID extracted: ${id}`;
-        msgEl.style.color = '#4ade80';
-        // Try auto-fill event name
-        const fmtId = document.getElementById('f-format').value;
-        const week  = document.getElementById('f-week').value;
-        if (fmtId && fmtId !== '__new__' && week && !document.getElementById('f-name').value) {
-          document.getElementById('f-name').value = autoEventName(parseInt(week), fmtId);
-        }
+        msgEl.textContent = `Tournament ID extracted: ${id} — fetching event name…`;
+        msgEl.style.color = '#9ca3af';
+
+        // Debounce scrape call
+        clearTimeout(scrapeTimer);
+        scrapeTimer = setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/events-admin?type=scrape&tournamentId=${id}`);
+            const data = await res.json();
+            if (data.name) {
+              const nameEl = document.getElementById('f-name');
+              if (!nameEl.dataset.edited) {
+                nameEl.value = data.name;
+              }
+              msgEl.textContent = `Tournament ID: ${id} · Name fetched: "${data.name}"`;
+              msgEl.style.color = '#4ade80';
+            } else {
+              msgEl.textContent = `Tournament ID: ${id} · Name not found (${data.error || 'unknown'}) — enter manually`;
+              msgEl.style.color = '#facc15';
+            }
+          } catch {
+            msgEl.textContent = `Tournament ID: ${id} · Could not fetch name — enter manually`;
+            msgEl.style.color = '#facc15';
+          }
+        }, 600);
       } else {
+        clearTimeout(scrapeTimer);
         msgEl.textContent = url ? 'Could not extract tournament ID — enter manually.' : '';
         msgEl.style.color = '#f87171';
       }

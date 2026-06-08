@@ -33,7 +33,45 @@ export async function onRequestGet(context) {
   const apiToken  = env.CLOUDFLARE_API_TOKEN;
   if (!accountId || !apiToken) return Response.json({ error: 'Missing credentials' }, { status: 500, headers: CORS });
 
-  const type = new URL(request.url).searchParams.get('type');
+  const params = new URL(request.url).searchParams;
+  const type = params.get('type');
+
+  // ── Scrape event name from SGT page ──────────────────────
+  if (type === 'scrape') {
+    const tournamentId = params.get('tournamentId');
+    if (!tournamentId) return Response.json({ error: 'Missing tournamentId' }, { status: 400, headers: CORS });
+    try {
+      const sgtRes = await fetch(`https://simulatorgolftour.com/tournament/${tournamentId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+      });
+      if (!sgtRes.ok) return Response.json({ name: null, error: `SGT returned ${sgtRes.status}` }, { headers: CORS });
+      const html = await sgtRes.text();
+
+      // Try to match "MASHUP S8W2 - SOLO RINGER" style pattern
+      const patterns = [
+        /MASHUP\s+S\d+W\d+\s*[-–]\s*([A-Z][A-Z0-9\s''&]+?)(?:\s*[<"|])/i,
+        /MASHUP\s+S\d+W\d+\s*[-–]\s*([A-Z][A-Z0-9\s''&]+)/i,
+        /<title[^>]*>([^<]*MASHUP[^<]*)<\/title>/i,
+        /<h1[^>]*>([^<]*MASHUP[^<]*)<\/h1>/i,
+        /<h2[^>]*>([^<]*MASHUP[^<]*)<\/h2>/i,
+      ];
+
+      for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match) {
+          const raw = (match[1] || match[0]).trim().replace(/\s+/g, ' ');
+          // Return just what the full match captured, cleaned up
+          const full = html.match(/MASHUP\s+S\d+W\d+\s*[-–]\s*[A-Z0-9][A-Z0-9\s''&-]*/i);
+          const name = full ? full[0].trim().replace(/\s+/g, ' ') : raw;
+          return Response.json({ name }, { headers: CORS });
+        }
+      }
+
+      return Response.json({ name: null, error: 'Event name not found on page' }, { headers: CORS });
+    } catch (e) {
+      return Response.json({ name: null, error: e.message }, { headers: CORS });
+    }
+  }
 
   try {
     const [eventsRaw, formatsRaw] = await Promise.all([
