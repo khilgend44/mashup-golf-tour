@@ -125,18 +125,17 @@
             <tr class="border-b border-border">
               <th class="text-left px-6 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">#</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Raw HCP</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo HCP</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Events</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Eligible</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Last Round</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Expiry</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Status</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Raw</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Total Events</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Connector</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Low</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo Events</th>
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody id="players-tbody">
-            <tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
+            <tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -183,37 +182,22 @@
       document.getElementById('player-count').textContent = `(${roster.length})`;
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map((name, i) => {
         const hcp = handicaps[name.toLowerCase()] || null;
-        const eligible = hcp ? hcp.tenEvents : null;
-        const kicked = hcp ? hcp.kicked : false;
-
-        const statusBadge = kicked
-          ? `<span class="badge-red text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">Kicked</span>`
-          : hcp
-            ? `<span class="badge-green text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">Active</span>`
-            : `<span class="badge-gray text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">No Data</span>`;
-
-        const eligibleBadge = eligible === null
-          ? `<span class="text-gray-700">—</span>`
-          : eligible
-            ? `<span class="badge-green text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">Yes</span>`
-            : `<span class="badge-yellow text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">No</span>`;
-
+        const nd = '—';
         return `<tr class="border-b border-border/50" data-player="${name}">
           <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
-          <td class="px-4 py-3 text-center font-body text-sm ${hcp ? 'text-flame' : 'text-gray-700'}">${hcp ? hcpDisplay(hcp.rawCap) : '—'}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.comboCap) : '—'}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.numEvents : '—'}</td>
-          <td class="px-4 py-3 text-center">${eligibleBadge}</td>
-          <td class="px-4 py-3 text-center font-body text-xs text-gray-500">${hcp ? formatDate(hcp.lastRound) : '—'}</td>
-          <td class="px-4 py-3 text-center font-body text-xs text-gray-500">${hcp ? formatDate(hcp.expiry) : '—'}</td>
-          <td class="px-4 py-3 text-center">${statusBadge}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.rawCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.numEvents : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-400">${hcp ? (hcp.connector || nd) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp && hcp.minComboCap !== undefined ? hcpDisplay(hcp.minComboCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.comboRoundsCount : nd}</td>
           <td class="px-4 py-3 text-right">
             <button class="remove-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-player="${name}" style="transition:color 0.12s">Remove</button>
           </td>

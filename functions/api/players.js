@@ -111,11 +111,9 @@ export async function onRequestPost(context) {
         rawCap: p.rawCap,
         comboCap: p.comboCap,
         numEvents: p.NumEvents,
-        tenEvents: p.TenEvents === 'Y',
-        lastRound: p.MostRecent_Round,
-        expiry: p.user_expiration_date,
-        kicked: p.user_kicked === 'X',
-        status: p.Status || '',
+        connector: p.Connector_Used || '',
+        minComboCap: p.minComboCap,
+        comboRoundsCount: p.comboRoundsCount,
       };
     }
 
