@@ -505,14 +505,12 @@
     // ── Form open/close ───────────────────────────────────────
     function openForm() {
       document.getElementById('create-panel').classList.add('open');
-      document.getElementById('toggle-form-icon').textContent = '×';
-      document.getElementById('toggle-form-btn').textContent = '× Cancel';
+      document.getElementById('toggle-form-btn').innerHTML = '× Cancel';
     }
 
     function closeForm() {
       document.getElementById('create-panel').classList.remove('open');
-      document.getElementById('toggle-form-icon').textContent = '+';
-      document.getElementById('toggle-form-btn').innerHTML = '<span>+</span> New Event';
+      document.getElementById('toggle-form-btn').innerHTML = '+ New Event';
       document.getElementById('new-format-panel').classList.remove('open');
       ['f-week','f-date','f-url','f-tournament-id','f-name','f-description'].forEach(id => {
         const el = document.getElementById(id);
