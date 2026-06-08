@@ -15,11 +15,28 @@ export async function loadSeasons() {
 }
 
 export async function loadEvents() {
-  const res = await fetch('data/events.json');
-  return res.json();
+  const [staticRes, kvRes] = await Promise.allSettled([
+    fetch('data/events.json'),
+    fetch('/api/events-admin?type=events'),
+  ]);
+  const staticEvents = staticRes.status === 'fulfilled' && staticRes.value.ok
+    ? await staticRes.value.json() : [];
+  const kvEvents = kvRes.status === 'fulfilled' && kvRes.value.ok
+    ? await kvRes.value.json() : [];
+  // KV events take precedence over static if same ID
+  const map = new Map(staticEvents.map(e => [e.id, e]));
+  for (const e of kvEvents) map.set(e.id, e);
+  return [...map.values()];
 }
 
 export async function loadFormats() {
-  const res = await fetch('data/formats.json');
-  return res.json();
+  const [staticRes, customRes] = await Promise.allSettled([
+    fetch('data/formats.json'),
+    fetch('/api/events-admin?type=formats'),
+  ]);
+  const staticFormats = staticRes.status === 'fulfilled' && staticRes.value.ok
+    ? await staticRes.value.json() : {};
+  const customFormats = customRes.status === 'fulfilled' && customRes.value.ok
+    ? await customRes.value.json() : {};
+  return { ...staticFormats, ...customFormats };
 }

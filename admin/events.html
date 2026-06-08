@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Events — MashUp Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .badge-green  { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+    .badge-yellow { background: rgba(234,179,8,0.12);  color: #facc15; border: 1px solid rgba(234,179,8,0.2); }
+    .badge-gray   { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
+    .badge-flame  { background: rgba(249,115,22,0.12);  color: #f97316; border: 1px solid rgba(249,115,22,0.2); }
+    input, select, textarea {
+      background: #141414; border: 1px solid #2c2c2c; color: #e5e5e5;
+      border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem;
+      font-family: 'Inter', sans-serif; width: 100%;
+      transition: border-color 0.12s;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(249,115,22,0.5); }
+    select option { background: #1e1e1e; }
+    label { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+            font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+            color: #6b7280; margin-bottom: 0.35rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+    .form-full  { grid-column: 1 / -1; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .panel { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .panel.open { max-height: 2000px; }
+    .new-format-panel { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+    .new-format-panel.open { max-height: 800px; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">← Admin</a>
+      <span class="text-border">|</span>
+      <span class="font-heading font-600 tracking-wider text-sm text-flame">Events</span>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-10 pb-20 space-y-8">
+
+    <!-- Header -->
+    <div class="flex items-end justify-between flex-wrap gap-4">
+      <div>
+        <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Admin</div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white">EVENTS</h1>
+      </div>
+      <button id="toggle-form-btn"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+        style="transition:background 0.15s">
+        <span id="toggle-form-icon">+</span> New Event
+      </button>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
+
+    <!-- ── CREATE EVENT FORM ───────────────────────────────── -->
+    <div id="create-panel" class="panel">
+      <div class="card-shadow bg-card border border-border rounded-lg p-6 sm:p-8">
+        <h2 class="font-display text-2xl tracking-wider text-white mb-6">CREATE NEW EVENT</h2>
+
+        <div class="form-grid">
+
+          <!-- Season -->
+          <div>
+            <label>Season</label>
+            <select id="f-season">
+              <option value="season-10">Season 10</option>
+              <option value="season-9">Season 9</option>
+            </select>
+          </div>
+
+          <!-- Week -->
+          <div>
+            <label>Week #</label>
+            <input type="number" id="f-week" min="1" max="30" placeholder="1" />
+          </div>
+
+          <!-- Date -->
+          <div>
+            <label>Date</label>
+            <input type="date" id="f-date" />
+          </div>
+
+          <!-- Status -->
+          <div>
+            <label>Status</label>
+            <select id="f-status">
+              <option value="upcoming">Upcoming</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+
+          <!-- SGT URL -->
+          <div class="form-full">
+            <label>SGT Event URL</label>
+            <input type="url" id="f-url" placeholder="https://simulatorgolftour.com/..." />
+            <div id="url-extracted" class="mt-1 text-xs text-gray-600 font-body"></div>
+          </div>
+
+          <!-- Tournament ID (auto-filled from URL) -->
+          <div>
+            <label>Tournament ID</label>
+            <input type="text" id="f-tournament-id" placeholder="Auto-extracted from URL" />
+          </div>
+
+          <!-- Event Name -->
+          <div>
+            <label>Event Name <span class="text-gray-700 font-body normal-case tracking-normal">(auto-generated, editable)</span></label>
+            <input type="text" id="f-name" placeholder="Week 1 — Solo Ringer" />
+          </div>
+
+          <!-- Format -->
+          <div class="form-full">
+            <label>Format</label>
+            <select id="f-format">
+              <option value="">— Loading formats… —</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- ── NEW FORMAT PANEL ─────────────────────────────── -->
+        <div id="new-format-panel" class="new-format-panel mt-4">
+          <div class="border border-border/60 rounded-lg p-5 bg-surface mt-2">
+            <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-3">New Format</div>
+            <div class="form-grid">
+              <div>
+                <label>Format Name</label>
+                <input type="text" id="nf-name" placeholder="Modified Shamble" />
+              </div>
+              <div>
+                <label>Short Name</label>
+                <input type="text" id="nf-short" placeholder="Shamble" />
+              </div>
+              <div>
+                <label>Base Scoring Type</label>
+                <select id="nf-type">
+                  <option value="ringer">Ringer</option>
+                  <option value="escalator-doom">Escalator of Doom</option>
+                  <option value="devils-draw">Devil's Draw</option>
+                  <option value="best2-worst2-all3">Best 2 / Worst 2 / All 3</option>
+                  <option value="shamble-2man">2-Man Shamble</option>
+                  <option value="lone-ranger">Lone Ranger</option>
+                  <option value="invitational">Invitational</option>
+                  <option value="stroke">Stroke Play</option>
+                </select>
+              </div>
+              <div>
+                <label>Team Size</label>
+                <input type="number" id="nf-team-size" min="1" max="4" value="1" />
+              </div>
+              <div class="form-full">
+                <label>Description <span class="text-gray-700 font-body normal-case tracking-normal">(shown in leaderboard)</span></label>
+                <textarea id="nf-description" rows="2" placeholder="Describe the format rules..."></textarea>
+              </div>
+            </div>
+            <div class="flex justify-end mt-4">
+              <button id="save-format-btn"
+                class="px-5 py-2 rounded-lg bg-surface border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-flame/40"
+                style="transition:all 0.15s">
+                Save Format
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="mt-4">
+          <label>Event Description <span class="text-gray-700 font-body normal-case tracking-normal">(shown in leaderboard header)</span></label>
+          <textarea id="f-description" rows="2" placeholder="Optional notes about this event..."></textarea>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between mt-6 pt-6 border-t border-border">
+          <button id="cancel-btn" class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
+          <button id="create-event-btn"
+            class="px-6 py-2.5 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+            style="transition:background 0.15s">
+            Create Event
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EVENTS TABLE ────────────────────────────────────── -->
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border flex items-center justify-between flex-wrap gap-3">
+        <h2 class="font-display text-2xl tracking-wider text-white">ALL EVENTS <span id="event-count" class="text-gray-600 text-lg"></span></h2>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 text-xs text-gray-500 font-body cursor-pointer">
+            <input type="checkbox" id="show-legacy" class="accent-[#f97316]" /> Show Season 9
+          </label>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-left px-6 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Event</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Season</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Week</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Date</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Format</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Status</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Source</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="events-tbody">
+            <tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    const API      = '/api/events-admin';
+    const FORMATS_STATIC_URL = '/data/formats.json';
+    const EVENTS_STATIC_URL  = '/data/events.json';
+
+    let state = {
+      kvEvents: [],
+      staticEvents: [],
+      allFormats: {},
+      showLegacy: false,
+    };
+
+    // ── Utilities ──────────────────────────────────────────────
+    function showStatus(msg, type = 'info') {
+      const bar = document.getElementById('status-bar');
+      bar.className = `rounded-lg px-4 py-3 text-sm font-body ${
+        type === 'error'   ? 'bg-red-900/30 border border-red-800/40 text-red-300' :
+        type === 'success' ? 'bg-green-900/30 border border-green-800/40 text-green-300' :
+                             'bg-surface border border-border text-gray-400'
+      }`;
+      bar.textContent = msg;
+      bar.classList.remove('hidden');
+      if (type !== 'error') setTimeout(() => bar.classList.add('hidden'), 4000);
+    }
+
+    function statusBadge(status) {
+      const map = {
+        completed: ['badge-green',  'Completed'],
+        active:    ['badge-flame',  'Active'],
+        upcoming:  ['badge-yellow', 'Upcoming'],
+      };
+      const [cls, label] = map[status] || ['badge-gray', status || '—'];
+      return `<span class="${cls} text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">${label}</span>`;
+    }
+
+    function sourceBadge(isKv) {
+      return isKv
+        ? `<span class="badge-flame text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">Admin</span>`
+        : `<span class="badge-gray  text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">Legacy</span>`;
+    }
+
+    function extractTournamentId(url) {
+      const match = url.match(/(\d{4,7})/);
+      return match ? match[1] : '';
+    }
+
+    function slugify(str) {
+      return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    function autoEventName(week, formatId) {
+      const fmt = state.allFormats[formatId];
+      const fmtName = fmt ? fmt.name : formatId;
+      return week ? `Week ${week} — ${fmtName}` : '';
+    }
+
+    // ── Load data ─────────────────────────────────────────────
+    async function loadAll() {
+      const [kvRes, staticEventsRes, staticFormatsRes] = await Promise.allSettled([
+        fetch(API),
+        fetch(EVENTS_STATIC_URL),
+        fetch(FORMATS_STATIC_URL),
+      ]);
+
+      if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
+        const data = await kvRes.value.json();
+        state.kvEvents  = data.events  || [];
+        const kvFormats = data.formats || {};
+        const staticFmts = staticFormatsRes.status === 'fulfilled' && staticFormatsRes.value.ok
+          ? await staticFormatsRes.value.json() : {};
+        state.allFormats = { ...staticFmts, ...kvFormats };
+      }
+
+      if (staticEventsRes.status === 'fulfilled' && staticEventsRes.value.ok) {
+        state.staticEvents = await staticEventsRes.value.json();
+      }
+
+      populateFormatDropdown();
+      renderTable();
+    }
+
+    // ── Format dropdown ───────────────────────────────────────
+    function populateFormatDropdown() {
+      const sel = document.getElementById('f-format');
+      const fmts = Object.values(state.allFormats);
+      sel.innerHTML = fmts.map(f =>
+        `<option value="${f.id}">${f.name}${f._custom ? ' ★' : ''}</option>`
+      ).join('') + `<option value="__new__">＋ Create new format…</option>`;
+    }
+
+    // ── Render table ──────────────────────────────────────────
+    function renderTable() {
+      const tbody = document.getElementById('events-tbody');
+      const kvIds = new Set(state.kvEvents.map(e => e.id));
+
+      let rows = [...state.kvEvents];
+      if (state.showLegacy) {
+        for (const e of state.staticEvents) {
+          if (!kvIds.has(e.id)) rows.push({ ...e, _legacy: true });
+        }
+      }
+
+      rows.sort((a, b) => {
+        const sd = (b.season || '').localeCompare(a.season || '');
+        if (sd !== 0) return sd;
+        return (a.week || 0) - (b.week || 0);
+      });
+
+      document.getElementById('event-count').textContent = `(${rows.length})`;
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 font-body text-sm">
+          No events yet. ${state.showLegacy ? '' : 'Enable "Show Season 9" to see legacy events, or create a new one.'}
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(e => {
+        const isKv = !e._legacy;
+        const fmt = state.allFormats[e.format];
+        const fmtName = fmt ? fmt.shortName || fmt.name : (e.format || '—');
+        const urlLink = e.url
+          ? `<a href="${e.url}" target="_blank" class="text-gray-600 hover:text-flame ml-1 text-xs" style="transition:color 0.12s" title="View on SGT">↗</a>`
+          : '';
+        return `<tr class="border-b border-border/50">
+          <td class="px-6 py-3">
+            <div class="font-heading font-600 tracking-wider text-white text-sm">${e.name || '—'}${urlLink}</div>
+            <div class="text-xs text-gray-600 font-body mt-0.5">${e.id}</div>
+          </td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-500">${e.season || '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${e.week || '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-500">${e.date || '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-400">${fmtName}</td>
+          <td class="px-4 py-3 text-center">${statusBadge(e.status)}</td>
+          <td class="px-4 py-3 text-center">${sourceBadge(isKv)}</td>
+          <td class="px-4 py-3 text-right">
+            ${isKv ? `<button class="delete-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-id="${e.id}" style="transition:color 0.12s">Delete</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteEvent(btn.dataset.id));
+      });
+    }
+
+    // ── Create event ──────────────────────────────────────────
+    async function createEvent() {
+      const season       = document.getElementById('f-season').value;
+      const week         = parseInt(document.getElementById('f-week').value);
+      const date         = document.getElementById('f-date').value;
+      const status       = document.getElementById('f-status').value;
+      const url          = document.getElementById('f-url').value.trim();
+      const tournamentId = parseInt(document.getElementById('f-tournament-id').value.trim());
+      const name         = document.getElementById('f-name').value.trim();
+      const format       = document.getElementById('f-format').value;
+      const description  = document.getElementById('f-description').value.trim();
+
+      if (!tournamentId) { showStatus('Tournament ID is required — paste the SGT URL to auto-fill.', 'error'); return; }
+      if (!week)         { showStatus('Week number is required.', 'error'); return; }
+      if (!format || format === '__new__') { showStatus('Select a format.', 'error'); return; }
+
+      const event = {
+        id: `event-${tournamentId}`,
+        tournamentId,
+        season,
+        week,
+        name: name || autoEventName(week, format),
+        date: date || null,
+        format,
+        url: url || null,
+        description: description || null,
+        status,
+        payouts: [],
+      };
+
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'create-event', event }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        state.kvEvents.push(data.event);
+        renderTable();
+        closeForm();
+        showStatus(`Event "${event.name}" created.`, 'success');
+      } catch (e) {
+        showStatus('Error: ' + e.message, 'error');
+      }
+    }
+
+    // ── Delete event ──────────────────────────────────────────
+    async function deleteEvent(eventId) {
+      const event = state.kvEvents.find(e => e.id === eventId);
+      if (!confirm(`Delete "${event?.name || eventId}"? This cannot be undone.`)) return;
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete-event', eventId }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        state.kvEvents = state.kvEvents.filter(e => e.id !== eventId);
+        renderTable();
+        showStatus('Event deleted.', 'success');
+      } catch (e) {
+        showStatus('Error: ' + e.message, 'error');
+      }
+    }
+
+    // ── Save custom format ────────────────────────────────────
+    async function saveCustomFormat() {
+      const name     = document.getElementById('nf-name').value.trim();
+      const shortName = document.getElementById('nf-short').value.trim();
+      const type     = document.getElementById('nf-type').value;
+      const teamSize = parseInt(document.getElementById('nf-team-size').value) || 1;
+      const desc     = document.getElementById('nf-description').value.trim();
+
+      if (!name) { showStatus('Format name is required.', 'error'); return; }
+
+      const id = slugify(name);
+      const format = {
+        id, name, shortName: shortName || name, type, teamSize,
+        description: desc, scoringBasis: 'net', lowScoreWins: true,
+        _custom: true,
+      };
+
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'create-format', format }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        state.allFormats[id] = format;
+        populateFormatDropdown();
+        // Select the new format
+        document.getElementById('f-format').value = id;
+        document.getElementById('new-format-panel').classList.remove('open');
+        showStatus(`Format "${name}" saved.`, 'success');
+      } catch (e) {
+        showStatus('Error: ' + e.message, 'error');
+      }
+    }
+
+    // ── Form open/close ───────────────────────────────────────
+    function openForm() {
+      document.getElementById('create-panel').classList.add('open');
+      document.getElementById('toggle-form-icon').textContent = '×';
+      document.getElementById('toggle-form-btn').textContent = '× Cancel';
+    }
+
+    function closeForm() {
+      document.getElementById('create-panel').classList.remove('open');
+      document.getElementById('toggle-form-icon').textContent = '+';
+      document.getElementById('toggle-form-btn').innerHTML = '<span>+</span> New Event';
+      document.getElementById('new-format-panel').classList.remove('open');
+      ['f-week','f-date','f-url','f-tournament-id','f-name','f-description'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('url-extracted').textContent = '';
+    }
+
+    // ── Auto-extract tournament ID from URL ───────────────────
+    document.getElementById('f-url').addEventListener('input', e => {
+      const url = e.target.value.trim();
+      const id  = extractTournamentId(url);
+      const tidEl = document.getElementById('f-tournament-id');
+      const msgEl = document.getElementById('url-extracted');
+      if (id) {
+        tidEl.value = id;
+        msgEl.textContent = `Tournament ID extracted: ${id}`;
+        msgEl.style.color = '#4ade80';
+        // Try auto-fill event name
+        const fmtId = document.getElementById('f-format').value;
+        const week  = document.getElementById('f-week').value;
+        if (fmtId && fmtId !== '__new__' && week && !document.getElementById('f-name').value) {
+          document.getElementById('f-name').value = autoEventName(parseInt(week), fmtId);
+        }
+      } else {
+        msgEl.textContent = url ? 'Could not extract tournament ID — enter manually.' : '';
+        msgEl.style.color = '#f87171';
+      }
+    });
+
+    // Auto-update name when week or format changes
+    function tryAutoName() {
+      const nameEl = document.getElementById('f-name');
+      const week   = parseInt(document.getElementById('f-week').value);
+      const fmtId  = document.getElementById('f-format').value;
+      if (week && fmtId && fmtId !== '__new__' && !nameEl.dataset.edited) {
+        nameEl.value = autoEventName(week, fmtId);
+      }
+    }
+    document.getElementById('f-week').addEventListener('input', tryAutoName);
+    document.getElementById('f-format').addEventListener('change', e => {
+      if (e.target.value === '__new__') {
+        document.getElementById('new-format-panel').classList.add('open');
+      } else {
+        document.getElementById('new-format-panel').classList.remove('open');
+        tryAutoName();
+      }
+    });
+    document.getElementById('f-name').addEventListener('input', e => {
+      e.target.dataset.edited = e.target.value ? '1' : '';
+    });
+
+    // ── Wire up buttons ───────────────────────────────────────
+    document.getElementById('toggle-form-btn').addEventListener('click', () => {
+      document.getElementById('create-panel').classList.contains('open') ? closeForm() : openForm();
+    });
+    document.getElementById('cancel-btn').addEventListener('click', closeForm);
+    document.getElementById('create-event-btn').addEventListener('click', createEvent);
+    document.getElementById('save-format-btn').addEventListener('click', saveCustomFormat);
+    document.getElementById('show-legacy').addEventListener('change', e => {
+      state.showLegacy = e.target.checked;
+      renderTable();
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>
