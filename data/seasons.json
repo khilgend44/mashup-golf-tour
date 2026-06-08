@@ -1,5 +1,13 @@
 [
   {
+    "id": "season-x",
+    "name": "Season X",
+    "year": 2026,
+    "status": "active",
+    "description": "MashUp Golf — Season X (Test)",
+    "players": []
+  },
+  {
     "id": "season-9",
     "name": "Season 9",
     "year": 2026,
