@@ -54,7 +54,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken = env.CLOUDFLARE_API_TOKEN;
-  const sgtKey = env.SGT_API_KEY;
+  const sgtKey = env.player_api_key;
   if (!accountId || !apiToken) return Response.json({ error: 'Missing credentials' }, { status: 500, headers: CORS });
 
   let body;
@@ -95,7 +95,7 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'refresh') {
-    if (!sgtKey) return Response.json({ error: 'SGT_API_KEY not configured' }, { status: 500, headers: CORS });
+    if (!sgtKey) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
     const rosterRaw = await kvGet(accountId, apiToken, 'players:roster');
     const roster = rosterRaw ? JSON.parse(rosterRaw) : [];
     if (roster.length === 0) return Response.json({ error: 'No players in roster' }, { status: 400, headers: CORS });
