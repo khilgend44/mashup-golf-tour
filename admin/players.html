@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Players — MashUp Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .badge-green  { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+    .badge-red    { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+    .badge-yellow { background: rgba(234,179,8,0.12);  color: #facc15; border: 1px solid rgba(234,179,8,0.2); }
+    .badge-gray   { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
+    tr:hover td { background: rgba(255,255,255,0.025); }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">← Admin</a>
+      <span class="text-border">|</span>
+      <span class="font-heading font-600 tracking-wider text-sm text-flame">Players</span>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-10 pb-20 space-y-8">
+
+    <!-- Header -->
+    <div class="flex items-end justify-between flex-wrap gap-4">
+      <div>
+        <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Admin</div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white">PLAYERS</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="last-refresh-label" class="text-xs text-gray-600 font-body"></div>
+        <button id="refresh-btn"
+          class="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-flame/40"
+          style="transition:all 0.15s">
+          <svg id="refresh-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M12 7A5 5 0 1 1 9.5 2.6" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M9.5 1v2.5H12" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Refresh Handicaps
+        </button>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
+
+    <!-- Onboard Section -->
+    <div class="card-shadow bg-card border border-border rounded-lg p-6">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Season Setup</div>
+      <h2 class="font-display text-2xl tracking-wider text-white mb-4">ONBOARD PLAYERS</h2>
+      <p class="text-gray-500 text-sm font-body mb-4">Paste player usernames — one per line, or comma-separated. This replaces the current roster.</p>
+      <textarea id="onboard-input"
+        class="w-full bg-surface border border-border rounded-lg px-4 py-3 text-sm font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 resize-none"
+        rows="5"
+        placeholder="adamw19&#10;bdc5e&#10;betteri&#10;..."></textarea>
+      <div class="flex items-center justify-between mt-3 flex-wrap gap-3">
+        <button id="load-s9-btn"
+          class="text-xs text-gray-500 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
+          style="transition:color 0.12s">
+          Load Season 9 roster
+        </button>
+        <button id="onboard-btn"
+          class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+          style="transition:background 0.15s">
+          Save Roster
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Single Player -->
+    <div class="card-shadow bg-card border border-border rounded-lg p-6">
+      <h2 class="font-display text-2xl tracking-wider text-white mb-4">ADD PLAYER</h2>
+      <div class="flex gap-3">
+        <input id="add-input" type="text" placeholder="username"
+          class="flex-1 bg-surface border border-border rounded-lg px-4 py-2 text-sm font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50" />
+        <button id="add-btn"
+          class="px-5 py-2 rounded-lg bg-surface border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-flame/40"
+          style="transition:all 0.15s">
+          Add
+        </button>
+      </div>
+    </div>
+
+    <!-- Players Table -->
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border flex items-center justify-between">
+        <h2 class="font-display text-2xl tracking-wider text-white">ROSTER <span id="player-count" class="text-gray-600 text-lg"></span></h2>
+        <input id="search-input" type="text" placeholder="Search..."
+          class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 w-40" />
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-left px-6 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">#</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Raw HCP</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo HCP</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Events</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Eligible</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Last Round</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Expiry</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Status</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="players-tbody">
+            <tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    const API = '/api/players';
+    const S9_ROSTER = ["adamw19","bdc5e","betteri","boiler_kh","boilertimmay","brianemann","ccondon30","cloverlinksgolf","dirthydiesel","dmac029","finlayson7434","garyn2732","Gaz77","GIL3S","humdinger","iljayo","jarhead","jboettner","jibbsy","jonty","julzdad","magic","mesky","mrsnowman","nojo","notthatjt","pjo336","pottsy","r3noble","ribsismokeem","ryanlane10","salfrado","sully","talbeezie","TheRiot22","Tigerstew84","tjak","tofty31","toursauce86","trock","Tztop","winch99"];
+
+    let state = { roster: [], handicaps: {}, lastRefresh: null };
+
+    function showStatus(msg, type = 'info') {
+      const bar = document.getElementById('status-bar');
+      bar.className = `rounded-lg px-4 py-3 text-sm font-body ${
+        type === 'error'   ? 'bg-red-900/30 border border-red-800/40 text-red-300' :
+        type === 'success' ? 'bg-green-900/30 border border-green-800/40 text-green-300' :
+                             'bg-surface border border-border text-gray-400'
+      }`;
+      bar.textContent = msg;
+      bar.classList.remove('hidden');
+      if (type !== 'error') setTimeout(() => bar.classList.add('hidden'), 4000);
+    }
+
+    function formatDate(str) {
+      if (!str) return '—';
+      return str.slice(0, 10);
+    }
+
+    function hcpDisplay(val) {
+      if (val === undefined || val === null || val === '') return '—';
+      const n = parseFloat(val);
+      if (isNaN(n)) return val;
+      return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1);
+    }
+
+    function renderTable(roster, handicaps, filter = '') {
+      const tbody = document.getElementById('players-tbody');
+      const filtered = filter
+        ? roster.filter(p => p.toLowerCase().includes(filter.toLowerCase()))
+        : roster;
+
+      document.getElementById('player-count').textContent = `(${roster.length})`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((name, i) => {
+        const hcp = handicaps[name.toLowerCase()] || null;
+        const eligible = hcp ? hcp.tenEvents : null;
+        const kicked = hcp ? hcp.kicked : false;
+
+        const statusBadge = kicked
+          ? `<span class="badge-red text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">Kicked</span>`
+          : hcp
+            ? `<span class="badge-green text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">Active</span>`
+            : `<span class="badge-gray text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">No Data</span>`;
+
+        const eligibleBadge = eligible === null
+          ? `<span class="text-gray-700">—</span>`
+          : eligible
+            ? `<span class="badge-green text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">Yes</span>`
+            : `<span class="badge-yellow text-[10px] font-heading font-600 tracking-wider px-2 py-0.5 rounded-full">No</span>`;
+
+        return `<tr class="border-b border-border/50" data-player="${name}">
+          <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
+          <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
+          <td class="px-4 py-3 text-center font-body text-sm ${hcp ? 'text-flame' : 'text-gray-700'}">${hcp ? hcpDisplay(hcp.rawCap) : '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.comboCap) : '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.numEvents : '—'}</td>
+          <td class="px-4 py-3 text-center">${eligibleBadge}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-500">${hcp ? formatDate(hcp.lastRound) : '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-500">${hcp ? formatDate(hcp.expiry) : '—'}</td>
+          <td class="px-4 py-3 text-center">${statusBadge}</td>
+          <td class="px-4 py-3 text-right">
+            <button class="remove-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-player="${name}" style="transition:color 0.12s">Remove</button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => removePlayer(btn.dataset.player));
+      });
+    }
+
+    function updateRefreshLabel() {
+      const el = document.getElementById('last-refresh-label');
+      if (!state.lastRefresh) { el.textContent = 'Never refreshed'; return; }
+      const d = new Date(state.lastRefresh);
+      el.textContent = `Last refreshed: ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch(API);
+        const data = await res.json();
+        state.roster = data.roster || [];
+        state.handicaps = data.handicaps || {};
+        state.lastRefresh = data.lastRefresh || null;
+        renderTable(state.roster, state.handicaps);
+        updateRefreshLabel();
+      } catch (e) {
+        showStatus('Failed to load player data: ' + e.message, 'error');
+      }
+    }
+
+    async function removePlayer(name) {
+      if (!confirm(`Remove ${name} from roster?`)) return;
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove', player: name }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        state.roster = data.roster;
+        renderTable(state.roster, state.handicaps, document.getElementById('search-input').value);
+        showStatus(`Removed ${name}.`, 'success');
+      } catch (e) {
+        showStatus('Error: ' + e.message, 'error');
+      }
+    }
+
+    document.getElementById('load-s9-btn').addEventListener('click', () => {
+      document.getElementById('onboard-input').value = S9_ROSTER.join('\n');
+    });
+
+    document.getElementById('onboard-btn').addEventListener('click', async () => {
+      const raw = document.getElementById('onboard-input').value;
+      const players = raw.split(/[\n,]+/).map(p => p.trim()).filter(Boolean);
+      if (players.length === 0) { showStatus('No players entered.', 'error'); return; }
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'onboard', players }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        state.roster = data.roster;
+        renderTable(state.roster, state.handicaps);
+        document.getElementById('onboard-input').value = '';
+        showStatus(`Roster saved — ${data.count} players.`, 'success');
+      } catch (e) {
+        showStatus('Error: ' + e.message, 'error');
+      }
+    });
+
+    document.getElementById('add-btn').addEventListener('click', async () => {
+      const player = document.getElementById('add-input').value.trim();
+      if (!player) return;
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add', player }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        state.roster = data.roster;
+        renderTable(state.roster, state.handicaps, document.getElementById('search-input').value);
+        document.getElementById('add-input').value = '';
+        showStatus(`Added ${player}.`, 'success');
+      } catch (e) {
+        showStatus('Error: ' + e.message, 'error');
+      }
+    });
+
+    document.getElementById('add-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('add-btn').click();
+    });
+
+    document.getElementById('refresh-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('refresh-btn');
+      const icon = document.getElementById('refresh-icon');
+      btn.disabled = true;
+      icon.classList.add('spin');
+      showStatus('Fetching handicaps from SGT API...', 'info');
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'refresh' }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        state.handicaps = data.handicaps;
+        state.lastRefresh = data.lastRefresh;
+        renderTable(state.roster, state.handicaps, document.getElementById('search-input').value);
+        updateRefreshLabel();
+        showStatus(`Updated ${data.count} player handicaps.`, 'success');
+      } catch (e) {
+        showStatus('Refresh failed: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        icon.classList.remove('spin');
+      }
+    });
+
+    document.getElementById('search-input').addEventListener('input', e => {
+      renderTable(state.roster, state.handicaps, e.target.value);
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
