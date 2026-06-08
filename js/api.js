@@ -2,11 +2,15 @@
 // This avoids CORS issues and keeps the API key off the client.
 
 export async function fetchScorecards(tournamentId) {
-  const res = await fetch(`data/scorecards/${tournamentId}.json`);
-  if (!res.ok) throw new Error(`Scorecard data not found for tournament ${tournamentId}. Make sure data/scorecards/${tournamentId}.json exists.`);
-  const text = await res.text();
-  if (!text.trim()) return [];
-  return JSON.parse(text);
+  try {
+    const res = await fetch(`data/scorecards/${tournamentId}.json`);
+    if (!res.ok) return [];
+    const text = await res.text();
+    if (!text.trim()) return [];
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
 }
 
 export async function loadSeasons() {
