@@ -127,10 +127,10 @@
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Raw</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Total Events</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Connector</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Low</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo Events</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Total Events</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Connector</th>
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
@@ -194,10 +194,10 @@
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.rawCap) : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.numEvents : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-xs text-gray-400">${hcp ? (hcp.connector || nd) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp && hcp.minComboCap !== undefined ? hcpDisplay(hcp.minComboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.comboRoundsCount : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.numEvents : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-400">${hcp ? (hcp.connector || nd) : nd}</td>
           <td class="px-4 py-3 text-right">
             <button class="remove-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-player="${name}" style="transition:color 0.12s">Remove</button>
           </td>
