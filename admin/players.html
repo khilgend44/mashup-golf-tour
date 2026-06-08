@@ -125,6 +125,7 @@
             <tr class="border-b border-border">
               <th class="text-left px-6 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">#</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Adjusted</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Raw</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Low</th>
@@ -135,7 +136,7 @@
             </tr>
           </thead>
           <tbody id="players-tbody">
-            <tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
+            <tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -182,16 +183,25 @@
       document.getElementById('player-count').textContent = `(${roster.length})`;
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
         return;
       }
+
+      const rawValues = Object.values(handicaps)
+        .map(h => parseFloat(h.rawCap))
+        .filter(n => !isNaN(n));
+      const offset = rawValues.length ? -Math.min(...rawValues) : 0;
 
       tbody.innerHTML = filtered.map((name, i) => {
         const hcp = handicaps[name.toLowerCase()] || null;
         const nd = '—';
+        const adjusted = hcp && hcp.rawCap !== undefined
+          ? (parseFloat(hcp.rawCap) + offset).toFixed(1)
+          : null;
         return `<tr class="border-b border-border/50" data-player="${name}">
           <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.rawCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp && hcp.minComboCap !== undefined ? hcpDisplay(hcp.minComboCap) : nd}</td>
