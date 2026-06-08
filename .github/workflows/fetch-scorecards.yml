@@ -29,15 +29,37 @@ jobs:
 
           echo "Active season: $ACTIVE_SEASON"
 
-          # Fetch scorecards for every non-completed event in the active season
-          jq -r --arg season "$ACTIVE_SEASON" \
-            '.[] | select(.season == $season and .status != "completed") | .tournamentId' \
-            data/events.json | while read tid; do
-              echo "Fetching tournament $tid..."
-              curl -sf \
-                "https://simulatorgolftour.com/sgt-api/mashup/tournaments/${tid}/scorecards?key=${SGT_API_KEY}&noTruncate" \
-                -o "data/scorecards/${tid}.json"
-              echo "  → saved data/scorecards/${tid}.json"
+          # Load static events from repo
+          STATIC_EVENTS=$(cat data/events.json)
+
+          # Load admin-created events from Cloudflare KV via deployed API
+          KV_EVENTS=$(curl -sf "https://mashup-golf-tour.pages.dev/api/events-admin?type=events" || echo "[]")
+          echo "KV events fetched: $(echo "$KV_EVENTS" | jq 'length') events"
+
+          # Merge both arrays, deduplicate by id (KV takes precedence over static)
+          ALL_EVENTS=$(jq -n \
+            --argjson static "$STATIC_EVENTS" \
+            --argjson kv "$KV_EVENTS" \
+            '($static + $kv) | reduce .[] as $e ({}; .[$e.id] = $e) | to_entries | map(.value)')
+
+          # Get tournament IDs for non-completed events in the active season
+          TOURNAMENT_IDS=$(echo "$ALL_EVENTS" | jq -r \
+            --arg season "$ACTIVE_SEASON" \
+            '.[] | select(.season == $season and .status != "completed") | .tournamentId')
+
+          if [ -z "$TOURNAMENT_IDS" ]; then
+            echo "No active events to fetch for $ACTIVE_SEASON."
+            exit 0
+          fi
+
+          echo "Tournaments to fetch: $(echo "$TOURNAMENT_IDS" | tr '\n' ' ')"
+
+          echo "$TOURNAMENT_IDS" | while read tid; do
+            echo "Fetching tournament $tid..."
+            curl -sf \
+              "https://simulatorgolftour.com/sgt-api/mashup/tournaments/${tid}/scorecards?key=${SGT_API_KEY}&noTruncate" \
+              -o "data/scorecards/${tid}.json"
+            echo "  → saved data/scorecards/${tid}.json"
           done
 
       - name: Commit and push if changed
