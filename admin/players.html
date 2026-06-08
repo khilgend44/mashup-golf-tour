@@ -35,6 +35,8 @@
     .badge-yellow { background: rgba(234,179,8,0.12);  color: #facc15; border: 1px solid rgba(234,179,8,0.2); }
     .badge-gray   { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
     tr:hover td { background: rgba(255,255,255,0.025); }
+    tr.baseline-row td { background: rgba(249,115,22,0.07); }
+    tr.baseline-row td:first-child { border-left: 2px solid rgba(249,115,22,0.6); }
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -190,7 +192,8 @@
       const rawValues = Object.values(handicaps)
         .map(h => parseFloat(h.rawCap))
         .filter(n => !isNaN(n));
-      const offset = rawValues.length ? -Math.min(...rawValues) : 0;
+      const minRaw = rawValues.length ? Math.min(...rawValues) : null;
+      const offset = minRaw !== null ? -minRaw : 0;
 
       tbody.innerHTML = filtered.map((name, i) => {
         const hcp = handicaps[name.toLowerCase()] || null;
@@ -198,7 +201,8 @@
         const adjusted = hcp && hcp.rawCap !== undefined
           ? (parseFloat(hcp.rawCap) + offset).toFixed(1)
           : null;
-        return `<tr class="border-b border-border/50" data-player="${name}">
+        const isBaseline = hcp && parseFloat(hcp.rawCap) === minRaw;
+        return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}" data-player="${name}">
           <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : nd}</td>
