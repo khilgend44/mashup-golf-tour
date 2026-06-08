@@ -508,7 +508,9 @@
       document.getElementById('toggle-form-btn').innerHTML = '<span>+</span> New Event';
       document.getElementById('new-format-panel').classList.remove('open');
       ['f-week','f-date','f-url','f-tournament-id','f-name','f-description'].forEach(id => {
-        document.getElementById(id).value = '';
+        const el = document.getElementById(id);
+        el.value = '';
+        delete el.dataset.edited;
       });
       document.getElementById('url-extracted').textContent = '';
     }
@@ -571,7 +573,16 @@
       } else {
         document.getElementById('new-format-panel').classList.remove('open');
         tryAutoName();
+        // Auto-fill description from format definition unless user has edited it
+        const descEl = document.getElementById('f-description');
+        if (!descEl.dataset.edited) {
+          const fmt = state.allFormats[e.target.value];
+          descEl.value = (fmt && fmt.description) ? fmt.description : '';
+        }
       }
+    });
+    document.getElementById('f-description').addEventListener('input', e => {
+      e.target.dataset.edited = e.target.value ? '1' : '';
     });
     document.getElementById('f-name').addEventListener('input', e => {
       e.target.dataset.edited = e.target.value ? '1' : '';
