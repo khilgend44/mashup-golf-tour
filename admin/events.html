@@ -335,6 +335,13 @@
       sel.innerHTML = fmts.map(f =>
         `<option value="${f.id}">${f.name}${f._custom ? ' ★' : ''}</option>`
       ).join('') + `<option value="__new__">＋ Create new format…</option>`;
+
+      // Pre-fill description for the default selected format
+      const descEl = document.getElementById('f-description');
+      if (!descEl.dataset.edited && sel.value && sel.value !== '__new__') {
+        const fmt = state.allFormats[sel.value];
+        descEl.value = (fmt && fmt.description) ? fmt.description : '';
+      }
     }
 
     // ── Render table ──────────────────────────────────────────
