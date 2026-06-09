@@ -666,16 +666,14 @@
           </p>
           <p class="text-gray-600 text-xs font-body mt-3">Event: <span class="text-gray-400">${eventName}</span></p>
           <div class="flex items-center justify-between mt-6 pt-5 border-t border-[#2c2c2c] gap-3 flex-wrap">
+            <button id="modal-cancel-stale"
+              class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider"
+              style="transition:color 0.12s">Cancel</button>
             <a href="players.html" target="_blank"
-              class="px-4 py-2 rounded-lg bg-[#141414] border border-[#2c2c2c] text-sm font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-[rgba(249,115,22,0.4)]"
-              style="transition:all 0.15s">
-              ↗ Go Refresh Handicaps
-            </a>
-            <button id="modal-activate-anyway"
-              class="px-5 py-2 rounded-lg bg-[#f97316] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#c2530f]"
+              class="px-5 py-2 rounded-lg bg-[#f97316] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#c2530f] no-underline"
               style="transition:background 0.15s">
-              Activate Anyway
-            </button>
+              ↗ Refresh Handicaps
+            </a>
           </div>`;
       } else {
         const refreshedText = state.lastHandicapRefresh
@@ -700,8 +698,8 @@
 
       modal.style.display = 'flex';
 
+      document.getElementById('modal-cancel-stale')?.addEventListener('click', closeModal);
       document.getElementById('modal-cancel')?.addEventListener('click', closeModal);
-      document.getElementById('modal-activate-anyway')?.addEventListener('click', confirmActivate);
       document.getElementById('modal-confirm')?.addEventListener('click', confirmActivate);
     }
 
