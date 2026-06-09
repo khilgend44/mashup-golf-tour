@@ -251,6 +251,11 @@
 
   </main>
 
+  <!-- ACTIVATE MODAL -->
+  <div id="activate-modal" class="fixed inset-0 z-50 items-center justify-center" style="display:none;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-8 w-full max-w-md mx-4 card-shadow" id="modal-body"></div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="border-t border-border py-5 mt-auto">
     <div class="max-w-6xl mx-auto px-4 flex items-center justify-between text-xs text-gray-700 font-body">
@@ -269,6 +274,7 @@
       staticEvents: [],
       allFormats: {},
       showLegacy: false,
+      lastHandicapRefresh: null,
     };
 
     // ── Utilities ──────────────────────────────────────────────
@@ -317,10 +323,11 @@
 
     // ── Load data ─────────────────────────────────────────────
     async function loadAll() {
-      const [kvRes, staticEventsRes, staticFormatsRes] = await Promise.allSettled([
+      const [kvRes, staticEventsRes, staticFormatsRes, playersRes] = await Promise.allSettled([
         fetch(API),
         fetch(EVENTS_STATIC_URL),
         fetch(FORMATS_STATIC_URL),
+        fetch('/api/players'),
       ]);
 
       if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
@@ -334,6 +341,11 @@
 
       if (staticEventsRes.status === 'fulfilled' && staticEventsRes.value.ok) {
         state.staticEvents = await staticEventsRes.value.json();
+      }
+
+      if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
+        const pdata = await playersRes.value.json();
+        state.lastHandicapRefresh = pdata.lastRefresh || null;
       }
 
       populateFormatDropdown();
@@ -402,11 +414,17 @@
           <td class="px-4 py-3 text-center">${statusBadge(e.status)}</td>
           <td class="px-4 py-3 text-center">${sourceBadge(isKv)}</td>
           <td class="px-4 py-3 text-right">
-            ${isKv ? `<button class="delete-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-id="${e.id}" style="transition:color 0.12s">Delete</button>` : ''}
+            <div class="flex items-center justify-end gap-4">
+              ${isKv && e.status === 'upcoming' ? `<button class="activate-btn text-xs font-heading font-600 tracking-wider text-emerald-500 hover:text-emerald-300" data-id="${e.id}" data-name="${(e.name || e.id).replace(/"/g, '&quot;')}" style="transition:color 0.12s">Activate</button>` : ''}
+              ${isKv ? `<button class="delete-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-id="${e.id}" style="transition:color 0.12s">Delete</button>` : ''}
+            </div>
           </td>
         </tr>`;
       }).join('');
 
+      tbody.querySelectorAll('.activate-btn').forEach(btn => {
+        btn.addEventListener('click', () => showActivateModal(btn.dataset.id, btn.dataset.name));
+      });
       tbody.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', () => deleteEvent(btn.dataset.id));
       });
@@ -615,6 +633,109 @@
     document.getElementById('show-legacy').addEventListener('change', e => {
       state.showLegacy = e.target.checked;
       renderTable();
+    });
+
+    // ── Activate event ────────────────────────────────────────
+    let pendingActivateId   = null;
+    let pendingActivateName = null;
+
+    function formatAge(ms) {
+      const hours = Math.floor(ms / 3600000);
+      if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      const days = Math.floor(hours / 24);
+      return `${days} day${days !== 1 ? 's' : ''} ago`;
+    }
+
+    function showActivateModal(eventId, eventName) {
+      pendingActivateId   = eventId;
+      pendingActivateName = eventName;
+
+      const now      = Date.now();
+      const age      = state.lastHandicapRefresh ? now - new Date(state.lastHandicapRefresh).getTime() : Infinity;
+      const isStale  = age > 48 * 3600000;
+      const modal    = document.getElementById('activate-modal');
+      const body     = document.getElementById('modal-body');
+
+      if (isStale) {
+        const ageText = !state.lastHandicapRefresh ? 'never' : formatAge(age);
+        body.innerHTML = `
+          <div class="text-xs font-heading font-600 tracking-widest text-yellow-500 uppercase mb-2">⚠ Heads Up</div>
+          <h2 class="font-display text-2xl tracking-wider text-white mb-4">CHECK HANDICAPS FIRST</h2>
+          <p class="text-gray-400 text-sm font-body leading-relaxed">
+            Handicaps were last updated <span class="text-white font-semibold">${ageText}</span>.
+            Refreshing now ensures the most accurate handicaps are locked in for this event.
+          </p>
+          <p class="text-gray-600 text-xs font-body mt-3">Event: <span class="text-gray-400">${eventName}</span></p>
+          <div class="flex items-center justify-between mt-6 pt-5 border-t border-[#2c2c2c] gap-3 flex-wrap">
+            <a href="players.html" target="_blank"
+              class="px-4 py-2 rounded-lg bg-[#141414] border border-[#2c2c2c] text-sm font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-[rgba(249,115,22,0.4)]"
+              style="transition:all 0.15s">
+              ↗ Go Refresh Handicaps
+            </a>
+            <button id="modal-activate-anyway"
+              class="px-5 py-2 rounded-lg bg-[#f97316] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#c2530f]"
+              style="transition:background 0.15s">
+              Activate Anyway
+            </button>
+          </div>`;
+      } else {
+        const refreshedText = state.lastHandicapRefresh
+          ? new Date(state.lastHandicapRefresh).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+          : '—';
+        body.innerHTML = `
+          <div class="text-xs font-heading font-600 tracking-widest text-[#f97316] uppercase mb-2">Confirm</div>
+          <h2 class="font-display text-2xl tracking-wider text-white mb-4">ACTIVATE EVENT</h2>
+          <p class="text-gray-400 text-sm font-body leading-relaxed">
+            Activate <span class="text-white font-semibold">"${eventName}"</span>? Current player handicaps will be locked in for this event.
+          </p>
+          <p class="text-xs text-gray-600 font-body mt-3">Handicaps refreshed: <span class="text-gray-500">${refreshedText}</span></p>
+          <div class="flex items-center justify-between mt-6 pt-5 border-t border-[#2c2c2c]">
+            <button id="modal-cancel"
+              class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider"
+              style="transition:color 0.12s">Cancel</button>
+            <button id="modal-confirm"
+              class="px-6 py-2.5 rounded-lg bg-[#f97316] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#c2530f]"
+              style="transition:background 0.15s">Activate</button>
+          </div>`;
+      }
+
+      modal.style.display = 'flex';
+
+      document.getElementById('modal-cancel')?.addEventListener('click', closeModal);
+      document.getElementById('modal-activate-anyway')?.addEventListener('click', confirmActivate);
+      document.getElementById('modal-confirm')?.addEventListener('click', confirmActivate);
+    }
+
+    function closeModal() {
+      document.getElementById('activate-modal').style.display = 'none';
+      pendingActivateId   = null;
+      pendingActivateName = null;
+    }
+
+    async function confirmActivate() {
+      const id   = pendingActivateId;
+      const name = pendingActivateName;
+      closeModal();
+      if (!id) return;
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'activate-event', eventId: id }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const ev = state.kvEvents.find(e => e.id === id);
+        if (ev) ev.status = 'active';
+        renderTable();
+        showStatus(`"${name}" is now active. Handicaps locked in.`, 'success');
+      } catch (e) {
+        showStatus('Error activating event: ' + e.message, 'error');
+      }
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
     });
 
     loadAll();
