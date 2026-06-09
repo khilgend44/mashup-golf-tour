@@ -45,10 +45,14 @@
 
   <!-- NAV -->
   <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
-      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">← Admin</a>
-      <span class="text-border">|</span>
-      <span class="font-heading font-600 tracking-wider text-sm text-flame">Players</span>
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">← Site</a>
+        <span class="text-border text-xs">/</span>
+        <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">Admin</a>
+        <span class="text-border text-xs">/</span>
+        <span class="font-heading font-600 tracking-wider text-sm text-flame">Players</span>
+      </div>
     </div>
   </nav>
 
@@ -145,6 +149,14 @@
     </div>
 
   </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 flex items-center justify-between text-xs text-gray-700 font-body">
+      <span>MashUp Golf Tour — Admin Portal</span>
+      <a href="/" class="hover:text-flame" style="transition:color 0.12s">← Back to Site</a>
+    </div>
+  </footer>
 
   <script>
     const API = '/api/players';

@@ -3,21 +3,107 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin — MashUp Golf</title>
+  <title>Admin Portal — MashUp Golf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { background: #0c0c0c; color: #e5e5e5; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-    .box { text-align: center; }
-    h1 { color: #f97316; font-size: 2rem; margin-bottom: 0.5rem; }
-    p { color: #6b7280; }
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .portal-card { transition: border-color 0.15s, background 0.15s, transform 0.15s; }
+    .portal-card:hover { border-color: rgba(249,115,22,0.4); background: #232323; transform: translateY(-2px); }
+    .portal-card:active { transform: translateY(0); }
   </style>
 </head>
-<body>
-  <div class="box">
-    <h1>MashUp Admin</h1>
-    <nav>
-      <a href="players.html">Players</a> &nbsp;·&nbsp;
-      <a href="events.html">Events</a>
-    </nav>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color 0.12s">← Site</a>
+        <span class="text-border">/</span>
+        <span class="font-heading font-semibold tracking-wider text-sm text-flame">Admin</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <div class="max-w-6xl mx-auto px-4 pt-16 pb-10 flex flex-col items-center text-center">
+    <img src="../brand_assets/mashup_transparent_png.webp" alt="MashUp Golf" class="h-20 mb-6 opacity-90" />
+    <div class="text-xs font-heading font-semibold tracking-widest text-flame uppercase mb-2">MashUp Golf Tour</div>
+    <h1 class="font-display text-5xl sm:text-6xl tracking-wider text-white mb-3">ADMIN PORTAL</h1>
+    <p class="text-gray-500 text-sm font-body max-w-sm leading-relaxed">Manage player rosters, handicaps, and season events. Changes take effect immediately on the live site.</p>
   </div>
+
+  <!-- PORTAL CARDS -->
+  <div class="max-w-6xl mx-auto px-4 pb-20 flex-1 w-full">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-2xl mx-auto">
+
+      <!-- Players -->
+      <a href="players.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
+        <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <circle cx="9" cy="7" r="3.5" stroke="#f97316" stroke-width="1.5"/>
+            <path d="M2 19c0-3.866 3.134-7 7-7h2c3.866 0 7 3.134 7 7" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M16 4a3 3 0 0 1 0 6M20 19c0-3-1.8-5.5-4-6.5" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h2 class="font-display text-3xl tracking-wider text-white mb-2">PLAYERS</h2>
+          <p class="text-gray-500 text-sm font-body leading-relaxed">Manage the player roster, onboard new members, and refresh handicap data from SimulatorGolfTour.</p>
+        </div>
+        <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Manage Players →</div>
+      </a>
+
+      <!-- Events -->
+      <a href="events.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
+        <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="3" y="4" width="16" height="15" rx="2" stroke="#f97316" stroke-width="1.5"/>
+            <path d="M3 9h16" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M8 2v4M14 2v4" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="7" y="12.5" width="2.5" height="2.5" rx="0.4" fill="#f97316" opacity="0.65"/>
+            <rect x="12.5" y="12.5" width="2.5" height="2.5" rx="0.4" fill="#f97316" opacity="0.65"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h2 class="font-display text-3xl tracking-wider text-white mb-2">EVENTS</h2>
+          <p class="text-gray-500 text-sm font-body leading-relaxed">Create and manage weekly events, game formats, tournament links, and season configuration.</p>
+        </div>
+        <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Manage Events →</div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 flex items-center justify-between text-xs text-gray-700 font-body">
+      <span>MashUp Golf Tour — Admin Portal</span>
+      <a href="/" class="hover:text-flame" style="transition:color 0.12s">← Back to Site</a>
+    </div>
+  </footer>
+
 </body>
 </html>
