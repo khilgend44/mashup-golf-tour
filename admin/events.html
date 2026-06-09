@@ -652,7 +652,7 @@
 
       const now      = Date.now();
       const age      = state.lastHandicapRefresh ? now - new Date(state.lastHandicapRefresh).getTime() : Infinity;
-      const isStale  = age > 48 * 3600000;
+      const isStale  = age > 24 * 3600000;
       const modal    = document.getElementById('activate-modal');
       const body     = document.getElementById('modal-body');
 
