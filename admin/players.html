@@ -207,7 +207,15 @@
       const minRaw = rawValues.length ? Math.min(...rawValues) : null;
       const offset = minRaw !== null ? -minRaw : 0;
 
-      tbody.innerHTML = filtered.map((name, i) => {
+      const sorted = [...filtered].sort((a, b) => {
+        const ha = handicaps[a.toLowerCase()];
+        const hb = handicaps[b.toLowerCase()];
+        const ra = ha && ha.rawCap !== undefined ? parseFloat(ha.rawCap) : Infinity;
+        const rb = hb && hb.rawCap !== undefined ? parseFloat(hb.rawCap) : Infinity;
+        return ra - rb;
+      });
+
+      tbody.innerHTML = sorted.map((name, i) => {
         const hcp = handicaps[name.toLowerCase()] || null;
         const nd = '—';
         const adjusted = hcp && hcp.rawCap !== undefined
