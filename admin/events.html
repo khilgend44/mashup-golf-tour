@@ -228,6 +228,39 @@
             style="transition:color 0.12s">+ Add Place</button>
         </div>
 
+        <!-- CTPs -->
+        <div class="mt-6 pt-6 border-t border-border/40">
+          <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">CTPs</div>
+          <div class="flex items-center gap-5 flex-wrap">
+            <div>
+              <label>Number of CTPs</label>
+              <input type="number" id="f-ctp-count" min="0" max="18" value="4" style="width:90px" />
+            </div>
+            <div>
+              <label>$ Per CTP</label>
+              <input type="number" id="f-ctp-amount" min="0" step="1" placeholder="—" style="width:110px" />
+            </div>
+            <div id="ctp-total" class="text-xs text-gray-500 font-body self-end pb-2.5"></div>
+          </div>
+        </div>
+
+        <!-- Side Pots -->
+        <div class="mt-6 pt-6 border-t border-border/40">
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase">Side Pots</div>
+            <span class="text-xs text-gray-600 font-body">Individual payouts — no team split</span>
+          </div>
+          <div id="side-pots-list" class="mb-3"></div>
+          <div class="flex items-center gap-5 flex-wrap">
+            <button type="button" id="add-side-pot-btn"
+              class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
+              style="transition:color 0.12s">+ Add Side Pot</button>
+            <button type="button" id="add-common-pot-btn"
+              class="text-xs text-gray-600 hover:text-flame font-body"
+              style="transition:color 0.12s">+ Best Individual NET (not on winning team)</button>
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="flex items-center justify-between mt-6 pt-6 border-t border-border">
           <button id="cancel-btn" class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
@@ -297,6 +330,7 @@
       allFormats: {},
       showLegacy: false,
       lastHandicapRefresh: null,
+      playerCount: null,
     };
 
     // ── Utilities ──────────────────────────────────────────────
@@ -368,6 +402,7 @@
       if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
         const pdata = await playersRes.value.json();
         state.lastHandicapRefresh = pdata.lastRefresh || null;
+        state.playerCount = (pdata.roster || []).length || null;
       }
 
       populateFormatDropdown();
@@ -469,8 +504,11 @@
       if (!week)         { showStatus('Week number is required.', 'error'); return; }
       if (!format || format === '__new__') { showStatus('Select a format.', 'error'); return; }
 
-      const rounds  = readCurrentRounds();
-      const payouts = formPayouts.filter(p => p.amount > 0);
+      const rounds    = readCurrentRounds();
+      const payouts   = formPayouts.filter(p => p.amount > 0);
+      const ctpCount  = parseInt(document.getElementById('f-ctp-count')?.value) || 0;
+      const ctpAmount = parseFloat(document.getElementById('f-ctp-amount')?.value) || 0;
+      const sidePots  = formSidePots.filter(p => p.name?.trim());
 
       const event = {
         id: `event-${tournamentId}`,
@@ -487,6 +525,8 @@
         status,
         rounds,
         payouts,
+        ctps:      ctpCount > 0 ? { count: ctpCount, amountEach: ctpAmount } : null,
+        sidePots,
       };
 
       try {
@@ -567,6 +607,12 @@
       document.getElementById('toggle-form-btn').innerHTML = '× Cancel';
       renderRoundsSection();
       renderPayouts();
+      renderSidePots();
+      const ctpAmountEl = document.getElementById('f-ctp-amount');
+      if (ctpAmountEl && !ctpAmountEl.value && state.playerCount) {
+        ctpAmountEl.value = state.playerCount;
+        updateCtpTotal();
+      }
     }
 
     function closeForm() {
@@ -580,11 +626,19 @@
       document.getElementById('url-extracted').textContent = '';
       formRounds = [];
       formPayouts = [];
+      formSidePots = [];
+      const ctpCount = document.getElementById('f-ctp-count');
+      const ctpAmount = document.getElementById('f-ctp-amount');
+      if (ctpCount)  ctpCount.value  = '4';
+      if (ctpAmount) ctpAmount.value = '';
+      const ctpTotal = document.getElementById('ctp-total');
+      if (ctpTotal) ctpTotal.textContent = '';
     }
 
     // ── Round settings & payouts state ───────────────────────
-    let formRounds  = [];
-    let formPayouts = [];
+    let formRounds   = [];
+    let formPayouts  = [];
+    let formSidePots = [];
 
     const ROUND_FIELDS = [
       { key:'stimp',    label:'Stimp',    type:'number', step:'1'   },
@@ -713,6 +767,45 @@
       });
     }
 
+    function updateCtpTotal() {
+      const count  = parseInt(document.getElementById('f-ctp-count')?.value)  || 0;
+      const amount = parseFloat(document.getElementById('f-ctp-amount')?.value) || 0;
+      const el = document.getElementById('ctp-total');
+      if (el) el.textContent = (count > 0 && amount > 0) ? `${count} × $${amount} = $${count * amount} total` : '';
+    }
+
+    function renderSidePots() {
+      const list = document.getElementById('side-pots-list');
+      if (!list) return;
+      if (formSidePots.length === 0) {
+        list.innerHTML = '<p class="text-xs text-gray-700 font-body py-1">No side pots added.</p>';
+        return;
+      }
+      list.innerHTML = formSidePots.map((p, i) => `
+        <div class="flex items-center gap-3 py-2 border-b border-border/30">
+          <input type="text" class="side-pot-name flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50"
+            value="${p.name.replace(/"/g,'&quot;')}" data-idx="${i}" placeholder="Side pot name" />
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-gray-600 text-sm font-body">$</span>
+            <input type="number" class="side-pot-amount w-24 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50"
+              min="0" step="5" value="${p.amount || ''}" data-idx="${i}" placeholder="0" />
+          </div>
+          <button type="button" class="remove-side-pot text-gray-700 hover:text-red-400 text-base leading-none shrink-0" data-idx="${i}" style="transition:color 0.12s">×</button>
+        </div>`).join('');
+      list.querySelectorAll('.side-pot-name').forEach(input => {
+        input.addEventListener('input', e => { formSidePots[parseInt(e.target.dataset.idx)].name = e.target.value; });
+      });
+      list.querySelectorAll('.side-pot-amount').forEach(input => {
+        input.addEventListener('input', e => { formSidePots[parseInt(e.target.dataset.idx)].amount = parseFloat(e.target.value) || 0; });
+      });
+      list.querySelectorAll('.remove-side-pot').forEach(btn => {
+        btn.addEventListener('click', () => {
+          formSidePots.splice(parseInt(btn.dataset.idx), 1);
+          renderSidePots();
+        });
+      });
+    }
+
     // ── Auto-extract tournament ID from URL ───────────────────
     let scrapeTimer = null;
     document.getElementById('f-url').addEventListener('input', e => {
@@ -810,6 +903,16 @@
     document.getElementById('add-payout-btn').addEventListener('click', () => {
       formPayouts.push({ place: formPayouts.length + 1, amount: 0 });
       renderPayouts();
+    });
+    document.getElementById('f-ctp-count').addEventListener('input', updateCtpTotal);
+    document.getElementById('f-ctp-amount').addEventListener('input', updateCtpTotal);
+    document.getElementById('add-side-pot-btn').addEventListener('click', () => {
+      formSidePots.push({ name: '', amount: 0 });
+      renderSidePots();
+    });
+    document.getElementById('add-common-pot-btn').addEventListener('click', () => {
+      formSidePots.push({ name: 'Best Individual NET (not on winning team)', amount: 0 });
+      renderSidePots();
     });
     document.getElementById('create-event-btn').addEventListener('click', createEvent);
     document.getElementById('save-format-btn').addEventListener('click', saveCustomFormat);
