@@ -193,6 +193,7 @@
 
   <script type="module">
     const API                = '/api/events-admin';
+    const PLAYERS_API        = '/api/players';
     const FORMATS_STATIC_URL = '/data/formats.json';
 
     let state = {
@@ -200,6 +201,7 @@
       allFormats: {},
       roster:     [],
       handicaps:  {},
+      lastRefresh: null,
     };
 
     // ── Utilities ──────────────────────────────────────────────
@@ -234,8 +236,9 @@
 
       if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
         const pdata = await playersRes.value.json();
-        state.roster    = pdata.roster    || [];
-        state.handicaps = pdata.handicaps || {};
+        state.roster      = pdata.roster      || [];
+        state.handicaps   = pdata.handicaps   || {};
+        state.lastRefresh = pdata.lastRefresh || null;
       }
 
       populateRtEventDropdown();
@@ -634,6 +637,41 @@
         : `<option value="">— No active or upcoming events —</option>`;
     }
 
+    function handicapsAreStale() {
+      if (!state.lastRefresh) return true;
+      return Date.now() - new Date(state.lastRefresh).getTime() > 24 * 60 * 60 * 1000;
+    }
+
+    function formatRefreshAge(iso) {
+      if (!iso) return 'never';
+      const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+      if (mins < 60)  return `${mins}m ago`;
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24)   return `${hrs}h ago`;
+      return `${Math.round(hrs / 24)}d ago`;
+    }
+
+    async function refreshHandicapsInline(eventId) {
+      const btn = document.getElementById('sgt-refresh-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+      try {
+        const res  = await fetch(PLAYERS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'refresh' }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        state.handicaps   = data.handicaps;
+        state.lastRefresh = data.lastRefresh;
+        showStatus(`Handicaps updated (${data.count} players).`, 'success');
+        renderSgtPanel(eventId);
+      } catch (e) {
+        showStatus('Refresh failed: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Refresh Handicaps'; }
+      }
+    }
+
     function renderSgtPanel(eventId) {
       const panel = document.getElementById('sgt-panel');
       if (!eventId) { panel.innerHTML = ''; return; }
@@ -646,10 +684,30 @@
       const isSolo   = teamSize < 2;
       const teams    = event.teams || [];
       const needsTeams = !isSolo && teams.length === 0;
+      const stale      = handicapsAreStale();
 
       const summary = isSolo
         ? `Individual event &nbsp;·&nbsp; <span class="text-white font-semibold">${state.roster.length}</span> players`
         : `Team event &nbsp;·&nbsp; <span class="text-white font-semibold">${teams.length}</span> teams of <span class="text-white font-semibold">${teamSize}</span>`;
+
+      if (stale) {
+        const age = formatRefreshAge(state.lastRefresh);
+        panel.innerHTML = `
+          <div class="border border-red-800/40 bg-red-900/20 rounded-lg px-5 py-4 space-y-3">
+            <div class="flex items-start gap-3">
+              <span class="text-red-400 text-lg leading-none">⚠</span>
+              <div>
+                <div class="text-sm font-body text-red-300 font-semibold">Handicaps are out of date</div>
+                <div class="text-xs font-body text-red-400/80 mt-0.5">Last refreshed ${age}. Handicaps must be current before generating the loading file — SGT uses these values to seed the event.</div>
+              </div>
+            </div>
+            <button id="sgt-refresh-btn"
+              class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+              style="transition:background 0.15s">Refresh Handicaps</button>
+          </div>`;
+        document.getElementById('sgt-refresh-btn').addEventListener('click', () => refreshHandicapsInline(eventId));
+        return;
+      }
 
       panel.innerHTML = `
         <div class="flex flex-wrap items-center gap-4">
@@ -658,7 +716,8 @@
             class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-30 disabled:cursor-not-allowed"
             style="transition:background 0.15s">↓ Download CSV</button>
         </div>
-        ${needsTeams ? `<div class="text-xs font-body text-yellow-600 mt-2">⚠ No teams drawn yet — draw and save teams first.</div>` : ''}`;
+        ${needsTeams ? `<div class="text-xs font-body text-yellow-600 mt-2">⚠ No teams drawn yet — draw and save teams first.</div>` : ''}
+        <div class="text-xs font-body text-gray-700 mt-2">Handicaps refreshed ${formatRefreshAge(state.lastRefresh)}</div>`;
 
       document.getElementById('sgt-download-btn')?.addEventListener('click', () => downloadSgtCsv(event));
     }
