@@ -38,7 +38,7 @@
             color: #6b7280; margin-bottom: 0.35rem; }
 
     /* ─ POSTER ─────────────────────────────────────────────── */
-    #poster { width: 1000px; background: #0a0a0a; font-family: 'Inter', sans-serif; position: relative; overflow: hidden; }
+    #poster { width: 1000px; background: #0a0a0a; font-family: 'Inter', sans-serif; position: relative; }
     #poster::before {
       content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
@@ -48,7 +48,7 @@
 
     /* header */
     .ph { background: linear-gradient(135deg, #111 0%, #1a0f05 60%, #0d0d0d 100%);
-          padding: 36px 48px 30px; border-bottom: 3px solid #f97316; position: relative; overflow: hidden; }
+          padding: 36px 48px 30px; border-bottom: 3px solid #f97316; position: relative; }
     .ph::after { content: ''; position: absolute; top: -60px; right: -40px; width: 320px; height: 320px;
                  background: radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%); pointer-events: none; }
     .p-label  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px;
@@ -60,26 +60,11 @@
                 color:#9ca3af; letter-spacing:0.06em; text-transform:uppercase; }
     .p-meta-i span { color:#e5e5e5; }
 
-    /* settings bar */
-    .sb { background:#111; border-bottom:1px solid #1e1e1e; padding:12px 48px; display:flex; flex-wrap:wrap; }
-    .sc { flex:1; min-width:84px; padding:6px 12px; border-right:1px solid #1e1e1e; text-align:center; }
-    .sc:last-child { border-right:none; }
-    .sk { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
-          letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:2px; }
-    .sv { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:17px; color:#d1d5db; }
-
     /* section headers */
     .sh  { padding:18px 48px 10px; display:flex; align-items:center; gap:14px; }
     .shl { font-family:'Bebas Neue',cursive; font-size:27px; color:#f97316; letter-spacing:0.08em; }
     .shr { flex:1; height:1px; background:#1e1e1e; }
     .shc { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:12px; color:#374151; letter-spacing:0.1em; }
-
-    /* format callout */
-    .fc { margin:0 48px 12px; background:#111; border:1px solid #1e1e1e; border-left:3px solid #f97316;
-          border-radius:4px; padding:11px 16px; }
-    .fc-t { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px;
-            letter-spacing:0.1em; text-transform:uppercase; color:#f97316; margin-bottom:4px; }
-    .fc-d { font-family:'Inter',sans-serif; font-size:12px; color:#6b7280; line-height:1.55; }
 
     /* teams grid */
     .tg { padding:0 40px 6px; display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
@@ -298,6 +283,97 @@
       return tiers;
     }
 
+    function buildDiscordMessage(event) {
+      const fmt      = state.allFormats[event.format] || {};
+      const teamSize = fmt.teamSize ? parseInt(fmt.teamSize) : 1;
+      const rounds   = event.rounds || [];
+      const r1       = rounds[0] || {};
+      const payouts  = event.payouts || [];
+      const ctps     = event.ctps || null;
+      const sidePots = event.sidePots || [];
+      const teams    = event.teams || [];
+
+      const dateStr   = formatDateRange(event.startDate, event.endDate) || event.date || null;
+      const seasonStr = formatSeason(event.season);
+      const weekStr   = event.week ? `Week ${event.week}` : '';
+      const labelStr  = [seasonStr, weekStr].filter(Boolean).join(' · ');
+      const course    = r1.course || null;
+      const playerCount = teams.flat().length || state.roster.length;
+      const teamCount   = teams.length;
+
+      const payoutsTotal  = payouts.reduce((s, p) => s + (p.amount || 0), 0);
+      const ctpsTotal     = ctps ? (ctps.count || 0) * (ctps.amountEach || 0) : 0;
+      const sidePotsTotal = sidePots.reduce((s, p) => s + (p.amount || 0), 0);
+      const prizeTotal    = payoutsTotal + ctpsTotal + sidePotsTotal;
+
+      const settingParts = [
+        r1.stimp    != null ? `Stimp ${r1.stimp}`         : null,
+        r1.slope    != null ? `Slope ${r1.slope}`         : null,
+        r1.rating   != null ? `Rating ${r1.rating}`       : null,
+        r1.tees               ? `Tees ${r1.tees}`         : null,
+        r1.fairways           ? `Fairways ${r1.fairways}` : null,
+        r1.greens             ? `Greens ${r1.greens}`     : null,
+        r1.pins               ? `Pins ${r1.pins}`         : null,
+        r1.wind               ? `Wind ${r1.wind}`         : null,
+        r1.gimmies            ? `Gimmies ${r1.gimmies}`   : null,
+        r1.weather            ? `Weather ${r1.weather}`   : null,
+        r1.putting            ? `Putting ${r1.putting}`   : null,
+      ].filter(Boolean);
+
+      const lines = [];
+
+      lines.push(`🏌️ **${labelStr} is LIVE — ${fmt.name || event.name}!**`);
+
+      const meta = [];
+      if (dateStr) meta.push(`📅 ${dateStr}`);
+      if (course)  meta.push(`⛳ ${course}`);
+      if (teamCount > 0) meta.push(`👥 ${playerCount} Players · ${teamCount} Teams`);
+      if (meta.length) lines.push(meta.join('  ·  '));
+
+      lines.push('');
+
+      if (fmt.description) {
+        lines.push(`📋 **Format:** ${fmt.description}`);
+        lines.push('');
+      }
+
+      if (settingParts.length) {
+        lines.push(`⚙️ **Course:** ${settingParts.join(' · ')}`);
+        const r2 = rounds[1];
+        if (r2) {
+          const r2Parts = [
+            r2.course               ? r2.course                    : null,
+            r2.slope  != null       ? `Slope ${r2.slope}`          : null,
+            r2.rating != null       ? `Rating ${r2.rating}`        : null,
+            r2.stimp  != null       ? `Stimp ${r2.stimp}`          : null,
+          ].filter(Boolean);
+          if (r2Parts.length) lines.push(`⚙️ **Round 2:** ${r2Parts.join(' · ')}`);
+        }
+        lines.push('');
+      }
+
+      const prizeParts = [];
+      payouts.forEach((p, i) => {
+        const perP = teamSize > 1 ? ` ($${Math.round(p.amount / teamSize)}/ea)` : '';
+        prizeParts.push(`${ORDINALS[i] || (i + 1) + 'th'} $${p.amount}${perP}`);
+      });
+      if (ctps) prizeParts.push(`CTP ×${ctps.count} at $${ctps.amountEach}/ea`);
+      sidePots.forEach(p => prizeParts.push(`${p.name || 'Side Pot'} $${p.amount}`));
+      if (prizeParts.length) {
+        const totalStr = prizeTotal > 0 ? ` · Total Pool $${prizeTotal}` : '';
+        lines.push(`💰 **Prizes:** ${prizeParts.join(' · ')}${totalStr}`);
+        lines.push('');
+      }
+
+      lines.push(teams.length
+        ? `Teams are set — check the poster for your team breakdown, load up the course, and let's go!`
+        : `The event is ready — load up the course and let's go!`);
+      lines.push('');
+      lines.push(`📺 Submit your stream: https://${SITE_URL}`);
+
+      return lines.join('\n');
+    }
+
     function buildPoster(event) {
       const fmt      = state.allFormats[event.format] || {};
       const teamSize = fmt.teamSize ? parseInt(fmt.teamSize) : 1;
@@ -328,21 +404,6 @@
       const ctpsTotal     = ctps ? (ctps.count || 0) * (ctps.amountEach || 0) : 0;
       const sidePotsTotal = sidePots.reduce((s, p) => s + (p.amount || 0), 0);
       const prizeTotal    = payoutsTotal + ctpsTotal + sidePotsTotal;
-
-      // Settings bar
-      const settingFields = [
-        { k: 'Stimp',    v: r1.stimp    != null ? r1.stimp    : null },
-        { k: 'Slope',    v: r1.slope    != null ? r1.slope    : null },
-        { k: 'Rating',   v: r1.rating   != null ? r1.rating   : null },
-        { k: 'Tees',     v: r1.tees     || null },
-        { k: 'Fairways', v: r1.fairways || null },
-        { k: 'Greens',   v: r1.greens   || null },
-        { k: 'Pins',     v: r1.pins     || null },
-        { k: 'Wind',     v: r1.wind     || null },
-        { k: 'Gimmies',  v: r1.gimmies  || null },
-        { k: 'Weather',  v: r1.weather  || null },
-        { k: 'Putting',  v: r1.putting  || null },
-      ].filter(f => f.v !== null);
 
       // Teams HTML
       const teamsHTML = teams.length === 0
@@ -415,11 +476,6 @@
           ).join('') + `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:12px;color:#374151;margin-left:8px;letter-spacing:0.08em">= LOW · MID · HIGH HANDICAP</span>`
         : '';
 
-      const secondRound = rounds[1]
-        ? `<div style="padding:4px 48px 8px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.08em;color:#374151">
-             ROUND 2: ${rounds[1].course || '—'} · Slope ${rounds[1].slope ?? '—'} · Rating ${rounds[1].rating ?? '—'} · Stimp ${rounds[1].stimp ?? '—'}
-           </div>` : '';
-
       return `<div class="pi">
         <!-- HEADER -->
         <div class="ph">
@@ -436,25 +492,6 @@
             <img src="../brand_assets/mashup_transparent_png.webp" alt="MashUp" style="height:92px;opacity:0.85;margin-top:2px" crossorigin="anonymous" />
           </div>
         </div>
-
-        <!-- ROUND SETTINGS -->
-        ${settingFields.length > 0 ? `
-        <div class="sb">
-          ${settingFields.map(f => `
-            <div class="sc">
-              <div class="sk">${f.k}</div>
-              <div class="sv">${f.v}</div>
-            </div>`).join('')}
-        </div>` : ''}
-        ${secondRound}
-
-        <!-- FORMAT -->
-        ${fmt.description ? `
-        <div class="sh" style="padding-bottom:6px"><div class="shl">Format</div><div class="shr"></div></div>
-        <div class="fc">
-          <div class="fc-t">${fmt.name || ''}</div>
-          <div class="fc-d">${fmt.description}</div>
-        </div>` : ''}
 
         <!-- TEAMS -->
         ${teams.length > 0 ? `
@@ -521,16 +558,7 @@
       document.getElementById('download-btn').disabled = false;
       document.getElementById('discord-btn').disabled  = false;
 
-      // Pre-fill Discord message
-      const fmt = state.allFormats[event.format] || {};
-      const season = formatSeason(event.season);
-      const week   = event.week ? `Week ${event.week}` : '';
-      document.getElementById('discord-message').value =
-        `🏌️ **${season} ${week} is LIVE — ${fmt.name || event.name}!**\n` +
-        (event.teams?.length
-          ? `Teams are set. Check your team below, then load up the course and get out there.\n`
-          : `The event is ready. Load up the course and get out there.\n`) +
-        `\nSubmit your stream: https://${SITE_URL}`;
+      document.getElementById('discord-message').value = buildDiscordMessage(event);
     }
 
     // ── Wire up event selector ────────────────────────────────
@@ -545,7 +573,7 @@
       await document.fonts.ready;
       try {
         const poster = document.getElementById('poster');
-        const canvas = await html2canvas(poster, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a', logging: false });
+        const canvas = await html2canvas(poster, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a', logging: false, windowWidth: 1000, scrollX: 0, scrollY: -window.scrollY });
         canvas.toBlob(blob => {
           const url  = URL.createObjectURL(blob);
           const link = document.createElement('a');
@@ -577,6 +605,7 @@
       try {
         const canvas = await html2canvas(document.getElementById('poster'), {
           scale: 2, useCORS: true, backgroundColor: '#0a0a0a', logging: false,
+          windowWidth: 1000, scrollX: 0, scrollY: -window.scrollY,
         });
 
         // Convert canvas to base64 and send through our server (keeps webhook URL private)
