@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teams — MashUp Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    input, select, textarea {
+      background: #141414; border: 1px solid #2c2c2c; color: #e5e5e5;
+      border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem;
+      font-family: 'Inter', sans-serif; width: 100%;
+      transition: border-color 0.12s;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(249,115,22,0.5); }
+    select option { background: #1e1e1e; }
+    label { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+            font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+            color: #6b7280; margin-bottom: 0.35rem; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">← Site</a>
+        <span class="text-border text-xs">/</span>
+        <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">Admin</a>
+        <span class="text-border text-xs">/</span>
+        <span class="font-heading font-600 tracking-wider text-sm text-flame">Teams</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-10 pb-20 space-y-8 flex-1 w-full">
+
+    <!-- Header -->
+    <div>
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Admin</div>
+      <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white">TEAMS</h1>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
+
+    <!-- ── CONFIGURE EVENT / TEAM ────────────────────────────── -->
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border">
+        <h2 class="font-display text-2xl tracking-wider text-white">CONFIGURE EVENT / TEAM</h2>
+        <p class="text-xs text-gray-600 font-body mt-1">Manage in-flight events and assign players on teams to specific roles (e.g. Lone Ranger).</p>
+      </div>
+      <div class="px-6 py-5">
+        <div class="max-w-xs mb-5">
+          <label>Select Event</label>
+          <select id="cfg-event-select">
+            <option value="">— Loading events… —</option>
+          </select>
+        </div>
+        <div id="cfg-panel"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 flex items-center justify-between text-xs text-gray-700 font-body">
+      <span>MashUp Golf Tour — Admin Portal</span>
+      <a href="/" class="hover:text-flame" style="transition:color 0.12s">← Back to Site</a>
+    </div>
+  </footer>
+
+  <script type="module">
+    const API               = '/api/events-admin';
+    const FORMATS_STATIC_URL = '/data/formats.json';
+
+    let state = {
+      kvEvents:   [],
+      allFormats: {},
+      roster:     [],
+    };
+
+    // ── Utilities ──────────────────────────────────────────────
+    function showStatus(msg, type = 'info') {
+      const bar = document.getElementById('status-bar');
+      bar.className = `rounded-lg px-4 py-3 text-sm font-body ${
+        type === 'error'   ? 'bg-red-900/30 border border-red-800/40 text-red-300' :
+        type === 'success' ? 'bg-green-900/30 border border-green-800/40 text-green-300' :
+                             'bg-surface border border-border text-gray-400'
+      }`;
+      bar.textContent = msg;
+      bar.classList.remove('hidden');
+      if (type !== 'error') setTimeout(() => bar.classList.add('hidden'), 4000);
+    }
+
+    // ── Load data ─────────────────────────────────────────────
+    async function loadAll() {
+      const [kvRes, staticFormatsRes, playersRes] = await Promise.allSettled([
+        fetch(API),
+        fetch(FORMATS_STATIC_URL),
+        fetch('/api/players'),
+      ]);
+
+      if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
+        const data = await kvRes.value.json();
+        state.kvEvents = data.events || [];
+        const kvFormats = data.formats || {};
+        const staticFmts = staticFormatsRes.status === 'fulfilled' && staticFormatsRes.value.ok
+          ? await staticFormatsRes.value.json() : {};
+        state.allFormats = { ...staticFmts, ...kvFormats };
+      }
+
+      if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
+        const pdata = await playersRes.value.json();
+        state.roster = pdata.roster || [];
+      }
+
+      populateConfigEventDropdown();
+    }
+
+    // ── Configure Event / Team ────────────────────────────────
+    let lrTeams    = [];
+    let cfgEventId = null;
+
+    const LR_SLOT_LABELS = [
+      { label: 'Slot 1', holes: 'Holes 1,4,7,10,13,16' },
+      { label: 'Slot 2', holes: 'Holes 2,5,8,11,14,17' },
+      { label: 'Slot 3', holes: 'Holes 3,6,9,12,15,18' },
+    ];
+
+    function populateConfigEventDropdown() {
+      const sel = document.getElementById('cfg-event-select');
+      if (!sel) return;
+      const eligible = state.kvEvents.filter(e => e.status === 'active' || e.status === 'upcoming');
+      const prev = sel.value;
+      sel.innerHTML = eligible.length
+        ? `<option value="">— Select an active or upcoming event —</option>` +
+          eligible.map(e => `<option value="${e.id}">${e.name || e.id} (${e.status})</option>`).join('')
+        : `<option value="">— No active or upcoming events —</option>`;
+      if (prev && eligible.find(e => e.id === prev)) sel.value = prev;
+    }
+
+    function renderFormatConfig(eventId) {
+      const panel = document.getElementById('cfg-panel');
+      if (!panel) return;
+      if (!eventId) { panel.innerHTML = ''; return; }
+
+      const event = state.kvEvents.find(e => e.id === eventId);
+      if (!event) { panel.innerHTML = '<p class="text-xs text-gray-600 font-body">Event not found.</p>'; return; }
+
+      const fmt = state.allFormats[event.format];
+      switch (fmt?.type) {
+        case 'lone-ranger':
+          renderLoneRangerPanel(event);
+          break;
+        default:
+          panel.innerHTML = `<p class="text-xs text-gray-600 font-body py-2">The <span class="text-gray-400">${fmt?.name || event.format || 'selected'}</span> format does not require additional configuration.</p>`;
+      }
+    }
+
+    function renderLoneRangerPanel(event) {
+      cfgEventId = event.id;
+      lrTeams = event.teamSlots ? event.teamSlots.map(t => [...t]) : [];
+      renderLrTeams();
+    }
+
+    function renderLrTeams() {
+      const panel = document.getElementById('cfg-panel');
+      if (!panel) return;
+
+      const playerOptions = ['', ...(state.roster || [])].map(p =>
+        `<option value="${p.replace(/"/g, '&quot;')}">${p || '— Select Player —'}</option>`
+      ).join('');
+
+      panel.innerHTML = `
+        <div class="space-y-3">
+          ${lrTeams.length === 0
+            ? '<p class="text-xs text-gray-700 font-body py-1">No teams added yet. Click "+ Add Team" to start.</p>'
+            : lrTeams.map((team, ti) => `
+              <div class="border border-border/60 rounded-lg p-4 bg-surface">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase">Team ${ti + 1}</div>
+                  <button type="button" class="lr-remove-team text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-ti="${ti}" style="transition:color 0.12s">Remove</button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  ${LR_SLOT_LABELS.map((sl, si) => `
+                    <div>
+                      <label>${sl.label} <span class="text-gray-700 font-body normal-case tracking-normal font-normal">${sl.holes}</span></label>
+                      <select class="lr-slot" data-ti="${ti}" data-si="${si}">${playerOptions}</select>
+                    </div>`).join('')}
+                </div>
+              </div>`).join('')}
+        </div>
+        <div class="flex items-center gap-4 mt-4 flex-wrap">
+          <button type="button" id="lr-add-team"
+            class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
+            style="transition:color 0.12s">+ Add Team</button>
+          ${lrTeams.length > 0 ? `<button type="button" id="lr-save-btn"
+            class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+            style="transition:background 0.15s">Save Configuration</button>` : ''}
+        </div>`;
+
+      lrTeams.forEach((team, ti) => {
+        team.forEach((player, si) => {
+          const sel = panel.querySelector(`.lr-slot[data-ti="${ti}"][data-si="${si}"]`);
+          if (sel) sel.value = player || '';
+        });
+      });
+
+      panel.querySelectorAll('.lr-slot').forEach(sel => {
+        sel.addEventListener('change', e => {
+          lrTeams[parseInt(e.target.dataset.ti)][parseInt(e.target.dataset.si)] = e.target.value;
+        });
+      });
+      panel.querySelectorAll('.lr-remove-team').forEach(btn => {
+        btn.addEventListener('click', () => { lrTeams.splice(parseInt(btn.dataset.ti), 1); renderLrTeams(); });
+      });
+      document.getElementById('lr-add-team')?.addEventListener('click', () => { lrTeams.push(['', '', '']); renderLrTeams(); });
+      document.getElementById('lr-save-btn')?.addEventListener('click', () => saveLoneRangerConfig(cfgEventId));
+    }
+
+    async function saveLoneRangerConfig(eventId) {
+      if (!eventId) return;
+      for (let ti = 0; ti < lrTeams.length; ti++) {
+        if (lrTeams[ti].some(p => !p)) {
+          showStatus(`Team ${ti + 1} has an empty slot — fill all three slots before saving.`, 'error');
+          return;
+        }
+      }
+      const allPlayers = lrTeams.flatMap(t => t).filter(p => p);
+      const seen = new Set();
+      for (const p of allPlayers) {
+        if (seen.has(p)) { showStatus(`"${p}" is assigned to multiple slots. Each player can only appear once.`, 'error'); return; }
+        seen.add(p);
+      }
+      const event = state.kvEvents.find(e => e.id === eventId);
+      if (!event) return;
+      const updatedEvent = { ...event, teamSlots: lrTeams.map(t => [...t]) };
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-event', event: updatedEvent }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const idx = state.kvEvents.findIndex(e => e.id === eventId);
+        if (idx !== -1) state.kvEvents[idx] = data.event;
+        showStatus('Team configuration saved.', 'success');
+      } catch (e) {
+        showStatus('Error saving configuration: ' + e.message, 'error');
+      }
+    }
+
+    document.getElementById('cfg-event-select').addEventListener('change', e => {
+      renderFormatConfig(e.target.value);
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>

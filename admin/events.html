@@ -293,23 +293,6 @@
       </div>
     </div>
 
-    <!-- ── CONFIGURE EVENT / TEAM ────────────────────────────── -->
-    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
-      <div class="px-6 py-4 border-b border-border">
-        <h2 class="font-display text-2xl tracking-wider text-white">CONFIGURE EVENT / TEAM</h2>
-        <p class="text-xs text-gray-600 font-body mt-1">Manage in-flight events and assign players on teams to specific roles (e.g. Lone Ranger).</p>
-      </div>
-      <div class="px-6 py-5">
-        <div class="max-w-xs mb-5">
-          <label>Select Event</label>
-          <select id="cfg-event-select">
-            <option value="">— Select an active or upcoming event —</option>
-          </select>
-        </div>
-        <div id="cfg-panel"></div>
-      </div>
-    </div>
-
   </main>
 
   <!-- ACTIVATE MODAL -->
@@ -337,7 +320,6 @@
       showLegacy: false,
       lastHandicapRefresh: null,
       playerCount: null,
-      roster: [],
     };
 
     // ── Utilities ──────────────────────────────────────────────
@@ -409,8 +391,7 @@
       if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
         const pdata = await playersRes.value.json();
         state.lastHandicapRefresh = pdata.lastRefresh || null;
-        state.roster = pdata.roster || [];
-        state.playerCount = state.roster.length || null;
+        state.playerCount = (pdata.roster || []).length || null;
       }
 
       populateFormatDropdown();
@@ -494,7 +475,6 @@
         btn.addEventListener('click', () => deleteEvent(btn.dataset.id));
       });
 
-      populateConfigEventDropdown();
     }
 
     // ── Create event ──────────────────────────────────────────
@@ -1028,144 +1008,6 @@
 
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closeModal();
-    });
-
-    // ── Configure Event / Team ────────────────────────────────
-    let lrTeams  = [];
-    let cfgEventId = null;
-
-    const LR_SLOT_LABELS = [
-      { label: 'Slot 1', holes: 'Holes 1,4,7,10,13,16' },
-      { label: 'Slot 2', holes: 'Holes 2,5,8,11,14,17' },
-      { label: 'Slot 3', holes: 'Holes 3,6,9,12,15,18' },
-    ];
-
-    function populateConfigEventDropdown() {
-      const sel = document.getElementById('cfg-event-select');
-      if (!sel) return;
-      const eligible = state.kvEvents.filter(e => e.status === 'active' || e.status === 'upcoming');
-      const prev = sel.value;
-      sel.innerHTML = `<option value="">— Select an active or upcoming event —</option>` +
-        eligible.map(e =>
-          `<option value="${e.id}">${e.name || e.id} (${e.status})</option>`
-        ).join('');
-      if (prev && eligible.find(e => e.id === prev)) sel.value = prev;
-    }
-
-    function renderFormatConfig(eventId) {
-      const panel = document.getElementById('cfg-panel');
-      if (!panel) return;
-      if (!eventId) { panel.innerHTML = ''; return; }
-
-      const event = state.kvEvents.find(e => e.id === eventId);
-      if (!event) { panel.innerHTML = '<p class="text-xs text-gray-600 font-body">Event not found.</p>'; return; }
-
-      const fmt = state.allFormats[event.format];
-      switch (fmt?.type) {
-        case 'lone-ranger':
-          renderLoneRangerPanel(event);
-          break;
-        default:
-          panel.innerHTML = `<p class="text-xs text-gray-600 font-body py-2">The <span class="text-gray-400">${fmt?.name || event.format || 'selected'}</span> format does not require additional configuration.</p>`;
-      }
-    }
-
-    function renderLoneRangerPanel(event) {
-      cfgEventId = event.id;
-      lrTeams = event.teamSlots ? event.teamSlots.map(t => [...t]) : [];
-      renderLrTeams();
-    }
-
-    function renderLrTeams() {
-      const panel = document.getElementById('cfg-panel');
-      if (!panel) return;
-
-      const playerOptions = ['', ...(state.roster || [])].map(p =>
-        `<option value="${p.replace(/"/g,'&quot;')}">${p || '— Select Player —'}</option>`
-      ).join('');
-
-      panel.innerHTML = `
-        <div class="space-y-3" id="lr-teams-list">
-          ${lrTeams.length === 0
-            ? '<p class="text-xs text-gray-700 font-body py-1">No teams added yet. Click "+ Add Team" to start.</p>'
-            : lrTeams.map((team, ti) => `
-              <div class="border border-border/60 rounded-lg p-4 bg-surface">
-                <div class="flex items-center justify-between mb-3">
-                  <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase">Team ${ti + 1}</div>
-                  <button type="button" class="lr-remove-team text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-ti="${ti}" style="transition:color 0.12s">Remove</button>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  ${LR_SLOT_LABELS.map((sl, si) => `
-                    <div>
-                      <label>${sl.label} <span class="text-gray-700 font-body normal-case tracking-normal font-normal">${sl.holes}</span></label>
-                      <select class="lr-slot" data-ti="${ti}" data-si="${si}">${playerOptions}</select>
-                    </div>`).join('')}
-                </div>
-              </div>`).join('')}
-        </div>
-        <div class="flex items-center gap-4 mt-4 flex-wrap">
-          <button type="button" id="lr-add-team"
-            class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
-            style="transition:color 0.12s">+ Add Team</button>
-          ${lrTeams.length > 0 ? `<button type="button" id="lr-save-btn"
-            class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
-            style="transition:background 0.15s">Save Configuration</button>` : ''}
-        </div>`;
-
-      lrTeams.forEach((team, ti) => {
-        team.forEach((player, si) => {
-          const sel = panel.querySelector(`.lr-slot[data-ti="${ti}"][data-si="${si}"]`);
-          if (sel) sel.value = player || '';
-        });
-      });
-
-      panel.querySelectorAll('.lr-slot').forEach(sel => {
-        sel.addEventListener('change', e => {
-          lrTeams[parseInt(e.target.dataset.ti)][parseInt(e.target.dataset.si)] = e.target.value;
-        });
-      });
-      panel.querySelectorAll('.lr-remove-team').forEach(btn => {
-        btn.addEventListener('click', () => { lrTeams.splice(parseInt(btn.dataset.ti), 1); renderLrTeams(); });
-      });
-      document.getElementById('lr-add-team')?.addEventListener('click', () => { lrTeams.push(['','','']); renderLrTeams(); });
-      document.getElementById('lr-save-btn')?.addEventListener('click', () => saveLoneRangerConfig(cfgEventId));
-    }
-
-    async function saveLoneRangerConfig(eventId) {
-      if (!eventId) return;
-      for (let ti = 0; ti < lrTeams.length; ti++) {
-        if (lrTeams[ti].some(p => !p)) {
-          showStatus(`Team ${ti + 1} has an empty slot — fill all three slots before saving.`, 'error');
-          return;
-        }
-      }
-      const allPlayers = lrTeams.flatMap(t => t).filter(p => p);
-      const seen = new Set();
-      for (const p of allPlayers) {
-        if (seen.has(p)) { showStatus(`"${p}" is assigned to multiple slots. Each player can only appear once.`, 'error'); return; }
-        seen.add(p);
-      }
-      const event = state.kvEvents.find(e => e.id === eventId);
-      if (!event) return;
-      const updatedEvent = { ...event, teamSlots: lrTeams.map(t => [...t]) };
-      try {
-        const res = await fetch(API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update-event', event: updatedEvent }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        const idx = state.kvEvents.findIndex(e => e.id === eventId);
-        if (idx !== -1) state.kvEvents[idx] = data.event;
-        showStatus('Team configuration saved.', 'success');
-      } catch (e) {
-        showStatus('Error saving configuration: ' + e.message, 'error');
-      }
-    }
-
-    document.getElementById('cfg-event-select').addEventListener('change', e => {
-      renderFormatConfig(e.target.value);
     });
 
     loadAll();
