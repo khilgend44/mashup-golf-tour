@@ -3,577 +3,563 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Event Poster Preview — MashUp Admin</title>
+  <title>Announcement Poster — MashUp Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { flame: '#f97316', 'flame-dim': '#c2530f', border: '#2c2c2c', card: '#1e1e1e' },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body:    ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
   <style>
-    body { background: #0c0c0c; font-family: 'Inter', sans-serif; color: #e5e5e5; }
+    body { background: #0c0c0c; }
 
-    /* ── POSTER STYLES ─────────────────────────────────────── */
-    #poster {
-      width: 800px;
-      background: #0a0a0a;
-      font-family: 'Inter', sans-serif;
-      position: relative;
-      overflow: hidden;
+    /* ─ form inputs ─ */
+    input, select, textarea {
+      background: #141414; border: 1px solid #2c2c2c; color: #e5e5e5;
+      border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem;
+      font-family: 'Inter', sans-serif; width: 100%; transition: border-color 0.12s;
     }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(249,115,22,0.5); }
+    select option { background: #1e1e1e; }
+    label { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+            font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+            color: #6b7280; margin-bottom: 0.35rem; }
 
-    /* Grain texture overlay */
+    /* ─ POSTER ─────────────────────────────────────────────── */
+    #poster { width: 800px; background: #0a0a0a; font-family: 'Inter', sans-serif; position: relative; overflow: hidden; }
     #poster::before {
-      content: '';
-      position: absolute; inset: 0; z-index: 1; pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      background-repeat: repeat;
-      opacity: 0.5;
+      content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      background-repeat: repeat; opacity: 0.5;
     }
+    .pi { position: relative; z-index: 2; } /* poster-inner */
 
-    .poster-inner { position: relative; z-index: 2; }
+    /* header */
+    .ph { background: linear-gradient(135deg, #111 0%, #1a0f05 60%, #0d0d0d 100%);
+          padding: 30px 36px 26px; border-bottom: 3px solid #f97316; position: relative; overflow: hidden; }
+    .ph::after { content: ''; position: absolute; top: -60px; right: -40px; width: 280px; height: 280px;
+                 background: radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%); pointer-events: none; }
+    .p-label  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
+                letter-spacing:0.22em; text-transform:uppercase; color:#f97316; margin-bottom:6px; }
+    .p-title  { font-family:'Bebas Neue',cursive; font-size:68px; line-height:0.88; color:#fff;
+                letter-spacing:0.03em; margin-bottom:14px; }
+    .p-meta   { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+    .p-meta-i { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:12px;
+                color:#9ca3af; letter-spacing:0.06em; text-transform:uppercase; }
+    .p-meta-i span { color:#e5e5e5; }
 
-    /* Header */
-    .poster-header {
-      background: linear-gradient(135deg, #111 0%, #1a0f05 60%, #0d0d0d 100%);
-      padding: 32px 36px 28px;
-      border-bottom: 3px solid #f97316;
-      position: relative;
-      overflow: hidden;
-    }
-    .poster-header::after {
-      content: '';
-      position: absolute; top: -60px; right: -40px;
-      width: 280px; height: 280px;
-      background: radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%);
-      pointer-events: none;
-    }
+    /* settings bar */
+    .sb { background:#111; border-bottom:1px solid #1e1e1e; padding:10px 36px; display:flex; flex-wrap:wrap; }
+    .sc { flex:1; min-width:72px; padding:5px 10px; border-right:1px solid #1e1e1e; text-align:center; }
+    .sc:last-child { border-right:none; }
+    .sk { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px;
+          letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:1px; }
+    .sv { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px; color:#d1d5db; }
 
-    .poster-label {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 11px;
-      letter-spacing: 0.22em; text-transform: uppercase; color: #f97316;
-      margin-bottom: 6px;
-    }
-    .poster-title {
-      font-family: 'Bebas Neue', cursive;
-      font-size: 72px; line-height: 0.9; color: #ffffff;
-      letter-spacing: 0.03em; margin-bottom: 14px;
-    }
-    .poster-meta {
-      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
-    }
-    .poster-meta-item {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 600; font-size: 13px; color: #9ca3af;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .poster-meta-item span { color: #e5e5e5; }
-    .poster-meta-sep { color: #333; }
+    /* section headers */
+    .sh  { padding:14px 36px 8px; display:flex; align-items:center; gap:12px; }
+    .shl { font-family:'Bebas Neue',cursive; font-size:21px; color:#f97316; letter-spacing:0.08em; }
+    .shr { flex:1; height:1px; background:#1e1e1e; }
+    .shc { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:10px; color:#374151; letter-spacing:0.1em; }
 
-    /* Round settings bar */
-    .settings-bar {
-      background: #111; border-bottom: 1px solid #1e1e1e;
-      padding: 12px 36px;
-      display: flex; gap: 0; flex-wrap: wrap;
-    }
-    .setting-cell {
-      flex: 1; min-width: 80px;
-      padding: 6px 12px; border-right: 1px solid #1e1e1e;
-      text-align: center;
-    }
-    .setting-cell:last-child { border-right: none; }
-    .setting-key {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 9px;
-      letter-spacing: 0.15em; text-transform: uppercase; color: #4b5563;
-      margin-bottom: 2px;
-    }
-    .setting-val {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 14px; color: #d1d5db;
-      letter-spacing: 0.04em;
-    }
+    /* format callout */
+    .fc { margin:0 36px 10px; background:#111; border:1px solid #1e1e1e; border-left:3px solid #f97316;
+          border-radius:4px; padding:9px 14px; }
+    .fc-t { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
+            letter-spacing:0.1em; text-transform:uppercase; color:#f97316; margin-bottom:3px; }
+    .fc-d { font-family:'Inter',sans-serif; font-size:10px; color:#6b7280; line-height:1.5; }
 
-    /* Section headers */
-    .section-header {
-      padding: 16px 36px 10px;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .section-label {
-      font-family: 'Bebas Neue', cursive;
-      font-size: 22px; color: #f97316; letter-spacing: 0.08em;
-    }
-    .section-rule { flex: 1; height: 1px; background: #1e1e1e; }
-    .section-count {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 600; font-size: 11px;
-      color: #374151; letter-spacing: 0.1em;
-    }
+    /* teams grid */
+    .tg { padding:0 28px 4px; display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+    .tc { background:#111; border:1px solid #1e1e1e; border-radius:6px; padding:8px 9px; }
+    .tn { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px;
+          letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:5px; }
+    .tp { display:flex; align-items:center; justify-content:space-between; padding:2px 0; }
+    .tpn { font-family:'Inter',sans-serif; font-size:11px; font-weight:500; color:#d1d5db;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px; }
+    .tpr { display:flex; align-items:center; gap:3px; flex-shrink:0; }
+    .tb  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px;
+           padding:1px 4px; border-radius:2px; letter-spacing:0.04em; }
+    .ta  { background:rgba(52,211,153,0.12); color:#6ee7b7; border:1px solid rgba(52,211,153,0.2); }
+    .tb2 { background:rgba(250,204,21,0.10); color:#fde047; border:1px solid rgba(250,204,21,0.18); }
+    .tc2 { background:rgba(249,115,22,0.12); color:#fb923c; border:1px solid rgba(249,115,22,0.2); }
+    .tbd { background:rgba(147,197,253,0.10); color:#93c5fd; border:1px solid rgba(147,197,253,0.18); }
+    .th  { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; color:#374151;
+           min-width:28px; text-align:right; }
 
-    /* Teams grid */
-    .teams-grid {
-      padding: 0 28px 6px;
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
-    }
-    .team-card {
-      background: #111; border: 1px solid #1e1e1e;
-      border-radius: 6px; padding: 9px 10px;
-    }
-    .team-num {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 9px;
-      letter-spacing: 0.15em; text-transform: uppercase;
-      color: #374151; margin-bottom: 6px;
-    }
-    .team-player {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 2px 0;
-    }
-    .player-name {
-      font-family: 'Inter', sans-serif;
-      font-size: 11px; font-weight: 500; color: #d1d5db;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      max-width: 115px;
-    }
-    .player-right {
-      display: flex; align-items: center; gap: 4px; flex-shrink: 0;
-    }
-    .tier-badge {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 9px;
-      padding: 1px 4px; border-radius: 2px;
-      letter-spacing: 0.05em;
-    }
-    .tier-a { background: rgba(52,211,153,0.12); color: #6ee7b7; border: 1px solid rgba(52,211,153,0.2); }
-    .tier-b { background: rgba(250,204,21,0.10); color: #fde047; border: 1px solid rgba(250,204,21,0.18); }
-    .tier-c { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.2); }
-    .player-hcap {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 600; font-size: 11px; color: #4b5563;
-      min-width: 28px; text-align: right;
-    }
+    /* prizes */
+    .pr { padding:2px 36px 14px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .pr-col-l { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px;
+                letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:5px; }
+    .pr-i { display:flex; align-items:baseline; justify-content:space-between;
+            padding:4px 0; border-bottom:1px solid #141414; }
+    .pr-p { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px; letter-spacing:0.06em; color:#6b7280; }
+    .pr-p.gold   { color:#f59e0b; } .pr-p.silver { color:#9ca3af; } .pr-p.bronze { color:#cd7c44; }
+    .pr-a { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:15px; color:#e5e5e5; }
+    .pr-s { font-family:'Inter',sans-serif; font-size:10px; color:#4b5563; margin-left:3px; }
+    .ex-i { display:flex; align-items:center; justify-content:space-between; padding:4px 0; border-bottom:1px solid #141414; }
+    .ex-l { font-family:'Inter',sans-serif; font-size:11px; color:#6b7280; }
+    .ex-a { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px; color:#d1d5db; }
 
-    /* Prizes */
-    .prizes-row {
-      padding: 4px 36px 16px;
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    .prize-col-label {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 9px;
-      letter-spacing: 0.15em; text-transform: uppercase;
-      color: #374151; margin-bottom: 6px;
-    }
-    .prize-item {
-      display: flex; align-items: baseline; justify-content: space-between;
-      padding: 4px 0; border-bottom: 1px solid #141414;
-    }
-    .prize-place {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 13px;
-      letter-spacing: 0.06em; color: #6b7280;
-    }
-    .prize-place.gold   { color: #f59e0b; }
-    .prize-place.silver { color: #9ca3af; }
-    .prize-place.bronze { color: #cd7c44; }
-    .prize-amount {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 15px; color: #e5e5e5;
-      letter-spacing: 0.04em;
-    }
-    .prize-split {
-      font-family: 'Inter', sans-serif;
-      font-size: 10px; color: #4b5563; margin-left: 4px;
-    }
-
-    .extras-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 4px 0; border-bottom: 1px solid #141414;
-    }
-    .extras-label {
-      font-family: 'Inter', sans-serif;
-      font-size: 11px; color: #6b7280;
-    }
-    .extras-amount {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 13px; color: #d1d5db;
-    }
-
-    /* Format callout */
-    .format-callout {
-      margin: 0 36px 12px;
-      background: #111; border: 1px solid #1e1e1e; border-left: 3px solid #f97316;
-      border-radius: 4px; padding: 10px 14px;
-    }
-    .format-callout-title {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700; font-size: 12px;
-      letter-spacing: 0.1em; text-transform: uppercase; color: #f97316;
-      margin-bottom: 4px;
-    }
-    .format-callout-text {
-      font-family: 'Inter', sans-serif;
-      font-size: 10.5px; color: #6b7280; line-height: 1.5;
-    }
-
-    /* Footer */
-    .poster-footer {
-      background: #111; border-top: 1px solid #1e1e1e;
-      padding: 14px 36px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .footer-url {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 600; font-size: 11px;
-      letter-spacing: 0.1em; color: #374151; text-transform: uppercase;
-    }
-    .footer-cta {
-      font-family: 'Bebas Neue', cursive;
-      font-size: 18px; letter-spacing: 0.08em;
-      color: #f97316;
-    }
-    .footer-logo { height: 28px; opacity: 0.5; }
+    /* footer */
+    .pf { background:#111; border-top:1px solid #1e1e1e; padding:13px 36px;
+          display:flex; align-items:center; justify-content:space-between; }
+    .pf-url { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px;
+              letter-spacing:0.1em; color:#374151; text-transform:uppercase; }
+    .pf-cta { font-family:'Bebas Neue',cursive; font-size:18px; letter-spacing:0.08em; color:#f97316; }
   </style>
 </head>
-<body class="p-8">
+<body class="text-gray-100 min-h-screen">
 
-  <!-- Page header -->
-  <div class="max-w-5xl mx-auto mb-6">
-    <div class="flex items-end justify-between flex-wrap gap-4">
-      <div>
-        <div class="text-xs font-semibold tracking-widest text-orange-500 uppercase mb-1" style="font-family:'Barlow Condensed',sans-serif">Admin · Teams</div>
-        <h1 class="text-3xl font-bold tracking-wider text-white" style="font-family:'Bebas Neue',cursive;letter-spacing:0.06em">ANNOUNCEMENT POSTER</h1>
-        <p class="text-xs text-gray-600 mt-1">Preview the event announcement. Download as PNG or post directly to Discord.</p>
-      </div>
+  <!-- NAV -->
+  <nav class="border-b border-[#2c2c2c] bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center">
       <div class="flex items-center gap-3">
-        <button id="download-btn"
-          class="px-5 py-2 rounded-lg border border-orange-500/30 text-orange-500 text-sm font-semibold hover:bg-orange-500/10"
-          style="font-family:'Barlow Condensed',sans-serif;letter-spacing:0.06em;transition:background 0.15s">
-          ↓ Download PNG
-        </button>
-        <button id="discord-btn"
-          class="px-5 py-2 rounded-lg bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600"
-          style="font-family:'Barlow Condensed',sans-serif;letter-spacing:0.06em;transition:background 0.15s">
-          Post to Discord
-        </button>
+        <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">← Site</a>
+        <span class="text-[#2c2c2c] text-xs">/</span>
+        <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">Admin</a>
+        <span class="text-[#2c2c2c] text-xs">/</span>
+        <a href="teams.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">Teams</a>
+        <span class="text-[#2c2c2c] text-xs">/</span>
+        <span class="font-heading font-600 tracking-wider text-sm text-flame">Announce</span>
       </div>
     </div>
-    <div id="action-status" class="hidden mt-3 rounded-lg px-4 py-2.5 text-sm" style="font-family:'Inter',sans-serif"></div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-10 pb-20">
+
+    <!-- Page header -->
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+      <div>
+        <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Admin · Teams</div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white">ANNOUNCEMENT POSTER</h1>
+        <p class="text-xs text-gray-600 mt-1 font-body">Generate an event poster, download as PNG, or post directly to a Discord channel.</p>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-6"></div>
+
+    <!-- Controls -->
+    <div class="flex flex-wrap items-end gap-4 mb-8">
+      <div class="w-72">
+        <label>Select Event</label>
+        <select id="event-select">
+          <option value="">— Loading events… —</option>
+        </select>
+      </div>
+      <button id="download-btn" disabled
+        class="px-5 py-2 rounded-lg border border-flame/30 text-flame text-sm font-heading font-600 tracking-wider hover:bg-flame/10 disabled:opacity-30 disabled:cursor-not-allowed"
+        style="transition:background 0.15s">↓ Download PNG</button>
+      <button id="discord-btn" disabled
+        class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-30 disabled:cursor-not-allowed"
+        style="transition:background 0.15s">Post to Discord</button>
+    </div>
+
+    <!-- Poster wrapper -->
+    <div id="poster-wrap">
+      <div id="poster-placeholder" class="border border-[#2c2c2c] rounded-lg bg-[#1e1e1e] flex items-center justify-center" style="width:800px;height:320px">
+        <p class="text-gray-600 text-sm font-body">Select an event above to preview the announcement poster.</p>
+      </div>
+      <!-- #poster injected here by JS -->
+    </div>
+
+  </main>
+
+  <!-- DISCORD MODAL -->
+  <div id="discord-modal" class="fixed inset-0 z-50 items-center justify-center hidden" style="background:rgba(0,0,0,0.75);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-7 w-full max-w-md mx-4" style="box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Post to Discord</div>
+      <h2 class="font-display text-2xl tracking-wider text-white mb-5">ANNOUNCE EVENT</h2>
+      <div class="space-y-4 mb-5">
+        <div>
+          <label>Discord Webhook URL</label>
+          <input type="url" id="discord-webhook-url" placeholder="https://discord.com/api/webhooks/…" />
+          <p class="text-[10px] text-gray-600 mt-1 font-body">Channel Settings → Integrations → Webhooks → Copy URL</p>
+        </div>
+        <div>
+          <label>Announcement Message</label>
+          <textarea id="discord-message" rows="4" style="resize:vertical"></textarea>
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <button id="discord-cancel" class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
+        <button id="discord-send" class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim" style="transition:background 0.15s">Send to Discord</button>
+      </div>
+    </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- THE POSTER                                               -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <div class="max-w-5xl mx-auto">
-    <div id="poster">
-      <div class="poster-inner">
+  <!-- FOOTER -->
+  <footer class="border-t border-[#2c2c2c] py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 flex items-center justify-between text-xs text-gray-700 font-body">
+      <span>MashUp Golf Tour — Admin Portal</span>
+      <a href="/" class="hover:text-flame" style="transition:color 0.12s">← Back to Site</a>
+    </div>
+  </footer>
 
+  <script type="module">
+    const API                = '/api/events-admin';
+    const FORMATS_STATIC_URL = '/data/formats.json';
+    const SITE_URL           = 'mashup-golf-tour.pages.dev';
+
+    let state = { kvEvents: [], allFormats: {}, roster: [], handicaps: {} };
+    let currentEvent = null;
+
+    // ── Utilities ──────────────────────────────────────────────
+    function showStatus(msg, type = 'info') {
+      const bar = document.getElementById('status-bar');
+      bar.className = `rounded-lg px-4 py-3 text-sm font-body ${
+        type === 'error'   ? 'bg-red-900/30 border border-red-800/40 text-red-300' :
+        type === 'success' ? 'bg-green-900/30 border border-green-800/40 text-green-300' :
+                             'bg-[#141414] border border-[#2c2c2c] text-gray-400'
+      }`;
+      bar.textContent = msg;
+      bar.classList.remove('hidden');
+      if (type !== 'error') setTimeout(() => bar.classList.add('hidden'), 4000);
+    }
+
+    const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function formatDateRange(start, end) {
+      if (!start) return null;
+      const s = new Date(start + 'T12:00:00');
+      if (!end || start === end) return `${MONTHS_SHORT[s.getMonth()]} ${s.getDate()}, ${s.getFullYear()}`;
+      const e = new Date(end + 'T12:00:00');
+      if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear())
+        return `${MONTHS_SHORT[s.getMonth()]} ${s.getDate()}–${e.getDate()}, ${s.getFullYear()}`;
+      return `${MONTHS_SHORT[s.getMonth()]} ${s.getDate()} – ${MONTHS_SHORT[e.getMonth()]} ${e.getDate()}, ${s.getFullYear()}`;
+    }
+
+    function formatSeason(id) {
+      return id ? id.replace(/^season-/i, 'Season ').replace(/Season x$/i, 'Season X') : '';
+    }
+
+    const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
+    const PRIZE_DECORATIONS = [
+      { emoji: '🏆', cls: 'gold' }, { emoji: '🥈', cls: 'silver' },
+      { emoji: '🥉', cls: 'bronze' }, { emoji: '', cls: '' },
+      { emoji: '', cls: '' }, { emoji: '', cls: '' },
+    ];
+    const TIER_NAMES  = ['A','B','C','D'];
+    const TIER_CLASSES = ['ta','tb2','tc2','tbd'];
+
+    // ── Load data ─────────────────────────────────────────────
+    async function loadAll() {
+      const [kvRes, staticFormatsRes, playersRes] = await Promise.allSettled([
+        fetch(API), fetch(FORMATS_STATIC_URL), fetch('/api/players'),
+      ]);
+      if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
+        const data = await kvRes.value.json();
+        state.kvEvents = data.events || [];
+        const kvFmts = data.formats || {};
+        const staticFmts = staticFormatsRes.status === 'fulfilled' && staticFormatsRes.value.ok
+          ? await staticFormatsRes.value.json() : {};
+        state.allFormats = { ...staticFmts, ...kvFmts };
+      }
+      if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
+        const p = await playersRes.value.json();
+        state.roster    = p.roster    || [];
+        state.handicaps = p.handicaps || {};
+      }
+      populateEventDropdown();
+    }
+
+    function populateEventDropdown() {
+      const sel = document.getElementById('event-select');
+      const eligible = state.kvEvents.filter(e => e.status === 'active' || e.status === 'upcoming');
+      sel.innerHTML = eligible.length
+        ? `<option value="">— Select an event —</option>` +
+          eligible.map(e => {
+            const hasTeams = e.teams?.length > 0;
+            return `<option value="${e.id}">${e.name || e.id}${hasTeams ? '' : ' (no teams yet)'}</option>`;
+          }).join('')
+        : `<option value="">— No active or upcoming events —</option>`;
+    }
+
+    // ── Poster builder ────────────────────────────────────────
+
+    // Builds tier map: playerName → tier index (0=A,1=B,2=C...)
+    function buildTierMap(teams, teamSize) {
+      if (teamSize < 2 || !teams.length) return {};
+      const all = teams.flat().map(name => ({
+        name,
+        cap: (() => { const h = state.handicaps[name.toLowerCase()]; return h?.rawCap !== undefined ? parseFloat(h.rawCap) : Infinity; })(),
+      })).sort((a, b) => a.cap - b.cap);
+      const n = teams.length;
+      const tiers = {};
+      for (let t = 0; t < teamSize; t++) {
+        all.slice(t * n, (t + 1) * n).forEach(p => { tiers[p.name] = t; });
+      }
+      return tiers;
+    }
+
+    function buildPoster(event) {
+      const fmt      = state.allFormats[event.format] || {};
+      const teamSize = fmt.teamSize ? parseInt(fmt.teamSize) : 1;
+      const rounds   = event.rounds || [];
+      const r1       = rounds[0] || {};
+      const payouts  = event.payouts || [];
+      const ctps     = event.ctps || null;
+      const sidePots = event.sidePots || [];
+      const teams    = event.teams || [];
+
+      const dateStr   = formatDateRange(event.startDate, event.endDate) || event.date || '—';
+      const seasonStr = formatSeason(event.season);
+      const weekStr   = event.week ? `Week ${event.week}` : '';
+      const labelStr  = [seasonStr, weekStr].filter(Boolean).join(' · ');
+      const course    = r1.course || '—';
+      const playerCount = teams.flat().length || state.roster.length;
+      const teamCount   = teams.length;
+
+      const tierMap = buildTierMap(teams, teamSize);
+
+      // Prize pool total
+      const payoutsTotal  = payouts.reduce((s, p) => s + (p.amount || 0), 0);
+      const ctpsTotal     = ctps ? (ctps.count || 0) * (ctps.amountEach || 0) : 0;
+      const sidePotsTotal = sidePots.reduce((s, p) => s + (p.amount || 0), 0);
+      const prizeTotal    = payoutsTotal + ctpsTotal + sidePotsTotal;
+
+      // Settings bar
+      const settingFields = [
+        { k: 'Stimp',    v: r1.stimp    != null ? r1.stimp    : null },
+        { k: 'Slope',    v: r1.slope    != null ? r1.slope    : null },
+        { k: 'Rating',   v: r1.rating   != null ? r1.rating   : null },
+        { k: 'Tees',     v: r1.tees     || null },
+        { k: 'Fairways', v: r1.fairways || null },
+        { k: 'Greens',   v: r1.greens   || null },
+        { k: 'Pins',     v: r1.pins     || null },
+        { k: 'Wind',     v: r1.wind     || null },
+        { k: 'Gimmies',  v: r1.gimmies  || null },
+        { k: 'Weather',  v: r1.weather  || null },
+        { k: 'Putting',  v: r1.putting  || null },
+      ].filter(f => f.v !== null);
+
+      // Teams HTML
+      const teamsHTML = teams.length === 0
+        ? `<div style="padding:16px 28px;font-family:'Inter',sans-serif;font-size:12px;color:#374151">
+             Teams have not been assigned yet. Use the Teams admin to draw teams before announcing.
+           </div>`
+        : `<div class="tg">
+            ${teams.map((team, ti) => {
+              const tierLabel = teamSize > 1
+                ? `<span class="shc">
+                     ${TIER_NAMES.slice(0, teamSize).join(' = TIER  ·  ')} TIER
+                   </span>`
+                : '';
+              return `<div class="tc">
+                <div class="tn">Team ${ti + 1}</div>
+                ${team.map(name => {
+                  const h   = state.handicaps[name.toLowerCase()];
+                  const cap = h?.rawCap !== undefined ? parseFloat(h.rawCap).toFixed(1) : '—';
+                  const ti2 = tierMap[name] !== undefined ? tierMap[name] : null;
+                  const tierBadge = (teamSize > 1 && ti2 !== null)
+                    ? `<span class="tb ${TIER_CLASSES[ti2] || 'tbd'}">${TIER_NAMES[ti2] || '?'}</span>` : '';
+                  return `<div class="tp">
+                    <span class="tpn">${name}</span>
+                    <span class="tpr">${tierBadge}<span class="th">${cap}</span></span>
+                  </div>`;
+                }).join('')}
+              </div>`;
+            }).join('')}
+           </div>`;
+
+      // Payouts HTML
+      const payoutsHTML = payouts.length === 0
+        ? `<div style="font-family:'Inter',sans-serif;font-size:11px;color:#374151;padding:4px 0">No payouts configured</div>`
+        : payouts.map((p, i) => {
+            const dec  = PRIZE_DECORATIONS[i] || { emoji: '', cls: '' };
+            const perP = teamSize > 1 ? Math.round(p.amount / teamSize) : null;
+            return `<div class="pr-i">
+              <span class="pr-p ${dec.cls}">${dec.emoji ? dec.emoji + ' ' : ''}${ORDINALS[i] || (i+1+'th')} Place</span>
+              <span>
+                <span class="pr-a">$${p.amount}</span>
+                ${perP ? `<span class="pr-s">($${perP}/ea)</span>` : ''}
+              </span>
+            </div>`;
+          }).join('');
+
+      // Extras HTML
+      const ctpHTML = ctps
+        ? `<div class="ex-i">
+             <span class="ex-l">📍 CTP × ${ctps.count}</span>
+             <span class="ex-a">$${ctps.amountEach}/ea</span>
+           </div>` : '';
+
+      const sidePotsHTML = sidePots.map(p =>
+        `<div class="ex-i">
+           <span class="ex-l">💀 ${p.name || 'Side Pot'}</span>
+           <span class="ex-a">$${p.amount}</span>
+         </div>`
+      ).join('');
+
+      const totalHTML = prizeTotal > 0
+        ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e1e1e;display:flex;justify-content:space-between;align-items:center">
+             <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#374151">Total Prize Pool</span>
+             <span style="font-family:'Bebas Neue',cursive;font-size:22px;color:#f97316;letter-spacing:0.04em">$${prizeTotal}</span>
+           </div>` : '';
+
+      // Tier legend for section header
+      const tierLegend = teamSize > 1
+        ? TIER_NAMES.slice(0, teamSize).map((t, i) =>
+            `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:9px;padding:1px 5px;border-radius:2px;margin-left:4px;class='${TIER_CLASSES[i]}'"
+             class="tb ${TIER_CLASSES[i]}">${t}</span>`
+          ).join('') + `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:10px;color:#374151;margin-left:6px;letter-spacing:0.08em">= LOW · MID · HIGH HANDICAP</span>`
+        : '';
+
+      const secondRound = rounds[1]
+        ? `<div style="padding:2px 36px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:10px;letter-spacing:0.08em;color:#374151">
+             ROUND 2: ${rounds[1].course || '—'} · Slope ${rounds[1].slope ?? '—'} · Rating ${rounds[1].rating ?? '—'} · Stimp ${rounds[1].stimp ?? '—'}
+           </div>` : '';
+
+      return `<div class="pi">
         <!-- HEADER -->
-        <div class="poster-header">
+        <div class="ph">
           <div style="display:flex;align-items:flex-start;justify-content:space-between">
             <div>
-              <div class="poster-label">MashUp Golf Tour · Season 10 · Week 2</div>
-              <div class="poster-title">3-Man<br>Lone Ranger</div>
-              <div class="poster-meta">
-                <div class="poster-meta-item">📅 <span>June 14 – 15, 2026</span></div>
-                <div class="poster-meta-sep">·</div>
-                <div class="poster-meta-item">⛳ <span>Wentworth (East)</span></div>
-                <div class="poster-meta-sep">·</div>
-                <div class="poster-meta-item">👥 <span>42 Players · 14 Teams</span></div>
+              <div class="p-label">${labelStr}</div>
+              <div class="p-title">${(fmt.name || event.name || 'Event').replace(' ', '<br>')}</div>
+              <div class="p-meta">
+                ${dateStr !== '—' ? `<div class="p-meta-i">📅 <span>${dateStr}</span></div>` : ''}
+                ${course  !== '—' ? `<div class="p-meta-i">⛳ <span>${course}</span></div>` : ''}
+                ${teamCount > 0 ? `<div class="p-meta-i">👥 <span>${playerCount} Players · ${teamCount} Teams</span></div>` : ''}
               </div>
             </div>
-            <img src="../brand_assets/mashup_transparent_png.webp" alt="MashUp" style="height:80px;opacity:0.85;margin-top:4px" />
+            <img src="../brand_assets/mashup_transparent_png.webp" alt="MashUp" style="height:76px;opacity:0.85;margin-top:2px" crossorigin="anonymous" />
           </div>
         </div>
 
         <!-- ROUND SETTINGS -->
-        <div class="settings-bar">
-          <div class="setting-cell">
-            <div class="setting-key">Stimp</div>
-            <div class="setting-val">12.0</div>
-          </div>
-          <div class="setting-cell">
-            <div class="setting-key">Slope</div>
-            <div class="setting-val">134</div>
-          </div>
-          <div class="setting-cell">
-            <div class="setting-key">Rating</div>
-            <div class="setting-val">73.6</div>
-          </div>
-          <div class="setting-cell">
-            <div class="setting-key">Tees</div>
-            <div class="setting-val">Blue</div>
-          </div>
-          <div class="setting-cell">
-            <div class="setting-key">Fairways</div>
-            <div class="setting-val">Normal</div>
-          </div>
-          <div class="setting-cell">
-            <div class="setting-key">Greens</div>
-            <div class="setting-val">Medium</div>
-          </div>
-          <div class="setting-cell">
-            <div class="setting-key">Pins</div>
-            <div class="setting-val">Random</div>
-          </div>
-          <div class="setting-cell">
-            <div class="setting-key">Wind</div>
-            <div class="setting-val">Light</div>
-          </div>
-          <div class="setting-cell">
-            <div class="setting-key">Gimmies</div>
-            <div class="setting-val">On</div>
-          </div>
-        </div>
+        ${settingFields.length > 0 ? `
+        <div class="sb">
+          ${settingFields.map(f => `
+            <div class="sc">
+              <div class="sk">${f.k}</div>
+              <div class="sv">${f.v}</div>
+            </div>`).join('')}
+        </div>` : ''}
+        ${secondRound}
 
-        <!-- FORMAT CALLOUT -->
-        <div class="section-header" style="padding-bottom:6px">
-          <div class="section-label">Format</div>
-          <div class="section-rule"></div>
-        </div>
-        <div class="format-callout">
-          <div class="format-callout-title">3-Man Lone Ranger</div>
-          <div class="format-callout-text">
-            3-player teams declare slot order (1/2/3) before play. Each hole: the Lone Ranger's net score is mandatory, plus the best ball of the other two.
-            Slot 1 plays as LR on holes 1,4,7,10,13,16 · Slot 2 on holes 2,5,8,11,14,17 · Slot 3 on holes 3,6,9,12,15,18.
-          </div>
-        </div>
+        <!-- FORMAT -->
+        ${fmt.description ? `
+        <div class="sh" style="padding-bottom:6px"><div class="shl">Format</div><div class="shr"></div></div>
+        <div class="fc">
+          <div class="fc-t">${fmt.name || ''}</div>
+          <div class="fc-d">${fmt.description}</div>
+        </div>` : ''}
 
         <!-- TEAMS -->
-        <div class="section-header">
-          <div class="section-label">Teams</div>
-          <div class="section-rule"></div>
-          <div class="section-count">A = LOW HANDICAP &nbsp;·&nbsp; B = MID &nbsp;·&nbsp; C = HIGH</div>
-        </div>
-        <div class="teams-grid">
+        ${teams.length > 0 ? `
+        <div class="sh">
+          <div class="shl">Teams</div>
+          <div class="shr"></div>
+          <div style="display:flex;align-items:center">${tierLegend}</div>
+        </div>` : ''}
+        ${teamsHTML}
 
-          <!-- Team 1 -->
-          <div class="team-card">
-            <div class="team-num">Team 1</div>
-            <div class="team-player"><span class="player-name">boiler_kh</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">0.5</span></span></div>
-            <div class="team-player"><span class="player-name">mrsnowman</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">8.1</span></span></div>
-            <div class="team-player"><span class="player-name">betteri</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">15.2</span></span></div>
-          </div>
-
-          <!-- Team 2 -->
-          <div class="team-card">
-            <div class="team-num">Team 2</div>
-            <div class="team-player"><span class="player-name">jonty</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">1.2</span></span></div>
-            <div class="team-player"><span class="player-name">adamw19</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">8.5</span></span></div>
-            <div class="team-player"><span class="player-name">boilertimmay</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">15.8</span></span></div>
-          </div>
-
-          <!-- Team 3 -->
-          <div class="team-card">
-            <div class="team-num">Team 3</div>
-            <div class="team-player"><span class="player-name">ccondon30</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">2.1</span></span></div>
-            <div class="team-player"><span class="player-name">bdc5e</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">9.0</span></span></div>
-            <div class="team-player"><span class="player-name">talbeezie</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">16.3</span></span></div>
-          </div>
-
-          <!-- Team 4 -->
-          <div class="team-card">
-            <div class="team-num">Team 4</div>
-            <div class="team-player"><span class="player-name">ribsismokeem</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">2.8</span></span></div>
-            <div class="team-player"><span class="player-name">sully</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">9.4</span></span></div>
-            <div class="team-player"><span class="player-name">cloverlinksgolf</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">16.9</span></span></div>
-          </div>
-
-          <!-- Team 5 -->
-          <div class="team-card">
-            <div class="team-num">Team 5</div>
-            <div class="team-player"><span class="player-name">jibbsy</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">3.4</span></span></div>
-            <div class="team-player"><span class="player-name">humdinger</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">9.9</span></span></div>
-            <div class="team-player"><span class="player-name">dirthydiesel</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">17.4</span></span></div>
-          </div>
-
-          <!-- Team 6 -->
-          <div class="team-card">
-            <div class="team-num">Team 6</div>
-            <div class="team-player"><span class="player-name">iljayo</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">4.0</span></span></div>
-            <div class="team-player"><span class="player-name">GIL3S</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">10.2</span></span></div>
-            <div class="team-player"><span class="player-name">notthatjt</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">17.9</span></span></div>
-          </div>
-
-          <!-- Team 7 -->
-          <div class="team-card">
-            <div class="team-num">Team 7</div>
-            <div class="team-player"><span class="player-name">nojo</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">4.5</span></span></div>
-            <div class="team-player"><span class="player-name">Gaz77</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">10.8</span></span></div>
-            <div class="team-player"><span class="player-name">pjo336</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">18.4</span></span></div>
-          </div>
-
-          <!-- Team 8 -->
-          <div class="team-card">
-            <div class="team-num">Team 8</div>
-            <div class="team-player"><span class="player-name">magic</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">4.9</span></span></div>
-            <div class="team-player"><span class="player-name">tjak</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">11.3</span></span></div>
-            <div class="team-player"><span class="player-name">toursauce86</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">19.0</span></span></div>
-          </div>
-
-          <!-- Team 9 -->
-          <div class="team-card">
-            <div class="team-num">Team 9</div>
-            <div class="team-player"><span class="player-name">jarhead</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">5.2</span></span></div>
-            <div class="team-player"><span class="player-name">salfrado</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">11.7</span></span></div>
-            <div class="team-player"><span class="player-name">r3noble</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">19.5</span></span></div>
-          </div>
-
-          <!-- Team 10 -->
-          <div class="team-card">
-            <div class="team-num">Team 10</div>
-            <div class="team-player"><span class="player-name">tofty31</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">5.8</span></span></div>
-            <div class="team-player"><span class="player-name">trock</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">12.1</span></span></div>
-            <div class="team-player"><span class="player-name">ryanlane10</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">20.1</span></span></div>
-          </div>
-
-          <!-- Team 11 -->
-          <div class="team-card">
-            <div class="team-num">Team 11</div>
-            <div class="team-player"><span class="player-name">brianemann</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">6.1</span></span></div>
-            <div class="team-player"><span class="player-name">julzdad</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">12.6</span></span></div>
-            <div class="team-player"><span class="player-name">TheRiot22</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">20.8</span></span></div>
-          </div>
-
-          <!-- Team 12 -->
-          <div class="team-card">
-            <div class="team-num">Team 12</div>
-            <div class="team-player"><span class="player-name">garyn2732</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">6.5</span></span></div>
-            <div class="team-player"><span class="player-name">Tztop</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">13.0</span></span></div>
-            <div class="team-player"><span class="player-name">winch99</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">21.3</span></span></div>
-          </div>
-
-          <!-- Team 13 -->
-          <div class="team-card">
-            <div class="team-num">Team 13</div>
-            <div class="team-player"><span class="player-name">dmac029</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">6.8</span></span></div>
-            <div class="team-player"><span class="player-name">finlayson7434</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">13.5</span></span></div>
-            <div class="team-player"><span class="player-name">Tigerstew84</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">21.9</span></span></div>
-          </div>
-
-          <!-- Team 14 -->
-          <div class="team-card">
-            <div class="team-num">Team 14</div>
-            <div class="team-player"><span class="player-name">pottsy</span><span class="player-right"><span class="tier-badge tier-a">A</span><span class="player-hcap">7.2</span></span></div>
-            <div class="team-player"><span class="player-name">mesky</span><span class="player-right"><span class="tier-badge tier-b">B</span><span class="player-hcap">14.0</span></span></div>
-            <div class="team-player"><span class="player-name">jboettner</span><span class="player-right"><span class="tier-badge tier-c">C</span><span class="player-hcap">22.5</span></span></div>
-          </div>
-
-        </div><!-- /teams-grid -->
-
-        <!-- PRIZES & SIDE POTS -->
-        <div class="section-header" style="margin-top:8px">
-          <div class="section-label">Prizes</div>
-          <div class="section-rule"></div>
-        </div>
-        <div class="prizes-row">
-          <!-- Payouts -->
+        <!-- PRIZES -->
+        ${(payouts.length > 0 || ctps || sidePots.length > 0) ? `
+        <div class="sh" style="margin-top:6px"><div class="shl">Prizes</div><div class="shr"></div></div>
+        <div class="pr">
           <div>
-            <div class="prize-col-label">Team Payouts</div>
-            <div class="prize-item">
-              <span class="prize-place gold">🏆 1st Place</span>
-              <span><span class="prize-amount">$270</span><span class="prize-split">($90/ea)</span></span>
-            </div>
-            <div class="prize-item">
-              <span class="prize-place silver">🥈 2nd Place</span>
-              <span><span class="prize-amount">$150</span><span class="prize-split">($50/ea)</span></span>
-            </div>
-            <div class="prize-item">
-              <span class="prize-place bronze">🥉 3rd Place</span>
-              <span><span class="prize-amount">$60</span><span class="prize-split">($20/ea)</span></span>
-            </div>
-            <div class="prize-item">
-              <span class="prize-place">4th Place</span>
-              <span><span class="prize-amount">$30</span><span class="prize-split">($10/ea)</span></span>
-            </div>
+            <div class="pr-col-l">Team Payouts</div>
+            ${payoutsHTML}
           </div>
-          <!-- CTPs + Side Pots -->
           <div>
-            <div class="prize-col-label">Extras</div>
-            <div class="extras-item">
-              <span class="extras-label">📍 CTP — Holes 2, 5, 11, 14</span>
-              <span class="extras-amount">$15 /ea</span>
-            </div>
-            <div class="extras-item">
-              <span class="extras-label">💀 Best Individual NET</span>
-              <span class="extras-amount">$50</span>
-            </div>
-            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e1e1e">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#374151">Total Prize Pool</span>
-                <span style="font-family:'Bebas Neue',cursive;font-size:22px;color:#f97316;letter-spacing:0.04em">$570</span>
-              </div>
-            </div>
+            <div class="pr-col-l">Extras</div>
+            ${ctpHTML}${sidePotsHTML}${totalHTML}
           </div>
-        </div>
+        </div>` : ''}
 
         <!-- FOOTER -->
-        <div class="poster-footer">
-          <div class="footer-url">mashup-golf-tour.pages.dev</div>
-          <img src="../brand_assets/mashup_transparent_png.webp" alt="" class="footer-logo" />
-          <div class="footer-cta">Good Luck, Everyone! 🏌️</div>
+        <div class="pf">
+          <div class="pf-url">${SITE_URL}</div>
+          <img src="../brand_assets/mashup_transparent_png.webp" alt="" style="height:26px;opacity:0.4" crossorigin="anonymous" />
+          <div class="pf-cta">Good Luck, Everyone! 🏌️</div>
         </div>
+      </div>`;
+    }
 
-      </div><!-- /poster-inner -->
-    </div><!-- /poster -->
-  </div>
+    function renderPoster(eventId) {
+      const wrap = document.getElementById('poster-wrap');
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- DISCORD POST MODAL                                       -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <div id="discord-modal" class="fixed inset-0 z-50 items-center justify-center hidden" style="background:rgba(0,0,0,0.75);backdrop-filter:blur(4px)">
-    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-7 w-full max-w-md mx-4" style="box-shadow:0 8px 32px rgba(0,0,0,0.5)">
-      <div class="text-xs font-semibold tracking-widest text-orange-500 uppercase mb-1" style="font-family:'Barlow Condensed',sans-serif">Post to Discord</div>
-      <h2 class="text-2xl text-white mb-4" style="font-family:'Bebas Neue',cursive;letter-spacing:0.06em">ANNOUNCE THIS EVENT</h2>
-      <div class="space-y-4 mb-5">
-        <div>
-          <label class="block text-xs text-gray-500 font-semibold tracking-widest uppercase mb-1.5" style="font-family:'Barlow Condensed',sans-serif">Discord Webhook URL</label>
-          <input type="url" id="discord-webhook-url" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-[#141414] border border-[#2c2c2c] text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-500/50" style="font-family:'Inter',sans-serif" />
-          <p class="text-[10px] text-gray-600 mt-1" style="font-family:'Inter',sans-serif">Server Settings → Integrations → Webhooks → Copy URL</p>
-        </div>
-        <div>
-          <label class="block text-xs text-gray-500 font-semibold tracking-widest uppercase mb-1.5" style="font-family:'Barlow Condensed',sans-serif">Announcement Message</label>
-          <textarea id="discord-message" rows="3" class="w-full bg-[#141414] border border-[#2c2c2c] text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-500/50" style="font-family:'Inter',sans-serif;resize:vertical">🏌️ **Week 2 is LIVE — 3-Man Lone Ranger!**
-Teams are set, the course is loaded. Check your team, find your slot, and get out there.
+      // Remove existing poster
+      const old = document.getElementById('poster');
+      if (old) old.remove();
+      document.getElementById('poster-placeholder')?.remove();
 
-Submit your stream: mashup-golf-tour.pages.dev</textarea>
-        </div>
-      </div>
-      <div class="flex items-center justify-between">
-        <button id="discord-cancel" class="text-gray-600 hover:text-gray-400 text-sm" style="font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:0.06em;transition:color 0.12s">Cancel</button>
-        <button id="discord-send" class="px-5 py-2 rounded-lg bg-orange-500 text-white text-sm hover:bg-orange-600" style="font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:0.08em;transition:background 0.15s">Send to Discord</button>
-      </div>
-    </div>
-  </div>
+      if (!eventId) {
+        const ph = document.createElement('div');
+        ph.id = 'poster-placeholder';
+        ph.className = 'border border-[#2c2c2c] rounded-lg bg-[#1e1e1e] flex items-center justify-center';
+        ph.style.cssText = 'width:800px;height:320px';
+        ph.innerHTML = '<p class="text-gray-600 text-sm font-body">Select an event above to preview the announcement poster.</p>';
+        wrap.appendChild(ph);
+        document.getElementById('download-btn').disabled = true;
+        document.getElementById('discord-btn').disabled  = true;
+        currentEvent = null;
+        return;
+      }
 
-  <script>
+      const event = state.kvEvents.find(e => e.id === eventId);
+      if (!event) return;
+      currentEvent = event;
+
+      const poster = document.createElement('div');
+      poster.id = 'poster';
+      poster.innerHTML = buildPoster(event);
+      wrap.appendChild(poster);
+
+      document.getElementById('download-btn').disabled = false;
+      document.getElementById('discord-btn').disabled  = false;
+
+      // Pre-fill Discord message
+      const fmt = state.allFormats[event.format] || {};
+      const season = formatSeason(event.season);
+      const week   = event.week ? `Week ${event.week}` : '';
+      document.getElementById('discord-message').value =
+        `🏌️ **${season} ${week} is LIVE — ${fmt.name || event.name}!**\n` +
+        (event.teams?.length
+          ? `Teams are set. Check your team below, then load up the course and get out there.\n`
+          : `The event is ready. Load up the course and get out there.\n`) +
+        `\nSubmit your stream: https://${SITE_URL}`;
+    }
+
+    // ── Wire up event selector ────────────────────────────────
+    document.getElementById('event-select').addEventListener('change', e => {
+      renderPoster(e.target.value);
+    });
+
     // ── Download PNG ──────────────────────────────────────────
     document.getElementById('download-btn').addEventListener('click', async () => {
       const btn = document.getElementById('download-btn');
-      btn.textContent = 'Generating…';
-      btn.disabled = true;
-
+      btn.textContent = 'Generating…'; btn.disabled = true;
       await document.fonts.ready;
-
-      const poster = document.getElementById('poster');
-      const canvas = await html2canvas(poster, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#0a0a0a',
-        logging: false,
-      });
-
-      canvas.toBlob(blob => {
-        const url  = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href     = url;
-        link.download = 'mashup-s10-w2-announcement.png';
-        link.click();
-        URL.revokeObjectURL(url);
-        btn.textContent = '↓ Download PNG';
-        btn.disabled = false;
-      }, 'image/png');
+      try {
+        const poster = document.getElementById('poster');
+        const canvas = await html2canvas(poster, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a', logging: false });
+        canvas.toBlob(blob => {
+          const url  = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const safe = (currentEvent?.name || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+          link.href = url; link.download = `mashup-${safe}-announcement.png`;
+          link.click(); URL.revokeObjectURL(url);
+          btn.textContent = '↓ Download PNG'; btn.disabled = false;
+        }, 'image/png');
+      } catch (e) {
+        showStatus('Download failed: ' + e.message, 'error');
+        btn.textContent = '↓ Download PNG'; btn.disabled = false;
+      }
     });
 
     // ── Discord modal ─────────────────────────────────────────
@@ -584,58 +570,38 @@ Submit your stream: mashup-golf-tour.pages.dev</textarea>
       document.getElementById('discord-modal').style.display = 'none';
     });
 
-    // ── Send to Discord ───────────────────────────────────────
     document.getElementById('discord-send').addEventListener('click', async () => {
       const webhookUrl = document.getElementById('discord-webhook-url').value.trim();
       const message    = document.getElementById('discord-message').value.trim();
+      if (!webhookUrl) { alert('Please enter a Discord webhook URL.'); return; }
 
-      if (!webhookUrl) {
-        alert('Please enter a Discord webhook URL.');
-        return;
-      }
-
-      const status = document.getElementById('action-status');
       const sendBtn = document.getElementById('discord-send');
-      sendBtn.textContent = 'Generating image…';
-      sendBtn.disabled = true;
-
+      sendBtn.textContent = 'Generating image…'; sendBtn.disabled = true;
       await document.fonts.ready;
 
       try {
-        // Generate PNG from poster
         const canvas = await html2canvas(document.getElementById('poster'), {
           scale: 2, useCORS: true, backgroundColor: '#0a0a0a', logging: false,
         });
-
         const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-
-        // Build multipart payload for Discord
         const form = new FormData();
         form.append('file', blob, 'mashup-announcement.png');
         form.append('payload_json', JSON.stringify({ content: message }));
-
-        const res = await fetch(webhookUrl, { method: 'POST', body: form });
-
+        const res  = await fetch(webhookUrl, { method: 'POST', body: form });
         document.getElementById('discord-modal').style.display = 'none';
-
         if (res.ok) {
-          status.className = 'mt-3 rounded-lg px-4 py-2.5 text-sm bg-green-900/30 border border-green-800/40 text-green-300';
-          status.textContent = '✓ Posted to Discord successfully!';
+          showStatus('✓ Posted to Discord successfully!', 'success');
         } else {
           const err = await res.json().catch(() => ({}));
-          status.className = 'mt-3 rounded-lg px-4 py-2.5 text-sm bg-red-900/30 border border-red-800/40 text-red-300';
-          status.textContent = `Discord error ${res.status}: ${err.message || 'Unknown error'}`;
+          showStatus(`Discord error ${res.status}: ${err.message || 'Unknown'}`, 'error');
         }
-        status.classList.remove('hidden');
       } catch (e) {
-        status.className = 'mt-3 rounded-lg px-4 py-2.5 text-sm bg-red-900/30 border border-red-800/40 text-red-300';
-        status.textContent = 'Error: ' + e.message;
-        status.classList.remove('hidden');
+        showStatus('Error: ' + e.message, 'error');
       }
-
-      sendBtn.textContent = 'Send to Discord';
-      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send to Discord'; sendBtn.disabled = false;
     });
+
+    loadAll();
   </script>
 </body>
 </html>
