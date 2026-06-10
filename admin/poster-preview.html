@@ -183,16 +183,10 @@
     <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-7 w-full max-w-md mx-4" style="box-shadow:0 8px 32px rgba(0,0,0,0.5)">
       <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Post to Discord</div>
       <h2 class="font-display text-2xl tracking-wider text-white mb-5">ANNOUNCE EVENT</h2>
-      <div class="space-y-4 mb-5">
-        <div>
-          <label>Discord Webhook URL</label>
-          <input type="url" id="discord-webhook-url" placeholder="https://discord.com/api/webhooks/…" />
-          <p class="text-[10px] text-gray-600 mt-1 font-body">Channel Settings → Integrations → Webhooks → Copy URL</p>
-        </div>
-        <div>
-          <label>Announcement Message</label>
-          <textarea id="discord-message" rows="4" style="resize:vertical"></textarea>
-        </div>
+      <div class="mb-5">
+        <label>Announcement Message</label>
+        <textarea id="discord-message" rows="4" style="resize:vertical"></textarea>
+        <p class="text-[10px] text-gray-600 mt-1 font-body">The poster image will be attached automatically.</p>
       </div>
       <div class="flex items-center justify-between">
         <button id="discord-cancel" class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
@@ -571,10 +565,7 @@
     });
 
     document.getElementById('discord-send').addEventListener('click', async () => {
-      const webhookUrl = document.getElementById('discord-webhook-url').value.trim();
-      const message    = document.getElementById('discord-message').value.trim();
-      if (!webhookUrl) { alert('Please enter a Discord webhook URL.'); return; }
-
+      const message = document.getElementById('discord-message').value.trim();
       const sendBtn = document.getElementById('discord-send');
       sendBtn.textContent = 'Generating image…'; sendBtn.disabled = true;
       await document.fonts.ready;
@@ -583,17 +574,21 @@
         const canvas = await html2canvas(document.getElementById('poster'), {
           scale: 2, useCORS: true, backgroundColor: '#0a0a0a', logging: false,
         });
-        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-        const form = new FormData();
-        form.append('file', blob, 'mashup-announcement.png');
-        form.append('payload_json', JSON.stringify({ content: message }));
-        const res  = await fetch(webhookUrl, { method: 'POST', body: form });
+
+        // Convert canvas to base64 and send through our server (keeps webhook URL private)
+        const base64 = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+        const res = await fetch('/api/announce-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, imageBase64: base64 }),
+        });
+
         document.getElementById('discord-modal').style.display = 'none';
+        const data = await res.json();
         if (res.ok) {
           showStatus('✓ Posted to Discord successfully!', 'success');
         } else {
-          const err = await res.json().catch(() => ({}));
-          showStatus(`Discord error ${res.status}: ${err.message || 'Unknown'}`, 'error');
+          showStatus(`Error: ${data.error || 'Unknown'}`, 'error');
         }
       } catch (e) {
         showStatus('Error: ' + e.message, 'error');
