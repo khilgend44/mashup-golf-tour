@@ -355,13 +355,14 @@
       const prizeParts = [];
       payouts.forEach((p, i) => {
         const perP = teamSize > 1 ? ` ($${Math.round(p.amount / teamSize)}/ea)` : '';
-        prizeParts.push(`${ORDINALS[i] || (i + 1) + 'th'} $${p.amount}${perP}`);
+        prizeParts.push(`${ORDINALS[i] || (i + 1) + 'th'} Place — $${p.amount}${perP}`);
       });
-      if (ctps) prizeParts.push(`CTP ×${ctps.count} at $${ctps.amountEach}/ea`);
-      sidePots.forEach(p => prizeParts.push(`${p.name || 'Side Pot'} $${p.amount}`));
+      if (ctps) prizeParts.push(`CTP ×${ctps.count} — $${ctps.amountEach}/ea`);
+      sidePots.forEach(p => prizeParts.push(`${p.name || 'Side Pot'} — $${p.amount}`));
+      if (prizeTotal > 0) prizeParts.push(`Total Pool — $${prizeTotal}`);
       if (prizeParts.length) {
-        const totalStr = prizeTotal > 0 ? ` · Total Pool $${prizeTotal}` : '';
-        lines.push(`💰 **Prizes:** ${prizeParts.join(' · ')}${totalStr}`);
+        lines.push(`💰 **Prizes:**`);
+        prizeParts.forEach(p => lines.push(`> ${p}`));
         lines.push('');
       }
 
