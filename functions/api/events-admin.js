@@ -36,7 +36,7 @@ export async function onRequestGet(context) {
   const params = new URL(request.url).searchParams;
   const type = params.get('type');
 
-  // ── Scrape event name from SGT page ──────────────────────
+  // ── Scrape full event metadata from SGT page ─────────────
   if (type === 'scrape') {
     const tournamentId = params.get('tournamentId');
     if (!tournamentId) return Response.json({ error: 'Missing tournamentId' }, { status: 400, headers: CORS });
@@ -47,27 +47,70 @@ export async function onRequestGet(context) {
       if (!sgtRes.ok) return Response.json({ name: null, error: `SGT returned ${sgtRes.status}` }, { headers: CORS });
       const html = await sgtRes.text();
 
-      // Try to match "MASHUP S8W2 - SOLO RINGER" style pattern
-      const patterns = [
-        /MASHUP\s+S\d+W\d+\s*[-–]\s*([A-Z][A-Z0-9\s''&]+?)(?:\s*[<"|])/i,
-        /MASHUP\s+S\d+W\d+\s*[-–]\s*([A-Z][A-Z0-9\s''&]+)/i,
-        /<title[^>]*>([^<]*MASHUP[^<]*)<\/title>/i,
-        /<h1[^>]*>([^<]*MASHUP[^<]*)<\/h1>/i,
-        /<h2[^>]*>([^<]*MASHUP[^<]*)<\/h2>/i,
-      ];
+      const result = { name: null, startDate: null, endDate: null, rounds: [] };
 
-      for (const pattern of patterns) {
-        const match = html.match(pattern);
-        if (match) {
-          const raw = (match[1] || match[0]).trim().replace(/\s+/g, ' ');
-          // Return just what the full match captured, cleaned up
-          const full = html.match(/MASHUP\s+S\d+W\d+\s*[-–]\s*[A-Z0-9][A-Z0-9\s''&-]*/i);
-          const name = full ? full[0].trim().replace(/\s+/g, ' ') : raw;
-          return Response.json({ name }, { headers: CORS });
+      // ── Name ───────────────────────────────────────────
+      const h1Match = html.match(/<h1[^>]*text-sgt-white[^>]*text-uppercase[^>]*>\s*([^<]+)\s*<\/h1>/i);
+      if (h1Match) {
+        result.name = h1Match[1].trim().replace(/\s+/g, ' ');
+      } else {
+        const full = html.match(/MASHUP\s+S\d+W\d+\s*[-–]\s*[A-Z0-9][A-Z0-9\s''&-]*/i);
+        if (full) result.name = full[0].trim().replace(/\s+/g, ' ');
+      }
+
+      // ── Dates ──────────────────────────────────────────
+      const MONTHS = { January:'01',February:'02',March:'03',April:'04',May:'05',June:'06',July:'07',August:'08',September:'09',October:'10',November:'11',December:'12' };
+      const dateDiv = html.match(/<div class='text-nowrap'>([^<]*(?:January|February|March|April|May|June|July|August|September|October|November|December)[^<]*\d{4}[^<]*)<\/div>/i);
+      if (dateDiv) {
+        const ds = dateDiv[1].trim();
+        let dm = ds.match(/(\w+)\s+(\d+)\s*[-–]\s*(\w+)\s+(\d+),?\s*(\d{4})/);
+        if (dm && MONTHS[dm[1]] && MONTHS[dm[3]]) {
+          result.startDate = `${dm[5]}-${MONTHS[dm[1]]}-${dm[2].padStart(2,'0')}`;
+          result.endDate   = `${dm[5]}-${MONTHS[dm[3]]}-${dm[4].padStart(2,'0')}`;
+        } else {
+          dm = ds.match(/(\w+)\s+(\d+)\s*[-–]\s*(\d+),?\s*(\d{4})/);
+          if (dm && MONTHS[dm[1]]) {
+            result.startDate = `${dm[4]}-${MONTHS[dm[1]]}-${dm[2].padStart(2,'0')}`;
+            result.endDate   = `${dm[4]}-${MONTHS[dm[1]]}-${dm[3].padStart(2,'0')}`;
+          }
         }
       }
 
-      return Response.json({ name: null, error: 'Event name not found on page' }, { headers: CORS });
+      // ── Round settings ─────────────────────────────────
+      const roundHeaderRe = /<div class='col-12 col-md-4[^>]*>\s*ROUND\s+(\d+)\s*<\/div>\s*<div class='col-12 col-md-8[^>]*>\s*([^<]+)\s*<\/div>/gi;
+      const roundStarts = [];
+      let rm;
+      while ((rm = roundHeaderRe.exec(html)) !== null) {
+        roundStarts.push({ pos: rm.index, end: rm.index + rm[0].length, round: parseInt(rm[1]), course: rm[2].trim() });
+      }
+      for (let i = 0; i < roundStarts.length; i++) {
+        const start = roundStarts[i].end;
+        const end   = i + 1 < roundStarts.length ? roundStarts[i + 1].pos : Math.min(start + 5000, html.length);
+        const chunk = html.slice(start, end);
+        const settings = {};
+        const settingRe = /class='[^']*three-quarter-font text-sgt-light mb-1[^']*'>\s*([^<]+)\s*<\/div>\s*<div class='[^']*three-quarter-font text-sgt-light text-uppercase[^']*'>\s*([^<]+)\s*<\/div>/gi;
+        let sm;
+        while ((sm = settingRe.exec(chunk)) !== null) {
+          settings[sm[1].trim().toUpperCase()] = sm[2].trim();
+        }
+        result.rounds.push({
+          round:    roundStarts[i].round,
+          course:   roundStarts[i].course,
+          stimp:    settings.STIMP    ? parseFloat(settings.STIMP)  : null,
+          fairways: settings.FAIRWAYS || null,
+          greens:   settings.GREENS   || null,
+          tees:     settings.TEES     || null,
+          slope:    settings.SLOPE    ? parseInt(settings.SLOPE)    : null,
+          rating:   settings.RATING   ? parseFloat(settings.RATING) : null,
+          pins:     settings.PINS     || null,
+          weather:  settings.WEATHER  || null,
+          wind:     settings.WIND     || null,
+          gimmies:  settings.GIMMIES  || null,
+          putting:  settings.PUTTING  || null,
+        });
+      }
+
+      return Response.json(result, { headers: CORS });
     } catch (e) {
       return Response.json({ name: null, error: e.message }, { headers: CORS });
     }

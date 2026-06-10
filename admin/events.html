@@ -110,10 +110,16 @@
             <input type="number" id="f-week" min="1" max="30" placeholder="1" />
           </div>
 
-          <!-- Date -->
+          <!-- Start Date -->
           <div>
-            <label>Date</label>
-            <input type="date" id="f-date" />
+            <label>Start Date</label>
+            <input type="date" id="f-start-date" />
+          </div>
+
+          <!-- End Date -->
+          <div>
+            <label>End Date</label>
+            <input type="date" id="f-end-date" />
           </div>
 
           <!-- Status -->
@@ -203,6 +209,23 @@
         <div class="mt-4">
           <label>Event Description <span class="text-gray-700 font-body normal-case tracking-normal">(shown in leaderboard header)</span></label>
           <textarea id="f-description" rows="2" placeholder="Optional notes about this event..."></textarea>
+        </div>
+
+        <!-- Round Settings -->
+        <div class="mt-6 pt-6 border-t border-border/40">
+          <div id="rounds-section"></div>
+        </div>
+
+        <!-- Payouts -->
+        <div class="mt-6 pt-6 border-t border-border/40">
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase">Payouts</div>
+            <span id="payout-team-note" class="text-xs text-gray-600 font-body"></span>
+          </div>
+          <div id="payouts-list" class="mb-3"></div>
+          <button type="button" id="add-payout-btn"
+            class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
+            style="transition:color 0.12s">+ Add Place</button>
         </div>
 
         <!-- Actions -->
@@ -433,7 +456,8 @@
     async function createEvent() {
       const season       = document.getElementById('f-season').value;
       const week         = parseInt(document.getElementById('f-week').value);
-      const date         = document.getElementById('f-date').value;
+      const startDate    = document.getElementById('f-start-date').value;
+      const endDate      = document.getElementById('f-end-date').value;
       const status       = document.getElementById('f-status').value;
       const url          = document.getElementById('f-url').value.trim();
       const tournamentId = parseInt(document.getElementById('f-tournament-id').value.trim());
@@ -445,18 +469,24 @@
       if (!week)         { showStatus('Week number is required.', 'error'); return; }
       if (!format || format === '__new__') { showStatus('Select a format.', 'error'); return; }
 
+      const rounds  = readCurrentRounds();
+      const payouts = formPayouts.filter(p => p.amount > 0);
+
       const event = {
         id: `event-${tournamentId}`,
         tournamentId,
         season,
         week,
         name: name || autoEventName(week, format),
-        date: date || null,
+        startDate: startDate || null,
+        endDate:   endDate   || null,
+        date:      startDate || null,
         format,
         url: url || null,
         description: description || null,
         status,
-        payouts: [],
+        rounds,
+        payouts,
       };
 
       try {
@@ -535,18 +565,152 @@
     function openForm() {
       document.getElementById('create-panel').classList.add('open');
       document.getElementById('toggle-form-btn').innerHTML = '× Cancel';
+      renderRoundsSection();
+      renderPayouts();
     }
 
     function closeForm() {
       document.getElementById('create-panel').classList.remove('open');
       document.getElementById('toggle-form-btn').innerHTML = '+ New Event';
       document.getElementById('new-format-panel').classList.remove('open');
-      ['f-week','f-date','f-url','f-tournament-id','f-name','f-description'].forEach(id => {
+      ['f-week','f-start-date','f-end-date','f-url','f-tournament-id','f-name','f-description'].forEach(id => {
         const el = document.getElementById(id);
-        el.value = '';
-        delete el.dataset.edited;
+        if (el) { el.value = ''; delete el.dataset.edited; }
       });
       document.getElementById('url-extracted').textContent = '';
+      formRounds = [];
+      formPayouts = [];
+    }
+
+    // ── Round settings & payouts state ───────────────────────
+    let formRounds  = [];
+    let formPayouts = [];
+
+    const ROUND_FIELDS = [
+      { key:'stimp',    label:'Stimp',    type:'number', step:'1'   },
+      { key:'fairways', label:'Fairways', type:'text'               },
+      { key:'greens',   label:'Greens',   type:'text'               },
+      { key:'tees',     label:'Tees',     type:'text'               },
+      { key:'slope',    label:'Slope',    type:'number'             },
+      { key:'rating',   label:'Rating',   type:'number', step:'0.1' },
+      { key:'pins',     label:'Pins',     type:'text'               },
+      { key:'weather',  label:'Weather',  type:'text'               },
+      { key:'wind',     label:'Wind',     type:'text'               },
+      { key:'gimmies',  label:'Gimmies',  type:'text'               },
+      { key:'putting',  label:'Putting',  type:'text'               },
+    ];
+
+    function renderRoundsSection() {
+      const section = document.getElementById('rounds-section');
+      if (!section) return;
+      if (formRounds.length === 0) {
+        section.innerHTML = `
+          <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Round Settings</div>
+          <p class="text-gray-700 text-xs font-body">Paste a SGT URL above to auto-fill, or
+            <button type="button" id="add-round-manual-btn" class="text-flame font-heading font-600 tracking-wider hover:underline" style="transition:opacity 0.12s">add a round manually</button>.</p>`;
+        document.getElementById('add-round-manual-btn')?.addEventListener('click', addRound);
+        return;
+      }
+      section.innerHTML = `
+        <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Round Settings</div>
+        <div class="space-y-4">
+          ${formRounds.map((r, i) => `
+            <div class="border border-border/60 rounded-lg p-5 bg-surface">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase">Round ${r.round}</div>
+                ${formRounds.length > 1 ? `<button type="button" class="remove-round-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-idx="${i}" style="transition:color 0.12s">Remove</button>` : ''}
+              </div>
+              <div class="form-grid">
+                <div class="form-full"><label>Course</label><input type="text" id="r${i}-course" value="${(r.course||'').replace(/"/g,'&quot;')}" placeholder="Course name" /></div>
+                ${ROUND_FIELDS.map(f => `<div><label>${f.label}</label><input type="${f.type}" id="r${i}-${f.key}" value="${r[f.key]??''}" ${f.step?`step="${f.step}"`:''}  placeholder="—" /></div>`).join('')}
+              </div>
+            </div>`).join('')}
+        </div>
+        ${formRounds.length < 2 ? `<button type="button" id="add-round-btn" class="mt-3 text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2" style="transition:color 0.12s">+ Add Round</button>` : ''}`;
+      document.getElementById('add-round-btn')?.addEventListener('click', addRound);
+      section.querySelectorAll('.remove-round-btn').forEach(btn => {
+        btn.addEventListener('click', () => removeRound(parseInt(btn.dataset.idx)));
+      });
+    }
+
+    function readCurrentRounds() {
+      return formRounds.map((_, i) => ({
+        round:    i + 1,
+        course:   document.getElementById(`r${i}-course`)?.value.trim()           || null,
+        stimp:    parseFloat(document.getElementById(`r${i}-stimp`)?.value)        || null,
+        fairways: document.getElementById(`r${i}-fairways`)?.value.trim()          || null,
+        greens:   document.getElementById(`r${i}-greens`)?.value.trim()            || null,
+        tees:     document.getElementById(`r${i}-tees`)?.value.trim()              || null,
+        slope:    parseInt(document.getElementById(`r${i}-slope`)?.value)          || null,
+        rating:   parseFloat(document.getElementById(`r${i}-rating`)?.value)       || null,
+        pins:     document.getElementById(`r${i}-pins`)?.value.trim()              || null,
+        weather:  document.getElementById(`r${i}-weather`)?.value.trim()           || null,
+        wind:     document.getElementById(`r${i}-wind`)?.value.trim()              || null,
+        gimmies:  document.getElementById(`r${i}-gimmies`)?.value.trim()           || null,
+        putting:  document.getElementById(`r${i}-putting`)?.value.trim()           || null,
+      }));
+    }
+
+    function addRound() {
+      if (formRounds.length >= 2) return;
+      const current = formRounds.length > 0 ? readCurrentRounds() : [];
+      formRounds = [...current, { round: current.length + 1, course:null, stimp:null, fairways:null, greens:null, tees:null, slope:null, rating:null, pins:null, weather:null, wind:null, gimmies:null, putting:null }];
+      renderRoundsSection();
+    }
+
+    function removeRound(idx) {
+      const current = readCurrentRounds();
+      current.splice(idx, 1);
+      formRounds = current.map((r, i) => ({ ...r, round: i + 1 }));
+      renderRoundsSection();
+    }
+
+    function getTeamSize() {
+      const fmt = state.allFormats[document.getElementById('f-format')?.value];
+      return fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
+    }
+
+    const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
+    function ordinal(n) { return ORDINALS[n - 1] || `${n}th`; }
+
+    function renderPayouts() {
+      const list = document.getElementById('payouts-list');
+      const note = document.getElementById('payout-team-note');
+      if (!list) return;
+      const teamSize = getTeamSize();
+      if (note) note.textContent = teamSize > 1 ? `Team size: ${teamSize} — per-player shown` : '';
+      if (formPayouts.length === 0) {
+        list.innerHTML = '<p class="text-xs text-gray-700 font-body py-1">No payouts added yet.</p>';
+        return;
+      }
+      list.innerHTML = formPayouts.map((p, i) => `
+        <div class="flex items-center gap-3 py-2 border-b border-border/30">
+          <span class="text-xs font-heading font-600 tracking-wider text-gray-500 w-8">${ordinal(p.place)}</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-gray-600 text-sm font-body">$</span>
+            <input type="number" class="payout-amount w-28 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50"
+              min="0" step="5" value="${p.amount || ''}" data-idx="${i}" placeholder="0" />
+          </div>
+          ${teamSize > 1 ? `<span class="per-player text-xs text-gray-600 font-body w-24" data-idx="${i}">${p.amount ? '$' + Math.round(p.amount / teamSize) + '/player' : '—'}</span>` : ''}
+          <button type="button" class="remove-payout text-gray-700 hover:text-red-400 ml-auto text-base leading-none" data-idx="${i}" style="transition:color 0.12s">×</button>
+        </div>`).join('');
+      list.querySelectorAll('.payout-amount').forEach(input => {
+        input.addEventListener('input', e => {
+          const idx = parseInt(e.target.dataset.idx);
+          const val = parseFloat(e.target.value) || 0;
+          formPayouts[idx].amount = val;
+          const ts = getTeamSize();
+          const perEl = list.querySelector(`.per-player[data-idx="${idx}"]`);
+          if (perEl) perEl.textContent = (val && ts > 1) ? `$${Math.round(val / ts)}/player` : (ts > 1 ? '—' : '');
+        });
+      });
+      list.querySelectorAll('.remove-payout').forEach(btn => {
+        btn.addEventListener('click', () => {
+          formPayouts.splice(parseInt(btn.dataset.idx), 1);
+          formPayouts = formPayouts.map((p, i) => ({ ...p, place: i + 1 }));
+          renderPayouts();
+        });
+      });
     }
 
     // ── Auto-extract tournament ID from URL ───────────────────
@@ -568,19 +732,35 @@
           try {
             const res = await fetch(`/api/events-admin?type=scrape&tournamentId=${id}`);
             const data = await res.json();
+            const filled = [];
             if (data.name) {
               const nameEl = document.getElementById('f-name');
-              if (!nameEl.dataset.edited) {
-                nameEl.value = data.name;
-              }
-              msgEl.textContent = `Tournament ID: ${id} · Name fetched: "${data.name}"`;
+              if (!nameEl.dataset.edited) nameEl.value = data.name;
+              filled.push(`"${data.name}"`);
+            }
+            if (data.startDate) {
+              const el = document.getElementById('f-start-date');
+              if (!el.dataset.edited) el.value = data.startDate;
+            }
+            if (data.endDate) {
+              const el = document.getElementById('f-end-date');
+              if (!el.dataset.edited) el.value = data.endDate;
+              if (data.startDate) filled.push('dates');
+            }
+            if (data.rounds?.length) {
+              formRounds = data.rounds;
+              renderRoundsSection();
+              filled.push(`${data.rounds.length} round${data.rounds.length > 1 ? 's' : ''} of settings`);
+            }
+            if (filled.length) {
+              msgEl.textContent = `Fetched: ${filled.join(' · ')}`;
               msgEl.style.color = '#4ade80';
             } else {
-              msgEl.textContent = `Tournament ID: ${id} · Name not found (${data.error || 'unknown'}) — enter manually`;
+              msgEl.textContent = `Tournament ID: ${id} · Nothing scraped — enter manually`;
               msgEl.style.color = '#facc15';
             }
           } catch {
-            msgEl.textContent = `Tournament ID: ${id} · Could not fetch name — enter manually`;
+            msgEl.textContent = `Tournament ID: ${id} · Could not fetch — enter manually`;
             msgEl.style.color = '#facc15';
           }
         }, 600);
@@ -607,12 +787,12 @@
       } else {
         document.getElementById('new-format-panel').classList.remove('open');
         tryAutoName();
-        // Auto-fill description from format definition unless user has edited it
         const descEl = document.getElementById('f-description');
         if (!descEl.dataset.edited) {
           const fmt = state.allFormats[e.target.value];
           descEl.value = (fmt && fmt.description) ? fmt.description : '';
         }
+        renderPayouts();
       }
     });
     document.getElementById('f-description').addEventListener('input', e => {
@@ -627,6 +807,10 @@
       document.getElementById('create-panel').classList.contains('open') ? closeForm() : openForm();
     });
     document.getElementById('cancel-btn').addEventListener('click', closeForm);
+    document.getElementById('add-payout-btn').addEventListener('click', () => {
+      formPayouts.push({ place: formPayouts.length + 1, amount: 0 });
+      renderPayouts();
+    });
     document.getElementById('create-event-btn').addEventListener('click', createEvent);
     document.getElementById('save-format-btn').addEventListener('click', saveCustomFormat);
     document.getElementById('show-legacy').addEventListener('change', e => {
