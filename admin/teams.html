@@ -373,6 +373,17 @@
       rtEventId = eventId;
       const fmt      = state.allFormats[event.format];
       const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
+
+      if (teamSize < 2) {
+        config.classList.remove('hidden');
+        config.innerHTML = `
+          <div class="border border-[#2c2c2c] rounded-lg px-5 py-4 bg-[#141414] text-sm font-body text-gray-500">
+            <span class="font-heading font-600 tracking-wider text-gray-400">${fmt?.name || 'This format'}</span>
+            is an individual event — no team draw needed.
+          </div>`;
+        return;
+      }
+
       const players  = getSortedPlayers();
       const numTeams = Math.floor(players.length / teamSize);
       const extras   = players.length - numTeams * teamSize;

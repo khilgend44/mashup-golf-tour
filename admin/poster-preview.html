@@ -260,8 +260,11 @@
       sel.innerHTML = eligible.length
         ? `<option value="">— Select an event —</option>` +
           eligible.map(e => {
+            const fmt      = state.allFormats[e.format] || {};
+            const isSolo   = parseInt(fmt.teamSize || 1) < 2;
             const hasTeams = e.teams?.length > 0;
-            return `<option value="${e.id}">${e.name || e.id}${hasTeams ? '' : ' (no teams yet)'}</option>`;
+            const suffix   = isSolo ? '' : hasTeams ? '' : ' (no teams yet)';
+            return `<option value="${e.id}">${e.name || e.id}${suffix}</option>`;
           }).join('')
         : `<option value="">— No active or upcoming events —</option>`;
     }
@@ -366,9 +369,11 @@
         lines.push('');
       }
 
-      lines.push(teams.length
-        ? `Teams are set — check the poster for your team breakdown, load up the course, and let's go!`
-        : `The event is ready — load up the course and let's go!`);
+      lines.push(teamSize < 2
+        ? `Load up the course and get your ringer card going — good luck!`
+        : teams.length
+          ? `Teams are set — check the poster for your team breakdown, load up the course, and let's go!`
+          : `The event is ready — load up the course and let's go!`);
       lines.push('');
       lines.push(`📺 Submit your stream: https://${SITE_URL}`);
 
@@ -406,35 +411,53 @@
       const sidePotsTotal = sidePots.reduce((s, p) => s + (p.amount || 0), 0);
       const prizeTotal    = payoutsTotal + ctpsTotal + sidePotsTotal;
 
-      // Teams HTML
-      const teamsHTML = teams.length === 0
-        ? `<div style="padding:16px 40px;font-family:'Inter',sans-serif;font-size:14px;color:#374151">
-             Teams have not been assigned yet. Use the Teams admin to draw teams before announcing.
-           </div>`
-        : `<div class="tg">
-            ${teams.map((team, ti) => {
-              const tierLabel = teamSize > 1
-                ? `<span class="shc">
-                     ${TIER_NAMES.slice(0, teamSize).join(' = TIER  ·  ')} TIER
-                   </span>`
-                : '';
-              return `<div class="tc">
-                <div class="tn">Team ${ti + 1}</div>
-                ${team.map(name => {
-                  const h    = state.handicaps[name.toLowerCase()];
-                  const cap  = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : '—';
-                  const ti2  = tierMap[name] !== undefined ? tierMap[name] : null;
-                  const tierBadge = (teamSize > 1 && ti2 !== null)
-                    ? `<span class="tb ${TIER_CLASSES[ti2] || 'tbd'}">${TIER_NAMES[ti2] || '?'}</span>` : '';
-                  const label = name.length > 14 ? name.slice(0, 13) + '…' : name;
-                  return `<div class="tp">
+      // Teams / Players HTML
+      const isSolo = teamSize < 2;
+      const teamsHTML = isSolo
+        ? (() => {
+            // Solo event — show full player roster sorted by adjusted handicap
+            const sorted = state.roster
+              .map(name => {
+                const h = state.handicaps[name.toLowerCase()];
+                return { name, cap: h?.rawCap !== undefined ? parseFloat(h.rawCap) : Infinity };
+              })
+              .sort((a, b) => a.cap - b.cap);
+            return `<div class="tg" style="grid-template-columns:repeat(4,1fr)">
+              ${sorted.map(({ name, cap }) => {
+                const adjCap = cap !== Infinity ? Math.round(cap + capOffset) : '—';
+                const label  = name.length > 14 ? name.slice(0, 13) + '…' : name;
+                return `<div class="tc">
+                  <div class="tp">
                     <span class="tpn">${label}</span>
-                    <span class="tpr">${tierBadge}<span class="th">${cap}</span></span>
-                  </div>`;
-                }).join('')}
-              </div>`;
-            }).join('')}
-           </div>`;
+                    <span class="tpr"><span class="th">${adjCap}</span></span>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>`;
+          })()
+        : teams.length === 0
+          ? `<div style="padding:16px 40px;font-family:'Inter',sans-serif;font-size:14px;color:#374151">
+               Teams have not been assigned yet. Use the Teams admin to draw teams before announcing.
+             </div>`
+          : `<div class="tg">
+              ${teams.map((team, ti) => {
+                return `<div class="tc">
+                  <div class="tn">Team ${ti + 1}</div>
+                  ${team.map(name => {
+                    const h    = state.handicaps[name.toLowerCase()];
+                    const cap  = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : '—';
+                    const ti2  = tierMap[name] !== undefined ? tierMap[name] : null;
+                    const tierBadge = (teamSize > 1 && ti2 !== null)
+                      ? `<span class="tb ${TIER_CLASSES[ti2] || 'tbd'}">${TIER_NAMES[ti2] || '?'}</span>` : '';
+                    const label = name.length > 14 ? name.slice(0, 13) + '…' : name;
+                    return `<div class="tp">
+                      <span class="tpn">${label}</span>
+                      <span class="tpr">${tierBadge}<span class="th">${cap}</span></span>
+                    </div>`;
+                  }).join('')}
+                </div>`;
+              }).join('')}
+             </div>`;
 
       // Payouts HTML
       const payoutsHTML = payouts.length === 0
@@ -492,13 +515,12 @@
           </div>
         </div>
 
-        <!-- TEAMS -->
-        ${teams.length > 0 ? `
+        <!-- PLAYERS / TEAMS -->
         <div class="sh">
-          <div class="shl">Teams</div>
+          <div class="shl">${isSolo ? 'Players' : 'Teams'}</div>
           <div class="shr"></div>
-          <div style="display:flex;align-items:center">${tierLegend}</div>
-        </div>` : ''}
+          ${!isSolo ? `<div style="display:flex;align-items:center">${tierLegend}</div>` : ''}
+        </div>
         ${teamsHTML}
 
         <!-- PRIZES -->
@@ -506,7 +528,7 @@
         <div class="sh" style="margin-top:6px"><div class="shl">Prizes</div><div class="shr"></div></div>
         <div class="pr">
           <div>
-            <div class="pr-col-l">Team Payouts</div>
+            <div class="pr-col-l">${isSolo ? 'Payouts' : 'Team Payouts'}</div>
             ${payoutsHTML}
           </div>
           <div>
