@@ -318,6 +318,11 @@
 
       const tierMap = buildTierMap(teams, teamSize);
 
+      // Adjusted cap offset: same logic as players admin — shift so best player = 0
+      const rawValues = Object.values(state.handicaps).map(h => parseFloat(h.rawCap)).filter(n => !isNaN(n));
+      const minRaw    = rawValues.length ? Math.min(...rawValues) : 0;
+      const capOffset = -minRaw;
+
       // Prize pool total
       const payoutsTotal  = payouts.reduce((s, p) => s + (p.amount || 0), 0);
       const ctpsTotal     = ctps ? (ctps.count || 0) * (ctps.amountEach || 0) : 0;
@@ -355,7 +360,7 @@
                 <div class="tn">Team ${ti + 1}</div>
                 ${team.map(name => {
                   const h   = state.handicaps[name.toLowerCase()];
-                  const cap = h?.rawCap !== undefined ? parseFloat(h.rawCap).toFixed(1) : '—';
+                  const cap = h?.rawCap !== undefined ? (parseFloat(h.rawCap) + capOffset).toFixed(1) : '—';
                   const ti2 = tierMap[name] !== undefined ? tierMap[name] : null;
                   const tierBadge = (teamSize > 1 && ti2 !== null)
                     ? `<span class="tb ${TIER_CLASSES[ti2] || 'tbd'}">${TIER_NAMES[ti2] || '?'}</span>` : '';
