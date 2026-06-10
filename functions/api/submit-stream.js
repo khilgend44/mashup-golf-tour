@@ -39,7 +39,7 @@ export async function onRequestPost(context) {
     if (!ytPattern.test(youtubeUrl)) return new Response('Please enter a valid YouTube URL', { status: 400 });
   }
 
-  const webhookUrl = env.DISCORD_WEBHOOK_URL;
+  const webhookUrl = env.DISCORD_STREAMS_WEBHOOK_URL;
   if (!webhookUrl) return new Response('Webhook not configured', { status: 500 });
 
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
