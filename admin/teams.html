@@ -137,6 +137,23 @@
       </div>
     </div>
 
+    <!-- ── SGT LOADING FILE ─────────────────────────────────── -->
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border">
+        <h2 class="font-display text-2xl tracking-wider text-white">SGT LOADING FILE</h2>
+        <p class="text-xs text-gray-600 font-body mt-1">Download the CSV to load players or teams into SimulatorGolfTour before announcing the event.</p>
+      </div>
+      <div class="px-6 py-5 space-y-4">
+        <div class="max-w-xs">
+          <label>Select Event</label>
+          <select id="sgt-event-select">
+            <option value="">— Loading events… —</option>
+          </select>
+        </div>
+        <div id="sgt-panel"></div>
+      </div>
+    </div>
+
     <!-- ── CONFIGURE EVENT / TEAM ────────────────────────────── -->
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
       <div class="px-6 py-4 border-b border-border">
@@ -212,6 +229,7 @@
       }
 
       populateRtEventDropdown();
+      populateSgtEventDropdown();
       populateConfigEventDropdown();
     }
 
@@ -592,6 +610,103 @@
     });
 
     document.getElementById('rt-generate-btn').addEventListener('click', generateTeams);
+
+    // ══════════════════════════════════════════════════════════
+    // SGT LOADING FILE
+    // ══════════════════════════════════════════════════════════
+
+    function populateSgtEventDropdown() {
+      const sel = document.getElementById('sgt-event-select');
+      const eligible = state.kvEvents.filter(e => e.status === 'active' || e.status === 'upcoming');
+      sel.innerHTML = eligible.length
+        ? `<option value="">— Select an event —</option>` +
+          eligible.map(e => `<option value="${e.id}">${e.name || e.id}</option>`).join('')
+        : `<option value="">— No active or upcoming events —</option>`;
+    }
+
+    function renderSgtPanel(eventId) {
+      const panel = document.getElementById('sgt-panel');
+      if (!eventId) { panel.innerHTML = ''; return; }
+
+      const event    = state.kvEvents.find(e => e.id === eventId);
+      if (!event) { panel.innerHTML = ''; return; }
+
+      const fmt      = state.allFormats[event.format] || {};
+      const teamSize = fmt.teamSize ? parseInt(fmt.teamSize) : 1;
+      const isSolo   = teamSize < 2;
+      const teams    = event.teams || [];
+      const needsTeams = !isSolo && teams.length === 0;
+
+      const summary = isSolo
+        ? `Individual event &nbsp;·&nbsp; <span class="text-white font-semibold">${state.roster.length}</span> players`
+        : `Team event &nbsp;·&nbsp; <span class="text-white font-semibold">${teams.length}</span> teams of <span class="text-white font-semibold">${teamSize}</span>`;
+
+      panel.innerHTML = `
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="text-sm font-body text-gray-400">${summary}</div>
+          <button id="sgt-download-btn" ${needsTeams ? 'disabled' : ''}
+            class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-30 disabled:cursor-not-allowed"
+            style="transition:background 0.15s">↓ Download CSV</button>
+        </div>
+        ${needsTeams ? `<div class="text-xs font-body text-yellow-600 mt-2">⚠ No teams drawn yet — draw and save teams first.</div>` : ''}`;
+
+      document.getElementById('sgt-download-btn')?.addEventListener('click', () => downloadSgtCsv(event));
+    }
+
+    function generateSgtCsv(event) {
+      const fmt      = state.allFormats[event.format] || {};
+      const teamSize = fmt.teamSize ? parseInt(fmt.teamSize) : 1;
+      const isSolo   = teamSize < 2;
+
+      const rawValues = Object.values(state.handicaps).map(h => parseFloat(h.rawCap)).filter(n => !isNaN(n));
+      const minRaw    = rawValues.length ? Math.min(...rawValues) : 0;
+      const capOffset = -minRaw;
+      const adjCap = name => {
+        const h = state.handicaps[name.toLowerCase()];
+        return h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : 0;
+      };
+
+      const header = 'TeamPlayer1,Player1 HCP,TeamPlayer2,Player2 HCP,TeamPlayer3,Player3 HCP,TeamPlayer4,Player4 HCP,teamID,opponentID';
+      const rows = [];
+
+      if (isSolo) {
+        const sorted = [...state.roster].sort((a, b) => adjCap(a) - adjCap(b));
+        for (const name of sorted) {
+          rows.push([name, adjCap(name), '', '', '', '', '', '', '', ''].join(','));
+        }
+      } else {
+        (event.teams || []).forEach((team, i) => {
+          const cols = [];
+          for (let slot = 0; slot < 4; slot++) {
+            if (slot < team.length) {
+              cols.push(team[slot], adjCap(team[slot]));
+            } else {
+              cols.push('', '');
+            }
+          }
+          cols.push(10001 + i, '');
+          rows.push(cols.join(','));
+        });
+      }
+
+      return '﻿' + [header, ...rows].join('\n');
+    }
+
+    function downloadSgtCsv(event) {
+      const csv  = generateSgtCsv(event);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href  = url;
+      link.download = `sgt-${(event.name || event.id).replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showStatus('CSV downloaded — ready to load into SGT.', 'success');
+    }
+
+    document.getElementById('sgt-event-select').addEventListener('change', e => {
+      renderSgtPanel(e.target.value);
+    });
 
     // ══════════════════════════════════════════════════════════
     // CONFIGURE EVENT / TEAM
