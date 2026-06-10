@@ -38,7 +38,7 @@
             color: #6b7280; margin-bottom: 0.35rem; }
 
     /* ─ POSTER ─────────────────────────────────────────────── */
-    #poster { width: 800px; background: #0a0a0a; font-family: 'Inter', sans-serif; position: relative; overflow: hidden; }
+    #poster { width: 1000px; background: #0a0a0a; font-family: 'Inter', sans-serif; position: relative; overflow: hidden; }
     #poster::before {
       content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
@@ -48,77 +48,77 @@
 
     /* header */
     .ph { background: linear-gradient(135deg, #111 0%, #1a0f05 60%, #0d0d0d 100%);
-          padding: 30px 36px 26px; border-bottom: 3px solid #f97316; position: relative; overflow: hidden; }
-    .ph::after { content: ''; position: absolute; top: -60px; right: -40px; width: 280px; height: 280px;
+          padding: 36px 48px 30px; border-bottom: 3px solid #f97316; position: relative; overflow: hidden; }
+    .ph::after { content: ''; position: absolute; top: -60px; right: -40px; width: 320px; height: 320px;
                  background: radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%); pointer-events: none; }
-    .p-label  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
-                letter-spacing:0.22em; text-transform:uppercase; color:#f97316; margin-bottom:6px; }
-    .p-title  { font-family:'Bebas Neue',cursive; font-size:68px; line-height:0.88; color:#fff;
-                letter-spacing:0.03em; margin-bottom:14px; }
-    .p-meta   { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
-    .p-meta-i { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:12px;
+    .p-label  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px;
+                letter-spacing:0.18em; text-transform:uppercase; color:#f97316; margin-bottom:8px; }
+    .p-title  { font-family:'Bebas Neue',cursive; font-size:84px; line-height:0.88; color:#fff;
+                letter-spacing:0.03em; margin-bottom:16px; }
+    .p-meta   { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+    .p-meta-i { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:15px;
                 color:#9ca3af; letter-spacing:0.06em; text-transform:uppercase; }
     .p-meta-i span { color:#e5e5e5; }
 
     /* settings bar */
-    .sb { background:#111; border-bottom:1px solid #1e1e1e; padding:10px 36px; display:flex; flex-wrap:wrap; }
-    .sc { flex:1; min-width:72px; padding:5px 10px; border-right:1px solid #1e1e1e; text-align:center; }
+    .sb { background:#111; border-bottom:1px solid #1e1e1e; padding:12px 48px; display:flex; flex-wrap:wrap; }
+    .sc { flex:1; min-width:84px; padding:6px 12px; border-right:1px solid #1e1e1e; text-align:center; }
     .sc:last-child { border-right:none; }
-    .sk { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px;
-          letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:1px; }
-    .sv { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px; color:#d1d5db; }
+    .sk { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
+          letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:2px; }
+    .sv { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:17px; color:#d1d5db; }
 
     /* section headers */
-    .sh  { padding:14px 36px 8px; display:flex; align-items:center; gap:12px; }
-    .shl { font-family:'Bebas Neue',cursive; font-size:21px; color:#f97316; letter-spacing:0.08em; }
+    .sh  { padding:18px 48px 10px; display:flex; align-items:center; gap:14px; }
+    .shl { font-family:'Bebas Neue',cursive; font-size:27px; color:#f97316; letter-spacing:0.08em; }
     .shr { flex:1; height:1px; background:#1e1e1e; }
-    .shc { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:10px; color:#374151; letter-spacing:0.1em; }
+    .shc { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:12px; color:#374151; letter-spacing:0.1em; }
 
     /* format callout */
-    .fc { margin:0 36px 10px; background:#111; border:1px solid #1e1e1e; border-left:3px solid #f97316;
-          border-radius:4px; padding:9px 14px; }
-    .fc-t { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
-            letter-spacing:0.1em; text-transform:uppercase; color:#f97316; margin-bottom:3px; }
-    .fc-d { font-family:'Inter',sans-serif; font-size:10px; color:#6b7280; line-height:1.5; }
+    .fc { margin:0 48px 12px; background:#111; border:1px solid #1e1e1e; border-left:3px solid #f97316;
+          border-radius:4px; padding:11px 16px; }
+    .fc-t { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px;
+            letter-spacing:0.1em; text-transform:uppercase; color:#f97316; margin-bottom:4px; }
+    .fc-d { font-family:'Inter',sans-serif; font-size:12px; color:#6b7280; line-height:1.55; }
 
     /* teams grid */
-    .tg { padding:0 28px 4px; display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
-    .tc { background:#111; border:1px solid #1e1e1e; border-radius:6px; padding:8px 9px; }
-    .tn { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px;
-          letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:5px; }
-    .tp { display:flex; align-items:center; justify-content:space-between; padding:2px 0; }
-    .tpn { font-family:'Inter',sans-serif; font-size:11px; font-weight:500; color:#d1d5db;
-           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px; }
-    .tpr { display:flex; align-items:center; gap:3px; flex-shrink:0; }
-    .tb  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px;
-           padding:1px 4px; border-radius:2px; letter-spacing:0.04em; }
+    .tg { padding:0 40px 6px; display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+    .tc { background:#111; border:1px solid #1e1e1e; border-radius:6px; padding:10px 12px; }
+    .tn { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
+          letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:6px; }
+    .tp { display:flex; align-items:center; justify-content:space-between; padding:3px 0; }
+    .tpn { font-family:'Inter',sans-serif; font-size:13px; font-weight:500; color:#d1d5db;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; }
+    .tpr { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+    .tb  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
+           padding:2px 6px; border-radius:2px; letter-spacing:0.04em; }
     .ta  { background:rgba(52,211,153,0.12); color:#6ee7b7; border:1px solid rgba(52,211,153,0.2); }
     .tb2 { background:rgba(250,204,21,0.10); color:#fde047; border:1px solid rgba(250,204,21,0.18); }
     .tc2 { background:rgba(249,115,22,0.12); color:#fb923c; border:1px solid rgba(249,115,22,0.2); }
     .tbd { background:rgba(147,197,253,0.10); color:#93c5fd; border:1px solid rgba(147,197,253,0.18); }
-    .th  { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; color:#374151;
-           min-width:28px; text-align:right; }
+    .th  { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:14px; color:#374151;
+           min-width:34px; text-align:right; }
 
     /* prizes */
-    .pr { padding:2px 36px 14px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .pr-col-l { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px;
-                letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:5px; }
+    .pr { padding:4px 48px 18px; display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    .pr-col-l { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
+                letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:6px; }
     .pr-i { display:flex; align-items:baseline; justify-content:space-between;
-            padding:4px 0; border-bottom:1px solid #141414; }
-    .pr-p { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px; letter-spacing:0.06em; color:#6b7280; }
+            padding:6px 0; border-bottom:1px solid #141414; }
+    .pr-p { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:16px; letter-spacing:0.06em; color:#6b7280; }
     .pr-p.gold   { color:#f59e0b; } .pr-p.silver { color:#9ca3af; } .pr-p.bronze { color:#cd7c44; }
-    .pr-a { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:15px; color:#e5e5e5; }
-    .pr-s { font-family:'Inter',sans-serif; font-size:10px; color:#4b5563; margin-left:3px; }
-    .ex-i { display:flex; align-items:center; justify-content:space-between; padding:4px 0; border-bottom:1px solid #141414; }
-    .ex-l { font-family:'Inter',sans-serif; font-size:11px; color:#6b7280; }
-    .ex-a { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px; color:#d1d5db; }
+    .pr-a { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:20px; color:#e5e5e5; }
+    .pr-s { font-family:'Inter',sans-serif; font-size:12px; color:#4b5563; margin-left:4px; }
+    .ex-i { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid #141414; }
+    .ex-l { font-family:'Inter',sans-serif; font-size:14px; color:#6b7280; }
+    .ex-a { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:16px; color:#d1d5db; }
 
     /* footer */
-    .pf { background:#111; border-top:1px solid #1e1e1e; padding:13px 36px;
+    .pf { background:#111; border-top:1px solid #1e1e1e; padding:16px 48px;
           display:flex; align-items:center; justify-content:space-between; }
-    .pf-url { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px;
+    .pf-url { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:14px;
               letter-spacing:0.1em; color:#374151; text-transform:uppercase; }
-    .pf-cta { font-family:'Bebas Neue',cursive; font-size:18px; letter-spacing:0.08em; color:#f97316; }
+    .pf-cta { font-family:'Bebas Neue',cursive; font-size:24px; letter-spacing:0.08em; color:#f97316; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
@@ -170,7 +170,7 @@
 
     <!-- Poster wrapper -->
     <div id="poster-wrap">
-      <div id="poster-placeholder" class="border border-[#2c2c2c] rounded-lg bg-[#1e1e1e] flex items-center justify-center" style="width:800px;height:320px">
+      <div id="poster-placeholder" class="border border-[#2c2c2c] rounded-lg bg-[#1e1e1e] flex items-center justify-center" style="width:1000px;height:320px">
         <p class="text-gray-600 text-sm font-body">Select an event above to preview the announcement poster.</p>
       </div>
       <!-- #poster injected here by JS -->
@@ -341,7 +341,7 @@
 
       // Teams HTML
       const teamsHTML = teams.length === 0
-        ? `<div style="padding:16px 28px;font-family:'Inter',sans-serif;font-size:12px;color:#374151">
+        ? `<div style="padding:16px 40px;font-family:'Inter',sans-serif;font-size:14px;color:#374151">
              Teams have not been assigned yet. Use the Teams admin to draw teams before announcing.
            </div>`
         : `<div class="tg">
@@ -398,21 +398,20 @@
       ).join('');
 
       const totalHTML = prizeTotal > 0
-        ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e1e1e;display:flex;justify-content:space-between;align-items:center">
-             <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#374151">Total Prize Pool</span>
-             <span style="font-family:'Bebas Neue',cursive;font-size:22px;color:#f97316;letter-spacing:0.04em">$${prizeTotal}</span>
+        ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #1e1e1e;display:flex;justify-content:space-between;align-items:center">
+             <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;color:#374151">Total Prize Pool</span>
+             <span style="font-family:'Bebas Neue',cursive;font-size:28px;color:#f97316;letter-spacing:0.04em">$${prizeTotal}</span>
            </div>` : '';
 
       // Tier legend for section header
       const tierLegend = teamSize > 1
         ? TIER_NAMES.slice(0, teamSize).map((t, i) =>
-            `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:9px;padding:1px 5px;border-radius:2px;margin-left:4px;class='${TIER_CLASSES[i]}'"
-             class="tb ${TIER_CLASSES[i]}">${t}</span>`
-          ).join('') + `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:10px;color:#374151;margin-left:6px;letter-spacing:0.08em">= LOW · MID · HIGH HANDICAP</span>`
+            `<span class="tb ${TIER_CLASSES[i]}" style="margin-left:4px">${t}</span>`
+          ).join('') + `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:12px;color:#374151;margin-left:8px;letter-spacing:0.08em">= LOW · MID · HIGH HANDICAP</span>`
         : '';
 
       const secondRound = rounds[1]
-        ? `<div style="padding:2px 36px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:10px;letter-spacing:0.08em;color:#374151">
+        ? `<div style="padding:4px 48px 8px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.08em;color:#374151">
              ROUND 2: ${rounds[1].course || '—'} · Slope ${rounds[1].slope ?? '—'} · Rating ${rounds[1].rating ?? '—'} · Stimp ${rounds[1].stimp ?? '—'}
            </div>` : '';
 
@@ -429,7 +428,7 @@
                 ${teamCount > 0 ? `<div class="p-meta-i">👥 <span>${playerCount} Players · ${teamCount} Teams</span></div>` : ''}
               </div>
             </div>
-            <img src="../brand_assets/mashup_transparent_png.webp" alt="MashUp" style="height:76px;opacity:0.85;margin-top:2px" crossorigin="anonymous" />
+            <img src="../brand_assets/mashup_transparent_png.webp" alt="MashUp" style="height:92px;opacity:0.85;margin-top:2px" crossorigin="anonymous" />
           </div>
         </div>
 
@@ -478,7 +477,7 @@
         <!-- FOOTER -->
         <div class="pf">
           <div class="pf-url">${SITE_URL}</div>
-          <img src="../brand_assets/mashup_transparent_png.webp" alt="" style="height:26px;opacity:0.4" crossorigin="anonymous" />
+          <img src="../brand_assets/mashup_transparent_png.webp" alt="" style="height:32px;opacity:0.4" crossorigin="anonymous" />
           <div class="pf-cta">Good Luck, Everyone! 🏌️</div>
         </div>
       </div>`;
@@ -496,7 +495,7 @@
         const ph = document.createElement('div');
         ph.id = 'poster-placeholder';
         ph.className = 'border border-[#2c2c2c] rounded-lg bg-[#1e1e1e] flex items-center justify-center';
-        ph.style.cssText = 'width:800px;height:320px';
+        ph.style.cssText = 'width:1000px;height:320px';
         ph.innerHTML = '<p class="text-gray-600 text-sm font-body">Select an event above to preview the announcement poster.</p>';
         wrap.appendChild(ph);
         document.getElementById('download-btn').disabled = true;
