@@ -828,8 +828,11 @@
         const posStr  = team.tied ? `T${team.position}` : team.position;
         const toParStr = formatToPar(team.toPar);
         const toParCls = team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
+        const teamSize = format?.teamSize ? parseInt(format.teamSize) : 1;
         const prizeStr = team.prize != null
-          ? `$${team.prize} <span class="text-gray-500 font-normal text-xs">/ea</span>`
+          ? teamSize > 1
+            ? `$${team.prize} <span class="text-gray-500 font-normal text-xs">($${Math.round(team.prize / teamSize)}/ea)</span>`
+            : `$${team.prize}`
           : '—';
         const isLeader = team.position === 1;
 

@@ -110,17 +110,6 @@
             <input type="number" id="f-week" min="1" max="30" placeholder="1" />
           </div>
 
-          <!-- Start Date -->
-          <div>
-            <label>Start Date</label>
-            <input type="date" id="f-start-date" />
-          </div>
-
-          <!-- End Date -->
-          <div>
-            <label>End Date</label>
-            <input type="date" id="f-end-date" />
-          </div>
 
           <!-- Status -->
           <div>
@@ -491,8 +480,8 @@
     async function createEvent() {
       const season       = document.getElementById('f-season').value;
       const week         = parseInt(document.getElementById('f-week').value);
-      const startDate    = document.getElementById('f-start-date').value;
-      const endDate      = document.getElementById('f-end-date').value;
+      const startDate    = formStartDate;
+      const endDate      = formEndDate;
       const status       = document.getElementById('f-status').value;
       const url          = document.getElementById('f-url').value.trim();
       const tournamentId = parseInt(document.getElementById('f-tournament-id').value.trim());
@@ -619,7 +608,9 @@
       document.getElementById('create-panel').classList.remove('open');
       document.getElementById('toggle-form-btn').innerHTML = '+ New Event';
       document.getElementById('new-format-panel').classList.remove('open');
-      ['f-week','f-start-date','f-end-date','f-url','f-tournament-id','f-name','f-description'].forEach(id => {
+      formStartDate = null;
+      formEndDate   = null;
+      ['f-week','f-url','f-tournament-id','f-name','f-description'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.value = ''; delete el.dataset.edited; }
       });
@@ -636,9 +627,11 @@
     }
 
     // ── Round settings & payouts state ───────────────────────
-    let formRounds   = [];
-    let formPayouts  = [];
-    let formSidePots = [];
+    let formRounds    = [];
+    let formPayouts   = [];
+    let formSidePots  = [];
+    let formStartDate = null;
+    let formEndDate   = null;
 
     const ROUND_FIELDS = [
       { key:'stimp',    label:'Stimp',    type:'number', step:'1'   },
@@ -831,15 +824,9 @@
               if (!nameEl.dataset.edited) nameEl.value = data.name;
               filled.push(`"${data.name}"`);
             }
-            if (data.startDate) {
-              const el = document.getElementById('f-start-date');
-              if (!el.dataset.edited) el.value = data.startDate;
-            }
-            if (data.endDate) {
-              const el = document.getElementById('f-end-date');
-              if (!el.dataset.edited) el.value = data.endDate;
-              if (data.startDate) filled.push('dates');
-            }
+            if (data.startDate) formStartDate = data.startDate;
+            if (data.endDate)   formEndDate   = data.endDate;
+            if (data.startDate && data.endDate) filled.push('dates');
             if (data.rounds?.length) {
               formRounds = data.rounds;
               renderRoundsSection();
