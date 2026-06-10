@@ -72,8 +72,7 @@
     .tn { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
           letter-spacing:0.15em; text-transform:uppercase; color:#374151; margin-bottom:6px; }
     .tp { display:flex; align-items:center; justify-content:space-between; padding:5px 0; }
-    .tpn { font-family:'Inter',sans-serif; font-size:15px; font-weight:500; color:#d1d5db;
-           line-height:1.5; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tpn { font-family:'Inter',sans-serif; font-size:15px; font-weight:500; color:#d1d5db; line-height:1.5; }
     .tpr { display:flex; align-items:center; gap:4px; flex-shrink:0; margin-left:6px; }
     .tb  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
            padding:2px 6px; border-radius:2px; letter-spacing:0.04em; }
@@ -420,13 +419,14 @@
               return `<div class="tc">
                 <div class="tn">Team ${ti + 1}</div>
                 ${team.map(name => {
-                  const h   = state.handicaps[name.toLowerCase()];
-                  const cap = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : '—';
-                  const ti2 = tierMap[name] !== undefined ? tierMap[name] : null;
+                  const h    = state.handicaps[name.toLowerCase()];
+                  const cap  = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : '—';
+                  const ti2  = tierMap[name] !== undefined ? tierMap[name] : null;
                   const tierBadge = (teamSize > 1 && ti2 !== null)
                     ? `<span class="tb ${TIER_CLASSES[ti2] || 'tbd'}">${TIER_NAMES[ti2] || '?'}</span>` : '';
+                  const label = name.length > 14 ? name.slice(0, 13) + '…' : name;
                   return `<div class="tp">
-                    <span class="tpn">${name}</span>
+                    <span class="tpn">${label}</span>
                     <span class="tpr">${tierBadge}<span class="th">${cap}</span></span>
                   </div>`;
                 }).join('')}
