@@ -41,6 +41,15 @@
     label { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
             font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
             color: #6b7280; margin-bottom: 0.35rem; }
+    .mode-btn { flex: 1; padding: 0.6rem 1rem; border-radius: 0.5rem; border: 1px solid #2c2c2c;
+                background: #141414; color: #6b7280; font-family: 'Barlow Condensed', sans-serif;
+                font-weight: 600; letter-spacing: 0.05em; font-size: 0.8rem; cursor: pointer;
+                transition: border-color 0.12s, color 0.12s, background 0.12s; text-align: center; }
+    .mode-btn.active { border-color: rgba(249,115,22,0.5); background: rgba(249,115,22,0.08); color: #f97316; }
+    .mode-btn:hover:not(.active) { border-color: #444; color: #d1d5db; }
+    .tier-a { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.2); color: #6ee7b7; }
+    .tier-b { background: rgba(250,204,21,0.08); border-color: rgba(250,204,21,0.2); color: #fde047; }
+    .tier-c { background: rgba(249,115,22,0.10); border-color: rgba(249,115,22,0.25); color: #fb923c; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -69,11 +78,59 @@
     <!-- Status bar -->
     <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
 
+    <!-- ── CREATE RANDOM TEAMS ───────────────────────────────── -->
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border">
+        <h2 class="font-display text-2xl tracking-wider text-white">CREATE RANDOM TEAMS</h2>
+        <p class="text-xs text-gray-600 font-body mt-1">Generate balanced tiered draws or fully random teams from the current player roster.</p>
+      </div>
+      <div class="px-6 py-5 space-y-5">
+
+        <!-- Event selector -->
+        <div class="max-w-xs">
+          <label>Select Event</label>
+          <select id="rt-event-select">
+            <option value="">— Loading events… —</option>
+          </select>
+        </div>
+
+        <!-- Config + tier preview (shown after event selected) -->
+        <div id="rt-config" class="hidden space-y-5">
+
+          <!-- Summary line -->
+          <div id="rt-summary" class="text-sm font-body text-gray-500"></div>
+
+          <!-- Mode toggle -->
+          <div>
+            <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Draw Mode</div>
+            <div class="flex gap-2 max-w-sm">
+              <button type="button" id="rt-mode-tiered" class="mode-btn active">Tiered Draw</button>
+              <button type="button" id="rt-mode-random" class="mode-btn">Completely Random</button>
+            </div>
+            <p id="rt-mode-desc" class="text-xs text-gray-600 font-body mt-2">
+              1 player pulled from each handicap tier — produces balanced teams.
+            </p>
+          </div>
+
+          <!-- Tier breakdown (only in tiered mode) -->
+          <div id="rt-tiers" class="space-y-2"></div>
+
+          <button type="button" id="rt-generate-btn"
+            class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+            style="transition:background 0.15s">Generate Teams</button>
+        </div>
+
+        <!-- Results -->
+        <div id="rt-results" class="hidden"></div>
+
+      </div>
+    </div>
+
     <!-- ── CONFIGURE EVENT / TEAM ────────────────────────────── -->
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
       <div class="px-6 py-4 border-b border-border">
         <h2 class="font-display text-2xl tracking-wider text-white">CONFIGURE EVENT / TEAM</h2>
-        <p class="text-xs text-gray-600 font-body mt-1">Manage in-flight events and assign players on teams to specific roles (e.g. Lone Ranger).</p>
+        <p class="text-xs text-gray-600 font-body mt-1">Assign players on teams to format-specific roles (e.g. Lone Ranger slot order).</p>
       </div>
       <div class="px-6 py-5">
         <div class="max-w-xs mb-5">
@@ -97,13 +154,14 @@
   </footer>
 
   <script type="module">
-    const API               = '/api/events-admin';
+    const API                = '/api/events-admin';
     const FORMATS_STATIC_URL = '/data/formats.json';
 
     let state = {
       kvEvents:   [],
       allFormats: {},
       roster:     [],
+      handicaps:  {},
     };
 
     // ── Utilities ──────────────────────────────────────────────
@@ -138,13 +196,256 @@
 
       if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
         const pdata = await playersRes.value.json();
-        state.roster = pdata.roster || [];
+        state.roster    = pdata.roster    || [];
+        state.handicaps = pdata.handicaps || {};
       }
 
+      populateRtEventDropdown();
       populateConfigEventDropdown();
     }
 
-    // ── Configure Event / Team ────────────────────────────────
+    // ══════════════════════════════════════════════════════════
+    // CREATE RANDOM TEAMS
+    // ══════════════════════════════════════════════════════════
+
+    let rtMode      = 'tiered';
+    let rtEventId   = null;
+    let rtLastTeams = [];
+
+    const TIER_NAMES  = ['A', 'B', 'C', 'D'];
+    const TIER_STYLES = ['tier-a', 'tier-b', 'tier-c', 'badge-gray'];
+
+    function populateRtEventDropdown() {
+      const sel = document.getElementById('rt-event-select');
+      if (!sel) return;
+      const eligible = state.kvEvents.filter(e => e.status === 'active' || e.status === 'upcoming');
+      const prev = sel.value;
+      sel.innerHTML = eligible.length
+        ? `<option value="">— Select an active or upcoming event —</option>` +
+          eligible.map(e => `<option value="${e.id}">${e.name || e.id} (${e.status})</option>`).join('')
+        : `<option value="">— No active or upcoming events —</option>`;
+      if (prev && eligible.find(e => e.id === prev)) sel.value = prev;
+    }
+
+    // Returns [{name, cap}] sorted by rawCap asc; missing caps last
+    function getSortedPlayers() {
+      return (state.roster || [])
+        .map(name => {
+          const h = state.handicaps[name.toLowerCase()];
+          const cap = h && h.rawCap !== undefined ? parseFloat(h.rawCap) : null;
+          return { name, cap };
+        })
+        .sort((a, b) => {
+          if (a.cap === null && b.cap === null) return 0;
+          if (a.cap === null) return 1;
+          if (b.cap === null) return -1;
+          return a.cap - b.cap;
+        });
+    }
+
+    // Splits sorted players into teamSize even tiers of numTeams each
+    function buildTiers(sortedPlayers, teamSize, numTeams) {
+      const used = sortedPlayers.slice(0, numTeams * teamSize);
+      const tiers = [];
+      for (let t = 0; t < teamSize; t++) {
+        tiers.push(used.slice(t * numTeams, (t + 1) * numTeams));
+      }
+      return tiers;
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function renderRtConfig(eventId) {
+      const config  = document.getElementById('rt-config');
+      const results = document.getElementById('rt-results');
+      rtLastTeams = [];
+      results.classList.add('hidden');
+      results.innerHTML = '';
+
+      if (!eventId) { config.classList.add('hidden'); return; }
+
+      const event = state.kvEvents.find(e => e.id === eventId);
+      if (!event) { config.classList.add('hidden'); return; }
+
+      rtEventId = eventId;
+      const fmt      = state.allFormats[event.format];
+      const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
+      const players  = getSortedPlayers();
+      const numTeams = Math.floor(players.length / teamSize);
+      const extras   = players.length - numTeams * teamSize;
+
+      // Summary line
+      const summaryEl = document.getElementById('rt-summary');
+      summaryEl.innerHTML =
+        `<span class="text-white font-semibold">${players.length}</span> players &nbsp;·&nbsp; ` +
+        `<span class="text-white font-semibold">${numTeams}</span> teams &nbsp;·&nbsp; ` +
+        `<span class="text-white font-semibold">${teamSize}</span> per team` +
+        (extras > 0
+          ? ` &nbsp;<span class="text-yellow-600 text-xs">(${extras} player${extras > 1 ? 's' : ''} won't be assigned)</span>`
+          : '');
+
+      config.classList.remove('hidden');
+
+      // Render tier breakdown
+      renderTierBreakdown(players, teamSize, numTeams);
+    }
+
+    function renderTierBreakdown(players, teamSize, numTeams) {
+      const el = document.getElementById('rt-tiers');
+      if (!el) return;
+      if (rtMode !== 'tiered' || teamSize < 2) { el.innerHTML = ''; return; }
+
+      const tiers = buildTiers(players, teamSize, numTeams);
+      el.innerHTML = tiers.map((tier, i) => `
+        <div class="border rounded-lg p-3 ${TIER_STYLES[i] || 'border-border/40 bg-surface'}">
+          <div class="text-[10px] font-heading font-600 tracking-widest uppercase mb-2 opacity-80">
+            Tier ${TIER_NAMES[i]} — ${tier.length} players
+            ${i === 0 ? '<span class="opacity-50 normal-case font-body tracking-normal ml-1">(lowest handicaps)</span>' : ''}
+            ${i === tiers.length - 1 ? '<span class="opacity-50 normal-case font-body tracking-normal ml-1">(highest handicaps)</span>' : ''}
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            ${tier.map(p => `
+              <span class="text-xs font-body px-2 py-0.5 rounded bg-black/20">
+                ${p.name}<span class="opacity-50 ml-1">${p.cap !== null ? p.cap.toFixed(1) : '—'}</span>
+              </span>`).join('')}
+          </div>
+        </div>`).join('');
+    }
+
+    function generateTeams() {
+      const event = state.kvEvents.find(e => e.id === rtEventId);
+      if (!event) return;
+      const fmt      = state.allFormats[event.format];
+      const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
+      const players  = getSortedPlayers();
+      const numTeams = Math.floor(players.length / teamSize);
+
+      let teams;
+      if (rtMode === 'tiered' && teamSize > 1) {
+        const tiers = buildTiers(players, teamSize, numTeams).map(tier => shuffle(tier));
+        teams = Array.from({ length: numTeams }, (_, i) =>
+          tiers.map(tier => tier[i].name)
+        );
+      } else {
+        const shuffled = shuffle(players.slice(0, numTeams * teamSize));
+        teams = Array.from({ length: numTeams }, (_, i) =>
+          shuffled.slice(i * teamSize, (i + 1) * teamSize).map(p => p.name)
+        );
+      }
+
+      rtLastTeams = teams;
+      renderTeamResults(teams, teamSize);
+    }
+
+    function renderTeamResults(teams, teamSize) {
+      const el = document.getElementById('rt-results');
+      if (!el) return;
+      el.classList.remove('hidden');
+
+      const hcaps = state.handicaps;
+
+      el.innerHTML = `
+        <div class="border-t border-border/40 pt-5">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">${teams.length} Teams</div>
+            <div class="flex items-center gap-3">
+              <button type="button" id="rt-reroll-btn"
+                class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider"
+                style="transition:color 0.12s">↺ Re-Roll</button>
+              <button type="button" id="rt-save-btn"
+                class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+                style="transition:background 0.15s">Save Teams</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+            ${teams.map((team, ti) => `
+              <div class="border border-border/50 rounded-lg p-3 bg-surface">
+                <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Team ${ti + 1}</div>
+                ${team.map((name, pi) => {
+                  const h   = hcaps[name.toLowerCase()];
+                  const cap = h?.rawCap !== undefined ? parseFloat(h.rawCap).toFixed(1) : '—';
+                  const tier = teamSize > 1 ? TIER_NAMES[pi] : null;
+                  return `<div class="flex items-center justify-between py-0.5 gap-1">
+                    <span class="text-xs font-body text-gray-300 truncate">${name}</span>
+                    <span class="shrink-0 flex items-center gap-1">
+                      ${tier ? `<span class="text-[9px] font-heading font-600 px-1 py-px rounded ${TIER_STYLES[pi] || ''}">${tier}</span>` : ''}
+                      <span class="text-[10px] text-gray-600 font-body">${cap}</span>
+                    </span>
+                  </div>`;
+                }).join('')}
+              </div>`).join('')}
+          </div>
+        </div>`;
+
+      document.getElementById('rt-reroll-btn').addEventListener('click', generateTeams);
+      document.getElementById('rt-save-btn').addEventListener('click', () => saveTeams(rtEventId, rtLastTeams));
+    }
+
+    async function saveTeams(eventId, teams) {
+      if (!eventId || !teams.length) return;
+      const event = state.kvEvents.find(e => e.id === eventId);
+      if (!event) return;
+      const updatedEvent = { ...event, teams };
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-event', event: updatedEvent }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const idx = state.kvEvents.findIndex(e => e.id === eventId);
+        if (idx !== -1) state.kvEvents[idx] = data.event;
+        showStatus(`${teams.length} teams saved to event.`, 'success');
+      } catch (e) {
+        showStatus('Error saving teams: ' + e.message, 'error');
+      }
+    }
+
+    // ── Wire up Create Random Teams ───────────────────────────
+    document.getElementById('rt-event-select').addEventListener('change', e => {
+      renderRtConfig(e.target.value);
+    });
+
+    document.getElementById('rt-mode-tiered').addEventListener('click', () => {
+      if (rtMode === 'tiered') return;
+      rtMode = 'tiered';
+      document.getElementById('rt-mode-tiered').classList.add('active');
+      document.getElementById('rt-mode-random').classList.remove('active');
+      document.getElementById('rt-mode-desc').textContent =
+        '1 player pulled from each handicap tier — produces balanced teams.';
+      if (rtEventId) {
+        const event = state.kvEvents.find(e => e.id === rtEventId);
+        const fmt = state.allFormats[event?.format];
+        const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
+        renderTierBreakdown(getSortedPlayers(), teamSize,
+          Math.floor(state.roster.length / teamSize));
+      }
+    });
+
+    document.getElementById('rt-mode-random').addEventListener('click', () => {
+      if (rtMode === 'random') return;
+      rtMode = 'random';
+      document.getElementById('rt-mode-random').classList.add('active');
+      document.getElementById('rt-mode-tiered').classList.remove('active');
+      document.getElementById('rt-mode-desc').textContent =
+        'All players shuffled together — pure luck of the draw.';
+      document.getElementById('rt-tiers').innerHTML = '';
+    });
+
+    document.getElementById('rt-generate-btn').addEventListener('click', generateTeams);
+
+    // ══════════════════════════════════════════════════════════
+    // CONFIGURE EVENT / TEAM
+    // ══════════════════════════════════════════════════════════
+
     let lrTeams    = [];
     let cfgEventId = null;
 
