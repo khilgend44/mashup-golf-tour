@@ -360,7 +360,7 @@
                 <div class="tn">Team ${ti + 1}</div>
                 ${team.map(name => {
                   const h   = state.handicaps[name.toLowerCase()];
-                  const cap = h?.rawCap !== undefined ? (parseFloat(h.rawCap) + capOffset).toFixed(1) : '—';
+                  const cap = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : '—';
                   const ti2 = tierMap[name] !== undefined ? tierMap[name] : null;
                   const tierBadge = (teamSize > 1 && ti2 !== null)
                     ? `<span class="tb ${TIER_CLASSES[ti2] || 'tbd'}">${TIER_NAMES[ti2] || '?'}</span>` : '';

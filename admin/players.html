@@ -219,7 +219,7 @@
         const hcp = handicaps[name.toLowerCase()] || null;
         const nd = '—';
         const adjusted = hcp && hcp.rawCap !== undefined
-          ? (parseFloat(hcp.rawCap) + offset).toFixed(1)
+          ? Math.round(parseFloat(hcp.rawCap) + offset)
           : null;
         const isBaseline = hcp && parseFloat(hcp.rawCap) === minRaw;
         return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}" data-player="${name}">
