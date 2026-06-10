@@ -11,9 +11,9 @@ export async function onRequestOptions() {
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  const webhookUrl = env.DISCORD_WEBHOOK_URL;
+  const webhookUrl = env.DISCORD_ANNOUNCE_WEBHOOK_URL;
   if (!webhookUrl) {
-    return Response.json({ error: 'DISCORD_WEBHOOK_URL not configured in environment' }, { status: 500, headers: CORS });
+    return Response.json({ error: 'DISCORD_ANNOUNCE_WEBHOOK_URL not configured in environment' }, { status: 500, headers: CORS });
   }
 
   let body;
