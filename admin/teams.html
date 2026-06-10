@@ -50,6 +50,7 @@
     .tier-a { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.2); color: #6ee7b7; }
     .tier-b { background: rgba(250,204,21,0.08); border-color: rgba(250,204,21,0.2); color: #fde047; }
     .tier-c { background: rgba(249,115,22,0.10); border-color: rgba(249,115,22,0.25); color: #fb923c; }
+    .team-repeat { border-color: rgba(234,179,8,0.35) !important; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -82,7 +83,7 @@
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
       <div class="px-6 py-4 border-b border-border">
         <h2 class="font-display text-2xl tracking-wider text-white">CREATE RANDOM TEAMS</h2>
-        <p class="text-xs text-gray-600 font-body mt-1">Generate balanced tiered draws or fully random teams from the current player roster.</p>
+        <p class="text-xs text-gray-600 font-body mt-1">Generate balanced or random team draws, automatically avoiding repeat pairings from earlier this season.</p>
       </div>
       <div class="px-6 py-5 space-y-5">
 
@@ -97,8 +98,11 @@
         <!-- Config + tier preview (shown after event selected) -->
         <div id="rt-config" class="hidden space-y-5">
 
-          <!-- Summary line -->
-          <div id="rt-summary" class="text-sm font-body text-gray-500"></div>
+          <!-- Summary + partnership history -->
+          <div class="flex flex-wrap gap-4">
+            <div id="rt-summary" class="text-sm font-body text-gray-500"></div>
+          </div>
+          <div id="rt-history"></div>
 
           <!-- Mode toggle -->
           <div>
@@ -208,12 +212,131 @@
     // CREATE RANDOM TEAMS
     // ══════════════════════════════════════════════════════════
 
-    let rtMode      = 'tiered';
-    let rtEventId   = null;
-    let rtLastTeams = [];
+    let rtMode         = 'tiered';
+    let rtEventId      = null;
+    let rtLastTeams    = [];
+    let rtPartnerships = {}; // pair key -> times played together
 
     const TIER_NAMES  = ['A', 'B', 'C', 'D'];
     const TIER_STYLES = ['tier-a', 'tier-b', 'tier-c', 'badge-gray'];
+    const ATTEMPTS    = 300; // random restarts for partnership avoidance
+
+    // ── Partnership helpers ───────────────────────────────────
+
+    // Builds a map of "p1|p2" -> count from all season events except the one being drawn
+    function computePartnerships(seasonId, excludeEventId) {
+      const pairs = {};
+      for (const event of state.kvEvents) {
+        if (event.season !== seasonId) continue;
+        if (event.id === excludeEventId) continue;
+        if (!event.teams?.length) continue;
+        for (const team of event.teams) {
+          for (let i = 0; i < team.length; i++) {
+            for (let j = i + 1; j < team.length; j++) {
+              const key = [team[i], team[j]].sort().join('|');
+              pairs[key] = (pairs[key] || 0) + 1;
+            }
+          }
+        }
+      }
+      return pairs;
+    }
+
+    // Counts total repeat pairings across all teams in a proposed draw
+    function countConflicts(teams, partnerships) {
+      let total = 0;
+      for (const team of teams) {
+        for (let i = 0; i < team.length; i++) {
+          for (let j = i + 1; j < team.length; j++) {
+            const key = [team[i], team[j]].sort().join('|');
+            if (partnerships[key]) total += partnerships[key];
+          }
+        }
+      }
+      return total;
+    }
+
+    // Returns a set of pair keys that conflict within a single team
+    function teamConflicts(team, partnerships) {
+      const conflicting = new Set();
+      for (let i = 0; i < team.length; i++) {
+        for (let j = i + 1; j < team.length; j++) {
+          const key = [team[i], team[j]].sort().join('|');
+          if (partnerships[key]) {
+            conflicting.add(team[i]);
+            conflicting.add(team[j]);
+          }
+        }
+      }
+      return conflicting;
+    }
+
+    // ── Player helpers ────────────────────────────────────────
+
+    function getSortedPlayers() {
+      return (state.roster || [])
+        .map(name => {
+          const h = state.handicaps[name.toLowerCase()];
+          const cap = h?.rawCap !== undefined ? parseFloat(h.rawCap) : null;
+          return { name, cap };
+        })
+        .sort((a, b) => {
+          if (a.cap === null && b.cap === null) return 0;
+          if (a.cap === null) return 1;
+          if (b.cap === null) return -1;
+          return a.cap - b.cap;
+        });
+    }
+
+    function buildTiers(sortedPlayers, teamSize, numTeams) {
+      const used = sortedPlayers.slice(0, numTeams * teamSize);
+      return Array.from({ length: teamSize }, (_, t) =>
+        used.slice(t * numTeams, (t + 1) * numTeams)
+      );
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // ── Optimized generation (random restart, keep best) ─────
+
+    function generateOnce(players, teamSize, numTeams, mode) {
+      if (mode === 'tiered' && teamSize > 1) {
+        const tiers = buildTiers(players, teamSize, numTeams).map(t => shuffle(t));
+        return Array.from({ length: numTeams }, (_, i) =>
+          tiers.map(tier => tier[i].name)
+        );
+      } else {
+        const shuffled = shuffle(players.slice(0, numTeams * teamSize));
+        return Array.from({ length: numTeams }, (_, i) =>
+          shuffled.slice(i * teamSize, (i + 1) * teamSize).map(p => p.name)
+        );
+      }
+    }
+
+    function generateBestTeams(players, teamSize, numTeams, mode, partnerships) {
+      let bestTeams     = null;
+      let bestConflicts = Infinity;
+
+      for (let i = 0; i < ATTEMPTS; i++) {
+        const teams     = generateOnce(players, teamSize, numTeams, mode);
+        const conflicts = countConflicts(teams, partnerships);
+        if (conflicts < bestConflicts) {
+          bestConflicts = conflicts;
+          bestTeams     = teams;
+          if (conflicts === 0) break;
+        }
+      }
+      return { teams: bestTeams, conflicts: bestConflicts };
+    }
+
+    // ── Config panel ──────────────────────────────────────────
 
     function populateRtEventDropdown() {
       const sel = document.getElementById('rt-event-select');
@@ -227,45 +350,11 @@
       if (prev && eligible.find(e => e.id === prev)) sel.value = prev;
     }
 
-    // Returns [{name, cap}] sorted by rawCap asc; missing caps last
-    function getSortedPlayers() {
-      return (state.roster || [])
-        .map(name => {
-          const h = state.handicaps[name.toLowerCase()];
-          const cap = h && h.rawCap !== undefined ? parseFloat(h.rawCap) : null;
-          return { name, cap };
-        })
-        .sort((a, b) => {
-          if (a.cap === null && b.cap === null) return 0;
-          if (a.cap === null) return 1;
-          if (b.cap === null) return -1;
-          return a.cap - b.cap;
-        });
-    }
-
-    // Splits sorted players into teamSize even tiers of numTeams each
-    function buildTiers(sortedPlayers, teamSize, numTeams) {
-      const used = sortedPlayers.slice(0, numTeams * teamSize);
-      const tiers = [];
-      for (let t = 0; t < teamSize; t++) {
-        tiers.push(used.slice(t * numTeams, (t + 1) * numTeams));
-      }
-      return tiers;
-    }
-
-    function shuffle(arr) {
-      const a = [...arr];
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    }
-
     function renderRtConfig(eventId) {
       const config  = document.getElementById('rt-config');
       const results = document.getElementById('rt-results');
-      rtLastTeams = [];
+      rtLastTeams    = [];
+      rtPartnerships = {};
       results.classList.add('hidden');
       results.innerHTML = '';
 
@@ -281,19 +370,55 @@
       const numTeams = Math.floor(players.length / teamSize);
       const extras   = players.length - numTeams * teamSize;
 
-      // Summary line
-      const summaryEl = document.getElementById('rt-summary');
-      summaryEl.innerHTML =
+      // Compute partnerships for this season (excluding current event)
+      rtPartnerships = computePartnerships(event.season, eventId);
+      const pairCount = Object.keys(rtPartnerships).length;
+      const pastEvents = state.kvEvents.filter(
+        e => e.season === event.season && e.id !== eventId && e.teams?.length
+      ).length;
+
+      // Summary
+      document.getElementById('rt-summary').innerHTML =
         `<span class="text-white font-semibold">${players.length}</span> players &nbsp;·&nbsp; ` +
         `<span class="text-white font-semibold">${numTeams}</span> teams &nbsp;·&nbsp; ` +
         `<span class="text-white font-semibold">${teamSize}</span> per team` +
         (extras > 0
-          ? ` &nbsp;<span class="text-yellow-600 text-xs">(${extras} player${extras > 1 ? 's' : ''} won't be assigned)</span>`
+          ? ` &nbsp;<span class="text-yellow-600 text-xs">(${extras} player${extras !== 1 ? 's' : ''} won't be assigned)</span>`
           : '');
 
-      config.classList.remove('hidden');
+      // Partnership history
+      const histEl = document.getElementById('rt-history');
+      if (teamSize < 2) {
+        histEl.innerHTML = '';
+      } else if (pastEvents === 0 || pairCount === 0) {
+        histEl.innerHTML = `
+          <div class="flex items-center gap-2 text-xs font-body text-emerald-500">
+            <span>✓</span>
+            <span>No team history yet this season — any draw works.</span>
+          </div>`;
+      } else {
+        const pairs = Object.entries(rtPartnerships).sort((a, b) => b[1] - a[1]);
+        histEl.innerHTML = `
+          <div class="border border-border/50 rounded-lg p-4 bg-surface">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">
+                Season Partnership History — ${pastEvents} event${pastEvents !== 1 ? 's' : ''}
+              </div>
+              <span class="text-xs font-body text-yellow-600">${pairCount} pair${pairCount !== 1 ? 's' : ''} already played together</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+              ${pairs.map(([key, count]) => {
+                const [a, b] = key.split('|');
+                return `<span class="text-xs font-body px-2 py-0.5 rounded bg-yellow-900/20 border border-yellow-800/20 text-yellow-600/80">
+                  ${a} + ${b}${count > 1 ? ` <span class="opacity-60">(×${count})</span>` : ''}
+                </span>`;
+              }).join('')}
+            </div>
+            <p class="text-[10px] text-gray-600 font-body mt-2">The generator will run ${ATTEMPTS} attempts and pick the draw with fewest repeats.</p>
+          </div>`;
+      }
 
-      // Render tier breakdown
+      config.classList.remove('hidden');
       renderTierBreakdown(players, teamSize, numTeams);
     }
 
@@ -319,6 +444,8 @@
         </div>`).join('');
     }
 
+    // ── Generate & display results ────────────────────────────
+
     function generateTeams() {
       const event = state.kvEvents.find(e => e.id === rtEventId);
       if (!event) return;
@@ -327,34 +454,32 @@
       const players  = getSortedPlayers();
       const numTeams = Math.floor(players.length / teamSize);
 
-      let teams;
-      if (rtMode === 'tiered' && teamSize > 1) {
-        const tiers = buildTiers(players, teamSize, numTeams).map(tier => shuffle(tier));
-        teams = Array.from({ length: numTeams }, (_, i) =>
-          tiers.map(tier => tier[i].name)
-        );
-      } else {
-        const shuffled = shuffle(players.slice(0, numTeams * teamSize));
-        teams = Array.from({ length: numTeams }, (_, i) =>
-          shuffled.slice(i * teamSize, (i + 1) * teamSize).map(p => p.name)
-        );
-      }
-
+      const { teams, conflicts } = generateBestTeams(players, teamSize, numTeams, rtMode, rtPartnerships);
       rtLastTeams = teams;
-      renderTeamResults(teams, teamSize);
+      renderTeamResults(teams, teamSize, conflicts);
     }
 
-    function renderTeamResults(teams, teamSize) {
+    function renderTeamResults(teams, teamSize, conflicts) {
       const el = document.getElementById('rt-results');
       if (!el) return;
       el.classList.remove('hidden');
 
-      const hcaps = state.handicaps;
+      const hcaps  = state.handicaps;
+      const hasPairs = teamSize > 1 && Object.keys(rtPartnerships).length > 0;
+
+      const conflictBadge = !hasPairs
+        ? ''
+        : conflicts === 0
+          ? `<span class="text-xs font-body text-emerald-500">✓ No repeat pairings</span>`
+          : `<span class="text-xs font-body text-yellow-500">⚠ ${conflicts} repeat pairing${conflicts !== 1 ? 's' : ''} — unavoidable</span>`;
 
       el.innerHTML = `
         <div class="border-t border-border/40 pt-5">
           <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">${teams.length} Teams</div>
+            <div class="flex items-center gap-3">
+              <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">${teams.length} Teams</div>
+              ${conflictBadge}
+            </div>
             <div class="flex items-center gap-3">
               <button type="button" id="rt-reroll-btn"
                 class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider"
@@ -365,22 +490,30 @@
             </div>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-            ${teams.map((team, ti) => `
-              <div class="border border-border/50 rounded-lg p-3 bg-surface">
-                <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Team ${ti + 1}</div>
-                ${team.map((name, pi) => {
-                  const h   = hcaps[name.toLowerCase()];
-                  const cap = h?.rawCap !== undefined ? parseFloat(h.rawCap).toFixed(1) : '—';
-                  const tier = teamSize > 1 ? TIER_NAMES[pi] : null;
-                  return `<div class="flex items-center justify-between py-0.5 gap-1">
-                    <span class="text-xs font-body text-gray-300 truncate">${name}</span>
-                    <span class="shrink-0 flex items-center gap-1">
-                      ${tier ? `<span class="text-[9px] font-heading font-600 px-1 py-px rounded ${TIER_STYLES[pi] || ''}">${tier}</span>` : ''}
-                      <span class="text-[10px] text-gray-600 font-body">${cap}</span>
-                    </span>
-                  </div>`;
-                }).join('')}
-              </div>`).join('')}
+            ${teams.map((team, ti) => {
+              const conflictPlayers = teamSize > 1 ? teamConflicts(team, rtPartnerships) : new Set();
+              const hasRepeat = conflictPlayers.size > 0;
+              return `
+                <div class="border border-border/50 rounded-lg p-3 bg-surface ${hasRepeat ? 'team-repeat' : ''}">
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Team ${ti + 1}</div>
+                    ${hasRepeat ? `<span class="text-[9px] text-yellow-600 font-body">repeat</span>` : ''}
+                  </div>
+                  ${team.map((name, pi) => {
+                    const h    = hcaps[name.toLowerCase()];
+                    const cap  = h?.rawCap !== undefined ? parseFloat(h.rawCap).toFixed(1) : '—';
+                    const tier = teamSize > 1 ? TIER_NAMES[pi] : null;
+                    const isConflict = conflictPlayers.has(name);
+                    return `<div class="flex items-center justify-between py-0.5 gap-1">
+                      <span class="text-xs font-body truncate ${isConflict ? 'text-yellow-400' : 'text-gray-300'}">${name}</span>
+                      <span class="shrink-0 flex items-center gap-1">
+                        ${tier ? `<span class="text-[9px] font-heading font-600 px-1 py-px rounded ${TIER_STYLES[pi] || ''}">${tier}</span>` : ''}
+                        <span class="text-[10px] text-gray-600 font-body">${cap}</span>
+                      </span>
+                    </div>`;
+                  }).join('')}
+                </div>`;
+            }).join('')}
           </div>
         </div>`;
 
@@ -422,8 +555,8 @@
       document.getElementById('rt-mode-desc').textContent =
         '1 player pulled from each handicap tier — produces balanced teams.';
       if (rtEventId) {
-        const event = state.kvEvents.find(e => e.id === rtEventId);
-        const fmt = state.allFormats[event?.format];
+        const event    = state.kvEvents.find(e => e.id === rtEventId);
+        const fmt      = state.allFormats[event?.format];
         const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
         renderTierBreakdown(getSortedPlayers(), teamSize,
           Math.floor(state.roster.length / teamSize));
