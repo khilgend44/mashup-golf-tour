@@ -33,19 +33,30 @@ SimulatorGolfTour API  (provides live scorecard data)
 ### 2. Admin Portal — `/admin`
 - **URL:** https://mashup-golf-tour.pages.dev/admin
 - Protected by **Cloudflare Access** (Google SSO — only approved Google accounts can log in)
-- Two pages:
+- Pages:
   - `/admin/players.html` — manage player roster, view/refresh handicaps
   - `/admin/events.html` — create/manage seasons and events
+  - `/admin/teams.html` — draw teams for an event (Steps 1–4):
+    - Step 1: Create Random Teams (tiered draw by handicap)
+    - Step 2: Generate SGT Loading File (CSV download for SimulatorGolfTour registration)
+    - Step 3: Upload SGT Loading File (manual instruction — links to SGT Admin)
+    - Step 4: Configure Special Team Orders (Lone Ranger slot assignments)
+  - `/admin/poster-preview.html` — generate and send the weekly event announcement:
+    - Visual poster preview (exported as PNG via html2canvas)
+    - Discord announcement text (format rules, course settings, prizes)
+    - Posts to Discord via `/api/announce-event`
 
 ### 3. Data Storage — Cloudflare KV
 - **Namespace ID:** `a6cbb9bc3e784be88136dbffe9f9796f`
 - Stores admin-created data that shouldn't be hardcoded in the repo:
-  - `admin:events` — events created via admin portal
-  - `admin:formats` — custom game formats
-  - `players:roster` — player list
-  - `players:handicaps` — handicap data from SGT API
-  - `players:last_refresh` — timestamp of last handicap pull
+  - `admin:events` — events created via admin portal (Season 10+)
+  - `admin:formats` — custom game formats created via admin portal (merged with `data/formats.json` at runtime)
+  - `players:roster` — player list (names array)
+  - `players:handicaps` — handicap data from SGT API (array of `{ username, rawCap, ... }`)
+  - `players:last_refresh` — ISO timestamp of last handicap pull
+  - `{eventId}:{playerName}:{round}` — YouTube stream URLs submitted by players
 - Static/historical data lives in `data/` JSON files in the repo instead.
+- **Adjusted handicap** (used for team draws and posters): `Math.round(rawCap - minRaw)` where `minRaw` is the lowest rawCap across all players. Always an integer, always ≥ 0.
 
 ### 4. Scorecard Automation — GitHub Actions
 - **Workflow file:** `.github/workflows/fetch-scorecards.yml`
@@ -68,13 +79,29 @@ SimulatorGolfTour API  (provides live scorecard data)
 - Supports two modes:
   - **Standard** (up to 4 players sharing one stream URL)
   - **Ringer** (one player, separate Round 1 and Round 2 URLs)
-- Also posts a notification to a **Discord webhook** when a stream is submitted
-- Discord webhook URL stored in Cloudflare Pages environment variables as `DISCORD_WEBHOOK_URL`
+- Also posts a notification to a Discord webhook when a stream is submitted
+- Discord webhook URL stored as `DISCORD_STREAMS_WEBHOOK_URL` env var
 
-### 7. SGT Handicap API
+### 7. Event Announcements (Discord Poster)
+- Admin generates a weekly event announcement via `/admin/poster-preview.html`
+- **API endpoint:** `functions/api/announce-event.js`
+  - Accepts a base64-encoded PNG (the poster) + Discord message text
+  - Posts multipart form data to Discord webhook (image + text in one message)
+- Discord webhook URL stored as `DISCORD_ANNOUNCE_WEBHOOK_URL` env var
+
+### 8. Public Event Teams Page
+- Any event leaderboard (`event.html?id=X`) has a **View Teams** button linking to `event-teams.html?id=X`
+- `event-teams.html` is a public read-only page showing the team draw and prizes for an event
+- **API endpoint:** `functions/api/event-public.js`
+  - Public GET — no Cloudflare Access auth required
+  - Returns event data, KV formats, handicaps, and roster for a given event ID
+  - Only covers admin-created events (KV-stored, Season 10+); historical events return 404
+
+### 9. SGT Handicap API
 - Pulls player handicap data from SimulatorGolfTour
-- Rate-limited to **once per 24 hours**
+- Rate-limited to **once per 24 hours**; timestamp stored in `players:last_refresh` KV key
 - Triggered manually from the admin Players page ("Refresh Handicaps" button)
+- The admin Teams page reads the same `players:last_refresh` timestamp and blocks SGT Loading File generation if handicaps are older than 24 hours
 
 ---
 
@@ -118,10 +145,27 @@ SimulatorGolfTour API  (provides live scorecard data)
 |------|---------|
 | `data/seasons.json` | Season definitions and player rosters |
 | `data/events.json` | Historical/static events (Seasons 1–9) |
-| `data/formats.json` | Built-in game formats |
+| `data/formats.json` | Built-in game formats (merged with KV `admin:formats` at runtime) |
 | `data/scorecards/{id}.json` | Cached scorecard data per tournament |
 
 Admin-created events/formats for Season 10+ live in **Cloudflare KV**, not these files.
+
+## Adding a New Game Format
+
+New formats must be defined in Claude Code — **do not use the admin UI's "New Format" panel** for genuinely new scoring logic. The admin panel only creates named variations of an existing `type`. New scoring logic requires:
+1. New function in `js/scoring.js`
+2. New `case` in the `applyFormat()` switch statement
+3. New entry in `data/formats.json` (with `tiebreakers[]` array)
+4. New `<option>` in the admin events.html `nf-type` dropdown
+
+## SGT Loading File (Team Registration CSV)
+
+Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/teams.html` Step 2:
+- **Format:** 10 columns — `Player1, HCP1, Player2, HCP2, Player3, HCP3, Player4, HCP4, teamID, opponentID`
+- **Team events:** one row per team, sequential teamID starting at 10001
+- **Solo events** (teamSize < 2): one row per player, only first 2 columns filled, no teamID
+- **Handicap used:** adjusted handicap (`Math.round(rawCap - minRaw)`) — must be refreshed within 24 hours before generating
+- **Encoding:** UTF-8 BOM (`﻿`) required for SGT compatibility
 
 ---
 

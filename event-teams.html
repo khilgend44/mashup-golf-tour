@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teams — MashUp Golf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body:    ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .hero-glow   { background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(249,115,22,0.08) 0%, transparent 70%); }
+    .format-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(249,115,22,0.12); border: 1px solid rgba(249,115,22,0.3);
+      color: #fb923c; font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      padding: 2px 8px; border-radius: 3px;
+    }
+    .tier-a { color: #34d399; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; }
+    .tier-b { color: #facc15; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; }
+    .tier-c { color: #f97316; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <button id="menu-btn" aria-label="Menu" class="flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md border border-border bg-surface hover:border-gray-600" style="transition:border-color 0.15s">
+        <span class="block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        <span class="block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+        <span class="block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
+      </button>
+      <div class="flex items-center gap-3">
+        <div id="breadcrumb" class="text-xs font-heading tracking-wider text-gray-500 hidden sm:block"></div>
+        <a href="https://simulatorgolftour.com" target="_blank"
+           class="flex items-center gap-2 bg-surface border border-border rounded-full pl-1.5 pr-3 py-1 hover:border-[#d03f25]/50 group shrink-0"
+           style="transition:all 0.15s">
+          <img src="brand_assets/sgt_emblem.svg" class="h-6 w-auto" alt="SGT" />
+          <div class="flex flex-col leading-none">
+            <span class="text-[8px] font-heading font-600 tracking-widest text-gray-600 uppercase group-hover:text-gray-500">Powered by</span>
+            <span class="text-[11px] font-heading font-600 tracking-wider text-gray-300 group-hover:text-white">Simulator Golf Tour</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- NAV DROPDOWN -->
+  <div id="nav-menu" class="fixed top-14 left-0 right-0 z-40 bg-[#0c0c0c] border-b border-border hidden" style="box-shadow:0 8px 24px rgba(0,0,0,0.5)">
+    <div class="max-w-6xl mx-auto px-4 py-3">
+      <a href="index.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
+        <span class="text-flame">⌂</span> Home
+      </a>
+    </div>
+  </div>
+
+  <!-- EVENT HEADER -->
+  <section class="hero-glow border-b border-border">
+    <div class="max-w-6xl mx-auto px-4 py-8" id="event-header">
+      <div class="h-4 bg-surface rounded w-48 mb-3 animate-pulse"></div>
+      <div class="h-8 bg-surface rounded w-80 mb-4 animate-pulse"></div>
+    </div>
+  </section>
+
+  <!-- CONTENT -->
+  <main class="max-w-6xl mx-auto px-4 py-8 pb-20">
+    <div id="loading" class="text-center py-20">
+      <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500 text-sm">Loading teams…</p>
+    </div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-border">
+    <div class="max-w-6xl mx-auto px-4 py-10 flex flex-col sm:flex-row items-center justify-between gap-8">
+      <div class="flex items-center gap-5">
+        <img src="brand_assets/sgt_emblem.svg" alt="SimulatorGolfTour.com" class="h-16 w-auto shrink-0 opacity-90" />
+        <div>
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1">Powered by</div>
+          <a href="https://simulatorgolftour.com" target="_blank"
+             class="font-display text-2xl tracking-wider text-gray-300 hover:text-[#d03f25] transition-colors leading-none block">
+            Simulator Golf Tour
+          </a>
+          <p class="text-xs text-gray-600 mt-1">The home of simulator golf leagues</p>
+        </div>
+      </div>
+      <a href="https://simulatorgolftour.com" target="_blank"
+         class="flex items-center gap-2 border border-border rounded-lg px-5 py-3 text-sm font-heading font-600 tracking-wider text-gray-400 hover:text-white hover:border-[#d03f25]/50 bg-surface shrink-0"
+         style="transition:all 0.15s">
+        Visit Simulator Golf Tour <span class="text-[#d03f25]">→</span>
+      </a>
+    </div>
+    <div class="border-t border-border text-center py-4 text-gray-600 text-xs font-body">
+      MashUp Golf &nbsp;·&nbsp; A Simulator Golf League
+    </div>
+  </footer>
+
+  <script type="module">
+    const params  = new URLSearchParams(window.location.search);
+    const eventId = params.get('id');
+
+    const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
+
+    function showError(msg) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('app').innerHTML = `
+        <div class="text-center py-20">
+          <p class="text-gray-500 text-sm">${msg}</p>
+          ${eventId ? `<a href="event.html?id=${eventId}" class="mt-4 inline-block text-xs font-heading tracking-wider text-flame hover:underline">← Back to Leaderboard</a>` : ''}
+        </div>`;
+    }
+
+    async function init() {
+      if (!eventId) { showError('No event ID in URL.'); return; }
+
+      let data, staticFormats;
+      try {
+        [data, staticFormats] = await Promise.all([
+          fetch(`/api/event-public?id=${encodeURIComponent(eventId)}`).then(r => {
+            if (!r.ok) return r.json().then(j => { throw new Error(j.error || r.statusText); });
+            return r.json();
+          }),
+          fetch('/data/formats.json').then(r => r.ok ? r.json() : {}),
+        ]);
+      } catch (e) {
+        showError(e.message === 'Event not found'
+          ? 'Team data is not available for this event.'
+          : `Failed to load: ${e.message}`);
+        return;
+      }
+
+      const { event, formats: kvFormats, handicaps, roster } = data;
+      const allFormats = { ...staticFormats, ...kvFormats };
+      const format = allFormats[event.format] || { name: event.format, teamSize: 1 };
+      const isSolo = (format.teamSize || 1) < 2;
+      const teamSize = format.teamSize || 1;
+
+      // Compute adjusted handicaps
+      const hcpMap = {};
+      if (Array.isArray(handicaps)) {
+        for (const h of handicaps) {
+          if (h.username) hcpMap[h.username.toLowerCase()] = parseFloat(h.rawCap);
+        }
+      }
+      const allRaw = Object.values(hcpMap).filter(n => !isNaN(n));
+      const minRaw = allRaw.length ? Math.min(...allRaw) : 0;
+      function adjCap(name) {
+        const raw = hcpMap[name.toLowerCase()];
+        return raw !== undefined ? Math.round(raw - minRaw) : null;
+      }
+
+      // Breadcrumb
+      const seasonLabel = event.season
+        ? event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())
+        : '';
+      document.getElementById('breadcrumb').innerHTML = `
+        <a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${seasonLabel}</a>
+        <span class="mx-1">›</span>
+        <a href="event.html?id=${eventId}" class="hover:text-gray-300 transition-colors">${event.name}</a>
+        <span class="mx-1">›</span>
+        <span class="text-gray-300">Teams</span>`;
+
+      // Header
+      const dateStr = event.startDate
+        ? new Date(event.startDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        : (event.date ? new Date(event.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '');
+      document.getElementById('event-header').innerHTML = `
+        <div class="flex flex-wrap items-center gap-3 mb-2">
+          <span class="format-badge">⛳ ${format.name.toUpperCase()}</span>
+        </div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white mt-3 mb-2">${event.name}</h1>
+        <div class="flex flex-wrap items-center gap-3 mt-3">
+          ${dateStr ? `<span class="text-gray-500 text-sm">${dateStr}</span>` : ''}
+          <a href="event.html?id=${eventId}"
+             class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
+             style="transition:all 0.15s">← Leaderboard</a>
+        </div>`;
+      document.title = `${event.name} Teams — MashUp Golf`;
+
+      // Build content
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+
+      let html = '';
+
+      if (isSolo) {
+        html += renderSoloPlayers(event, roster, adjCap, format);
+      } else {
+        html += renderTeams(event, teamSize, adjCap);
+      }
+
+      html += renderPrizes(event);
+      document.getElementById('app').innerHTML = html;
+    }
+
+    function tierClass(tierIdx) {
+      return ['tier-a', 'tier-b', 'tier-c'][tierIdx] || 'tier-c';
+    }
+    function tierLabel(tierIdx) {
+      return ['A', 'B', 'C'][tierIdx] || 'C';
+    }
+
+    function assignTiers(players, teamSize) {
+      // players sorted by adjCap asc; divide into teamSize equal groups
+      const n = players.length;
+      const tiers = new Array(n).fill(0);
+      if (teamSize < 2) return tiers;
+      const groupSize = Math.ceil(n / teamSize);
+      for (let i = 0; i < n; i++) {
+        tiers[i] = Math.min(Math.floor(i / groupSize), teamSize - 1);
+      }
+      return tiers;
+    }
+
+    function renderTeams(event, teamSize, adjCapFn) {
+      const teams = event.teams;
+      if (!teams || teams.length === 0) {
+        return `<div class="text-center py-16 text-gray-500 text-sm">No team draw has been set for this event yet.</div>`;
+      }
+
+      // Build sorted player list to assign tiers
+      const allPlayers = [...new Set(teams.flat())];
+      const sorted = allPlayers
+        .map(n => ({ name: n, cap: adjCapFn(n) ?? 999 }))
+        .sort((a, b) => a.cap - b.cap);
+      const tierMap = {};
+      const tiers = assignTiers(sorted, teamSize);
+      sorted.forEach((p, i) => { tierMap[p.name.toLowerCase()] = tiers[i]; });
+
+      const cols = teams.length <= 4 ? 'grid-cols-1 sm:grid-cols-2' :
+                   teams.length <= 9 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
+                                       'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+
+      const cards = teams.map((team, i) => {
+        const rows = team.map(name => {
+          const cap = adjCapFn(name);
+          const ti = tierMap[name.toLowerCase()] ?? 0;
+          return `
+            <div class="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="${tierClass(ti)} shrink-0 w-4 text-center">${tierLabel(ti)}</span>
+                <span class="font-heading font-600 text-sm text-white tracking-wide truncate">${name}</span>
+              </div>
+              <span class="text-xs font-body text-white font-semibold ml-3 shrink-0">
+                ${cap !== null ? `+${cap}` : '—'}
+              </span>
+            </div>`;
+        }).join('');
+
+        return `
+          <div class="card-shadow bg-card border border-border rounded-lg p-4">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Team ${i + 1}</div>
+            ${rows}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="mb-8">
+          <div class="flex items-center gap-3 mb-5">
+            <h2 class="font-display text-2xl tracking-wider text-white">TEAMS</h2>
+            <span class="text-xs font-heading text-gray-600">${teams.length} teams · ${teamSize} per team</span>
+            <div class="flex items-center gap-3 ml-auto text-xs font-heading font-600">
+              <span class="tier-a">A</span><span class="text-gray-600">Low</span>
+              <span class="tier-b ml-2">B</span><span class="text-gray-600">Mid</span>
+              <span class="tier-c ml-2">C</span><span class="text-gray-600">High</span>
+            </div>
+          </div>
+          <div class="grid ${cols} gap-4">${cards}</div>
+        </div>`;
+    }
+
+    function renderSoloPlayers(event, roster, adjCapFn, format) {
+      // For solo, build from roster (names array) or handicap keys
+      let players = Array.isArray(roster) ? roster.map(p => typeof p === 'string' ? p : p.name).filter(Boolean) : [];
+      if (players.length === 0) {
+        return `<div class="text-center py-16 text-gray-500 text-sm">Player list not available.</div>`;
+      }
+
+      const sorted = players
+        .map(name => ({ name, cap: adjCapFn(name) }))
+        .filter(p => p.cap !== null)
+        .sort((a, b) => a.cap - b.cap);
+
+      const rows = sorted.map((p, i) => `
+        <div class="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-heading text-gray-600 w-6 text-right">${i + 1}</span>
+            <span class="font-heading font-600 text-sm text-white tracking-wide">${p.name}</span>
+          </div>
+          <span class="text-sm font-body font-semibold text-white">+${p.cap}</span>
+        </div>`).join('');
+
+      return `
+        <div class="mb-8">
+          <div class="flex items-center gap-3 mb-5">
+            <h2 class="font-display text-2xl tracking-wider text-white">PLAYERS</h2>
+            <span class="text-xs font-heading text-gray-600">${sorted.length} players</span>
+          </div>
+          <div class="card-shadow bg-card border border-border rounded-lg px-4 divide-y divide-border/30">
+            ${rows}
+          </div>
+        </div>`;
+    }
+
+    function renderPrizes(event) {
+      const payouts = event.payouts;
+      const ctps = event.ctps;
+      const sidePots = event.sidePots;
+
+      const hasPayouts  = payouts && payouts.length > 0;
+      const hasCtps     = ctps && ctps.count > 0 && ctps.amount > 0;
+      const hasSidePots = sidePots && sidePots.length > 0;
+
+      if (!hasPayouts && !hasCtps && !hasSidePots) return '';
+
+      let html = `
+        <div class="mt-2">
+          <h2 class="font-display text-2xl tracking-wider text-white mb-5">PRIZES</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">`;
+
+      if (hasPayouts) {
+        const total = payouts.reduce((s, p) => s + (p.amount || 0), 0);
+        const rows = payouts.map((p, i) =>
+          `<div class="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+            <span class="font-heading font-600 text-sm text-gray-300 tracking-wide">${ORDINALS[p.place - 1] || `${p.place}th`} Place</span>
+            <span class="font-body font-600 text-sm text-white">$${p.amount}</span>
+          </div>`).join('');
+        html += `
+          <div class="card-shadow bg-card border border-border rounded-lg p-4">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Payouts · $${total} Pot</div>
+            ${rows}
+          </div>`;
+      }
+
+      if (hasCtps) {
+        html += `
+          <div class="card-shadow bg-card border border-border rounded-lg p-4">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Closest to the Pin</div>
+            <div class="flex items-center justify-between py-2">
+              <span class="font-heading font-600 text-sm text-gray-300 tracking-wide">${ctps.count} designated holes</span>
+              <span class="font-body font-600 text-sm text-white">$${ctps.amount} each</span>
+            </div>
+          </div>`;
+      }
+
+      if (hasSidePots) {
+        const sidePotRows = sidePots.map(sp =>
+          `<div class="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+            <span class="font-heading font-600 text-sm text-gray-300 tracking-wide">${sp.name || 'Side Pot'}</span>
+            <span class="font-body font-600 text-sm text-white">$${sp.amount}</span>
+          </div>`).join('');
+        html += `
+          <div class="card-shadow bg-card border border-border rounded-lg p-4">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Side Pots</div>
+            ${sidePotRows}
+          </div>`;
+      }
+
+      html += `</div></div>`;
+      return html;
+    }
+
+    // Nav toggle
+    document.getElementById('menu-btn').addEventListener('click', () => {
+      document.getElementById('nav-menu').classList.toggle('hidden');
+    });
+
+    init();
+  </script>
+</body>
+</html>
