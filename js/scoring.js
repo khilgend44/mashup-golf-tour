@@ -6,6 +6,7 @@ export function applyFormat(scorecards, format, event = null) {
     case 'shamble-2man':      return calcShamble2Man(scorecards, format, event);
     case 'best2-worst2-all3': return calcBest2Worst2All3(scorecards, format, event);
     case 'devils-draw':       return calcDevilsDraw(scorecards, format, event);
+    case 'devils-draw-4man':  return calcDevilsDraw4Man(scorecards, format, event);
     default: throw new Error(`Unknown format: ${format.type}`);
   }
 }
@@ -220,6 +221,102 @@ function calcDevilsDraw(scorecards, format, event) {
   for (const card of scorecards) {
     if (card.status !== 'Completed') continue;
     const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
+    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    if (!teams[key]) {
+      teams[key] = {
+        displayMembers: [...rawMembers],
+        players: [],
+        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
+        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
+      };
+    }
+    teams[key].players.push({
+      name: card.player_name,
+      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      totalNet: card.total_net,
+    });
+  }
+
+  const results = Object.values(teams).map(team => {
+    const adjPars = Array.from({ length: 18 }, (_, i) => {
+      const count = holeCount[i + 1] ?? 1;
+      return team.pars[i] * count;
+    });
+
+    const countingPlayers = [];
+    const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
+      const count = holeCount[h + 1] ?? 1;
+      if (count === 0) {
+        countingPlayers.push(new Array(team.players.length).fill(false));
+        return 0;
+      }
+      const ranked = team.players
+        .map((p, idx) => ({ idx, score: p.net[h] }))
+        .sort((a, b) => a.score - b.score);
+      const counting = new Array(team.players.length).fill(false);
+      let total = 0;
+      for (let i = 0; i < Math.min(count, ranked.length); i++) {
+        counting[ranked[i].idx] = true;
+        total += ranked[i].score;
+      }
+      countingPlayers.push(counting);
+      return total;
+    });
+
+    const out = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inn = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);
+    const outPar = adjPars.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inPar  = adjPars.slice(9).reduce((a, b) => a + b, 0);
+    const total  = out + inn;
+    const totalPar = outPar + inPar;
+    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+
+    return {
+      isTeam: true,
+      displayMembers: team.displayMembers,
+      players: team.players,
+      holeCount,
+      teamHoleScores,
+      countingPlayers,
+      pars: team.pars,
+      adjPars,
+      indices: team.indices,
+      out, inn, outPar, inPar, total, totalPar,
+      toPar: total - totalPar,
+      aggregate,
+      prize: null,
+    };
+  });
+
+  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+
+  for (let i = 0; i < results.length; i++) {
+    if (i > 0) {
+      const prev = results[i - 1], curr = results[i];
+      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+      curr.position = trulyTied ? prev.position : i + 1;
+      if (trulyTied) { curr.tied = true; prev.tied = true; }
+    } else results[0].position = 1;
+  }
+  return results;
+}
+
+// ─── Devil's Draw (4-Man) ───────────────────────────────────────────────────
+
+function calcDevilsDraw4Man(scorecards, format, event) {
+  if (!event?.devilsDraw) return [];
+
+  const holeCount = {};
+  for (const h of (event.devilsDraw['4bb']  ?? [])) holeCount[h] = 4;
+  for (const h of (event.devilsDraw['3bb']  ?? [])) holeCount[h] = 3;
+  for (const h of (event.devilsDraw['2bb']  ?? [])) holeCount[h] = 2;
+  for (const h of (event.devilsDraw['1bb']  ?? [])) holeCount[h] = 1;
+  for (const h of (event.devilsDraw['zero'] ?? [])) holeCount[h] = 0;
+
+  const teams = {};
+  for (const card of scorecards) {
+    if (card.status !== 'Completed') continue;
+    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4].filter(p => p);
     const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
     if (!teams[key]) {
       teams[key] = {

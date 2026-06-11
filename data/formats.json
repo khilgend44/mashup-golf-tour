@@ -33,7 +33,7 @@
   },
   "devils-draw": {
     "id": "devils-draw",
-    "name": "Devil's Draw",
+    "name": "Devil's Draw (3-Man)",
     "shortName": "Devil's Draw",
     "description": "3-player teams. After all play concludes, 18 holes are drawn live into 4 categories: 5 holes as 3-net best ball (all 3 scores), 6 holes as 2-net best ball, 5 holes as 1-net best ball, and 2 holes score ZERO (don't count). Since the draw is unknown during play, all players must score every hole.",
     "scoringBasis": "net",
@@ -42,6 +42,19 @@
     "teamSize": 3,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+    ]
+  },
+  "devils-draw-4man": {
+    "id": "devils-draw-4man",
+    "name": "Devil's Draw (4-Man)",
+    "shortName": "Devil's Draw 4",
+    "description": "4-player teams. After all play concludes, 18 holes are drawn live into 5 categories: 4 holes each as 4-net, 3-net, 2-net, and 1-net best ball, plus 2 holes score ZERO (don't count). Since the draw is unknown during play, all players must score every hole.",
+    "scoringBasis": "net",
+    "type": "devils-draw-4man",
+    "lowScoreWins": true,
+    "teamSize": 4,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 4 players' net totals)" }
     ]
   },
   "best2-worst2-all3": {

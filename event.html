@@ -119,6 +119,7 @@
     .dd-tile-front { background: #1a1a1a; border: 1px solid #2a2a2a; }
     .dd-tile.next-up .dd-tile-front { border-color: rgba(249,115,22,0.55); box-shadow: 0 0 14px rgba(249,115,22,0.22); }
     .dd-tile-back { transform: rotateY(180deg); }
+    .dd-cat-4bb  .dd-tile-back { background: rgba(167,139,250,0.18); border: 1px solid rgba(167,139,250,0.45); }
     .dd-cat-3bb  .dd-tile-back { background: rgba(249,115,22,0.18); border: 1px solid rgba(249,115,22,0.45); }
     .dd-cat-2bb  .dd-tile-back { background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.4);  }
     .dd-cat-1bb  .dd-tile-back { background: rgba(59,130,246,0.15);  border: 1px solid rgba(59,130,246,0.4);  }
@@ -275,8 +276,9 @@
       const scorecards = await fetchScorecards(event.tournamentId);
 
       // Devil's Draw live-entry / reveal mode (?reveal=true) — takes priority over pre-draw view
+      const isDevilsDrawFormat = format.type === 'devils-draw' || format.type === 'devils-draw-4man';
       const revealMode = params.get('reveal') === 'true';
-      if (format.type === 'devils-draw' && revealMode) {
+      if (isDevilsDrawFormat && revealMode) {
         const completed = scorecards.filter(c => c.status === 'Completed');
         renderHeader(event, format, completed.length);
         document.getElementById('breadcrumb').innerHTML =
@@ -288,11 +290,15 @@
       }
 
       // Devil's Draw: show pre-draw aggregate leaderboard if draw hasn't happened yet
-      if (format.type === 'devils-draw' && !event.devilsDraw) {
+      if (isDevilsDrawFormat && !event.devilsDraw) {
+        const is4Man = format.type === 'devils-draw-4man';
         const teamsMap = {};
         for (const card of scorecards) {
           if (card.status !== 'Completed') continue;
-          const members = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
+          const members = (is4Man
+            ? [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4]
+            : [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3]
+          ).filter(p => p);
           const key = members.map(p => p.toLowerCase()).sort().join('|');
           if (!teamsMap[key]) {
             teamsMap[key] = {
@@ -904,7 +910,7 @@
       const isLoneRanger  = format?.type === 'lone-ranger';
       const isShamble     = format?.type === 'shamble-2man';
       const isB2W2All3    = format?.type === 'best2-worst2-all3';
-      const isDevilsDraw  = format?.type === 'devils-draw';
+      const isDevilsDraw  = format?.type === 'devils-draw' || format?.type === 'devils-draw-4man';
 
       // Segment label for a hole index (0-based)
       function segLabel(h) {
@@ -922,6 +928,7 @@
         }
         if (isDevilsDraw) {
           const count = team.holeCount?.[h + 1] ?? 1;
+          if (count === 4) return { label: '4BB', cls: 'text-violet-400' };
           if (count === 3) return { label: '3BB', cls: 'text-flame' };
           if (count === 2) return { label: '2BB', cls: 'text-amber-400' };
           if (count === 1) return { label: '1BB', cls: 'text-blue-400' };
@@ -1201,19 +1208,23 @@
           const nets = team.players.map(p => p.net[h]);
           const s = [...nets].sort((a, b) => a - b);
           const par = team.pars[h];
+          const has4 = s.length >= 4;
           return {
             nets,
             par,
             tp_1bb: s[0] - par,
             tp_2bb: (s[0] + s[1]) - par * 2,
             tp_3bb: (s[0] + s[1] + s[2]) - par * 3,
+            tp_4bb: has4 ? (s[0] + s[1] + s[2] + s[3]) - par * 4 : null,
           };
         });
         // Averages computed from top-6 contenders only
         const top = hd.slice(0, TOP_N);
+        const has4Man = top[0]?.tp_4bb !== null && top[0]?.tp_4bb !== undefined;
         const avg1 = top.reduce((s, t) => s + t.tp_1bb, 0) / TOP_N;
         const avg2 = top.reduce((s, t) => s + t.tp_2bb, 0) / TOP_N;
         const avg3 = top.reduce((s, t) => s + t.tp_3bb, 0) / TOP_N;
+        const avg4 = has4Man ? top.reduce((s, t) => s + t.tp_4bb, 0) / TOP_N : null;
 
         return hd.map(t => {
           const adv = {
@@ -1222,6 +1233,7 @@
             '1bb':  Math.round((avg1 - t.tp_1bb) * 10) / 10,
             'zero': 0,
           };
+          if (has4Man && avg4 !== null) adv['4bb'] = Math.round((avg4 - t.tp_4bb) * 10) / 10;
           const ranked = Object.entries(adv).sort((a, b) => b[1] - a[1]);
           return {
             adv,
@@ -1237,10 +1249,11 @@
     // Expanded panel: rooting guide grid + raw net scorecard
     function buildPreDrawExpansion(team, analysis) {
       const rCat = {
-        '3bb':  { label: '3BB',  bg: 'rgba(249,115,22,0.2)',  border: 'rgba(249,115,22,0.45)', text: '#f97316' },
-        '2bb':  { label: '2BB',  bg: 'rgba(251,191,36,0.17)', border: 'rgba(251,191,36,0.4)',  text: '#fbbf24' },
-        '1bb':  { label: '1BB',  bg: 'rgba(59,130,246,0.17)', border: 'rgba(59,130,246,0.4)',  text: '#60a5fa' },
-        'zero': { label: 'ZERO', bg: 'rgba(80,80,80,0.12)',   border: 'rgba(80,80,80,0.3)',    text: '#6b7280' },
+        '4bb':  { label: '4BB',  bg: 'rgba(167,139,250,0.18)', border: 'rgba(167,139,250,0.45)', text: '#a78bfa' },
+        '3bb':  { label: '3BB',  bg: 'rgba(249,115,22,0.2)',   border: 'rgba(249,115,22,0.45)',  text: '#f97316' },
+        '2bb':  { label: '2BB',  bg: 'rgba(251,191,36,0.17)',  border: 'rgba(251,191,36,0.4)',   text: '#fbbf24' },
+        '1bb':  { label: '1BB',  bg: 'rgba(59,130,246,0.17)',  border: 'rgba(59,130,246,0.4)',   text: '#60a5fa' },
+        'zero': { label: 'ZERO', bg: 'rgba(80,80,80,0.12)',    border: 'rgba(80,80,80,0.3)',     text: '#6b7280' },
       };
 
       function rootTile(h) {
@@ -1344,10 +1357,14 @@
 
     // ── Devil's Draw reveal mode (?reveal=true) ─────────────────────────────
     function renderDevilsDrawReveal(scorecards, event, format) {
-      const lsKey = `devils_draw_${event.tournamentId}`;
-      const MAX = { '3bb': 5, '2bb': 6, '1bb': 5, 'zero': 2 };
+      const is4Man = format.type === 'devils-draw-4man';
+      const lsKey = is4Man ? `devils_draw_4m_${event.tournamentId}` : `devils_draw_${event.tournamentId}`;
+      const MAX = is4Man
+        ? { '4bb': 4, '3bb': 4, '2bb': 4, '1bb': 4, 'zero': 2 }
+        : { '3bb': 5, '2bb': 6, '1bb': 5, 'zero': 2 };
 
       const catInfo = {
+        ...(is4Man ? { '4bb': { label: '4BB', textCls: 'text-violet-400', catCls: 'dd-cat-4bb' } } : {}),
         '3bb':  { label: '3BB',  textCls: 'text-flame',     catCls: 'dd-cat-3bb'  },
         '2bb':  { label: '2BB',  textCls: 'text-amber-400', catCls: 'dd-cat-2bb'  },
         '1bb':  { label: '1BB',  textCls: 'text-blue-400',  catCls: 'dd-cat-1bb'  },
@@ -1363,7 +1380,9 @@
         if (event.devilsDraw) {
           return { draw: event.devilsDraw, revealOrder: event.revealOrder || Object.values(event.devilsDraw).flat() };
         }
-        return { draw: { '3bb': [], '2bb': [], '1bb': [], 'zero': [] }, revealOrder: [] };
+        return is4Man
+          ? { draw: { '4bb': [], '3bb': [], '2bb': [], '1bb': [], 'zero': [] }, revealOrder: [] }
+          : { draw: { '3bb': [], '2bb': [], '1bb': [], 'zero': [] }, revealOrder: [] };
       }
 
       let state = loadState();
@@ -1397,10 +1416,9 @@
 
       // Unassigned holes score as zero during live entry
       function buildScoringDraw() {
-        const partial = {
-          '3bb': [...state.draw['3bb']], '2bb': [...state.draw['2bb']],
-          '1bb': [...state.draw['1bb']], 'zero': [...state.draw['zero']],
-        };
+        const partial = is4Man
+          ? { '4bb': [...state.draw['4bb']], '3bb': [...state.draw['3bb']], '2bb': [...state.draw['2bb']], '1bb': [...state.draw['1bb']], 'zero': [...state.draw['zero']] }
+          : { '3bb': [...state.draw['3bb']], '2bb': [...state.draw['2bb']], '1bb': [...state.draw['1bb']], 'zero': [...state.draw['zero']] };
         for (let h = 1; h <= 18; h++) {
           if (!getHoleCat(h)) partial['zero'].push(h);
         }
@@ -1558,6 +1576,7 @@
                   class="flex-1 min-w-[72px] px-3 py-3 rounded-lg font-heading font-700 text-sm tracking-widest
                     ${isCurrent ? 'ring-2 ring-white/25 ' : ''}
                     ${disabled  ? 'opacity-25 cursor-not-allowed ' : ''}
+                    ${cat === '4bb'  ? 'bg-[rgba(167,139,250,0.18)] border border-[rgba(167,139,250,0.45)] text-violet-400' : ''}
                     ${cat === '3bb'  ? 'bg-[rgba(249,115,22,0.2)] border border-[rgba(249,115,22,0.45)] text-flame' : ''}
                     ${cat === '2bb'  ? 'bg-[rgba(251,191,36,0.17)] border border-[rgba(251,191,36,0.4)] text-amber-400' : ''}
                     ${cat === '1bb'  ? 'bg-[rgba(59,130,246,0.17)] border border-[rgba(59,130,246,0.4)] text-blue-400' : ''}
@@ -1626,9 +1645,10 @@
           <div class="flex flex-wrap gap-2 justify-center mb-4">${tilesHtml}</div>
 
           <div class="flex flex-wrap gap-x-5 gap-y-1 justify-center mb-5 text-xs text-gray-600">
-            <span class="text-flame font-heading font-600 text-[10px] tracking-widest">3BB</span><span>All 3 scores (5 holes)</span>
-            <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span><span>Best 2 (6 holes)</span>
-            <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span><span>Best 1 (5 holes)</span>
+            ${is4Man ? `<span class="text-violet-400 font-heading font-600 text-[10px] tracking-widest">4BB</span><span>All 4 scores (4 holes)</span>` : ''}
+            <span class="text-flame font-heading font-600 text-[10px] tracking-widest">3BB</span><span>${is4Man ? 'Best 3 (4 holes)' : 'All 3 scores (5 holes)'}</span>
+            <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span><span>${is4Man ? 'Best 2 (4 holes)' : 'Best 2 (6 holes)'}</span>
+            <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span><span>${is4Man ? 'Best 1 (4 holes)' : 'Best 1 (5 holes)'}</span>
             <span class="text-gray-500 font-heading font-600 text-[10px] tracking-widest">ZERO</span><span>Doesn't count (2 holes)</span>
           </div>
 
@@ -1642,7 +1662,9 @@
         document.getElementById('btn-reset').addEventListener('click', () => {
           if (!confirm('Reset the entire draw? This cannot be undone.')) return;
           localStorage.removeItem(lsKey);
-          state = { draw: { '3bb': [], '2bb': [], '1bb': [], 'zero': [] }, revealOrder: [] };
+          state = is4Man
+            ? { draw: { '4bb': [], '3bb': [], '2bb': [], '1bb': [], 'zero': [] }, revealOrder: [] }
+            : { draw: { '3bb': [], '2bb': [], '1bb': [], 'zero': [] }, revealOrder: [] };
           selectedHole = null;
           render();
         });
