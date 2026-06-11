@@ -57,6 +57,20 @@
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 4 players' net totals)" }
     ]
   },
+  "stableford-3man": {
+    "id": "stableford-3man",
+    "name": "3-Man Modified Stableford",
+    "shortName": "Stableford",
+    "description": "3-player teams. Points per hole: 0=double bogey or worse, 1=bogey, 2=par, 4=birdie, 6=eagle, 10=albatross+. Team score = top 2 of 3 players' points per hole. Tiebreaker: full 3-player aggregate, then scorecard countback from index #1.",
+    "scoringBasis": "net",
+    "type": "stableford-3man",
+    "lowScoreWins": false,
+    "teamSize": 3,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Full 3-player aggregate stableford points (avoid conceding holes)" },
+      { "type": "index-countback",    "label": "Scorecard countback on top-2 stableford points, starting from index #1" }
+    ]
+  },
   "best2-worst2-all3": {
     "id": "best2-worst2-all3",
     "name": "Best 2, Worst 2, All 3",

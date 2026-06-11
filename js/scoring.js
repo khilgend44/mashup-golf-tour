@@ -5,7 +5,8 @@ export function applyFormat(scorecards, format, event = null) {
     case 'lone-ranger':     return calcLoneRanger(scorecards, format, event);
     case 'shamble-2man':      return calcShamble2Man(scorecards, format, event);
     case 'best2-worst2-all3': return calcBest2Worst2All3(scorecards, format, event);
-    case 'devils-draw':       return calcDevilsDraw(scorecards, format, event);
+    case 'devils-draw':           return calcDevilsDraw(scorecards, format, event);
+    case 'stableford-3man':       return calcStableford3Man(scorecards, format, event);
     case 'devils-draw-4man':  return calcDevilsDraw4Man(scorecards, format, event);
     default: throw new Error(`Unknown format: ${format.type}`);
   }
@@ -289,6 +290,111 @@ function calcDevilsDraw(scorecards, format, event) {
   });
 
   results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+
+  for (let i = 0; i < results.length; i++) {
+    if (i > 0) {
+      const prev = results[i - 1], curr = results[i];
+      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+      curr.position = trulyTied ? prev.position : i + 1;
+      if (trulyTied) { curr.tied = true; prev.tied = true; }
+    } else results[0].position = 1;
+  }
+  return results;
+}
+
+// ─── 3-Man Modified Stableford ──────────────────────────────────────────────
+
+function toStablefordPts(net, par) {
+  const diff = net - par;
+  if (diff >= 2)   return 0;   // double bogey or worse
+  if (diff === 1)  return 1;   // bogey
+  if (diff === 0)  return 2;   // par
+  if (diff === -1) return 4;   // birdie
+  if (diff === -2) return 6;   // eagle
+  return 10;                   // albatross or better
+}
+
+function calcStableford3Man(scorecards, format, event) {
+  const teams = {};
+  for (const card of scorecards) {
+    if (card.status !== 'Completed') continue;
+    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
+    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    if (!teams[key]) {
+      teams[key] = {
+        displayMembers: [...rawMembers],
+        players: [],
+        pars:    Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
+        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
+      };
+    }
+    const pars = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
+    const net  = Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]);
+    const pts  = net.map((n, i) => toStablefordPts(n, pars[i]));
+    teams[key].players.push({
+      name: card.player_name,
+      net,
+      pts,
+      totalNet: card.total_net,
+      individualTotal: pts.reduce((a, b) => a + b, 0),
+    });
+  }
+
+  const results = Object.values(teams).map(team => {
+    const countingPlayers = [];
+    const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
+      // Top 2 stableford points per hole
+      const ranked = team.players
+        .map((p, idx) => ({ idx, score: p.pts[h] }))
+        .sort((a, b) => b.score - a.score);
+      const counting = new Array(team.players.length).fill(false);
+      let total = 0;
+      for (let i = 0; i < Math.min(2, ranked.length); i++) {
+        counting[ranked[i].idx] = true;
+        total += ranked[i].score;
+      }
+      countingPlayers.push(counting);
+      return total;
+    });
+
+    const out      = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inn      = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);
+    const total    = out + inn;
+    const aggregate = team.players.reduce((s, p) => s + p.individualTotal, 0);
+
+    return {
+      isTeam: true,
+      displayMembers: team.displayMembers,
+      players: team.players,
+      holeCount: Object.fromEntries(Array.from({ length: 18 }, (_, i) => [i + 1, 2])),
+      teamHoleScores,
+      countingPlayers,
+      pars:    team.pars,
+      adjPars: team.pars,  // no adjustment — par is par
+      indices: team.indices,
+      out, inn,
+      outPar:   team.pars.slice(0, 9).reduce((a, b) => a + b, 0),
+      inPar:    team.pars.slice(9).reduce((a, b) => a + b, 0),
+      totalPar: team.pars.reduce((a, b) => a + b, 0),
+      total,
+      toPar:    total,  // repurposed: holds team points total
+      aggregate,
+      prize: null,
+    };
+  });
+
+  // High score wins: sort descending by total, then aggregate, then index countback (top-2 per hole)
+  results.sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    if (b.aggregate !== a.aggregate) return b.aggregate - a.aggregate;
+    // Hole-by-hole countback from index #1 using top-2 stableford
+    const idxOrder = Array.from({ length: 18 }, (_, i) => i)
+      .sort((x, y) => (a.indices[x] || 99) - (a.indices[y] || 99));
+    for (const h of idxOrder) {
+      if (a.teamHoleScores[h] !== b.teamHoleScores[h]) return b.teamHoleScores[h] - a.teamHoleScores[h];
+    }
+    return 0;
+  });
 
   for (let i = 0; i < results.length; i++) {
     if (i > 0) {

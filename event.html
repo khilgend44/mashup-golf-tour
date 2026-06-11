@@ -795,6 +795,7 @@
 
     // ── Team event leaderboard ───────────────────────────────────────────────
     function renderTeamLeaderboard(results, event, format, streams = {}) {
+      const isStableford = format?.type === 'stableford-3man';
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
 
@@ -820,9 +821,9 @@
                   <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Team Agg</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Pts' : 'Total'}</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Agg Pts' : '+/−'}</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell ${isStableford ? 'hidden' : ''}">Team Agg</th>
                   ${hasPrizes ? '<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Prize</th>' : ''}
                 </tr>
               </thead>
@@ -837,8 +838,8 @@
       const tbody = document.getElementById('lb-body');
       results.forEach(team => {
         const posStr  = team.tied ? `T${team.position}` : team.position;
-        const toParStr = formatToPar(team.toPar);
-        const toParCls = team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
+        const toParStr = isStableford ? team.aggregate : formatToPar(team.toPar);
+        const toParCls = isStableford ? 'text-gray-300' : team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
         const teamSize = format?.teamSize ? parseInt(format.teamSize) : 1;
         const prizeStr = team.prize != null
           ? teamSize > 1
@@ -866,7 +867,7 @@
           <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${team.inn}</td>
           <td class="px-3 py-3 text-center font-semibold font-mono">${team.total}</td>
           <td class="px-3 py-3 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
-          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs hidden md:table-cell">${team.aggregate}</td>
+          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs hidden md:table-cell ${isStableford ? '!hidden' : ''}">${team.aggregate}</td>
           ${hasPrizes ? `<td class="px-4 py-3 text-center font-semibold text-flame">${prizeStr}</td>` : ''}
         `;
 
@@ -900,8 +901,49 @@
         tbody.appendChild(cardTr);
       });
 
-      if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
-      if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
+      if (isStableford) {
+        document.getElementById('side-section').innerHTML = buildStablefordSidePotHtml(results, event);
+      } else if (event.payouts?.length) {
+        document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
+      }
+      if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
+    }
+
+    function buildStablefordSidePotHtml(results, event) {
+      const topTeamMembers = new Set(
+        results.filter(t => t.position <= 2).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
+      );
+      const eligible = results
+        .flatMap(team => team.players.map(p => ({ name: p.name, pts: p.individualTotal, teamPos: team.position })))
+        .filter(p => !topTeamMembers.has(p.name.toLowerCase()))
+        .sort((a, b) => b.pts - a.pts);
+
+      if (eligible.length === 0) return '';
+
+      const ORDINALS = ['1st', '2nd', '3rd'];
+      const sidePotPrizes = event.sidePots || [];
+      const showCount = Math.max(2, sidePotPrizes.length);
+      const rows = eligible.slice(0, showCount).map((p, i) => {
+        const prize = sidePotPrizes[i];
+        return `
+          <div class="flex items-center justify-between py-3 border-b border-border last:border-0">
+            <div class="flex items-center gap-4">
+              <span class="font-display text-2xl text-flame leading-none">${ORDINALS[i] || `${i+1}th`}</span>
+              <div>
+                <div class="font-heading font-600 text-sm text-white tracking-wide">${p.name}</div>
+                <div class="text-xs text-gray-500 mt-0.5">${p.pts} individual pts &nbsp;·&nbsp; Team finished #${p.teamPos}</div>
+              </div>
+            </div>
+            ${prize ? `<div class="text-right"><div class="font-semibold text-flame">$${prize.amount}</div><div class="text-xs text-gray-600 mt-0.5">${prize.name || 'Side Pot'}</div></div>` : ''}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 mt-6">
+          <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Individual Side Pot</div>
+          <div class="text-xs text-gray-600 mb-4">Top individual stableford scorers not on 1st or 2nd place team</div>
+          ${rows}
+        </div>`;
     }
 
     function buildTeamScorecardHTML(team, format) {
@@ -910,7 +952,8 @@
       const isLoneRanger  = format?.type === 'lone-ranger';
       const isShamble     = format?.type === 'shamble-2man';
       const isB2W2All3    = format?.type === 'best2-worst2-all3';
-      const isDevilsDraw  = format?.type === 'devils-draw' || format?.type === 'devils-draw-4man';
+      const isDevilsDraw   = format?.type === 'devils-draw' || format?.type === 'devils-draw-4man';
+      const isStableford   = format?.type === 'stableford-3man';
 
       // Segment label for a hole index (0-based)
       function segLabel(h) {
@@ -949,11 +992,16 @@
 
       // Player score cell — dimmed if not counting
       function playerCell(playerIdx, holeIdx) {
+        const counts  = team.countingPlayers[holeIdx][playerIdx];
+        const opacity = counts ? '' : 'opacity-20';
+        if (isStableford) {
+          const pts = team.players[playerIdx].pts[holeIdx];
+          const ptsCls = pts >= 6 ? 'text-emerald-400' : pts === 4 ? 'text-green-400' : pts === 0 ? 'text-red-500/60' : '';
+          return `<td class="${opacity} ${ptsCls}" style="padding:3px 4px;font-size:12px;font-weight:600;text-align:center">${pts}</td>`;
+        }
         const score   = team.players[playerIdx].net[holeIdx];
         const par     = team.pars[holeIdx];
-        const counts  = team.countingPlayers[holeIdx][playerIdx];
         const scoreCls = holeScoreClass(score, par);
-        const opacity  = counts ? '' : 'opacity-20';
         return `<td class="${opacity}" style="padding:3px 4px">
           <span class="sc-score ${scoreCls}">${score}</span>
         </td>`;
@@ -962,6 +1010,9 @@
       // Team hole score cell (colour vs adjusted par)
       function teamCell(holeIdx) {
         const score  = team.teamHoleScores[holeIdx];
+        if (isStableford) {
+          return `<td class="font-semibold text-white font-mono" style="padding:3px 4px;font-size:12px">${score}</td>`;
+        }
         const adjPar = team.adjPars[holeIdx];
         const diff   = score - adjPar;
         const cls    = diff < 0 ? 'under' : diff > 0 ? 'over' : 'even';
@@ -991,7 +1042,7 @@
             </thead>
             <tbody>
               <tr class="par-row">
-                <td class="text-left pl-3">${isShamble ? 'PAR' : 'ADJ PAR'}</td>
+                <td class="text-left pl-3">${isShamble || isStableford ? 'PAR' : 'ADJ PAR'}</td>
                 ${front.map(i=>`<td>${team.adjPars[i]}</td>`).join('')}
                 <td class="sub-cell">${outAdjPar}</td>
                 ${back.map(i=>`<td>${team.adjPars[i]}</td>`).join('')}
@@ -1010,10 +1061,10 @@
               <tr class="score-row">
                 <td class="name-cell">${p.name}</td>
                 ${front.map(h => playerCell(pi, h)).join('')}
-                <td class="sub-cell" style="font-size:11px;color:#777">${p.net.slice(0,9).reduce((a,b)=>a+b,0)}</td>
+                <td class="sub-cell" style="font-size:11px;color:#777">${isStableford ? p.pts.slice(0,9).reduce((a,b)=>a+b,0) : p.net.slice(0,9).reduce((a,b)=>a+b,0)}</td>
                 ${back.map(h => playerCell(pi, h)).join('')}
-                <td class="sub-cell" style="font-size:11px;color:#777">${p.net.slice(9).reduce((a,b)=>a+b,0)}</td>
-                <td class="sub-cell" style="font-size:11px;color:#777">${p.totalNet}</td>
+                <td class="sub-cell" style="font-size:11px;color:#777">${isStableford ? p.pts.slice(9).reduce((a,b)=>a+b,0) : p.net.slice(9).reduce((a,b)=>a+b,0)}</td>
+                <td class="sub-cell" style="font-size:11px;color:#aaa;font-weight:600">${isStableford ? p.individualTotal : p.totalNet}</td>
                 <td></td>
               </tr>`).join('')}
               <tr class="score-row" style="border-top:1px solid #333">
@@ -1023,13 +1074,20 @@
                 ${back.map(h => teamCell(h)).join('')}
                 <td class="sub-cell">${backTeamIn}</td>
                 <td class="total-cell">${team.total}</td>
-                <td class="topar-cell ${toParCls}">${formatToPar(team.toPar)}</td>
+                <td class="topar-cell ${isStableford ? 'text-gray-500' : toParCls}">${isStableford ? `agg:${team.aggregate}` : formatToPar(team.toPar)}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-gray-600">
-          ${isShamble ? `
+          ${isStableford ? `
+          <span class="text-emerald-400 font-heading font-600 text-[10px] tracking-widest">6/10</span> <span>Eagle/Albatross</span>
+          <span class="text-green-400 font-heading font-600 text-[10px] tracking-widest">4</span> <span>Birdie</span>
+          <span class="text-gray-300 font-heading font-600 text-[10px] tracking-widest">2</span> <span>Par</span>
+          <span class="text-gray-500 font-heading font-600 text-[10px] tracking-widest">1</span> <span>Bogey</span>
+          <span class="text-red-500/60 font-heading font-600 text-[10px] tracking-widest">0</span> <span>Double+</span>
+          <span class="text-gray-700 w-full mt-0.5">Team = top 2 stableford points per hole · Dimmed = doesn't count · Agg = all 3 players' individual totals</span>
+          ` : isShamble ? `
           <span class="text-gray-700">Team score = best net ball per hole · Dimmed score didn't count</span>
           ` : isDevilsDraw ? `
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">3BB</span> <span>All 3 net scores</span>
