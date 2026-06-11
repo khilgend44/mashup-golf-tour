@@ -12,6 +12,26 @@ export function applyFormat(scorecards, format, event = null) {
   }
 }
 
+// Fallback team lookup from KV event.teams (used when SGT TeamPlayer fields are absent).
+// Returns map of lowercase player name → { key, displayMembers }, or null if no KV teams.
+function buildKvTeamMap(event) {
+  if (!event?.teams?.length) return null;
+  const map = {};
+  for (const team of event.teams) {
+    const key = team.map(p => p.toLowerCase()).sort().join('|');
+    for (const p of team) map[p.toLowerCase()] = { key, displayMembers: [...team] };
+  }
+  return map;
+}
+
+function resolveTeamKey(card, sgtFields, kvTeamMap) {
+  const raw = sgtFields.filter(p => p);
+  if (raw.length > 0) return { key: raw.map(p => p.toLowerCase()).sort().join('|'), displayMembers: raw, fromKv: false };
+  const kv = kvTeamMap?.[card.player_name.toLowerCase()];
+  if (kv) return { key: kv.key, displayMembers: kv.displayMembers, fromKv: true };
+  return { key: '', displayMembers: [], fromKv: false };
+}
+
 // ─── Solo Ringer ────────────────────────────────────────────────────────────
 
 function calcRinger(scorecards, format) {
@@ -109,15 +129,16 @@ function calcEscalatorDoom(scorecards, format, event) {
     if (card.status === 'Completed') cardsByPlayer[card.player_name.toLowerCase()] = card;
   }
 
-  // Group players by team using TeamPlayer fields
+  const kvTeamMap = buildKvTeamMap(event);
+
+  // Group players by team using TeamPlayer fields (fallback: KV event.teams)
   const teams = {};
   for (const card of scorecards) {
     if (card.status !== 'Completed') continue;
-    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
-    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
-        displayMembers: [...rawMembers],
+        displayMembers: [...displayMembers],
         players: [],
         pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
         indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
@@ -218,14 +239,15 @@ function calcDevilsDraw(scorecards, format, event) {
   for (const h of (event.devilsDraw['1bb']  ?? [])) holeCount[h] = 1;
   for (const h of (event.devilsDraw['zero'] ?? [])) holeCount[h] = 0;
 
+  const kvTeamMap = buildKvTeamMap(event);
+
   const teams = {};
   for (const card of scorecards) {
     if (card.status !== 'Completed') continue;
-    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
-    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
-        displayMembers: [...rawMembers],
+        displayMembers: [...displayMembers],
         players: [],
         pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
         indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
@@ -315,14 +337,14 @@ function toStablefordPts(net, par) {
 }
 
 function calcStableford3Man(scorecards, format, event) {
+  const kvTeamMap = buildKvTeamMap(event);
   const teams = {};
   for (const card of scorecards) {
     if (card.status !== 'Completed') continue;
-    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
-    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
-        displayMembers: [...rawMembers],
+        displayMembers: [...displayMembers],
         players: [],
         pars:    Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
         indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
@@ -419,14 +441,15 @@ function calcDevilsDraw4Man(scorecards, format, event) {
   for (const h of (event.devilsDraw['1bb']  ?? [])) holeCount[h] = 1;
   for (const h of (event.devilsDraw['zero'] ?? [])) holeCount[h] = 0;
 
+  const kvTeamMap = buildKvTeamMap(event);
+
   const teams = {};
   for (const card of scorecards) {
     if (card.status !== 'Completed') continue;
-    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4].filter(p => p);
-    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
-        displayMembers: [...rawMembers],
+        displayMembers: [...displayMembers],
         players: [],
         pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
         indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
@@ -506,14 +529,14 @@ function calcDevilsDraw4Man(scorecards, format, event) {
 // ─── Best 2, Worst 2, All 3 ─────────────────────────────────────────────────
 
 function calcBest2Worst2All3(scorecards, format, event) {
+  const kvTeamMap = buildKvTeamMap(event);
   const teams = {};
   for (const card of scorecards) {
     if (card.status !== 'Completed') continue;
-    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
-    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
-        displayMembers: [...rawMembers],
+        displayMembers: [...displayMembers],
         players: [],
         pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
         indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
@@ -590,14 +613,14 @@ function calcBest2Worst2All3(scorecards, format, event) {
 // ─── 2-Man Shamble ──────────────────────────────────────────────────────────
 
 function calcShamble2Man(scorecards, format, event) {
+  const kvTeamMap = buildKvTeamMap(event);
   const teams = {};
   for (const card of scorecards) {
     if (card.status !== 'Completed') continue;
-    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2].filter(p => p);
-    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
-        displayMembers: [...rawMembers],
+        displayMembers: [...displayMembers],
         players: [],
         pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
         indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
@@ -684,14 +707,15 @@ function calcLoneRanger(scorecards, format, event) {
     if (card.status === 'Completed') cardsByPlayer[card.player_name.toLowerCase()] = card;
   }
 
+  const kvTeamMap = buildKvTeamMap(event);
+
   const teams = {};
   for (const card of scorecards) {
     if (card.status !== 'Completed') continue;
-    const rawMembers = [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3].filter(p => p);
-    const key = rawMembers.map(p => p.toLowerCase()).sort().join('|');
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
-        displayMembers: [...rawMembers],
+        displayMembers: [...displayMembers],
         players: [],
         pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
         indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),

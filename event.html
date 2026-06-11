@@ -292,14 +292,27 @@
       // Devil's Draw: show pre-draw aggregate leaderboard if draw hasn't happened yet
       if (isDevilsDrawFormat && !event.devilsDraw) {
         const is4Man = format.type === 'devils-draw-4man';
+        // Build KV fallback map for pre-draw grouping
+        const kvFallback = (() => {
+          if (!event.teams?.length) return null;
+          const m = {};
+          for (const t of event.teams) {
+            const k = t.map(p => p.toLowerCase()).sort().join('|');
+            for (const p of t) m[p.toLowerCase()] = { key: k, displayMembers: [...t] };
+          }
+          return m;
+        })();
+
         const teamsMap = {};
         for (const card of scorecards) {
           if (card.status !== 'Completed') continue;
-          const members = (is4Man
+          const sgtFields = (is4Man
             ? [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4]
             : [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3]
           ).filter(p => p);
-          const key = members.map(p => p.toLowerCase()).sort().join('|');
+          const kv = sgtFields.length === 0 ? kvFallback?.[card.player_name.toLowerCase()] : null;
+          const members = kv ? kv.displayMembers : sgtFields;
+          const key = kv ? kv.key : members.map(p => p.toLowerCase()).sort().join('|');
           if (!teamsMap[key]) {
             teamsMap[key] = {
               displayMembers: [...members],
