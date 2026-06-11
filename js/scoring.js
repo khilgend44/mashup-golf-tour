@@ -812,6 +812,16 @@ function calcNassau2Man(scorecards, format, event) {
     b9: results.find(t => t.potWon === 'b9') || null,
   };
 
+  // Assign prizes from event.nassauPrizes if configured
+  if (event?.nassauPrizes) {
+    const np = event.nassauPrizes;
+    for (const t of results) {
+      if (t.potWon === 'bb' && np.bb) t.prize = np.bb;
+      if (t.potWon === 'f9' && np.f9) t.prize = np.f9;
+      if (t.potWon === 'b9' && np.b9) t.prize = np.b9;
+    }
+  }
+
   return results;
 }
 

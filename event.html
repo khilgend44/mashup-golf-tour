@@ -937,10 +937,11 @@
       function potCardHtml(label, team, scoreDesc) {
         if (!team) return `<div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 flex flex-col gap-2 opacity-40"><div class="text-[10px] font-heading font-600 tracking-widest text-flame uppercase">${label}</div><div class="text-gray-600 text-sm">No winner yet</div></div>`;
         const members = team.displayMembers.join(' / ');
+        const prizeStr = team.prize != null ? `<span class="text-flame font-semibold">$${team.prize}</span> · ` : '';
         return `<div class="card-shadow bg-card border border-flame/30 rounded-xl px-5 py-4 flex flex-col gap-2">
           <div class="text-[10px] font-heading font-600 tracking-widest text-flame uppercase">${label}</div>
           <div class="font-heading font-700 text-base text-white leading-tight tracking-wide">${members}</div>
-          <div class="text-xs font-mono text-gray-500">${scoreDesc}</div>
+          <div class="text-xs font-mono text-gray-500">${prizeStr}${scoreDesc}</div>
         </div>`;
       }
 
@@ -952,7 +953,10 @@
         pots.b9 ? `B9 Agg: ${pots.b9.b9Agg}` : '');
 
       const ORDINALS = ['1st', '2nd'];
-      const sidePotRows = sidePot.map((p, i) => `
+      const sidePotPrizes = event.sidePots || [];
+      const sidePotRows = sidePot.map((p, i) => {
+        const prize = sidePotPrizes[i];
+        return `
         <div class="flex items-center justify-between py-3 border-b border-border last:border-0">
           <div class="flex items-center gap-4">
             <span class="font-display text-2xl text-flame leading-none">${ORDINALS[i] || `${i+1}th`}</span>
@@ -961,7 +965,9 @@
               <div class="text-xs text-gray-500 mt-0.5">Individual net: ${p.individualNet}</div>
             </div>
           </div>
-        </div>`).join('');
+          ${prize ? `<div class="text-right"><div class="font-semibold text-flame">$${prize.amount}</div><div class="text-xs text-gray-600 mt-0.5">${prize.name || 'Side Pot'}</div></div>` : ''}
+        </div>`;
+      }).join('');
 
       const sidePotHtml = sidePot.length ? `
         <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 mt-6">
