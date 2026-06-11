@@ -88,7 +88,7 @@
     "id": "nassau-2man",
     "name": "2-Man Modified Nassau",
     "shortName": "Nassau",
-    "description": "2-player teams. Three independent competitions: (1) 18-hole Best Ball — lowest net per hole, team total; (2) Front 9 Aggregate — both players' net scores, holes 1–9; (3) Back 9 Aggregate — both players' net scores, holes 10–18. No double-winning: each team can win at most one pot. Individual side pot: best 2 net totals from players not on a winning team. Teams drawn A/B by handicap.",
+    "description": "2-player teams. Three independent competitions: (1) 18-hole Net Best Ball; (2) Front 9 Net Aggregate; (3) Back 9 Net Aggregate. Each team can win at most one pot.",
     "scoringBasis": "net",
     "type": "nassau-2man",
     "lowScoreWins": true,
