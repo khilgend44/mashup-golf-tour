@@ -263,7 +263,7 @@
                 <span class="font-heading font-600 text-sm text-white tracking-wide truncate">${name}</span>
               </div>
               <span class="text-xs font-body text-white font-semibold ml-3 shrink-0">
-                ${cap !== null ? `+${cap}` : '—'}
+                ${cap !== null ? cap : '—'}
               </span>
             </div>`;
         }).join('');
