@@ -120,10 +120,16 @@
 
     <!-- Players Table -->
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
-      <div class="px-6 py-4 border-b border-border flex items-center justify-between">
+      <div class="px-6 py-4 border-b border-border flex items-center justify-between flex-wrap gap-3">
         <h2 class="font-display text-2xl tracking-wider text-white">ROSTER <span id="player-count" class="text-gray-600 text-lg"></span></h2>
-        <input id="search-input" type="text" placeholder="Search..."
-          class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 w-40" />
+        <div class="flex items-center gap-3 flex-wrap">
+          <select id="season-filter"
+            class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 focus:outline-none focus:border-flame/50">
+            <option value="">All Players</option>
+          </select>
+          <input id="search-input" type="text" placeholder="Search..."
+            class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 w-40" />
+        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -162,7 +168,15 @@
     const API = '/api/players';
     const S9_ROSTER = ["adamw19","bdc5e","betteri","boiler_kh","boilertimmay","brianemann","ccondon30","cloverlinksgolf","dirthydiesel","dmac029","finlayson7434","garyn2732","Gaz77","GIL3S","humdinger","iljayo","jarhead","jboettner","jibbsy","jonty","julzdad","magic","mesky","mrsnowman","nojo","notthatjt","pjo336","pottsy","r3noble","ribsismokeem","ryanlane10","salfrado","sully","talbeezie","TheRiot22","Tigerstew84","tjak","tofty31","toursauce86","trock","Tztop","winch99"];
 
-    let state = { roster: [], handicaps: {}, lastRefresh: null };
+    let state = { roster: [], handicaps: {}, lastRefresh: null, seasons: [], selectedSeason: '' };
+
+    function getSeasonRoster() {
+      if (!state.selectedSeason) return state.roster;
+      const season = state.seasons.find(s => s.id === state.selectedSeason);
+      if (!season || !season.players) return state.roster;
+      const inSeason = new Set(season.players.map(p => p.toLowerCase()));
+      return state.roster.filter(p => inSeason.has(p.toLowerCase()));
+    }
 
     function showStatus(msg, type = 'info') {
       const bar = document.getElementById('status-bar');
@@ -194,15 +208,26 @@
         ? roster.filter(p => p.toLowerCase().includes(filter.toLowerCase()))
         : roster;
 
-      document.getElementById('player-count').textContent = `(${roster.length})`;
+      // Count label: "36 of 48" when season is active, plain "(48)" otherwise
+      const totalCount = state.roster.length;
+      const seasonCount = roster.length;
+      const countEl = document.getElementById('player-count');
+      if (state.selectedSeason && seasonCount < totalCount) {
+        countEl.textContent = filter
+          ? `(${filtered.length} of ${seasonCount} in season)`
+          : `(${seasonCount} of ${totalCount})`;
+      } else {
+        countEl.textContent = filter ? `(${filtered.length} of ${totalCount})` : `(${totalCount})`;
+      }
 
       if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
         return;
       }
 
-      const rawValues = Object.values(handicaps)
-        .map(h => parseFloat(h.rawCap))
+      // Adjusted handicap offset is relative to the lowest raw cap among displayed players
+      const rawValues = filtered
+        .map(p => { const h = handicaps[p.toLowerCase()]; return h ? parseFloat(h.rawCap) : NaN; })
         .filter(n => !isNaN(n));
       const minRaw = rawValues.length ? Math.min(...rawValues) : null;
       const offset = minRaw !== null ? -minRaw : 0;
@@ -252,16 +277,39 @@
 
     async function loadData() {
       try {
-        const res = await fetch(API);
-        const data = await res.json();
-        state.roster = data.roster || [];
-        state.handicaps = data.handicaps || {};
-        state.lastRefresh = data.lastRefresh || null;
-        renderTable(state.roster, state.handicaps);
+        const [playersRes, kvSeasonsRes, staticSeasonsRes] = await Promise.allSettled([
+          fetch(API),
+          fetch('/api/seasons'),
+          fetch('/data/seasons.json'),
+        ]);
+
+        if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
+          const data = await playersRes.value.json();
+          state.roster      = data.roster      || [];
+          state.handicaps   = data.handicaps   || {};
+          state.lastRefresh = data.lastRefresh || null;
+        }
+
+        const kvSeasons     = kvSeasonsRes.status === 'fulfilled'     && kvSeasonsRes.value.ok     ? await kvSeasonsRes.value.json()     : [];
+        const staticSeasons = staticSeasonsRes.status === 'fulfilled' && staticSeasonsRes.value.ok ? await staticSeasonsRes.value.json() : [];
+        const seasonMap = new Map(staticSeasons.map(s => [s.id, s]));
+        for (const s of kvSeasons) seasonMap.set(s.id, s);
+        state.seasons = [...seasonMap.values()].sort((a, b) => (b.year || 0) - (a.year || 0));
+
+        populateSeasonDropdown();
+        renderTable(getSeasonRoster(), state.handicaps);
         updateRefreshLabel();
       } catch (e) {
         showStatus('Failed to load player data: ' + e.message, 'error');
       }
+    }
+
+    function populateSeasonDropdown() {
+      const sel = document.getElementById('season-filter');
+      const current = sel.value;
+      sel.innerHTML = '<option value="">All Players</option>' +
+        state.seasons.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      if (current && state.seasons.find(s => s.id === current)) sel.value = current;
     }
 
     async function removePlayer(name) {
@@ -275,7 +323,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         state.roster = data.roster;
-        renderTable(state.roster, state.handicaps, document.getElementById('search-input').value);
+        renderTable(getSeasonRoster(), state.handicaps, document.getElementById('search-input').value);
         showStatus(`Removed ${name}.`, 'success');
       } catch (e) {
         showStatus('Error: ' + e.message, 'error');
@@ -299,7 +347,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         state.roster = data.roster;
-        renderTable(state.roster, state.handicaps);
+        renderTable(getSeasonRoster(), state.handicaps);
         document.getElementById('onboard-input').value = '';
         showStatus(`Roster saved — ${data.count} players.`, 'success');
       } catch (e) {
@@ -319,7 +367,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         state.roster = data.roster;
-        renderTable(state.roster, state.handicaps, document.getElementById('search-input').value);
+        renderTable(getSeasonRoster(), state.handicaps, document.getElementById('search-input').value);
         document.getElementById('add-input').value = '';
         showStatus(`Added ${player}.`, 'success');
       } catch (e) {
@@ -332,22 +380,29 @@
     });
 
     document.getElementById('refresh-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('refresh-btn');
+      const btn  = document.getElementById('refresh-btn');
       const icon = document.getElementById('refresh-icon');
+      const seasonRoster = state.selectedSeason ? getSeasonRoster() : null;
+      const scopeLabel   = seasonRoster ? `${seasonRoster.length} players in ${state.seasons.find(s => s.id === state.selectedSeason)?.name || 'season'}` : `all ${state.roster.length} players`;
+
       btn.disabled = true;
       icon.classList.add('spin');
-      showStatus('Fetching handicaps from SGT API...', 'info');
+      showStatus(`Fetching handicaps for ${scopeLabel}…`, 'info');
+
       try {
+        const body = { action: 'refresh' };
+        if (seasonRoster) body.players = seasonRoster;
+
         const res = await fetch(API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'refresh' }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        state.handicaps = data.handicaps;
+        state.handicaps   = data.handicaps;
         state.lastRefresh = data.lastRefresh;
-        renderTable(state.roster, state.handicaps, document.getElementById('search-input').value);
+        renderTable(getSeasonRoster(), state.handicaps, document.getElementById('search-input').value);
         updateRefreshLabel();
         showStatus(`Updated ${data.count} player handicaps.`, 'success');
       } catch (e) {
@@ -358,8 +413,14 @@
       }
     });
 
+    document.getElementById('season-filter').addEventListener('change', e => {
+      state.selectedSeason = e.target.value;
+      document.getElementById('search-input').value = '';
+      renderTable(getSeasonRoster(), state.handicaps);
+    });
+
     document.getElementById('search-input').addEventListener('input', e => {
-      renderTable(state.roster, state.handicaps, e.target.value);
+      renderTable(getSeasonRoster(), state.handicaps, e.target.value);
     });
 
     loadData();

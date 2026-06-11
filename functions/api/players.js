@@ -96,18 +96,23 @@ export async function onRequestPost(context) {
 
   if (action === 'refresh') {
     if (!sgtKey) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
-    const rosterRaw = await kvGet(accountId, apiToken, 'players:roster');
-    const roster = rosterRaw ? JSON.parse(rosterRaw) : [];
-    if (roster.length === 0) return Response.json({ error: 'No players in roster' }, { status: 400, headers: CORS });
 
-    const url = `${SGT_API_BASE}?key=${sgtKey}&players=${roster.join(',')}`;
+    // Optional: caller may pass a specific player list (e.g. scoped to one season)
+    const scopedPlayers = Array.isArray(body.players) && body.players.length ? body.players : null;
+
+    const rosterRaw = await kvGet(accountId, apiToken, 'players:roster');
+    const fullRoster = rosterRaw ? JSON.parse(rosterRaw) : [];
+    const playersToFetch = scopedPlayers || fullRoster;
+    if (playersToFetch.length === 0) return Response.json({ error: 'No players to refresh' }, { status: 400, headers: CORS });
+
+    const url = `${SGT_API_BASE}?key=${sgtKey}&players=${playersToFetch.join(',')}`;
     const sgtRes = await fetch(url);
     if (!sgtRes.ok) return Response.json({ error: `SGT API error: ${sgtRes.status}` }, { status: 502, headers: CORS });
 
     const data = await sgtRes.json();
-    const handicaps = {};
+    const fetched = {};
     for (const p of data) {
-      handicaps[p.user_name.toLowerCase()] = {
+      fetched[p.user_name.toLowerCase()] = {
         rawCap: p.rawCap,
         comboCap: p.comboCap,
         numEvents: p.NumEvents,
@@ -118,12 +123,23 @@ export async function onRequestPost(context) {
     }
 
     const now = new Date().toISOString();
+
+    let finalHandicaps;
+    if (scopedPlayers) {
+      // Merge into existing — don't wipe out other players' data
+      const existingRaw = await kvGet(accountId, apiToken, 'players:handicaps');
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      finalHandicaps = { ...existing, ...fetched };
+    } else {
+      finalHandicaps = fetched;
+    }
+
     await Promise.all([
-      kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(handicaps)),
+      kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(finalHandicaps)),
       kvPut(accountId, apiToken, 'players:last_refresh', now),
     ]);
 
-    return Response.json({ ok: true, count: data.length, lastRefresh: now, handicaps }, { headers: CORS });
+    return Response.json({ ok: true, count: data.length, lastRefresh: now, handicaps: finalHandicaps }, { headers: CORS });
   }
 
   return Response.json({ error: 'Unknown action' }, { status: 400, headers: CORS });
