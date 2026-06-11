@@ -120,19 +120,6 @@
       </div>
     </div>
 
-    <!-- Add Single Player -->
-    <div class="card-shadow bg-card border border-border rounded-lg p-6">
-      <h2 class="font-display text-2xl tracking-wider text-white mb-4">ADD PLAYER</h2>
-      <div class="flex gap-3">
-        <input id="add-input" type="text" placeholder="username"
-          class="flex-1 bg-surface border border-border rounded-lg px-4 py-2 text-sm font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50" />
-        <button id="add-btn"
-          class="px-5 py-2 rounded-lg bg-surface border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-flame/40"
-          style="transition:all 0.15s">
-          Add
-        </button>
-      </div>
-    </div>
 
     <!-- Players Table -->
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
@@ -404,29 +391,6 @@
       }
     });
 
-    document.getElementById('add-btn').addEventListener('click', async () => {
-      const player = document.getElementById('add-input').value.trim();
-      if (!player) return;
-      try {
-        const res = await fetch(API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'add', player }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        state.roster = data.roster;
-        renderTable(getSeasonRoster(), state.handicaps, document.getElementById('search-input').value);
-        document.getElementById('add-input').value = '';
-        showStatus(`Added ${player}.`, 'success');
-      } catch (e) {
-        showStatus('Error: ' + e.message, 'error');
-      }
-    });
-
-    document.getElementById('add-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') document.getElementById('add-btn').click();
-    });
 
     document.getElementById('refresh-btn').addEventListener('click', async () => {
       const btn  = document.getElementById('refresh-btn');
