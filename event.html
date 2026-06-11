@@ -990,6 +990,7 @@
           if (count === 1) return { label: '1BB', cls: 'text-blue-400' };
           return { label: 'ZERO', cls: 'text-gray-600' };
         }
+        if (isStableford) return { label: '2BB', cls: 'text-amber-400' };
         if (h < 6)  return { label: '1BB', cls: 'text-blue-400' };
         if (h < 12) return { label: '2BB', cls: 'text-amber-400' };
         return { label: 'ALL', cls: 'text-flame' };
