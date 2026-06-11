@@ -98,8 +98,7 @@
           <div>
             <label>Season</label>
             <select id="f-season">
-              <option value="season-10">Season 10</option>
-              <option value="season-9">Season 9</option>
+              <option value="">Loading…</option>
             </select>
           </div>
 
@@ -318,6 +317,7 @@
       kvEvents: [],
       staticEvents: [],
       allFormats: {},
+      allSeasons: [],
       showLegacy: false,
       lastHandicapRefresh: null,
       playerCount: null,
@@ -369,11 +369,13 @@
 
     // ── Load data ─────────────────────────────────────────────
     async function loadAll() {
-      const [kvRes, staticEventsRes, staticFormatsRes, playersRes] = await Promise.allSettled([
+      const [kvRes, staticEventsRes, staticFormatsRes, playersRes, kvSeasonsRes, staticSeasonsRes] = await Promise.allSettled([
         fetch(API),
         fetch(EVENTS_STATIC_URL),
         fetch(FORMATS_STATIC_URL),
         fetch('/api/players'),
+        fetch('/api/seasons'),
+        fetch('data/seasons.json'),
       ]);
 
       if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
@@ -395,8 +397,25 @@
         state.playerCount = (pdata.roster || []).length || null;
       }
 
+      const staticSeasons = staticSeasonsRes.status === 'fulfilled' && staticSeasonsRes.value.ok
+        ? await staticSeasonsRes.value.json() : [];
+      const kvSeasons = kvSeasonsRes.status === 'fulfilled' && kvSeasonsRes.value.ok
+        ? await kvSeasonsRes.value.json() : [];
+      const seasonMap = new Map(staticSeasons.map(s => [s.id, s]));
+      for (const s of kvSeasons) seasonMap.set(s.id, s);
+      state.allSeasons = [...seasonMap.values()].sort((a, b) => (b.year || 0) - (a.year || 0));
+
       populateFormatDropdown();
+      populateSeasonDropdown();
       renderTable();
+    }
+
+    // ── Season dropdown ───────────────────────────────────────
+    function populateSeasonDropdown() {
+      const sel = document.getElementById('f-season');
+      sel.innerHTML = state.allSeasons.map(s =>
+        `<option value="${s.id}">${s.name}</option>`
+      ).join('') || '<option value="">No seasons available</option>';
     }
 
     // ── Format dropdown ───────────────────────────────────────

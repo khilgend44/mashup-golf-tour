@@ -14,8 +14,17 @@ export async function fetchScorecards(tournamentId) {
 }
 
 export async function loadSeasons() {
-  const res = await fetch('data/seasons.json');
-  return res.json();
+  const [staticRes, kvRes] = await Promise.allSettled([
+    fetch('data/seasons.json'),
+    fetch('/api/seasons'),
+  ]);
+  const staticSeasons = staticRes.status === 'fulfilled' && staticRes.value.ok
+    ? await staticRes.value.json() : [];
+  const kvSeasons = kvRes.status === 'fulfilled' && kvRes.value.ok
+    ? await kvRes.value.json() : [];
+  const map = new Map(staticSeasons.map(s => [s.id, s]));
+  for (const s of kvSeasons) map.set(s.id, s);
+  return [...map.values()];
 }
 
 export async function loadEvents() {

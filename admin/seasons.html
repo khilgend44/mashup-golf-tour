@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seasons — MashUp Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .badge-green  { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+    .badge-gray   { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
+    .badge-blue   { background: rgba(59,130,246,0.12);  color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
+    input, select, textarea {
+      background: #141414; border: 1px solid #2c2c2c; color: #e5e5e5;
+      border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem;
+      font-family: 'Inter', sans-serif; width: 100%;
+      transition: border-color 0.12s;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(249,115,22,0.5); }
+    select option { background: #1e1e1e; }
+    label { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+            font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+            color: #6b7280; margin-bottom: 0.35rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+    .form-full  { grid-column: 1 / -1; }
+    .panel { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .panel.open { max-height: 3000px; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .player-chip {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.3rem 0.65rem; border-radius: 9999px; font-size: 0.75rem;
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+      letter-spacing: 0.04em; cursor: pointer;
+      border: 1px solid #2c2c2c; background: #1a1a1a; color: #9ca3af;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+      user-select: none;
+    }
+    .player-chip.selected {
+      background: rgba(249,115,22,0.15); border-color: rgba(249,115,22,0.5); color: #f97316;
+    }
+    .player-chip:hover:not(.selected) { border-color: #4b5563; color: #e5e5e5; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">← Site</a>
+        <span class="text-border text-xs">/</span>
+        <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">Admin</a>
+        <span class="text-border text-xs">/</span>
+        <span class="font-heading font-600 tracking-wider text-sm text-flame">Seasons</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-10 pb-20 space-y-8">
+
+    <!-- Header -->
+    <div class="flex items-end justify-between flex-wrap gap-4">
+      <div>
+        <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Admin</div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white">SEASONS</h1>
+      </div>
+      <button id="toggle-form-btn"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+        style="transition:background 0.15s">
+        <span id="toggle-form-icon">+</span> New Season
+      </button>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
+
+    <!-- CREATE / EDIT PANEL -->
+    <div id="form-panel" class="panel">
+      <div class="card-shadow bg-card border border-border rounded-lg p-6 sm:p-8">
+        <h2 id="panel-title" class="font-display text-2xl tracking-wider text-white mb-6">CREATE NEW SEASON</h2>
+
+        <div class="form-grid mb-6">
+
+          <!-- Name -->
+          <div>
+            <label>Season Name</label>
+            <input type="text" id="f-name" placeholder="Season 10" />
+            <div id="f-id-preview" class="mt-1 text-xs text-gray-600 font-body font-mono"></div>
+          </div>
+
+          <!-- Year -->
+          <div>
+            <label>Year</label>
+            <input type="number" id="f-year" min="2020" max="2040" />
+          </div>
+
+          <!-- Status -->
+          <div>
+            <label>Initial Status</label>
+            <select id="f-status">
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+
+          <!-- Description -->
+          <div class="form-full">
+            <label>Description</label>
+            <input type="text" id="f-description" placeholder="MashUp Golf — Season 10" />
+          </div>
+
+        </div>
+
+        <!-- Player picker -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <label class="mb-0">Players <span id="f-player-count" class="text-gray-600 normal-case tracking-normal font-body text-xs ml-1">(0 selected)</span></label>
+            <div class="flex gap-2">
+              <button type="button" id="btn-select-all"
+                class="px-3 py-1 rounded text-xs font-heading font-600 tracking-wider border border-border text-gray-400 hover:text-white hover:border-gray-500"
+                style="transition:color 0.12s, border-color 0.12s">Select All</button>
+              <button type="button" id="btn-clear-all"
+                class="px-3 py-1 rounded text-xs font-heading font-600 tracking-wider border border-border text-gray-400 hover:text-white hover:border-gray-500"
+                style="transition:color 0.12s, border-color 0.12s">Clear</button>
+            </div>
+          </div>
+          <div class="mb-3">
+            <input type="text" id="f-player-search" placeholder="Filter players…" style="width:100%;max-width:300px" />
+          </div>
+          <div id="player-picker" class="flex flex-wrap gap-2 p-4 bg-surface rounded-lg border border-border min-h-[80px]">
+            <span class="text-gray-600 text-sm font-body">Loading players…</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3 flex-wrap">
+          <button id="btn-save" type="button"
+            class="px-5 py-2.5 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed"
+            style="transition:background 0.15s">
+            Save Season
+          </button>
+          <button id="btn-cancel" type="button"
+            class="px-5 py-2.5 rounded-lg border border-border text-gray-400 text-sm font-heading font-600 tracking-wider hover:border-gray-500 hover:text-white"
+            style="transition:color 0.12s, border-color 0.12s">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEASONS TABLE -->
+    <div id="seasons-table-wrap" class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+      <div id="seasons-loading" class="px-6 py-8 text-center text-gray-600 text-sm font-body">Loading seasons…</div>
+      <table id="seasons-table" class="w-full hidden">
+        <thead>
+          <tr class="border-b border-border">
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Season</th>
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">ID</th>
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Year</th>
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Status</th>
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Players</th>
+            <th class="px-5 py-3 text-right text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="seasons-tbody"></tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <script>
+    const API = '/api/seasons';
+    const PLAYERS_API = '/api/players';
+
+    let state = {
+      kvSeasons: [],
+      staticSeasons: [],
+      roster: [],
+      editingId: null,
+      selectedPlayers: new Set(),
+    };
+
+    // ── Utilities ──────────────────────────────────────────────
+    function showStatus(msg, type = 'info') {
+      const bar = document.getElementById('status-bar');
+      bar.className = `rounded-lg px-4 py-3 text-sm font-body ${
+        type === 'error'   ? 'bg-red-900/30 border border-red-800/40 text-red-300' :
+        type === 'success' ? 'bg-green-900/30 border border-green-800/40 text-green-300' :
+                             'bg-surface border border-border text-gray-400'
+      }`;
+      bar.textContent = msg;
+      bar.classList.remove('hidden');
+      if (type !== 'error') setTimeout(() => bar.classList.add('hidden'), 4000);
+    }
+
+    function nameToId(name) {
+      return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    function statusBadge(status) {
+      if (status === 'active')    return `<span class="badge-green  px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Active</span>`;
+      if (status === 'completed') return `<span class="badge-gray   px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Completed</span>`;
+      return `<span class="badge-gray px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">${status}</span>`;
+    }
+
+    // ── Load ───────────────────────────────────────────────────
+    async function loadAll() {
+      const [kvRes, staticRes, playersRes] = await Promise.allSettled([
+        fetch(API),
+        fetch('data/seasons.json'),
+        fetch(PLAYERS_API),
+      ]);
+
+      state.kvSeasons     = kvRes.status === 'fulfilled'      && kvRes.value.ok      ? await kvRes.value.json()               : [];
+      state.staticSeasons = staticRes.status === 'fulfilled'  && staticRes.value.ok  ? await staticRes.value.json()           : [];
+      state.roster        = playersRes.status === 'fulfilled' && playersRes.value.ok ? (await playersRes.value.json()).roster || [] : [];
+
+      renderTable();
+      renderPlayerPicker();
+    }
+
+    // ── Render table ───────────────────────────────────────────
+    function renderTable() {
+      const tbody = document.getElementById('seasons-tbody');
+      document.getElementById('seasons-loading').classList.add('hidden');
+      document.getElementById('seasons-table').classList.remove('hidden');
+
+      const rows = [];
+
+      // KV seasons first (newest first by year)
+      const kvSorted = [...state.kvSeasons].sort((a, b) => (b.year || 0) - (a.year || 0));
+      for (const s of kvSorted) {
+        const playerCount = Array.isArray(s.players) ? s.players.length : 0;
+        const archiveBtn = s.status === 'active'
+          ? `<button onclick="archiveSeason('${s.id}')" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-yellow-400 px-2 py-1 rounded border border-border hover:border-yellow-800/40" style="transition:color 0.12s,border-color 0.12s">Archive</button>`
+          : '';
+        const editBtn = `<button onclick="openEdit('${s.id}')" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame px-2 py-1 rounded border border-border hover:border-flame/30" style="transition:color 0.12s,border-color 0.12s">Edit</button>`;
+        rows.push(`
+          <tr class="border-b border-border/60" id="row-${s.id}">
+            <td class="px-5 py-3 font-heading font-600 text-white">${s.name}</td>
+            <td class="px-5 py-3 font-mono text-xs text-gray-500">${s.id}</td>
+            <td class="px-5 py-3 text-sm text-gray-400">${s.year || '—'}</td>
+            <td class="px-5 py-3">${statusBadge(s.status)}</td>
+            <td class="px-5 py-3 text-sm text-gray-400">${playerCount}</td>
+            <td class="px-5 py-3 text-right">
+              <div class="flex gap-2 justify-end">${editBtn}${archiveBtn}</div>
+            </td>
+          </tr>`);
+      }
+
+      // Static seasons (read-only)
+      const staticSorted = [...state.staticSeasons].sort((a, b) => (b.year || 0) - (a.year || 0));
+      for (const s of staticSorted) {
+        const playerCount = Array.isArray(s.players) ? s.players.length : 0;
+        rows.push(`
+          <tr class="border-b border-border/60 opacity-50">
+            <td class="px-5 py-3 font-heading font-600 text-white">${s.name}</td>
+            <td class="px-5 py-3 font-mono text-xs text-gray-500">${s.id}</td>
+            <td class="px-5 py-3 text-sm text-gray-400">${s.year || '—'}</td>
+            <td class="px-5 py-3">${statusBadge(s.status)}</td>
+            <td class="px-5 py-3 text-sm text-gray-400">${playerCount}</td>
+            <td class="px-5 py-3 text-right">
+              <span class="badge-blue px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Static file</span>
+            </td>
+          </tr>`);
+      }
+
+      tbody.innerHTML = rows.join('') || `<tr><td colspan="6" class="px-5 py-8 text-center text-gray-600 text-sm font-body">No seasons yet.</td></tr>`;
+    }
+
+    // ── Player picker ──────────────────────────────────────────
+    function renderPlayerPicker(filter = '') {
+      const picker = document.getElementById('player-picker');
+      const lf = filter.toLowerCase();
+      const visible = state.roster.filter(p => !lf || p.toLowerCase().includes(lf)).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+      if (!visible.length) {
+        picker.innerHTML = `<span class="text-gray-600 text-sm font-body">${state.roster.length ? 'No players match.' : 'No players in roster.'}</span>`;
+        return;
+      }
+
+      picker.innerHTML = visible.map(p => {
+        const sel = state.selectedPlayers.has(p.toLowerCase());
+        return `<span class="player-chip${sel ? ' selected' : ''}" data-player="${p}" onclick="togglePlayer('${p}')">${p}</span>`;
+      }).join('');
+
+      updatePlayerCount();
+    }
+
+    function togglePlayer(player) {
+      const key = player.toLowerCase();
+      if (state.selectedPlayers.has(key)) state.selectedPlayers.delete(key);
+      else state.selectedPlayers.add(key);
+      renderPlayerPicker(document.getElementById('f-player-search').value);
+    }
+
+    function updatePlayerCount() {
+      document.getElementById('f-player-count').textContent = `(${state.selectedPlayers.size} selected)`;
+    }
+
+    // ── Panel open/close ───────────────────────────────────────
+    function openCreate() {
+      state.editingId = null;
+      document.getElementById('panel-title').textContent = 'CREATE NEW SEASON';
+      document.getElementById('btn-save').textContent = 'Save Season';
+      document.getElementById('f-name').value = '';
+      document.getElementById('f-year').value = new Date().getFullYear();
+      document.getElementById('f-status').value = 'active';
+      document.getElementById('f-description').value = '';
+      document.getElementById('f-id-preview').textContent = '';
+      state.selectedPlayers = new Set();
+      renderPlayerPicker();
+      openPanel();
+    }
+
+    function openEdit(seasonId) {
+      const season = state.kvSeasons.find(s => s.id === seasonId);
+      if (!season) return;
+      state.editingId = seasonId;
+      document.getElementById('panel-title').textContent = 'EDIT SEASON';
+      document.getElementById('btn-save').textContent = 'Update Season';
+      document.getElementById('f-name').value = season.name;
+      document.getElementById('f-year').value = season.year || '';
+      document.getElementById('f-status').value = season.status || 'active';
+      document.getElementById('f-description').value = season.description || '';
+      document.getElementById('f-id-preview').textContent = `ID: ${season.id}`;
+      state.selectedPlayers = new Set((season.players || []).map(p => p.toLowerCase()));
+      renderPlayerPicker();
+      openPanel();
+    }
+
+    function openPanel() {
+      const panel = document.getElementById('form-panel');
+      panel.classList.add('open');
+      document.getElementById('toggle-form-icon').textContent = '−';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closePanel() {
+      document.getElementById('form-panel').classList.remove('open');
+      document.getElementById('toggle-form-icon').textContent = '+';
+      state.editingId = null;
+    }
+
+    // ── Save ───────────────────────────────────────────────────
+    async function saveSeason() {
+      const name = document.getElementById('f-name').value.trim();
+      const year = parseInt(document.getElementById('f-year').value) || null;
+      const status = document.getElementById('f-status').value;
+      const description = document.getElementById('f-description').value.trim();
+
+      if (!name) { showStatus('Season name is required.', 'error'); return; }
+
+      const id = state.editingId || nameToId(name);
+      if (!id) { showStatus('Could not generate a valid ID from that name.', 'error'); return; }
+
+      // Preserve original casing from roster for the players array
+      const players = state.roster.filter(p => state.selectedPlayers.has(p.toLowerCase()));
+
+      const season = { id, name, year, status, description, players };
+      const action = state.editingId ? 'update-season' : 'create-season';
+
+      const btn = document.getElementById('btn-save');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, season }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+
+        if (state.editingId) {
+          const idx = state.kvSeasons.findIndex(s => s.id === state.editingId);
+          if (idx !== -1) state.kvSeasons[idx] = data.season;
+        } else {
+          state.kvSeasons.push(data.season);
+        }
+
+        renderTable();
+        closePanel();
+        showStatus(`Season "${name}" saved.`, 'success');
+      } catch (e) {
+        showStatus(`Error: ${e.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = state.editingId ? 'Update Season' : 'Save Season';
+      }
+    }
+
+    // ── Archive ────────────────────────────────────────────────
+    async function archiveSeason(seasonId) {
+      const season = state.kvSeasons.find(s => s.id === seasonId);
+      if (!season) return;
+      if (!confirm(`Archive "${season.name}"? This marks it as completed.`)) return;
+
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'archive-season', seasonId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+
+        const idx = state.kvSeasons.findIndex(s => s.id === seasonId);
+        if (idx !== -1) state.kvSeasons[idx] = data.season;
+        renderTable();
+        showStatus(`"${season.name}" archived.`, 'success');
+      } catch (e) {
+        showStatus(`Error: ${e.message}`, 'error');
+      }
+    }
+
+    // ── Event listeners ────────────────────────────────────────
+    document.getElementById('toggle-form-btn').addEventListener('click', () => {
+      const panel = document.getElementById('form-panel');
+      if (panel.classList.contains('open')) closePanel();
+      else openCreate();
+    });
+
+    document.getElementById('btn-cancel').addEventListener('click', closePanel);
+    document.getElementById('btn-save').addEventListener('click', saveSeason);
+
+    document.getElementById('f-name').addEventListener('input', e => {
+      const id = nameToId(e.target.value);
+      const preview = document.getElementById('f-id-preview');
+      preview.textContent = id ? `ID: ${id}` : '';
+      if (!state.editingId && !document.getElementById('f-description').value) {
+        document.getElementById('f-description').value = id ? `MashUp Golf — ${e.target.value.trim()}` : '';
+      }
+    });
+
+    document.getElementById('f-player-search').addEventListener('input', e => {
+      renderPlayerPicker(e.target.value);
+    });
+
+    document.getElementById('btn-select-all').addEventListener('click', () => {
+      const filter = document.getElementById('f-player-search').value.toLowerCase();
+      state.roster.filter(p => !filter || p.toLowerCase().includes(filter))
+        .forEach(p => state.selectedPlayers.add(p.toLowerCase()));
+      renderPlayerPicker(document.getElementById('f-player-search').value);
+    });
+
+    document.getElementById('btn-clear-all').addEventListener('click', () => {
+      state.selectedPlayers.clear();
+      renderPlayerPicker(document.getElementById('f-player-search').value);
+    });
+
+    loadAll();
+  </script>
+
+</body>
+</html>
