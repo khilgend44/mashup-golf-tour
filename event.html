@@ -703,6 +703,7 @@
     }
 
     function renderLeaderboard(results, event, format, streams = {}) {
+      if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams); return; }
       if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams); return; }
       renderSoloLeaderboard(results, event, format, streams);
     }
@@ -922,6 +923,148 @@
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
     }
 
+    // ── Nassau 2-Man leaderboard ─────────────────────────────────────────────
+    function renderNassauLeaderboard(results, event, format, streams = {}) {
+      const app = document.getElementById('app');
+      const pots = results.nassauPots || {};
+      const sidePot = results.nassauSidePot || [];
+
+      const notesHtml = event.notes
+        ? `<div class="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mb-5 text-xs text-amber-400/80">
+             <span class="mt-0.5 shrink-0">⚠</span><span>${event.notes}</span>
+           </div>` : '';
+
+      function potCardHtml(label, team, scoreDesc) {
+        if (!team) return `<div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 flex flex-col gap-2 opacity-40"><div class="text-[10px] font-heading font-600 tracking-widest text-flame uppercase">${label}</div><div class="text-gray-600 text-sm">No winner yet</div></div>`;
+        const members = team.displayMembers.join(' / ');
+        return `<div class="card-shadow bg-card border border-flame/30 rounded-xl px-5 py-4 flex flex-col gap-2">
+          <div class="text-[10px] font-heading font-600 tracking-widest text-flame uppercase">${label}</div>
+          <div class="font-heading font-700 text-base text-white leading-tight tracking-wide">${members}</div>
+          <div class="text-xs font-mono text-gray-500">${scoreDesc}</div>
+        </div>`;
+      }
+
+      const bbCard = potCardHtml('18-Hole Best Ball', pots.bb,
+        pots.bb ? `BB: ${pots.bb.total} (${formatToPar(pots.bb.toPar)})` : '');
+      const f9Card = potCardHtml('Front 9 Aggregate', pots.f9,
+        pots.f9 ? `F9 Agg: ${pots.f9.f9Agg}` : '');
+      const b9Card = potCardHtml('Back 9 Aggregate', pots.b9,
+        pots.b9 ? `B9 Agg: ${pots.b9.b9Agg}` : '');
+
+      const ORDINALS = ['1st', '2nd'];
+      const sidePotRows = sidePot.map((p, i) => `
+        <div class="flex items-center justify-between py-3 border-b border-border last:border-0">
+          <div class="flex items-center gap-4">
+            <span class="font-display text-2xl text-flame leading-none">${ORDINALS[i] || `${i+1}th`}</span>
+            <div>
+              <div class="font-heading font-600 text-sm text-white tracking-wide">${p.name}</div>
+              <div class="text-xs text-gray-500 mt-0.5">Individual net: ${p.individualNet}</div>
+            </div>
+          </div>
+        </div>`).join('');
+
+      const sidePotHtml = sidePot.length ? `
+        <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 mt-6">
+          <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Individual Side Pot</div>
+          <div class="text-xs text-gray-600 mb-4">Best individual net — players not on any pot-winning team</div>
+          ${sidePotRows}
+        </div>` : '';
+
+      app.innerHTML = `
+        ${notesHtml}
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          ${bbCard}${f9Card}${b9Card}
+        </div>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Team Standings</h2>
+          <span class="text-xs text-gray-600">${results.length} teams &nbsp;·&nbsp; sorted by 18-hole best ball · click to expand</span>
+        </div>
+        <div class="card-shadow rounded-xl overflow-hidden border border-border">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-surface">
+                  <th class="w-8 pl-3 py-3"></th>
+                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">BB Net</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">F9 Agg</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">B9 Agg</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Full Agg</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pot</th>
+                </tr>
+              </thead>
+              <tbody id="lb-body"></tbody>
+            </table>
+          </div>
+        </div>
+        ${sidePotHtml}
+        <div id="ctp-section"></div>
+      `;
+
+      const POT_LABEL = { bb: '18BB', f9: 'F9', b9: 'B9' };
+      const tbody = document.getElementById('lb-body');
+      results.forEach(team => {
+        const toParStr = formatToPar(team.toPar);
+        const toParCls = team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
+        const potStr   = team.potWon ? POT_LABEL[team.potWon] : '—';
+        const potCls   = team.potWon ? 'text-flame font-semibold' : 'text-gray-700';
+
+        const memberHtml = team.displayMembers.map(m => {
+          const ps = getPlayerStreams(streams, m);
+          const url = ps?.['1'] || null;
+          const icon = url
+            ? `<a href="${url}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="shrink-0 hover:opacity-80" style="transition:opacity 0.15s"><svg width="16" height="11" viewBox="0 0 20 14" fill="none"><path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#ef4444"/><path d="M8 10 13.2 7 8 4v6z" fill="white"/></svg></a>`
+            : `<span class="shrink-0"><svg width="16" height="11" viewBox="0 0 20 14" fill="none"><path d="M19.6 2.2A2.5 2.5 0 0 0 17.8.4C16.3 0 10 0 10 0S3.7 0 2.2.4A2.5 2.5 0 0 0 .4 2.2C0 3.7 0 7 0 7s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C3.7 14 10 14 10 14s6.3 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8C20 10.3 20 7 20 7s0-3.3-.4-4.8z" fill="#222"/><path d="M8 10 13.2 7 8 4v6z" fill="#3a3a3a"/></svg></span>`;
+          return `<div class="flex items-center gap-1.5">${icon}<span class="text-xs text-gray-300">${m}</span></div>`;
+        }).join('');
+
+        const tr = document.createElement('tr');
+        tr.className = `lb-row cursor-pointer select-none ${team.potWon ? 'bg-[rgba(249,115,22,0.04)]' : ''}`;
+        tr.innerHTML = `
+          <td class="w-8 pl-3 py-3"></td>
+          <td class="px-4 py-3 leading-snug">${memberHtml}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono">${team.total}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden sm:table-cell">${team.f9Agg}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden sm:table-cell">${team.b9Agg}</td>
+          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs hidden md:table-cell">${team.aggregate}</td>
+          <td class="px-3 py-3 text-center text-xs ${potCls}">${potStr}</td>
+        `;
+
+        const cardTr = document.createElement('tr');
+        cardTr.className = 'hidden';
+        cardTr.innerHTML = `
+          <td colspan="99" class="p-0 border-b border-border">
+            <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+              <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">
+                Team Scorecard — ${team.displayMembers.join(' / ')}
+              </div>
+              ${buildTeamScorecardHTML(team, format)}
+              <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
+                ${team.displayMembers.map(m => `
+                  <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
+                     class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
+                     style="transition:color 0.15s">
+                    <img src="brand_assets/sgt_emblem.svg" class="h-3.5 w-auto opacity-50" />
+                    ${m} <span class="text-[#d03f25]">→</span>
+                  </a>`).join('')}
+              </div>
+            </div>
+          </td>
+        `;
+
+        tr.addEventListener('click', () => {
+          cardTr.classList.toggle('hidden');
+          tr.classList.toggle('expanded', !cardTr.classList.contains('hidden'));
+        });
+        tbody.appendChild(tr);
+        tbody.appendChild(cardTr);
+      });
+
+      if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
+    }
+
     function buildStablefordSidePotHtml(results, event) {
       const topTeamMembers = new Set(
         results.filter(t => t.position <= 2).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
@@ -964,6 +1107,7 @@
       const back  = [9,10,11,12,13,14,15,16,17];
       const isLoneRanger  = format?.type === 'lone-ranger';
       const isShamble     = format?.type === 'shamble-2man';
+      const isNassau      = format?.type === 'nassau-2man';
       const isB2W2All3    = format?.type === 'best2-worst2-all3';
       const isDevilsDraw   = format?.type === 'devils-draw' || format?.type === 'devils-draw-4man';
       const isStableford   = format?.type === 'stableford-3man';
@@ -990,6 +1134,7 @@
           if (count === 1) return { label: '1BB', cls: 'text-blue-400' };
           return { label: 'ZERO', cls: 'text-gray-600' };
         }
+        if (isNassau)     return { label: 'BB',  cls: 'text-amber-400' };
         if (isStableford) return { label: '2BB', cls: 'text-amber-400' };
         if (h < 6)  return { label: '1BB', cls: 'text-blue-400' };
         if (h < 12) return { label: '2BB', cls: 'text-amber-400' };
@@ -1056,7 +1201,7 @@
             </thead>
             <tbody>
               <tr class="par-row">
-                <td class="text-left pl-3">${isShamble || isStableford ? 'PAR' : 'ADJ PAR'}</td>
+                <td class="text-left pl-3">${isShamble || isStableford || isNassau ? 'PAR' : 'ADJ PAR'}</td>
                 ${front.map(i=>`<td>${team.adjPars[i]}</td>`).join('')}
                 <td class="sub-cell">${outAdjPar}</td>
                 ${back.map(i=>`<td>${team.adjPars[i]}</td>`).join('')}
@@ -1101,8 +1246,8 @@
           <span class="text-gray-500 font-heading font-600 text-[10px] tracking-widest">1</span> <span>Bogey</span>
           <span class="text-red-500/60 font-heading font-600 text-[10px] tracking-widest">0</span> <span>Double+</span>
           <span class="text-gray-700 w-full mt-0.5">Team = top 2 stableford points per hole · Dimmed = doesn't count · Agg = all 3 players' individual totals</span>
-          ` : isShamble ? `
-          <span class="text-gray-700">Team score = best net ball per hole · Dimmed score didn't count</span>
+          ` : isShamble || isNassau ? `
+          <span class="text-gray-700">Team score = best net ball per hole · Dimmed score didn't count${isNassau ? ' · F9 Agg: ' + team.f9Agg + ' · B9 Agg: ' + team.b9Agg : ''}</span>
           ` : isDevilsDraw ? `
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">3BB</span> <span>All 3 net scores</span>
           <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span> <span>Best 2 net scores</span>

@@ -4,6 +4,7 @@ export function applyFormat(scorecards, format, event = null) {
     case 'escalator-doom':  return calcEscalatorDoom(scorecards, format, event);
     case 'lone-ranger':     return calcLoneRanger(scorecards, format, event);
     case 'shamble-2man':      return calcShamble2Man(scorecards, format, event);
+    case 'nassau-2man':       return calcNassau2Man(scorecards, format, event);
     case 'best2-worst2-all3': return calcBest2Worst2All3(scorecards, format, event);
     case 'devils-draw':           return calcDevilsDraw(scorecards, format, event);
     case 'stableford-3man':       return calcStableford3Man(scorecards, format, event);
@@ -695,6 +696,150 @@ function shambleCountback(a, b) {
   for (const h of sorted) {
     const d = a.teamHoleScores[h] - b.teamHoleScores[h];
     if (d !== 0) return d;
+  }
+  return 0;
+}
+
+// ─── 2-Man Modified Nassau ──────────────────────────────────────────────────
+
+function calcNassau2Man(scorecards, format, event) {
+  const kvTeamMap = buildKvTeamMap(event);
+  const teams = {};
+
+  for (const card of scorecards) {
+    if (card.status !== 'Completed') continue;
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2], kvTeamMap);
+    if (!teams[key]) {
+      teams[key] = {
+        displayMembers: [...displayMembers],
+        players: [],
+        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
+        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
+      };
+    }
+    teams[key].players.push({
+      name: card.player_name,
+      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      totalNet: card.total_net,
+    });
+  }
+
+  const results = Object.values(teams).map(team => {
+    // Best Ball per hole (18-hole BB competition)
+    const countingPlayers = [];
+    const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
+      const effective = team.players.map(p => {
+        const s = p.net[h];
+        return (s === null || s === 0) ? Infinity : s;
+      });
+      const best = Math.min(...effective);
+      const counting = team.players.map((_, i) => best !== Infinity && effective[i] === best);
+      countingPlayers.push(counting);
+      return best === Infinity ? 0 : best;
+    });
+
+    const out      = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inn      = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);
+    const outPar   = team.pars.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inPar    = team.pars.slice(9).reduce((a, b) => a + b, 0);
+    const total    = out + inn;
+    const totalPar = outPar + inPar;
+
+    // Aggregate scores: sum of both players' individual nets per half
+    const f9Agg = team.players.reduce((s, p) =>
+      s + p.net.slice(0, 9).reduce((a, v) => a + (v == null ? 0 : v), 0), 0);
+    const b9Agg = team.players.reduce((s, p) =>
+      s + p.net.slice(9).reduce((a, v) => a + (v == null ? 0 : v), 0), 0);
+    const aggregate = f9Agg + b9Agg;
+
+    return {
+      isTeam: true,
+      displayMembers: team.displayMembers,
+      players: team.players,
+      teamHoleScores,
+      countingPlayers,
+      pars: team.pars,
+      adjPars: team.pars,
+      indices: team.indices,
+      out, inn, outPar, inPar,
+      total, totalPar,
+      toPar: total - totalPar,
+      bbScore: total,
+      f9Agg, b9Agg, aggregate,
+      potWon: null,
+      position: 1,
+      prize: null,
+    };
+  });
+
+  if (results.length === 0) return results;
+
+  const sortBB = (a, b) => a.bbScore  !== b.bbScore  ? a.bbScore  - b.bbScore
+    : a.aggregate !== b.aggregate ? a.aggregate - b.aggregate : nassauCB18(a, b);
+  const sortF9 = (a, b) => a.f9Agg   !== b.f9Agg   ? a.f9Agg   - b.f9Agg
+    : a.aggregate !== b.aggregate ? a.aggregate - b.aggregate : nassauCBF9(a, b);
+  const sortB9 = (a, b) => a.b9Agg   !== b.b9Agg   ? a.b9Agg   - b.b9Agg
+    : a.aggregate !== b.aggregate ? a.aggregate - b.aggregate : nassauCBB9(a, b);
+
+  // Assign pot winners (no-double-win: each team wins at most one pot)
+  [...results].sort(sortBB)[0].potWon = 'bb';
+  for (const t of [...results].sort(sortF9)) { if (!t.potWon) { t.potWon = 'f9'; break; } }
+  for (const t of [...results].sort(sortB9)) { if (!t.potWon) { t.potWon = 'b9'; break; } }
+
+  // Sort leaderboard by BB score
+  results.sort(sortBB);
+  for (let i = 0; i < results.length; i++) {
+    if (i === 0) { results[0].position = 1; continue; }
+    const prev = results[i - 1], curr = results[i];
+    const tied = sortBB(curr, prev) === 0;
+    curr.position = tied ? prev.position : i + 1;
+    if (tied) { curr.tied = true; prev.tied = true; }
+  }
+
+  // Side pot: best individual nets from players NOT on any pot-winning team
+  const potWinnerSet = new Set(
+    results.filter(t => t.potWon).flatMap(t => t.displayMembers.map(p => p.toLowerCase()))
+  );
+  const sideCandidates = results
+    .flatMap(t => t.players.map(p => ({ name: p.name, individualNet: p.totalNet })))
+    .filter(p => !potWinnerSet.has(p.name.toLowerCase()))
+    .sort((a, b) => a.individualNet - b.individualNet);
+
+  results.nassauSidePot = sideCandidates.slice(0, 2);
+  results.nassauPots = {
+    bb: results.find(t => t.potWon === 'bb') || null,
+    f9: results.find(t => t.potWon === 'f9') || null,
+    b9: results.find(t => t.potWon === 'b9') || null,
+  };
+
+  return results;
+}
+
+function nassauCB18(a, b) {
+  const sorted = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.indices[x] - a.indices[y]);
+  for (const h of sorted) {
+    const d = a.teamHoleScores[h] - b.teamHoleScores[h];
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+function nassauCBF9(a, b) {
+  const sorted = Array.from({ length: 9 }, (_, i) => i).sort((x, y) => a.indices[x] - a.indices[y]);
+  for (const h of sorted) {
+    const ah = a.players.reduce((s, p) => s + (p.net[h] || 0), 0);
+    const bh = b.players.reduce((s, p) => s + (p.net[h] || 0), 0);
+    if (ah !== bh) return ah - bh;
+  }
+  return 0;
+}
+
+function nassauCBB9(a, b) {
+  const sorted = Array.from({ length: 9 }, (_, i) => i + 9).sort((x, y) => a.indices[x] - a.indices[y]);
+  for (const h of sorted) {
+    const ah = a.players.reduce((s, p) => s + (p.net[h] || 0), 0);
+    const bh = b.players.reduce((s, p) => s + (p.net[h] || 0), 0);
+    if (ah !== bh) return ah - bh;
   }
   return 0;
 }

@@ -84,6 +84,22 @@
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
     ]
   },
+  "nassau-2man": {
+    "id": "nassau-2man",
+    "name": "2-Man Modified Nassau",
+    "shortName": "Nassau",
+    "description": "2-player teams. Three independent competitions: (1) 18-hole Best Ball — lowest net per hole, team total; (2) Front 9 Aggregate — both players' net scores, holes 1–9; (3) Back 9 Aggregate — both players' net scores, holes 10–18. No double-winning: each team can win at most one pot. Individual side pot: best 2 net totals from players not on a winning team. Teams drawn A/B by handicap.",
+    "scoringBasis": "net",
+    "type": "nassau-2man",
+    "lowScoreWins": true,
+    "teamSize": 2,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "18-hole BB: full team net aggregate (both players' net totals)" },
+      { "type": "index-countback",    "label": "18-hole BB: scorecard countback from index hole 1" },
+      { "type": "team-net-aggregate", "label": "F9/B9: full 18-hole team net aggregate" },
+      { "type": "index-countback",    "label": "F9 countback: per-hole aggregate from hardest front-9 hole; B9 same for back 9" }
+    ]
+  },
   "shamble-2man": {
     "id": "shamble-2man",
     "name": "2-Man Shamble",
