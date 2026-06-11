@@ -161,17 +161,13 @@
       const teamSize = format.teamSize || 1;
 
       // Compute adjusted handicaps
-      const hcpMap = {};
-      if (Array.isArray(handicaps)) {
-        for (const h of handicaps) {
-          if (h.username) hcpMap[h.username.toLowerCase()] = parseFloat(h.rawCap);
-        }
-      }
-      const allRaw = Object.values(hcpMap).filter(n => !isNaN(n));
+      // handicaps is an object keyed by lowercase player name: { "playername": { rawCap, ... }, ... }
+      const hcpMap = (handicaps && typeof handicaps === 'object' && !Array.isArray(handicaps)) ? handicaps : {};
+      const allRaw = Object.values(hcpMap).map(h => parseFloat(h.rawCap)).filter(n => !isNaN(n));
       const minRaw = allRaw.length ? Math.min(...allRaw) : 0;
       function adjCap(name) {
-        const raw = hcpMap[name.toLowerCase()];
-        return raw !== undefined ? Math.round(raw - minRaw) : null;
+        const h = hcpMap[name.toLowerCase()];
+        return h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) - minRaw) : null;
       }
 
       // Breadcrumb

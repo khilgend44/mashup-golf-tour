@@ -52,7 +52,7 @@ SimulatorGolfTour API  (provides live scorecard data)
   - `admin:events` — events created via admin portal (Season 10+)
   - `admin:formats` — custom game formats created via admin portal (merged with `data/formats.json` at runtime)
   - `players:roster` — player list (names array)
-  - `players:handicaps` — handicap data from SGT API (array of `{ username, rawCap, ... }`)
+  - `players:handicaps` — handicap data from SGT API (object keyed by lowercase player name → `{ rawCap, comboCap, numEvents, ... }`)
   - `players:last_refresh` — ISO timestamp of last handicap pull
   - `{eventId}:{playerName}:{round}` — YouTube stream URLs submitted by players
 - Static/historical data lives in `data/` JSON files in the repo instead.
