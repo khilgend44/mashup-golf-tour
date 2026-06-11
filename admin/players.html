@@ -59,10 +59,29 @@
   <main class="max-w-6xl mx-auto px-4 py-10 pb-20 space-y-8">
 
     <!-- Header -->
-    <div class="flex items-end justify-between flex-wrap gap-4">
-      <div>
-        <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Admin</div>
-        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white">PLAYERS</h1>
+    <div>
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Admin</div>
+      <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white">PLAYERS</h1>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
+
+    <!-- Season Selector Bar -->
+    <div class="card-shadow bg-card border border-border rounded-lg px-6 py-5 flex items-center justify-between flex-wrap gap-5">
+      <div class="flex items-center gap-5 flex-wrap">
+        <div>
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1.5">Viewing Season</div>
+          <select id="season-filter"
+            class="bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-xl tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer"
+            style="transition:border-color 0.15s; min-width:180px">
+            <option value="">All Players</option>
+          </select>
+        </div>
+        <div id="season-meta" class="flex items-center gap-3 mt-4">
+          <span id="season-status-badge" class="hidden px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider"></span>
+          <span id="season-player-info" class="text-sm text-gray-500 font-body"></span>
+        </div>
       </div>
       <div class="flex items-center gap-3">
         <div id="last-refresh-label" class="text-xs text-gray-600 font-body"></div>
@@ -77,9 +96,6 @@
         </button>
       </div>
     </div>
-
-    <!-- Status bar -->
-    <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
 
     <!-- Onboard Section -->
     <div class="card-shadow bg-card border border-border rounded-lg p-6">
@@ -122,14 +138,8 @@
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
       <div class="px-6 py-4 border-b border-border flex items-center justify-between flex-wrap gap-3">
         <h2 class="font-display text-2xl tracking-wider text-white">ROSTER <span id="player-count" class="text-gray-600 text-lg"></span></h2>
-        <div class="flex items-center gap-3 flex-wrap">
-          <select id="season-filter"
-            class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 focus:outline-none focus:border-flame/50">
-            <option value="">All Players</option>
-          </select>
-          <input id="search-input" type="text" placeholder="Search..."
-            class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 w-40" />
-        </div>
+        <input id="search-input" type="text" placeholder="Search..."
+          class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 w-40" />
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -306,10 +316,49 @@
 
     function populateSeasonDropdown() {
       const sel = document.getElementById('season-filter');
-      const current = sel.value;
       sel.innerHTML = '<option value="">All Players</option>' +
-        state.seasons.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-      if (current && state.seasons.find(s => s.id === current)) sel.value = current;
+        state.seasons.map(s =>
+          `<option value="${s.id}">${s.name}${s.status === 'active' ? ' ✦' : ''}</option>`
+        ).join('');
+
+      // Default to first active season, then most recent, then leave as All
+      if (!state.selectedSeason) {
+        const active = state.seasons.find(s => s.status === 'active');
+        const defaultSeason = active || state.seasons[0];
+        if (defaultSeason) {
+          state.selectedSeason = defaultSeason.id;
+        }
+      }
+      sel.value = state.selectedSeason;
+      updateSeasonMeta();
+    }
+
+    function updateSeasonMeta() {
+      const badge = document.getElementById('season-status-badge');
+      const info  = document.getElementById('season-player-info');
+
+      if (!state.selectedSeason) {
+        badge.classList.add('hidden');
+        info.textContent = `${state.roster.length} players total`;
+        return;
+      }
+
+      const season = state.seasons.find(s => s.id === state.selectedSeason);
+      const count  = getSeasonRoster().length;
+
+      if (season?.status === 'active') {
+        badge.className = 'badge-green px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider';
+        badge.textContent = 'Active';
+        badge.classList.remove('hidden');
+      } else if (season?.status === 'completed') {
+        badge.className = 'badge-gray px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider';
+        badge.textContent = 'Completed';
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      info.textContent = `${count} of ${state.roster.length} players`;
     }
 
     async function removePlayer(name) {
@@ -416,6 +465,7 @@
     document.getElementById('season-filter').addEventListener('change', e => {
       state.selectedSeason = e.target.value;
       document.getElementById('search-input').value = '';
+      updateSeasonMeta();
       renderTable(getSeasonRoster(), state.handicaps);
     });
 
