@@ -37,7 +37,10 @@ SimulatorGolfTour API  (provides live scorecard data)
   - `/admin/players.html` — manage player roster, view/refresh handicaps
   - `/admin/events.html` — create/manage seasons and events
   - `/admin/teams.html` — draw teams for an event (Steps 1–4):
-    - Step 1: Create Random Teams (tiered draw by handicap)
+    - Step 1: Create Teams — three modes:
+      - **Tiered Draw**: 1 player pulled from each handicap tier, produces balanced teams
+      - **Completely Random**: all players shuffled, pure luck
+      - **Manual Entry**: click-to-assign UI — select a player chip, click a team slot to place them; Save button enabled when all slots filled
     - Step 2: Generate SGT Loading File (CSV download for SimulatorGolfTour registration)
     - Step 3: Upload SGT Loading File (manual instruction — links to SGT Admin)
     - Step 4: Configure Special Team Orders (Lone Ranger slot assignments)
@@ -64,6 +67,12 @@ SimulatorGolfTour API  (provides live scorecard data)
 - Commits scorecard JSON files to `data/scorecards/{tournamentId}.json`
 - Merges both static `data/events.json` and KV-stored events so admin-created events are included
 - **Triggered by:** Cloudflare Worker (not GitHub's built-in scheduler — see below)
+
+### Team Assignment in the Scoring Engine
+- All team formats (`js/scoring.js`) determine teams using **`TeamPlayer1/2/3/4` from the SGT API scorecard** as the primary source
+- **Fallback:** if those fields are absent (e.g. tournament was not uploaded as a team event in SGT), teams are resolved from `event.teams` stored in KV
+- `event.teams` is an array of arrays of player names: `[['A','B','C'], ['D','E','F'], ...]` — saved by the admin teams page
+- This fallback applies to all 7 team formats: Escalator, Devil's Draw (3-man & 4-man), Stableford, Best2/Worst2, Shamble, Lone Ranger
 
 ### 5. Cron Trigger — Cloudflare Worker
 - **Worker name:** `mashup-scorecard-trigger`
