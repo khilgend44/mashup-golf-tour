@@ -247,7 +247,7 @@
     async function loadAll() {
       const [kvRes, staticRes, playersRes] = await Promise.allSettled([
         fetch(API),
-        fetch('data/seasons.json'),
+        fetch('/data/seasons.json'),
         fetch(PLAYERS_API),
       ]);
 
@@ -256,7 +256,10 @@
       state.roster        = playersRes.status === 'fulfilled' && playersRes.value.ok ? (await playersRes.value.json()).roster || []      : [];
 
       renderTable();
-      renderPlayerPicker();
+      // If the panel is already open (user opened it before roster loaded), re-render
+      // using whatever filter text the user may have already typed
+      const currentFilter = document.getElementById('f-player-search').value || '';
+      renderPlayerPicker(currentFilter);
     }
 
     // ── Render table ───────────────────────────────────────────
@@ -561,10 +564,10 @@
       this.dataset.edited = '1';
     });
 
-    // Player filter
-    document.getElementById('f-player-search').addEventListener('input', e => {
-      renderPlayerPicker(e.target.value);
-    });
+    // Player filter — listen on both input and keyup for maximum compatibility
+    function onFilterChange(e) { renderPlayerPicker(e.target.value); }
+    document.getElementById('f-player-search').addEventListener('input', onFilterChange);
+    document.getElementById('f-player-search').addEventListener('keyup', onFilterChange);
 
     // Select All / Clear
     document.getElementById('btn-select-all').addEventListener('click', () => {
