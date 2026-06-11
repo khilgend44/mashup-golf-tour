@@ -62,6 +62,7 @@
       background: rgba(249,115,22,0.15); border-color: rgba(249,115,22,0.5); color: #f97316;
     }
     .player-chip:hover:not(.selected) { border-color: #4b5563; color: #e5e5e5; }
+    .player-chip.new-player { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.4); color: #4ade80; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
@@ -104,20 +105,17 @@
 
         <div class="form-grid mb-6">
 
-          <!-- Name -->
           <div>
             <label>Season Name</label>
             <input type="text" id="f-name" placeholder="Season 10" />
             <div id="f-id-preview" class="mt-1 text-xs text-gray-600 font-body font-mono"></div>
           </div>
 
-          <!-- Year -->
           <div>
             <label>Year</label>
             <input type="number" id="f-year" min="2020" max="2040" />
           </div>
 
-          <!-- Status -->
           <div>
             <label>Initial Status</label>
             <select id="f-status">
@@ -126,7 +124,6 @@
             </select>
           </div>
 
-          <!-- Description -->
           <div class="form-full">
             <label>Description</label>
             <input type="text" id="f-description" placeholder="MashUp Golf — Season 10" />
@@ -134,17 +131,20 @@
 
         </div>
 
-        <!-- Player picker -->
-        <div class="mb-6">
+        <!-- Player picker — existing roster -->
+        <div class="mb-2">
           <div class="flex items-center justify-between mb-3">
-            <label class="mb-0">Players <span id="f-player-count" class="text-gray-600 normal-case tracking-normal font-body text-xs ml-1">(0 selected)</span></label>
+            <label class="mb-0">
+              Players
+              <span id="f-player-count" class="text-gray-600 normal-case tracking-normal font-body text-xs ml-1">(0 selected)</span>
+            </label>
             <div class="flex gap-2">
               <button type="button" id="btn-select-all"
                 class="px-3 py-1 rounded text-xs font-heading font-600 tracking-wider border border-border text-gray-400 hover:text-white hover:border-gray-500"
-                style="transition:color 0.12s, border-color 0.12s">Select All</button>
+                style="transition:color 0.12s,border-color 0.12s">Select All</button>
               <button type="button" id="btn-clear-all"
                 class="px-3 py-1 rounded text-xs font-heading font-600 tracking-wider border border-border text-gray-400 hover:text-white hover:border-gray-500"
-                style="transition:color 0.12s, border-color 0.12s">Clear</button>
+                style="transition:color 0.12s,border-color 0.12s">Clear</button>
             </div>
           </div>
           <div class="mb-3">
@@ -155,6 +155,19 @@
           </div>
         </div>
 
+        <!-- Add new player (not yet in roster) -->
+        <div class="mt-4 pt-4 border-t border-border mb-6">
+          <label class="mb-2">Add player not in roster</label>
+          <div class="flex gap-2 items-center">
+            <input type="text" id="f-new-player" placeholder="SGT username…" style="max-width:280px;width:100%" />
+            <button type="button" id="btn-add-new-player"
+              class="px-4 py-2 rounded-lg border border-border text-gray-400 text-sm font-heading font-600 tracking-wider hover:text-white hover:border-gray-500 shrink-0"
+              style="transition:color 0.12s,border-color 0.12s">Add</button>
+          </div>
+          <p class="text-xs text-gray-600 font-body mt-1.5">These players will be added to the master roster when you save.</p>
+          <div id="new-players-list" class="mt-3 flex flex-wrap gap-2 hidden"></div>
+        </div>
+
         <div class="flex gap-3 flex-wrap">
           <button id="btn-save" type="button"
             class="px-5 py-2.5 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed"
@@ -163,7 +176,7 @@
           </button>
           <button id="btn-cancel" type="button"
             class="px-5 py-2.5 rounded-lg border border-border text-gray-400 text-sm font-heading font-600 tracking-wider hover:border-gray-500 hover:text-white"
-            style="transition:color 0.12s, border-color 0.12s">
+            style="transition:color 0.12s,border-color 0.12s">
             Cancel
           </button>
         </div>
@@ -171,7 +184,7 @@
     </div>
 
     <!-- SEASONS TABLE -->
-    <div id="seasons-table-wrap" class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
       <div id="seasons-loading" class="px-6 py-8 text-center text-gray-600 text-sm font-body">Loading seasons…</div>
       <table id="seasons-table" class="w-full hidden">
         <thead>
@@ -191,15 +204,16 @@
   </main>
 
   <script>
-    const API = '/api/seasons';
+    const API        = '/api/seasons';
     const PLAYERS_API = '/api/players';
 
     let state = {
-      kvSeasons: [],
-      staticSeasons: [],
-      roster: [],
-      editingId: null,
+      kvSeasons:      [],
+      staticSeasons:  [],
+      roster:         [],
+      editingId:      null,
       selectedPlayers: new Set(),
+      newPlayers:     [],
     };
 
     // ── Utilities ──────────────────────────────────────────────
@@ -225,6 +239,10 @@
       return `<span class="badge-gray px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">${status}</span>`;
     }
 
+    function updatePlayerCount() {
+      document.getElementById('f-player-count').textContent = `(${state.selectedPlayers.size} selected)`;
+    }
+
     // ── Load ───────────────────────────────────────────────────
     async function loadAll() {
       const [kvRes, staticRes, playersRes] = await Promise.allSettled([
@@ -233,9 +251,9 @@
         fetch(PLAYERS_API),
       ]);
 
-      state.kvSeasons     = kvRes.status === 'fulfilled'      && kvRes.value.ok      ? await kvRes.value.json()               : [];
-      state.staticSeasons = staticRes.status === 'fulfilled'  && staticRes.value.ok  ? await staticRes.value.json()           : [];
-      state.roster        = playersRes.status === 'fulfilled' && playersRes.value.ok ? (await playersRes.value.json()).roster || [] : [];
+      state.kvSeasons     = kvRes.status === 'fulfilled'      && kvRes.value.ok      ? await kvRes.value.json()                         : [];
+      state.staticSeasons = staticRes.status === 'fulfilled'  && staticRes.value.ok  ? await staticRes.value.json()                     : [];
+      state.roster        = playersRes.status === 'fulfilled' && playersRes.value.ok ? (await playersRes.value.json()).roster || []      : [];
 
       renderTable();
       renderPlayerPicker();
@@ -248,29 +266,26 @@
       document.getElementById('seasons-table').classList.remove('hidden');
 
       const rows = [];
+      const btnCls = 'text-xs font-heading font-600 tracking-wider px-2 py-1 rounded border border-border';
 
-      // KV seasons first (newest first by year)
       const kvSorted = [...state.kvSeasons].sort((a, b) => (b.year || 0) - (a.year || 0));
       for (const s of kvSorted) {
         const playerCount = Array.isArray(s.players) ? s.players.length : 0;
-        const archiveBtn = s.status === 'active'
-          ? `<button onclick="archiveSeason('${s.id}')" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-yellow-400 px-2 py-1 rounded border border-border hover:border-yellow-800/40" style="transition:color 0.12s,border-color 0.12s">Archive</button>`
+        const archiveBtn  = s.status === 'active'
+          ? `<button data-archive="${s.id}" class="${btnCls} text-gray-500 hover:text-yellow-400 hover:border-yellow-800/40" style="transition:color 0.12s,border-color 0.12s">Archive</button>`
           : '';
-        const editBtn = `<button onclick="openEdit('${s.id}')" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame px-2 py-1 rounded border border-border hover:border-flame/30" style="transition:color 0.12s,border-color 0.12s">Edit</button>`;
+        const editBtn = `<button data-edit="${s.id}" class="${btnCls} text-gray-500 hover:text-flame hover:border-flame/30" style="transition:color 0.12s,border-color 0.12s">Edit</button>`;
         rows.push(`
-          <tr class="border-b border-border/60" id="row-${s.id}">
+          <tr class="border-b border-border/60">
             <td class="px-5 py-3 font-heading font-600 text-white">${s.name}</td>
             <td class="px-5 py-3 font-mono text-xs text-gray-500">${s.id}</td>
             <td class="px-5 py-3 text-sm text-gray-400">${s.year || '—'}</td>
             <td class="px-5 py-3">${statusBadge(s.status)}</td>
             <td class="px-5 py-3 text-sm text-gray-400">${playerCount}</td>
-            <td class="px-5 py-3 text-right">
-              <div class="flex gap-2 justify-end">${editBtn}${archiveBtn}</div>
-            </td>
+            <td class="px-5 py-3 text-right"><div class="flex gap-2 justify-end">${editBtn}${archiveBtn}</div></td>
           </tr>`);
       }
 
-      // Static seasons (read-only)
       const staticSorted = [...state.staticSeasons].sort((a, b) => (b.year || 0) - (a.year || 0));
       for (const s of staticSorted) {
         const playerCount = Array.isArray(s.players) ? s.players.length : 0;
@@ -281,32 +296,50 @@
             <td class="px-5 py-3 text-sm text-gray-400">${s.year || '—'}</td>
             <td class="px-5 py-3">${statusBadge(s.status)}</td>
             <td class="px-5 py-3 text-sm text-gray-400">${playerCount}</td>
-            <td class="px-5 py-3 text-right">
-              <span class="badge-blue px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Static file</span>
-            </td>
+            <td class="px-5 py-3 text-right"><span class="badge-blue px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Static file</span></td>
           </tr>`);
       }
 
-      tbody.innerHTML = rows.join('') || `<tr><td colspan="6" class="px-5 py-8 text-center text-gray-600 text-sm font-body">No seasons yet.</td></tr>`;
+      tbody.innerHTML = rows.join('') ||
+        `<tr><td colspan="6" class="px-5 py-8 text-center text-gray-600 text-sm font-body">No seasons yet.</td></tr>`;
     }
 
     // ── Player picker ──────────────────────────────────────────
     function renderPlayerPicker(filter = '') {
       const picker = document.getElementById('player-picker');
       const lf = filter.toLowerCase();
-      const visible = state.roster.filter(p => !lf || p.toLowerCase().includes(lf)).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      const visible = state.roster
+        .filter(p => !lf || p.toLowerCase().includes(lf))
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
       if (!visible.length) {
         picker.innerHTML = `<span class="text-gray-600 text-sm font-body">${state.roster.length ? 'No players match.' : 'No players in roster.'}</span>`;
+        updatePlayerCount();
         return;
       }
 
       picker.innerHTML = visible.map(p => {
         const sel = state.selectedPlayers.has(p.toLowerCase());
-        return `<span class="player-chip${sel ? ' selected' : ''}" data-player="${p}" onclick="togglePlayer('${p}')">${p}</span>`;
+        return `<span class="player-chip${sel ? ' selected' : ''}" data-player="${p}">${p}</span>`;
       }).join('');
 
       updatePlayerCount();
+    }
+
+    function renderNewPlayersList() {
+      const list = document.getElementById('new-players-list');
+      if (!state.newPlayers.length) {
+        list.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+      }
+      list.classList.remove('hidden');
+      list.innerHTML = state.newPlayers.map(p =>
+        `<span class="player-chip new-player">
+          <span style="font-size:0.55rem;opacity:0.7;margin-right:1px">NEW</span>${p}
+          <span data-remove-new="${p}" style="margin-left:3px;opacity:0.6;cursor:pointer;font-size:0.85rem" title="Remove">×</span>
+        </span>`
+      ).join('');
     }
 
     function togglePlayer(player) {
@@ -316,22 +349,44 @@
       renderPlayerPicker(document.getElementById('f-player-search').value);
     }
 
-    function updatePlayerCount() {
-      document.getElementById('f-player-count').textContent = `(${state.selectedPlayers.size} selected)`;
+    function addNewPlayer() {
+      const input = document.getElementById('f-new-player');
+      const name  = input.value.trim();
+      if (!name) return;
+
+      const lower = name.toLowerCase();
+
+      if (state.roster.some(p => p.toLowerCase() === lower)) {
+        showStatus(`"${name}" is already in the roster — select them from the picker above.`, 'error');
+        return;
+      }
+      if (state.newPlayers.some(p => p.toLowerCase() === lower)) {
+        showStatus(`"${name}" has already been added.`, 'error');
+        return;
+      }
+
+      state.newPlayers.push(name);
+      state.selectedPlayers.add(lower);
+      input.value = '';
+      renderNewPlayersList();
+      updatePlayerCount();
     }
 
     // ── Panel open/close ───────────────────────────────────────
     function openCreate() {
       state.editingId = null;
-      document.getElementById('panel-title').textContent = 'CREATE NEW SEASON';
-      document.getElementById('btn-save').textContent = 'Save Season';
-      document.getElementById('f-name').value = '';
-      document.getElementById('f-year').value = new Date().getFullYear();
-      document.getElementById('f-status').value = 'active';
-      document.getElementById('f-description').value = '';
-      document.getElementById('f-id-preview').textContent = '';
+      state.newPlayers = [];
       state.selectedPlayers = new Set();
+      document.getElementById('panel-title').textContent  = 'CREATE NEW SEASON';
+      document.getElementById('btn-save').textContent     = 'Save Season';
+      document.getElementById('f-name').value             = '';
+      document.getElementById('f-year').value             = new Date().getFullYear();
+      document.getElementById('f-status').value           = 'active';
+      document.getElementById('f-description').value      = '';
+      document.getElementById('f-id-preview').textContent = '';
+      document.getElementById('f-player-search').value   = '';
       renderPlayerPicker();
+      renderNewPlayersList();
       openPanel();
     }
 
@@ -339,15 +394,18 @@
       const season = state.kvSeasons.find(s => s.id === seasonId);
       if (!season) return;
       state.editingId = seasonId;
-      document.getElementById('panel-title').textContent = 'EDIT SEASON';
-      document.getElementById('btn-save').textContent = 'Update Season';
-      document.getElementById('f-name').value = season.name;
-      document.getElementById('f-year').value = season.year || '';
-      document.getElementById('f-status').value = season.status || 'active';
-      document.getElementById('f-description').value = season.description || '';
-      document.getElementById('f-id-preview').textContent = `ID: ${season.id}`;
+      state.newPlayers = [];
       state.selectedPlayers = new Set((season.players || []).map(p => p.toLowerCase()));
+      document.getElementById('panel-title').textContent  = 'EDIT SEASON';
+      document.getElementById('btn-save').textContent     = 'Update Season';
+      document.getElementById('f-name').value             = season.name;
+      document.getElementById('f-year').value             = season.year || '';
+      document.getElementById('f-status').value           = season.status || 'active';
+      document.getElementById('f-description').value      = season.description || '';
+      document.getElementById('f-id-preview').textContent = `ID: ${season.id}`;
+      document.getElementById('f-player-search').value   = '';
       renderPlayerPicker();
+      renderNewPlayersList();
       openPanel();
     }
 
@@ -355,38 +413,55 @@
       const panel = document.getElementById('form-panel');
       panel.classList.add('open');
       document.getElementById('toggle-form-icon').textContent = '−';
-      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
     }
 
     function closePanel() {
       document.getElementById('form-panel').classList.remove('open');
       document.getElementById('toggle-form-icon').textContent = '+';
-      state.editingId = null;
+      state.editingId  = null;
+      state.newPlayers = [];
     }
 
     // ── Save ───────────────────────────────────────────────────
     async function saveSeason() {
-      const name = document.getElementById('f-name').value.trim();
-      const year = parseInt(document.getElementById('f-year').value) || null;
-      const status = document.getElementById('f-status').value;
+      const name        = document.getElementById('f-name').value.trim();
+      const year        = parseInt(document.getElementById('f-year').value) || null;
+      const status      = document.getElementById('f-status').value;
       const description = document.getElementById('f-description').value.trim();
 
       if (!name) { showStatus('Season name is required.', 'error'); return; }
 
       const id = state.editingId || nameToId(name);
-      if (!id) { showStatus('Could not generate a valid ID from that name.', 'error'); return; }
-
-      // Preserve original casing from roster for the players array
-      const players = state.roster.filter(p => state.selectedPlayers.has(p.toLowerCase()));
-
-      const season = { id, name, year, status, description, players };
-      const action = state.editingId ? 'update-season' : 'create-season';
+      if (!id)  { showStatus('Could not generate a valid ID from that name.', 'error'); return; }
 
       const btn = document.getElementById('btn-save');
-      btn.disabled = true;
+      btn.disabled    = true;
       btn.textContent = 'Saving…';
 
       try {
+        // Add any brand-new players to the master roster first
+        for (const player of state.newPlayers) {
+          const res = await fetch(PLAYERS_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', player }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(`Failed to add "${player}" to roster: ${err.error || res.statusText}`);
+          }
+          state.roster.push(player);
+        }
+        state.newPlayers = [];
+        renderNewPlayersList();
+
+        // Build player list from updated roster (preserves original casing)
+        const players = state.roster.filter(p => state.selectedPlayers.has(p.toLowerCase()));
+
+        const season = { id, name, year, status, description, players };
+        const action = state.editingId ? 'update-season' : 'create-season';
+
         const res = await fetch(API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -408,7 +483,7 @@
       } catch (e) {
         showStatus(`Error: ${e.message}`, 'error');
       } finally {
-        btn.disabled = false;
+        btn.disabled    = false;
         btn.textContent = state.editingId ? 'Update Season' : 'Save Season';
       }
     }
@@ -427,7 +502,6 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);
-
         const idx = state.kvSeasons.findIndex(s => s.id === seasonId);
         if (idx !== -1) state.kvSeasons[idx] = data.season;
         renderTable();
@@ -437,29 +511,62 @@
       }
     }
 
-    // ── Event listeners ────────────────────────────────────────
+    // ── Event delegation ───────────────────────────────────────
     document.getElementById('toggle-form-btn').addEventListener('click', () => {
-      const panel = document.getElementById('form-panel');
-      if (panel.classList.contains('open')) closePanel();
+      if (document.getElementById('form-panel').classList.contains('open')) closePanel();
       else openCreate();
     });
 
     document.getElementById('btn-cancel').addEventListener('click', closePanel);
     document.getElementById('btn-save').addEventListener('click', saveSeason);
 
+    // Picker chips
+    document.getElementById('player-picker').addEventListener('click', e => {
+      const chip = e.target.closest('[data-player]');
+      if (chip) togglePlayer(chip.dataset.player);
+    });
+
+    // New player remove buttons
+    document.getElementById('new-players-list').addEventListener('click', e => {
+      const btn = e.target.closest('[data-remove-new]');
+      if (!btn) return;
+      const player = btn.dataset.removeNew;
+      state.newPlayers = state.newPlayers.filter(p => p !== player);
+      state.selectedPlayers.delete(player.toLowerCase());
+      renderNewPlayersList();
+      updatePlayerCount();
+    });
+
+    // Table Edit / Archive buttons
+    document.getElementById('seasons-tbody').addEventListener('click', e => {
+      const editBtn    = e.target.closest('[data-edit]');
+      const archiveBtn = e.target.closest('[data-archive]');
+      if (editBtn)    openEdit(editBtn.dataset.edit);
+      if (archiveBtn) archiveSeason(archiveBtn.dataset.archive);
+    });
+
+    // Season name → auto-generate ID + description
     document.getElementById('f-name').addEventListener('input', e => {
-      const id = nameToId(e.target.value);
+      if (state.editingId) return;
+      const id      = nameToId(e.target.value);
       const preview = document.getElementById('f-id-preview');
       preview.textContent = id ? `ID: ${id}` : '';
-      if (!state.editingId && !document.getElementById('f-description').value) {
-        document.getElementById('f-description').value = id ? `MashUp Golf — ${e.target.value.trim()}` : '';
+      const desc = document.getElementById('f-description');
+      if (!desc.dataset.edited) {
+        desc.value = e.target.value.trim() ? `MashUp Golf — ${e.target.value.trim()}` : '';
       }
     });
 
+    document.getElementById('f-description').addEventListener('input', function() {
+      this.dataset.edited = '1';
+    });
+
+    // Player filter
     document.getElementById('f-player-search').addEventListener('input', e => {
       renderPlayerPicker(e.target.value);
     });
 
+    // Select All / Clear
     document.getElementById('btn-select-all').addEventListener('click', () => {
       const filter = document.getElementById('f-player-search').value.toLowerCase();
       state.roster.filter(p => !filter || p.toLowerCase().includes(filter))
@@ -469,8 +576,16 @@
 
     document.getElementById('btn-clear-all').addEventListener('click', () => {
       state.selectedPlayers.clear();
+      state.newPlayers = [];
       renderPlayerPicker(document.getElementById('f-player-search').value);
+      renderNewPlayersList();
     });
+
+    // New player input — Enter key or button
+    document.getElementById('f-new-player').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addNewPlayer(); }
+    });
+    document.getElementById('btn-add-new-player').addEventListener('click', addNewPlayer);
 
     loadAll();
   </script>
