@@ -117,21 +117,25 @@
           <!-- Mode toggle -->
           <div>
             <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Draw Mode</div>
-            <div class="flex gap-2 max-w-sm">
+            <div class="flex gap-2 max-w-lg flex-wrap">
               <button type="button" id="rt-mode-tiered" class="mode-btn active">Tiered Draw</button>
               <button type="button" id="rt-mode-random" class="mode-btn">Completely Random</button>
+              <button type="button" id="rt-mode-manual" class="mode-btn">Manual Entry</button>
             </div>
             <p id="rt-mode-desc" class="text-xs text-gray-600 font-body mt-2">
               1 player pulled from each handicap tier — produces balanced teams.
             </p>
           </div>
 
-          <!-- Tier breakdown (only in tiered mode) -->
+          <!-- Tier breakdown (only in tiered/random mode) -->
           <div id="rt-tiers" class="space-y-2"></div>
 
           <button type="button" id="rt-generate-btn"
             class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
             style="transition:background 0.15s">Generate Teams</button>
+
+          <!-- Manual builder (only in manual mode) -->
+          <div id="rt-manual" class="hidden"></div>
         </div>
 
         <!-- Results -->
@@ -278,6 +282,7 @@
     let rtMode         = 'tiered';
     let rtEventId      = null;
     let rtLastTeams    = [];
+    let manualState    = { teams: [], selectedPlayer: null };
     let rtPartnerships = {}; // pair key -> times played together
 
     const TIER_NAMES  = ['A', 'B', 'C', 'D'];
@@ -418,6 +423,7 @@
       const results = document.getElementById('rt-results');
       rtLastTeams    = [];
       rtPartnerships = {};
+      manualState    = { teams: [], selectedPlayer: null };
       results.classList.add('hidden');
       results.innerHTML = '';
 
@@ -493,7 +499,16 @@
       }
 
       config.classList.remove('hidden');
-      renderTierBreakdown(players, teamSize, numTeams);
+
+      if (rtMode === 'manual') {
+        document.getElementById('rt-generate-btn').classList.add('hidden');
+        document.getElementById('rt-manual').classList.remove('hidden');
+        renderManualBuilder();
+      } else {
+        document.getElementById('rt-generate-btn').classList.remove('hidden');
+        document.getElementById('rt-manual').classList.add('hidden');
+        renderTierBreakdown(players, teamSize, numTeams);
+      }
     }
 
     function renderTierBreakdown(players, teamSize, numTeams) {
@@ -626,8 +641,11 @@
       rtMode = 'tiered';
       document.getElementById('rt-mode-tiered').classList.add('active');
       document.getElementById('rt-mode-random').classList.remove('active');
+      document.getElementById('rt-mode-manual').classList.remove('active');
       document.getElementById('rt-mode-desc').textContent =
         '1 player pulled from each handicap tier — produces balanced teams.';
+      document.getElementById('rt-generate-btn').classList.remove('hidden');
+      document.getElementById('rt-manual').classList.add('hidden');
       if (rtEventId) {
         const event    = state.kvEvents.find(e => e.id === rtEventId);
         const fmt      = state.allFormats[event?.format];
@@ -642,12 +660,170 @@
       rtMode = 'random';
       document.getElementById('rt-mode-random').classList.add('active');
       document.getElementById('rt-mode-tiered').classList.remove('active');
+      document.getElementById('rt-mode-manual').classList.remove('active');
       document.getElementById('rt-mode-desc').textContent =
         'All players shuffled together — pure luck of the draw.';
       document.getElementById('rt-tiers').innerHTML = '';
+      document.getElementById('rt-generate-btn').classList.remove('hidden');
+      document.getElementById('rt-manual').classList.add('hidden');
+    });
+
+    document.getElementById('rt-mode-manual').addEventListener('click', () => {
+      if (rtMode === 'manual') return;
+      rtMode = 'manual';
+      document.getElementById('rt-mode-manual').classList.add('active');
+      document.getElementById('rt-mode-tiered').classList.remove('active');
+      document.getElementById('rt-mode-random').classList.remove('active');
+      document.getElementById('rt-mode-desc').textContent =
+        'Manually place each player into a team slot.';
+      document.getElementById('rt-tiers').innerHTML = '';
+      document.getElementById('rt-generate-btn').classList.add('hidden');
+      document.getElementById('rt-manual').classList.remove('hidden');
+      if (rtEventId) renderManualBuilder();
     });
 
     document.getElementById('rt-generate-btn').addEventListener('click', generateTeams);
+
+    // ── Manual team builder ───────────────────────────────────
+
+    function renderManualBuilder() {
+      const event = state.kvEvents.find(e => e.id === rtEventId);
+      if (!event) return;
+      const fmt      = state.allFormats[event.format];
+      const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
+      const allPlayers = getSortedPlayers();
+      const numTeams = Math.floor(allPlayers.length / teamSize);
+
+      // Reset teams array if size changed
+      if (manualState.teams.length !== numTeams || (manualState.teams[0] || []).length > teamSize) {
+        manualState.teams = Array.from({ length: numTeams }, () => []);
+        manualState.selectedPlayer = null;
+      }
+
+      const assigned = new Set(manualState.teams.flat().map(n => n.toLowerCase()));
+      const pool = allPlayers.filter(p => !assigned.has(p.name.toLowerCase()));
+      const placed = manualState.teams.reduce((s, t) => s + t.length, 0);
+      const total = numTeams * teamSize;
+      const allFilled = placed === total;
+
+      // Build tier color for player chips
+      const used = allPlayers.slice(0, total);
+      const tierSize = numTeams; // one player per tier per team slot
+      function tierCls(idx) {
+        const t = Math.floor(idx / tierSize);
+        if (t === 0) return 'border-emerald-700/50 text-emerald-300';
+        if (t === 1) return 'border-yellow-700/50 text-yellow-300';
+        if (t === 2) return 'border-orange-700/50 text-orange-300';
+        return 'border-violet-700/50 text-violet-300';
+      }
+
+      const poolHtml = pool.length > 0
+        ? pool.map(p => {
+            const idx = allPlayers.findIndex(a => a.name === p.name);
+            const isSelected = manualState.selectedPlayer === p.name;
+            return `<button type="button" data-player="${p.name}"
+              class="player-chip text-xs font-body px-2.5 py-1.5 rounded-lg border cursor-pointer
+                ${isSelected
+                  ? 'border-flame bg-flame/20 text-white'
+                  : tierCls(idx) + ' bg-black/20 hover:bg-black/40'}"
+              style="transition:all 0.12s">
+              ${p.name}<span class="ml-1.5 opacity-40">${p.cap !== null ? p.cap.toFixed(1) : '—'}</span>
+            </button>`;
+          }).join('')
+        : `<span class="text-xs text-gray-600 italic">All players assigned</span>`;
+
+      const teamsHtml = manualState.teams.map((team, ti) => {
+        const slots = Array.from({ length: teamSize }, (_, si) => {
+          if (si < team.length) {
+            const name = team[si];
+            return `<div class="flex items-center justify-between py-0.5">
+              <span class="text-xs font-body text-gray-200">${name}</span>
+              <button type="button" data-remove="${ti}-${si}"
+                class="text-[10px] text-gray-600 hover:text-red-400 ml-2 flex-shrink-0"
+                style="transition:color 0.12s">✕</button>
+            </div>`;
+          }
+          const canPlace = !!manualState.selectedPlayer;
+          return `<div data-slot="${ti}"
+            class="py-0.5 text-xs rounded cursor-pointer text-center
+              ${canPlace ? 'text-flame hover:text-flame-dim' : 'text-gray-700'}"
+            style="transition:color 0.12s">${canPlace ? '+ Place here' : '—'}</div>`;
+        });
+        return `<div class="border border-border/50 rounded-lg p-3 bg-surface">
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1.5">
+            Team ${ti + 1}
+          </div>
+          <div class="space-y-0.5">${slots.join('')}</div>
+        </div>`;
+      }).join('');
+
+      const manualEl = document.getElementById('rt-manual');
+      manualEl.innerHTML = `
+        <div class="space-y-4">
+          <div>
+            <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">
+              Available Players <span class="font-body tracking-normal normal-case text-gray-700">(${pool.length} remaining — click to select, then click a team slot)</span>
+            </div>
+            <div class="flex flex-wrap gap-2">${poolHtml}</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">
+              Teams <span class="font-body tracking-normal normal-case text-gray-700">${numTeams} teams · ${teamSize} per team</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">${teamsHtml}</div>
+          </div>
+          <div class="flex items-center gap-3 pt-1">
+            <button type="button" id="manual-clear-btn"
+              class="text-xs text-gray-600 hover:text-gray-400 font-heading font-600 tracking-wider"
+              style="transition:color 0.12s">↺ Clear All</button>
+            <button type="button" id="manual-save-btn"
+              ${allFilled ? '' : 'disabled'}
+              class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed"
+              style="transition:background 0.15s">Save Teams</button>
+            ${!allFilled ? `<span class="text-xs text-gray-600">${placed} / ${total} placed</span>` : ''}
+          </div>
+        </div>`;
+
+      manualEl.querySelectorAll('.player-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.player;
+          manualState.selectedPlayer = manualState.selectedPlayer === name ? null : name;
+          renderManualBuilder();
+        });
+      });
+
+      manualEl.querySelectorAll('[data-slot]').forEach(slot => {
+        slot.addEventListener('click', () => {
+          if (!manualState.selectedPlayer) return;
+          const ti = parseInt(slot.dataset.slot);
+          if (manualState.teams[ti].length < teamSize) {
+            manualState.teams[ti].push(manualState.selectedPlayer);
+            manualState.selectedPlayer = null;
+            renderManualBuilder();
+          }
+        });
+      });
+
+      manualEl.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const [ti, si] = btn.dataset.remove.split('-').map(Number);
+          manualState.teams[ti].splice(si, 1);
+          renderManualBuilder();
+        });
+      });
+
+      document.getElementById('manual-clear-btn').addEventListener('click', () => {
+        manualState.teams = Array.from({ length: numTeams }, () => []);
+        manualState.selectedPlayer = null;
+        renderManualBuilder();
+      });
+
+      document.getElementById('manual-save-btn').addEventListener('click', () => {
+        if (!allFilled) return;
+        rtLastTeams = manualState.teams.map(t => [...t]);
+        saveTeams(rtEventId, rtLastTeams);
+      });
+    }
 
     // ══════════════════════════════════════════════════════════
     // SGT LOADING FILE
