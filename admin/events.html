@@ -902,6 +902,11 @@
                 nameEl.dataset.edited = '1';
               }
               filled.push(`"${data.name}"`);
+              const weekMatch = data.name.match(/[Ww](\d+)/);
+              if (weekMatch) {
+                const weekEl = document.getElementById('f-week');
+                if (weekEl && !weekEl.value) weekEl.value = weekMatch[1];
+              }
             }
             if (data.startDate) formStartDate = data.startDate;
             if (data.endDate)   formEndDate   = data.endDate;
