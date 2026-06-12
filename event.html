@@ -1110,7 +1110,7 @@
 
     function buildStablefordSidePotHtml(results, event) {
       const topTeamMembers = new Set(
-        results.filter(t => t.position <= 2).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
+        results.filter(t => t.prize != null).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
       );
       const eligible = results
         .flatMap(team => team.players.map(p => ({ name: p.name, pts: p.individualTotal, teamPos: team.position })))
