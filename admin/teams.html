@@ -552,7 +552,7 @@
           <div class="flex flex-wrap gap-1.5">
             ${tier.map(p => `
               <span class="text-xs font-body px-2 py-0.5 rounded bg-black/20">
-                ${p.name}<span class="opacity-50 ml-1">${p.cap !== null ? p.cap.toFixed(1) : '—'}</span>
+                ${p.name}<span class="opacity-50 ml-1">${p.cap !== null ? p.cap : '—'}</span>
               </span>`).join('')}
           </div>
         </div>`).join('');
@@ -761,7 +761,7 @@
                   ? 'border-flame bg-flame/20 text-white'
                   : tierCls(idx) + ' bg-black/20 hover:bg-black/40'}"
               style="transition:all 0.12s">
-              ${p.name}<span class="ml-1.5 opacity-40">${p.cap !== null ? p.cap.toFixed(1) : '—'}</span>
+              ${p.name}<span class="ml-1.5 opacity-40">${p.cap !== null ? p.cap : '—'}</span>
             </button>`;
           }).join('')
         : `<span class="text-xs text-gray-600 italic">All players assigned</span>`;
