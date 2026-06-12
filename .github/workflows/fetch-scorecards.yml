@@ -42,13 +42,13 @@ jobs:
             --argjson kv "$KV_EVENTS" \
             '($static + $kv) | reduce .[] as $e ({}; .[$e.id] = $e) | to_entries | map(.value)')
 
-          # Get tournament IDs for non-completed events in the active season
+          # Get tournament IDs for active events in the active season
           TOURNAMENT_IDS=$(echo "$ALL_EVENTS" | jq -r \
             --arg season "$ACTIVE_SEASON" \
-            '.[] | select(.season == $season and .status != "completed") | .tournamentId')
+            '.[] | select(.season == $season and .status == "active") | .tournamentId')
 
           if [ -z "$TOURNAMENT_IDS" ]; then
-            echo "No active events to fetch for $ACTIVE_SEASON."
+            echo "No events with status=active to fetch for $ACTIVE_SEASON."
             exit 0
           fi
 

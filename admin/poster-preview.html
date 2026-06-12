@@ -163,6 +163,19 @@
 
   </main>
 
+  <!-- ACTIVATE PROMPT MODAL -->
+  <div id="activate-modal" class="fixed inset-0 z-50 items-center justify-center hidden" style="background:rgba(0,0,0,0.75);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-7 w-full max-w-md mx-4" style="box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+      <div class="text-xs font-heading font-600 tracking-widest text-emerald-500 uppercase mb-1">Event Status</div>
+      <h2 class="font-display text-2xl tracking-wider text-white mb-3">ACTIVATE THIS EVENT?</h2>
+      <p class="text-sm text-gray-400 font-body leading-relaxed mb-6">Would you like to activate this event now? <span class="text-gray-300">An event must be activated to enable live updating of scorecards.</span></p>
+      <div class="flex items-center justify-between">
+        <button id="activate-skip" class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Not Now</button>
+        <button id="activate-confirm" class="px-5 py-2 rounded-lg bg-emerald-600 text-white text-sm font-heading font-600 tracking-wider hover:bg-emerald-500" style="transition:background 0.15s">Yes, Activate</button>
+      </div>
+    </div>
+  </div>
+
   <!-- DISCORD MODAL -->
   <div id="discord-modal" class="fixed inset-0 z-50 items-center justify-center hidden" style="background:rgba(0,0,0,0.75);backdrop-filter:blur(4px)">
     <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-7 w-full max-w-md mx-4" style="box-shadow:0 8px 32px rgba(0,0,0,0.5)">
@@ -657,6 +670,9 @@
         const data = await res.json();
         if (res.ok) {
           showStatus('✓ Posted to Discord successfully!', 'success');
+          if (currentEvent?.status === 'upcoming') {
+            document.getElementById('activate-modal').style.display = 'flex';
+          }
         } else {
           showStatus(`Error: ${data.error || 'Unknown'}`, 'error');
         }
@@ -664,6 +680,31 @@
         showStatus('Error: ' + e.message, 'error');
       }
       sendBtn.textContent = 'Send to Discord'; sendBtn.disabled = false;
+    });
+
+    // ── Activate modal ────────────────────────────────────────
+    document.getElementById('activate-skip').addEventListener('click', () => {
+      document.getElementById('activate-modal').style.display = 'none';
+    });
+
+    document.getElementById('activate-confirm').addEventListener('click', async () => {
+      const btn = document.getElementById('activate-confirm');
+      btn.textContent = 'Activating…'; btn.disabled = true;
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'activate-event', eventId: currentEvent.id }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        currentEvent.status = 'active';
+        document.getElementById('activate-modal').style.display = 'none';
+        showStatus(`"${currentEvent.name || currentEvent.id}" is now active. Live scorecard fetching enabled.`, 'success');
+      } catch (e) {
+        showStatus('Error activating event: ' + e.message, 'error');
+      }
+      btn.textContent = 'Yes, Activate'; btn.disabled = false;
     });
 
     loadAll();
