@@ -917,6 +917,8 @@
 
       if (isStableford) {
         document.getElementById('side-section').innerHTML = buildStablefordSidePotHtml(results, event);
+      } else if (format?.type === 'lone-ranger') {
+        document.getElementById('side-section').innerHTML = buildLoneRangerSidePotHtml(results, event);
       } else if (event.payouts?.length) {
         document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       }
@@ -1069,6 +1071,41 @@
       });
 
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
+    }
+
+    function buildLoneRangerSidePotHtml(results, event) {
+      const winnerMembers = new Set(
+        results.filter(t => t.position === 1).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
+      );
+      const eligible = results
+        .flatMap(team => team.players.map(p => ({ name: p.name, totalNet: p.totalNet, teamPos: team.position })))
+        .filter(p => !winnerMembers.has(p.name.toLowerCase()))
+        .sort((a, b) => a.totalNet - b.totalNet);
+
+      if (eligible.length === 0 || !event.sidePots?.length) return '';
+
+      const ORDINALS = ['1st', '2nd', '3rd'];
+      const rows = eligible.slice(0, event.sidePots.length).map((p, i) => {
+        const prize = event.sidePots[i];
+        return `
+          <div class="flex items-center justify-between py-3 border-b border-border last:border-0">
+            <div class="flex items-center gap-4">
+              <span class="font-display text-2xl text-flame leading-none">${ORDINALS[i] || `${i+1}th`}</span>
+              <div>
+                <div class="font-heading font-600 text-sm text-white tracking-wide">${p.name}</div>
+                <div class="text-xs text-gray-500 mt-0.5">Individual net: ${p.totalNet} &nbsp;·&nbsp; Team finished #${p.teamPos}</div>
+              </div>
+            </div>
+            ${prize ? `<div class="text-right"><div class="font-semibold text-flame">$${prize.amount}</div><div class="text-xs text-gray-600 mt-0.5">${prize.name || 'Side Pot'}</div></div>` : ''}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 mt-6">
+          <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Individual Side Pot</div>
+          <div class="text-xs text-gray-600 mb-4">Best individual net — players not on winning team</div>
+          ${rows}
+        </div>`;
     }
 
     function buildStablefordSidePotHtml(results, event) {
