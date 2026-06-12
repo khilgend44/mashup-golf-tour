@@ -834,7 +834,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
             <input type="number" class="payout-amount w-28 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50"
               min="0" step="5" value="${p.amount || ''}" data-idx="${i}" placeholder="0" />
           </div>
-          ${teamSize > 1 ? `<span class="per-player text-xs text-gray-600 font-body w-24" data-idx="${i}">${p.amount ? '$' + Math.round(p.amount / teamSize) + '/player' : '—'}</span>` : ''}
+          ${teamSize > 1 ? `<span class="per-player text-xs text-gray-600 font-body w-24" data-idx="${i}">${p.amount ? '$' + (p.amount / teamSize).toFixed(2).replace(/\.?0+$/, '') + '/player' : '—'}</span>` : ''}
           <button type="button" class="remove-payout text-gray-700 hover:text-red-400 ml-auto text-base leading-none" data-idx="${i}" style="transition:color 0.12s">×</button>
         </div>`).join('');
       list.querySelectorAll('.payout-amount').forEach(input => {
@@ -844,7 +844,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
           formPayouts[idx].amount = val;
           const ts = getTeamSize();
           const perEl = list.querySelector(`.per-player[data-idx="${idx}"]`);
-          if (perEl) perEl.textContent = (val && ts > 1) ? `$${Math.round(val / ts)}/player` : (ts > 1 ? '—' : '');
+          if (perEl) perEl.textContent = (val && ts > 1) ? `$${(val / ts).toFixed(2).replace(/\.?0+$/, '')}/player` : (ts > 1 ? '—' : '');
         });
       });
       list.querySelectorAll('.remove-payout').forEach(btn => {
