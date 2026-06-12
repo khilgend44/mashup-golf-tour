@@ -1075,7 +1075,7 @@
 
     function buildLoneRangerSidePotHtml(results, event) {
       const winnerMembers = new Set(
-        results.filter(t => t.position === 1).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
+        results.filter(t => t.prize != null).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
       );
       const eligible = results
         .flatMap(team => team.players.map(p => ({ name: p.name, totalNet: p.totalNet, teamPos: team.position })))
