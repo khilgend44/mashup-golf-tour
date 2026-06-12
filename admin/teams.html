@@ -361,7 +361,7 @@
         .filter(name => !inSeason || inSeason.has(name.toLowerCase()))
         .map(name => {
           const h = state.handicaps[name.toLowerCase()];
-          const cap = h?.rawCap !== undefined ? parseFloat(h.rawCap) : null;
+          const cap = h?.comboCap !== undefined ? parseFloat(h.comboCap) : null;
           return { name, cap };
         })
         .sort((a, b) => {
