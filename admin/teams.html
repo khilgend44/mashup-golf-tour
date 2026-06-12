@@ -231,6 +231,7 @@
       roster:     [],
       handicaps:  {},
       lastRefresh: null,
+      allSeasons:  [],
     };
 
     // ── Utilities ──────────────────────────────────────────────
@@ -248,10 +249,12 @@
 
     // ── Load data ─────────────────────────────────────────────
     async function loadAll() {
-      const [kvRes, staticFormatsRes, playersRes] = await Promise.allSettled([
+      const [kvRes, staticFormatsRes, playersRes, kvSeasonsRes, staticSeasonsRes] = await Promise.allSettled([
         fetch(API),
         fetch(FORMATS_STATIC_URL),
         fetch('/api/players'),
+        fetch('/api/seasons'),
+        fetch('/data/seasons.json'),
       ]);
 
       if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
@@ -269,6 +272,14 @@
         state.handicaps   = pdata.handicaps   || {};
         state.lastRefresh = pdata.lastRefresh || null;
       }
+
+      const staticSeasons = staticSeasonsRes.status === 'fulfilled' && staticSeasonsRes.value.ok
+        ? await staticSeasonsRes.value.json() : [];
+      const kvSeasons = kvSeasonsRes.status === 'fulfilled' && kvSeasonsRes.value.ok
+        ? await kvSeasonsRes.value.json() : [];
+      const seasonMap = new Map(staticSeasons.map(s => [s.id, s]));
+      for (const s of kvSeasons) seasonMap.set(s.id, s);
+      state.allSeasons = [...seasonMap.values()];
 
       populateRtEventDropdown();
       populateSgtEventDropdown();
@@ -341,8 +352,13 @@
 
     // ── Player helpers ────────────────────────────────────────
 
-    function getSortedPlayers() {
+    function getSortedPlayers(seasonId) {
+      const season = seasonId ? state.allSeasons.find(s => s.id === seasonId) : null;
+      const inSeason = season?.players?.length
+        ? new Set(season.players.map(p => p.toLowerCase()))
+        : null;
       return (state.roster || [])
+        .filter(name => !inSeason || inSeason.has(name.toLowerCase()))
         .map(name => {
           const h = state.handicaps[name.toLowerCase()];
           const cap = h?.rawCap !== undefined ? parseFloat(h.rawCap) : null;
@@ -446,7 +462,7 @@
         return;
       }
 
-      const players  = getSortedPlayers();
+      const players  = getSortedPlayers(event.season);
       const numTeams = Math.floor(players.length / teamSize);
       const extras   = players.length - numTeams * teamSize;
 
@@ -540,7 +556,7 @@
       if (!event) return;
       const fmt      = state.allFormats[event.format];
       const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
-      const players  = getSortedPlayers();
+      const players  = getSortedPlayers(event.season);
       const numTeams = Math.floor(players.length / teamSize);
 
       const { teams, conflicts } = generateBestTeams(players, teamSize, numTeams, rtMode, rtPartnerships);
@@ -650,8 +666,8 @@
         const event    = state.kvEvents.find(e => e.id === rtEventId);
         const fmt      = state.allFormats[event?.format];
         const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
-        renderTierBreakdown(getSortedPlayers(), teamSize,
-          Math.floor(state.roster.length / teamSize));
+        renderTierBreakdown(getSortedPlayers(event?.season), teamSize,
+          Math.floor(getSortedPlayers(event?.season).length / teamSize));
       }
     });
 
@@ -691,7 +707,7 @@
       if (!event) return;
       const fmt      = state.allFormats[event.format];
       const teamSize = fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
-      const allPlayers = getSortedPlayers();
+      const allPlayers = getSortedPlayers(event.season);
       const numTeams = Math.floor(allPlayers.length / teamSize);
 
       // Reset teams array if size changed
