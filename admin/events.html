@@ -92,63 +92,70 @@
       <div class="card-shadow bg-card border border-border rounded-lg p-6 sm:p-8">
         <h2 class="font-display text-2xl tracking-wider text-white mb-6">CREATE NEW EVENT</h2>
 
-        <div class="form-grid">
-
-          <!-- Season -->
-          <div>
-            <label>Season</label>
-            <select id="f-season">
-              <option value="">Loading…</option>
-            </select>
-          </div>
-
-          <!-- Week -->
-          <div>
-            <label>Week #</label>
-            <input type="number" id="f-week" min="1" max="30" placeholder="1" />
-          </div>
-
-
-          <!-- Status -->
-          <div>
-            <label>Status</label>
-            <select id="f-status">
-              <option value="upcoming">Upcoming</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
-
-          <!-- SGT URL -->
-          <div class="form-full">
-            <label>SGT Event URL</label>
-            <input type="url" id="f-url" placeholder="https://simulatorgolftour.com/..." />
-            <div id="url-extracted" class="mt-1 text-xs text-gray-600 font-body"></div>
-          </div>
-
-          <!-- Tournament ID (auto-filled from URL) -->
-          <div>
-            <label>Tournament ID</label>
-            <input type="text" id="f-tournament-id" placeholder="Auto-extracted from URL" />
-          </div>
-
-          <!-- Event Name -->
-          <div>
-            <label>Event Name <span class="text-gray-700 font-body normal-case tracking-normal">(auto-generated, editable)</span></label>
-            <input type="text" id="f-name" placeholder="Week 1 — Solo Ringer" />
-          </div>
-
-          <!-- Format -->
-          <div class="form-full">
-            <label>Format</label>
-            <select id="f-format">
-              <option value="">— Loading formats… —</option>
-            </select>
-          </div>
-
+        <!-- SGT URL — must be filled first -->
+        <div class="mb-6">
+          <label>SGT Event URL <span class="text-flame font-body normal-case tracking-normal">Required to unlock form</span></label>
+          <input type="url" id="f-url" placeholder="https://simulatorgolftour.com/tournament/12345" />
+          <div id="url-extracted" class="mt-1 text-xs text-gray-600 font-body"></div>
         </div>
 
-        <!-- ── NEW FORMAT PANEL ─────────────────────────────── -->
-        <div id="new-format-panel" class="new-format-panel mt-4">
+        <!-- Locked placeholder — shown until URL is entered -->
+        <div id="form-locked-msg" class="border border-dashed border-border/50 rounded-lg px-6 py-8 text-center">
+          <p class="text-sm text-gray-600 font-body">Paste the SGT Event URL above to continue.</p>
+        </div>
+
+        <!-- Rest of form — hidden until URL unlocks it -->
+        <div id="form-fields" class="hidden space-y-6">
+
+          <div class="form-grid">
+
+            <!-- Tournament ID (auto-filled from URL) -->
+            <div>
+              <label>Tournament ID</label>
+              <input type="text" id="f-tournament-id" placeholder="Auto-extracted from URL" />
+            </div>
+
+            <!-- Season -->
+            <div>
+              <label>Season</label>
+              <select id="f-season">
+                <option value="">Loading…</option>
+              </select>
+            </div>
+
+            <!-- Week -->
+            <div>
+              <label>Week #</label>
+              <input type="number" id="f-week" min="1" max="30" placeholder="1" />
+            </div>
+
+            <!-- Status -->
+            <div>
+              <label>Status</label>
+              <select id="f-status">
+                <option value="upcoming">Upcoming</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <!-- Event Name -->
+            <div>
+              <label>Event Name <span class="text-gray-700 font-body normal-case tracking-normal">(auto-generated, editable)</span></label>
+              <input type="text" id="f-name" placeholder="Week 1 — Solo Ringer" />
+            </div>
+
+            <!-- Format -->
+            <div class="form-full">
+              <label>Format</label>
+              <select id="f-format">
+                <option value="">— Loading formats… —</option>
+              </select>
+            </div>
+
+          </div>
+
+          <!-- ── NEW FORMAT PANEL ─────────────────────────────── -->
+          <div id="new-format-panel" class="new-format-panel mt-4">
           <div class="border border-border/60 rounded-lg p-5 bg-surface mt-2">
             <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-3">New Format</div>
             <div class="form-grid">
@@ -278,6 +285,8 @@
               style="transition:color 0.12s">+ Best Individual NET (not on winning team)</button>
           </div>
         </div>
+
+        </div><!-- /form-fields -->
 
         <!-- Actions -->
         <div class="flex items-center justify-between mt-6 pt-6 border-t border-border">
@@ -672,6 +681,8 @@
         if (el) { el.value = ''; delete el.dataset.edited; }
       });
       document.getElementById('url-extracted').textContent = '';
+      document.getElementById('form-locked-msg')?.classList.remove('hidden');
+      document.getElementById('form-fields')?.classList.add('hidden');
       formRounds = [];
       formPayouts = [];
       formSidePots = [];
@@ -874,6 +885,8 @@
         tidEl.value = id;
         msgEl.textContent = `Tournament ID extracted: ${id} — fetching event name…`;
         msgEl.style.color = '#9ca3af';
+        document.getElementById('form-locked-msg')?.classList.add('hidden');
+        document.getElementById('form-fields')?.classList.remove('hidden');
 
         // Debounce scrape call
         clearTimeout(scrapeTimer);
@@ -884,7 +897,10 @@
             const filled = [];
             if (data.name) {
               const nameEl = document.getElementById('f-name');
-              if (!nameEl.dataset.edited) nameEl.value = data.name;
+              if (!nameEl.dataset.edited) {
+                nameEl.value = data.name;
+                nameEl.dataset.edited = '1';
+              }
               filled.push(`"${data.name}"`);
             }
             if (data.startDate) formStartDate = data.startDate;
@@ -911,6 +927,8 @@
         clearTimeout(scrapeTimer);
         msgEl.textContent = url ? 'Could not extract tournament ID — enter manually.' : '';
         msgEl.style.color = '#f87171';
+        document.getElementById('form-locked-msg')?.classList.remove('hidden');
+        document.getElementById('form-fields')?.classList.add('hidden');
       }
     });
 
