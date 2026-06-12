@@ -357,19 +357,28 @@
       const inSeason = season?.players?.length
         ? new Set(season.players.map(p => p.toLowerCase()))
         : null;
-      return (state.roster || [])
+
+      const withRaw = (state.roster || [])
         .filter(name => !inSeason || inSeason.has(name.toLowerCase()))
         .map(name => {
           const h = state.handicaps[name.toLowerCase()];
-          const cap = h?.comboCap !== undefined ? parseFloat(h.comboCap) : null;
-          return { name, cap };
+          const rawCap = h?.rawCap !== undefined ? parseFloat(h.rawCap) : null;
+          return { name, rawCap };
         })
         .sort((a, b) => {
-          if (a.cap === null && b.cap === null) return 0;
-          if (a.cap === null) return 1;
-          if (b.cap === null) return -1;
-          return a.cap - b.cap;
+          if (a.rawCap === null && b.rawCap === null) return 0;
+          if (a.rawCap === null) return 1;
+          if (b.rawCap === null) return -1;
+          return a.rawCap - b.rawCap;
         });
+
+      const rawValues = withRaw.map(p => p.rawCap).filter(v => v !== null);
+      const minRaw = rawValues.length ? Math.min(...rawValues) : 0;
+
+      return withRaw.map(p => ({
+        name: p.name,
+        cap: p.rawCap !== null ? Math.round(p.rawCap - minRaw) : null,
+      }));
     }
 
     function buildTiers(sortedPlayers, teamSize, numTeams) {
@@ -570,6 +579,15 @@
       el.classList.remove('hidden');
 
       const hcaps  = state.handicaps;
+      const rtEvent = state.kvEvents.find(e => e.id === rtEventId);
+      const rtSeason = rtEvent ? state.allSeasons.find(s => s.id === rtEvent.season) : null;
+      const rtInSeason = rtSeason?.players?.length
+        ? new Set(rtSeason.players.map(p => p.toLowerCase())) : null;
+      const rawVals = (state.roster || [])
+        .filter(n => !rtInSeason || rtInSeason.has(n.toLowerCase()))
+        .map(n => { const h = hcaps[n.toLowerCase()]; return h?.rawCap !== undefined ? parseFloat(h.rawCap) : null; })
+        .filter(v => v !== null);
+      const minRaw = rawVals.length ? Math.min(...rawVals) : 0;
       const hasPairs = teamSize > 1 && Object.keys(rtPartnerships).length > 0;
 
       const conflictBadge = !hasPairs
@@ -606,7 +624,7 @@
                   </div>
                   ${team.map((name, pi) => {
                     const h    = hcaps[name.toLowerCase()];
-                    const cap  = h?.rawCap !== undefined ? parseFloat(h.rawCap).toFixed(1) : '—';
+                    const cap  = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) - minRaw) : '—';
                     const tier = teamSize > 1 ? TIER_NAMES[pi] : null;
                     const isConflict = conflictPlayers.has(name);
                     return `<div class="flex items-center justify-between py-0.5 gap-1">
