@@ -702,6 +702,8 @@
       return streams[playerName.toLowerCase()] || null;
     }
 
+    function fmtPrize(v) { return v.toFixed(2).replace(/\.00$/, ''); }
+
     function renderLeaderboard(results, event, format, streams = {}) {
       if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams); return; }
       if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams); return; }
@@ -753,7 +755,7 @@
         const posStr = player.tied ? `T${player.position}` : player.position;
         const toParStr = formatToPar(player.toPar);
         const toParCls = player.toPar < 0 ? 'under' : player.toPar > 0 ? 'over' : 'even';
-        const prizeStr = player.prize != null ? `$${player.prize.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '—';
+        const prizeStr = player.prize != null ? `$${fmtPrize(player.prize)}` : '—';
         const isLeader = player.position === 1;
 
         // Main row
@@ -857,8 +859,8 @@
         const teamSize = format?.teamSize ? parseInt(format.teamSize) : 1;
         const prizeStr = team.prize != null
           ? teamSize > 1
-            ? `$${team.prize} <span class="text-gray-500 font-normal text-xs">($${Math.round(team.prize / teamSize)}/ea)</span>`
-            : `$${team.prize}`
+            ? `$${fmtPrize(team.prize)} <span class="text-gray-500 font-normal text-xs">($${fmtPrize(team.prize / teamSize)}/ea)</span>`
+            : `$${fmtPrize(team.prize)}`
           : '—';
         const isLeader = team.position === 1;
 
@@ -939,7 +941,7 @@
       function potCardHtml(label, team, scoreDesc) {
         if (!team) return `<div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 flex flex-col gap-2 opacity-40"><div class="text-[10px] font-heading font-600 tracking-widest text-flame uppercase">${label}</div><div class="text-gray-600 text-sm">No winner yet</div></div>`;
         const members = team.displayMembers.join(' / ');
-        const prizeStr = team.prize != null ? `<span class="text-flame font-semibold">$${team.prize}</span> · ` : '';
+        const prizeStr = team.prize != null ? `<span class="text-flame font-semibold">$${fmtPrize(team.prize)}</span> · ` : '';
         return `<div class="card-shadow bg-card border border-flame/30 rounded-xl px-5 py-4 flex flex-col gap-2">
           <div class="text-[10px] font-heading font-600 tracking-widest text-flame uppercase">${label}</div>
           <div class="font-heading font-700 text-base text-white leading-tight tracking-wide">${members}</div>
@@ -1706,7 +1708,7 @@
 
           if (done) {
             const scHtml = buildTeamScorecardHTML(team, format);
-            const prizeStr = team.prize != null ? `$${team.prize}` : '—';
+            const prizeStr = team.prize != null ? `$${fmtPrize(team.prize)}` : '—';
             return `
               <tr class="lb-row border-t border-border cursor-pointer select-none" data-lb-row="${ri}">
                 <td class="px-3 py-2.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-500'}">${posStr}</td>
