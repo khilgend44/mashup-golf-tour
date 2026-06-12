@@ -19,8 +19,14 @@ jobs:
         env:
           SGT_API_KEY: ${{ secrets.SGT_API_KEY }}
         run: |
-          # Find the active season ID
-          ACTIVE_SEASON=$(jq -r '.[] | select(.status == "active") | .id' data/seasons.json | head -1)
+          # Find the active season ID — merge static file + KV (KV takes precedence)
+          STATIC_SEASONS=$(cat data/seasons.json)
+          KV_SEASONS=$(curl -sf "https://mashup-golf-tour.pages.dev/api/seasons" || echo "[]")
+          ALL_SEASONS=$(jq -n \
+            --argjson static "$STATIC_SEASONS" \
+            --argjson kv "$KV_SEASONS" \
+            '($static + $kv) | reduce .[] as $s ({}; .[$s.id] = $s) | to_entries | map(.value)')
+          ACTIVE_SEASON=$(echo "$ALL_SEASONS" | jq -r '.[] | select(.status == "active") | .id' | head -1)
 
           if [ -z "$ACTIVE_SEASON" ]; then
             echo "No active season found — nothing to fetch."
