@@ -737,7 +737,7 @@
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
-                  ${hasPrizes ? '<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Prize</th>' : ''}
+                  ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
                 </tr>
               </thead>
               <tbody id="lb-body"></tbody>
@@ -838,7 +838,7 @@
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Pts' : 'Total'}</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Agg Pts' : '+/−'}</th>
                   <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell ${isStableford ? 'hidden' : ''}">Team Agg</th>
-                  ${hasPrizes ? '<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Prize</th>' : ''}
+                  ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
                 </tr>
               </thead>
               <tbody id="lb-body"></tbody>
@@ -1720,7 +1720,7 @@
                     <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
                     <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
                     <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Agg</th>
-                    ${done ? '<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Prize</th>' : ''}
+                    ${done ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
                   </tr>
                 </thead>
                 <tbody>${rows}</tbody>
