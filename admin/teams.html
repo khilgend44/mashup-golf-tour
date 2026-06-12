@@ -1019,12 +1019,6 @@
     let lrTeams    = [];
     let cfgEventId = null;
 
-    const LR_SLOT_LABELS = [
-      { label: 'Slot 1', holes: 'Holes 1,4,7,10,13,16' },
-      { label: 'Slot 2', holes: 'Holes 2,5,8,11,14,17' },
-      { label: 'Slot 3', holes: 'Holes 3,6,9,12,15,18' },
-    ];
-
     function populateConfigEventDropdown() {
       const sel = document.getElementById('cfg-event-select');
       if (!sel) return;
@@ -1055,9 +1049,44 @@
       }
     }
 
+    // Sort a team's players by ascending rawCap (A = lowest = Slot 1 default)
+    function defaultSlotOrder(team) {
+      return [...team].sort((a, b) => {
+        const ha = parseFloat(state.handicaps[a.toLowerCase()]?.rawCap ?? Infinity);
+        const hb = parseFloat(state.handicaps[b.toLowerCase()]?.rawCap ?? Infinity);
+        return ha - hb;
+      });
+    }
+
+    // For each player, return their tier index (0=A,1=B,2=C) by handicap rank within their team
+    function buildTierLookup(teams) {
+      const lookup = {};
+      for (const team of teams) {
+        const sorted = defaultSlotOrder(team);
+        sorted.forEach((name, i) => { lookup[name.toLowerCase()] = i; });
+      }
+      return lookup;
+    }
+
     function renderLoneRangerPanel(event) {
       cfgEventId = event.id;
-      lrTeams = event.teamSlots ? event.teamSlots.map(t => [...t]) : [];
+      const teams = event.teams || [];
+      const panel = document.getElementById('cfg-panel');
+
+      if (teams.length === 0) {
+        panel.innerHTML = `<p class="text-xs text-yellow-600 font-body py-2">⚠ No teams have been drawn yet — draw and save teams in Step 1 first.</p>`;
+        return;
+      }
+
+      lrTeams = teams.map(team => {
+        // Use existing slot config if it covers exactly this team's players
+        const existing = (event.teamSlots || []).find(slots =>
+          slots.length === team.length &&
+          slots.every(p => team.some(n => n.toLowerCase() === p.toLowerCase()))
+        );
+        return existing ? [...existing] : defaultSlotOrder(team);
+      });
+
       renderLrTeams();
     }
 
@@ -1065,71 +1094,89 @@
       const panel = document.getElementById('cfg-panel');
       if (!panel) return;
 
-      const playerOptions = ['', ...(state.roster || [])].map(p =>
-        `<option value="${p.replace(/"/g, '&quot;')}">${p || '— Select Player —'}</option>`
-      ).join('');
+      const event = state.kvEvents.find(e => e.id === cfgEventId);
+      if (!event) return;
+
+      // Adjusted caps (season-scoped)
+      const season  = state.allSeasons.find(s => s.id === event.season);
+      const inSeason = season?.players?.length
+        ? new Set(season.players.map(p => p.toLowerCase())) : null;
+      const rawVals = (state.roster || [])
+        .filter(n => !inSeason || inSeason.has(n.toLowerCase()))
+        .map(n => { const h = state.handicaps[n.toLowerCase()]; return h?.rawCap !== undefined ? parseFloat(h.rawCap) : null; })
+        .filter(v => v !== null);
+      const minRaw = rawVals.length ? Math.min(...rawVals) : 0;
+
+      const tierLookup  = buildTierLookup(event.teams || []);
+      const TIER_LABELS = ['A', 'B', 'C', 'D'];
+      const TIER_CLS    = ['text-emerald-400', 'text-yellow-400', 'text-orange-400', 'text-violet-400'];
+
+      const cards = lrTeams.map((slots, ti) => `
+        <div class="border border-border/60 rounded-lg p-3 bg-surface">
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Team ${ti + 1}</div>
+          ${slots.map((name, si) => {
+            const h       = state.handicaps[name.toLowerCase()];
+            const cap     = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) - minRaw) : '—';
+            const tierIdx = tierLookup[name.toLowerCase()] ?? 0;
+            const canUp   = si > 0;
+            const canDown = si < slots.length - 1;
+            return `
+              <div class="flex items-center gap-1 py-0.5">
+                <span class="text-[9px] font-heading font-600 text-gray-700 w-8 shrink-0">SLT ${si + 1}</span>
+                <span class="text-xs font-body text-gray-200 flex-1 truncate">${name}</span>
+                <span class="text-[9px] font-heading font-600 ${TIER_CLS[tierIdx]} w-4 text-center shrink-0">${TIER_LABELS[tierIdx]}</span>
+                <span class="text-[10px] text-gray-600 font-body w-5 text-right shrink-0">${cap}</span>
+                <div class="flex flex-col shrink-0 ml-0.5">
+                  <button type="button" class="lr-up leading-none px-0.5 py-px ${canUp ? 'text-gray-600 hover:text-white' : 'opacity-0 pointer-events-none'}"
+                    data-ti="${ti}" data-si="${si}" style="transition:color 0.1s;font-size:9px">▲</button>
+                  <button type="button" class="lr-down leading-none px-0.5 py-px ${canDown ? 'text-gray-600 hover:text-white' : 'opacity-0 pointer-events-none'}"
+                    data-ti="${ti}" data-si="${si}" style="transition:color 0.1s;font-size:9px">▼</button>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>`).join('');
 
       panel.innerHTML = `
-        <div class="space-y-3">
-          ${lrTeams.length === 0
-            ? '<p class="text-xs text-gray-700 font-body py-1">No teams added yet. Click "+ Add Team" to start.</p>'
-            : lrTeams.map((team, ti) => `
-              <div class="border border-border/60 rounded-lg p-4 bg-surface">
-                <div class="flex items-center justify-between mb-3">
-                  <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase">Team ${ti + 1}</div>
-                  <button type="button" class="lr-remove-team text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-ti="${ti}" style="transition:color 0.12s">Remove</button>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  ${LR_SLOT_LABELS.map((sl, si) => `
-                    <div>
-                      <label>${sl.label} <span class="text-gray-700 font-body normal-case tracking-normal font-normal">${sl.holes}</span></label>
-                      <select class="lr-slot" data-ti="${ti}" data-si="${si}">${playerOptions}</select>
-                    </div>`).join('')}
-                </div>
-              </div>`).join('')}
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+          <p class="text-xs text-gray-600 font-body">All teams pre-loaded. Default order: A player → Slot 1, B → Slot 2, C → Slot 3. Use ▲▼ to swap slots within a team.</p>
+          <button type="button" id="lr-reset-all"
+            class="text-xs text-gray-600 hover:text-gray-400 font-heading font-600 tracking-wider shrink-0"
+            style="transition:color 0.12s">↺ Reset All to Default</button>
         </div>
-        <div class="flex items-center gap-4 mt-4 flex-wrap">
-          <button type="button" id="lr-add-team"
-            class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
-            style="transition:color 0.12s">+ Add Team</button>
-          ${lrTeams.length > 0 ? `<button type="button" id="lr-save-btn"
-            class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
-            style="transition:background 0.15s">Save Configuration</button>` : ''}
-        </div>`;
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 mb-4">
+          ${cards}
+        </div>
+        <button type="button" id="lr-save-btn"
+          class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+          style="transition:background 0.15s">Save Configuration</button>`;
 
-      lrTeams.forEach((team, ti) => {
-        team.forEach((player, si) => {
-          const sel = panel.querySelector(`.lr-slot[data-ti="${ti}"][data-si="${si}"]`);
-          if (sel) sel.value = player || '';
+      panel.querySelectorAll('.lr-up').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ti = parseInt(btn.dataset.ti), si = parseInt(btn.dataset.si);
+          [lrTeams[ti][si - 1], lrTeams[ti][si]] = [lrTeams[ti][si], lrTeams[ti][si - 1]];
+          renderLrTeams();
         });
       });
 
-      panel.querySelectorAll('.lr-slot').forEach(sel => {
-        sel.addEventListener('change', e => {
-          lrTeams[parseInt(e.target.dataset.ti)][parseInt(e.target.dataset.si)] = e.target.value;
+      panel.querySelectorAll('.lr-down').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ti = parseInt(btn.dataset.ti), si = parseInt(btn.dataset.si);
+          [lrTeams[ti][si], lrTeams[ti][si + 1]] = [lrTeams[ti][si + 1], lrTeams[ti][si]];
+          renderLrTeams();
         });
       });
-      panel.querySelectorAll('.lr-remove-team').forEach(btn => {
-        btn.addEventListener('click', () => { lrTeams.splice(parseInt(btn.dataset.ti), 1); renderLrTeams(); });
+
+      document.getElementById('lr-reset-all')?.addEventListener('click', () => {
+        const event = state.kvEvents.find(e => e.id === cfgEventId);
+        if (event) lrTeams = (event.teams || []).map(defaultSlotOrder);
+        renderLrTeams();
       });
-      document.getElementById('lr-add-team')?.addEventListener('click', () => { lrTeams.push(['', '', '']); renderLrTeams(); });
+
       document.getElementById('lr-save-btn')?.addEventListener('click', () => saveLoneRangerConfig(cfgEventId));
     }
 
     async function saveLoneRangerConfig(eventId) {
       if (!eventId) return;
-      for (let ti = 0; ti < lrTeams.length; ti++) {
-        if (lrTeams[ti].some(p => !p)) {
-          showStatus(`Team ${ti + 1} has an empty slot — fill all three slots before saving.`, 'error');
-          return;
-        }
-      }
-      const allPlayers = lrTeams.flatMap(t => t).filter(p => p);
-      const seen = new Set();
-      for (const p of allPlayers) {
-        if (seen.has(p)) { showStatus(`"${p}" is assigned to multiple slots. Each player can only appear once.`, 'error'); return; }
-        seen.add(p);
-      }
       const event = state.kvEvents.find(e => e.id === eventId);
       if (!event) return;
       const updatedEvent = { ...event, teamSlots: lrTeams.map(t => [...t]) };
@@ -1143,7 +1190,7 @@
         if (!res.ok) throw new Error(data.error);
         const idx = state.kvEvents.findIndex(e => e.id === eventId);
         if (idx !== -1) state.kvEvents[idx] = data.event;
-        showStatus('Team configuration saved.', 'success');
+        showStatus('Team slot configuration saved.', 'success');
       } catch (e) {
         showStatus('Error saving configuration: ' + e.message, 'error');
       }
