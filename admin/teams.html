@@ -921,8 +921,9 @@
       const needsTeams = !isSolo && teams.length === 0;
       const stale      = handicapsAreStale();
 
+      const seasonPlayers = getSortedPlayers(event.season);
       const summary = isSolo
-        ? `Individual event &nbsp;·&nbsp; <span class="text-white font-semibold">${state.roster.length}</span> players`
+        ? `Individual event &nbsp;·&nbsp; <span class="text-white font-semibold">${seasonPlayers.length}</span> players`
         : `Team event &nbsp;·&nbsp; <span class="text-white font-semibold">${teams.length}</span> teams of <span class="text-white font-semibold">${teamSize}</span>`;
 
       if (stale) {
@@ -962,9 +963,12 @@
       const teamSize = fmt.teamSize ? parseInt(fmt.teamSize) : 1;
       const isSolo   = teamSize < 2;
 
-      const rawValues = Object.values(state.handicaps).map(h => parseFloat(h.rawCap)).filter(n => !isNaN(n));
-      const minRaw    = rawValues.length ? Math.min(...rawValues) : 0;
-      const capOffset = -minRaw;
+      const seasonPlayers = getSortedPlayers(event.season);
+      const minRaw    = seasonPlayers.reduce((min, p) => {
+        const raw = state.handicaps[p.name.toLowerCase()]?.rawCap;
+        return raw !== undefined ? Math.min(min, parseFloat(raw)) : min;
+      }, Infinity);
+      const capOffset = isFinite(minRaw) ? -minRaw : 0;
       const adjCap = name => {
         const h = state.handicaps[name.toLowerCase()];
         return h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : 0;
@@ -974,8 +978,8 @@
       const rows = [];
 
       if (isSolo) {
-        const sorted = [...state.roster].sort((a, b) => adjCap(a) - adjCap(b));
-        for (const name of sorted) {
+        const sorted = seasonPlayers.slice().sort((a, b) => adjCap(a.name) - adjCap(b.name));
+        for (const { name } of sorted) {
           rows.push([name, adjCap(name), '', '', '', '', '', '', '', ''].join(','));
         }
       } else {
