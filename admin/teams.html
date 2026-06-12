@@ -1179,6 +1179,8 @@
       if (!eventId) return;
       const event = state.kvEvents.find(e => e.id === eventId);
       if (!event) return;
+      const btn = document.getElementById('lr-save-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
       const updatedEvent = { ...event, teamSlots: lrTeams.map(t => [...t]) };
       try {
         const res = await fetch(API, {
@@ -1190,9 +1192,13 @@
         if (!res.ok) throw new Error(data.error);
         const idx = state.kvEvents.findIndex(e => e.id === eventId);
         if (idx !== -1) state.kvEvents[idx] = data.event;
-        showStatus('Team slot configuration saved.', 'success');
+        if (btn) { btn.textContent = '✓ Saved!'; btn.style.background = '#16a34a'; }
+        setTimeout(() => {
+          if (btn) { btn.textContent = 'Save Configuration'; btn.style.background = ''; btn.disabled = false; }
+        }, 2000);
       } catch (e) {
         showStatus('Error saving configuration: ' + e.message, 'error');
+        if (btn) { btn.textContent = 'Save Configuration'; btn.disabled = false; }
       }
     }
 
