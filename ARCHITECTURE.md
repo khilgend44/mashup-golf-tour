@@ -1,6 +1,6 @@
 # MashUp Golf Tour — Architecture Reference
 
-Last updated: June 2026
+Last updated: June 12, 2026
 
 ---
 
@@ -36,18 +36,23 @@ SimulatorGolfTour API  (provides live scorecard data)
 - Pages:
   - `/admin/players.html` — manage player roster, view/refresh handicaps
   - `/admin/events.html` — create/manage seasons and events
+    - SGT Event URL must be entered first — it unlocks the rest of the form and auto-populates event name, dates, rounds, and week number
+    - Event name is locked after SGT scrape and does not change when format is changed
+    - **Details** button shows a metadata panel (format, payouts, rounds, etc.) for active/completed events
+    - **↺ Sync** button re-scrapes SGT to refresh dates and round settings on an existing event
   - `/admin/teams.html` — draw teams for an event (Steps 1–4):
     - Step 1: Create Teams — three modes:
       - **Tiered Draw**: 1 player pulled from each handicap tier, produces balanced teams
       - **Completely Random**: all players shuffled, pure luck
       - **Manual Entry**: click-to-assign UI — select a player chip, click a team slot to place them; Save button enabled when all slots filled
-    - Step 2: Generate SGT Loading File (CSV download for SimulatorGolfTour registration)
+    - Step 2: Generate SGT Loading File (CSV download for SimulatorGolfTour registration) — uses season-scoped player list
     - Step 3: Upload SGT Loading File (manual instruction — links to SGT Admin)
-    - Step 4: Configure Special Team Orders (Lone Ranger slot assignments)
+    - Step 4: Configure Special Team Orders (Lone Ranger slot assignments) — all teams pre-loaded, ▲▼ swap buttons per player, default order A=Slot1/B=Slot2/C=Slot3
   - `/admin/poster-preview.html` — generate and send the weekly event announcement:
     - Visual poster preview (exported as PNG via html2canvas)
     - Discord announcement text (format rules, course settings, prizes)
     - Posts to Discord via `/api/announce-event`
+    - After posting, prompts to activate the event (activation enables live scorecard fetching)
 
 ### 3. Data Storage — Cloudflare KV
 - **Namespace ID:** `a6cbb9bc3e784be88136dbffe9f9796f`
@@ -58,12 +63,14 @@ SimulatorGolfTour API  (provides live scorecard data)
   - `players:handicaps` — handicap data from SGT API (object keyed by lowercase player name → `{ rawCap, comboCap, numEvents, ... }`)
   - `players:last_refresh` — ISO timestamp of last handicap pull
   - `{eventId}:{playerName}:{round}` — YouTube stream URLs submitted by players
+  - `{eventId}:handicaps` — snapshot of `players:handicaps` taken at the moment an event is activated (used for historical accuracy)
 - Static/historical data lives in `data/` JSON files in the repo instead.
-- **Adjusted handicap** (used for team draws and posters): `Math.round(rawCap - minRaw)` where `minRaw` is the lowest rawCap across all players. Always an integer, always ≥ 0.
+- **Adjusted handicap** (used for team draws and posters): `Math.round(rawCap - minRaw)` where `minRaw` is the lowest rawCap among **season-scoped players** (not all-time roster). Always an integer, always ≥ 0.
 
 ### 4. Scorecard Automation — GitHub Actions
 - **Workflow file:** `.github/workflows/fetch-scorecards.yml`
-- Fetches live scorecards from SGT API for all non-completed events in the active season
+- Fetches live scorecards from SGT API for **`status == "active"` events only** (upcoming events are skipped)
+- Active season is found by merging `data/seasons.json` + `/api/seasons` (KV) — KV takes precedence, so KV-only seasons (e.g. Season 8) are found correctly
 - Commits scorecard JSON files to `data/scorecards/{tournamentId}.json`
 - Merges both static `data/events.json` and KV-stored events so admin-created events are included
 - **Triggered by:** Cloudflare Worker (not GitHub's built-in scheduler — see below)
