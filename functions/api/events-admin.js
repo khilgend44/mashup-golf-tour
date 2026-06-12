@@ -63,15 +63,24 @@ export async function onRequestGet(context) {
       const dateDiv = html.match(/<div class='text-nowrap'>([^<]*(?:January|February|March|April|May|June|July|August|September|October|November|December)[^<]*\d{4}[^<]*)<\/div>/i);
       if (dateDiv) {
         const ds = dateDiv[1].trim();
-        let dm = ds.match(/(\w+)\s+(\d+)\s*[-–]\s*(\w+)\s+(\d+),?\s*(\d{4})/);
-        if (dm && MONTHS[dm[1]] && MONTHS[dm[3]]) {
-          result.startDate = `${dm[5]}-${MONTHS[dm[1]]}-${dm[2].padStart(2,'0')}`;
-          result.endDate   = `${dm[5]}-${MONTHS[dm[3]]}-${dm[4].padStart(2,'0')}`;
+        // Pattern 1: "December 21, 2025 - January 5, 2026" (year after each date)
+        let dm = ds.match(/(\w+)\s+(\d+),?\s*(\d{4})\s*[-–]\s*(\w+)\s+(\d+),?\s*(\d{4})/);
+        if (dm && MONTHS[dm[1]] && MONTHS[dm[4]]) {
+          result.startDate = `${dm[3]}-${MONTHS[dm[1]]}-${dm[2].padStart(2,'0')}`;
+          result.endDate   = `${dm[6]}-${MONTHS[dm[4]]}-${dm[5].padStart(2,'0')}`;
         } else {
-          dm = ds.match(/(\w+)\s+(\d+)\s*[-–]\s*(\d+),?\s*(\d{4})/);
-          if (dm && MONTHS[dm[1]]) {
-            result.startDate = `${dm[4]}-${MONTHS[dm[1]]}-${dm[2].padStart(2,'0')}`;
-            result.endDate   = `${dm[4]}-${MONTHS[dm[1]]}-${dm[3].padStart(2,'0')}`;
+          // Pattern 2: "December 21 – January 5, 2026" (year only at end, cross-month)
+          dm = ds.match(/(\w+)\s+(\d+)\s*[-–]\s*(\w+)\s+(\d+),?\s*(\d{4})/);
+          if (dm && MONTHS[dm[1]] && MONTHS[dm[3]]) {
+            result.startDate = `${dm[5]}-${MONTHS[dm[1]]}-${dm[2].padStart(2,'0')}`;
+            result.endDate   = `${dm[5]}-${MONTHS[dm[3]]}-${dm[4].padStart(2,'0')}`;
+          } else {
+            // Pattern 3: "December 21 – 28, 2025" (same month)
+            dm = ds.match(/(\w+)\s+(\d+)\s*[-–]\s*(\d+),?\s*(\d{4})/);
+            if (dm && MONTHS[dm[1]]) {
+              result.startDate = `${dm[4]}-${MONTHS[dm[1]]}-${dm[2].padStart(2,'0')}`;
+              result.endDate   = `${dm[4]}-${MONTHS[dm[1]]}-${dm[3].padStart(2,'0')}`;
+            }
           }
         }
       }

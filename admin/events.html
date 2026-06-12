@@ -517,6 +517,7 @@
               <a href="/event.html?id=${e.id}" target="_blank"
                 class="text-xs font-heading font-600 tracking-wider text-gray-600 hover:text-gray-300"
                 style="transition:color 0.12s">View →</a>
+              ${isKv && e.tournamentId ? `<button class="rescrape-btn text-xs font-heading font-600 tracking-wider text-gray-600 hover:text-gray-400" data-id="${e.id}" data-tid="${e.tournamentId}" style="transition:color 0.12s">↺ Sync</button>` : ''}
               ${isKv && e.status === 'upcoming' ? `<button class="activate-btn text-xs font-heading font-600 tracking-wider text-emerald-500 hover:text-emerald-300" data-id="${e.id}" data-name="${(e.name || e.id).replace(/"/g, '&quot;')}" style="transition:color 0.12s">Activate</button>` : ''}
               ${isKv ? `<button class="delete-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-id="${e.id}" style="transition:color 0.12s">Delete</button>` : ''}
             </div>
@@ -529,6 +530,9 @@
       });
       tbody.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', () => deleteEvent(btn.dataset.id));
+      });
+      tbody.querySelectorAll('.rescrape-btn').forEach(btn => {
+        btn.addEventListener('click', () => rescrapeEvent(btn.dataset.id, btn.dataset.tid, btn));
       });
 
     }
@@ -1098,6 +1102,41 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closeModal();
     });
+
+    // ── Re-scrape event from SGT ──────────────────────────────
+    async function rescrapeEvent(eventId, tournamentId, btn) {
+      const orig = btn.textContent;
+      btn.textContent = '…'; btn.disabled = true;
+      try {
+        const res  = await fetch(`/api/events-admin?type=scrape&tournamentId=${tournamentId}`);
+        const data = await res.json();
+        if (!res.ok || (!data.startDate && !data.rounds?.length)) {
+          showStatus('Nothing new scraped from SGT — event unchanged.', 'info');
+          return;
+        }
+        const event = state.kvEvents.find(e => e.id === eventId);
+        if (!event) return;
+        const updated = { ...event };
+        if (data.startDate) { updated.startDate = data.startDate; updated.date = data.startDate; }
+        if (data.endDate)   updated.endDate = data.endDate;
+        if (data.rounds?.length) updated.rounds = data.rounds;
+        const saveRes = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-event', event: updated }),
+        });
+        const saveData = await saveRes.json();
+        if (!saveRes.ok) throw new Error(saveData.error);
+        const idx = state.kvEvents.findIndex(e => e.id === eventId);
+        if (idx !== -1) state.kvEvents[idx] = saveData.event;
+        renderTable();
+        showStatus(`"${updated.name}" synced from SGT.`, 'success');
+      } catch (e) {
+        showStatus('Sync failed: ' + e.message, 'error');
+      } finally {
+        btn.textContent = orig; btn.disabled = false;
+      }
+    }
 
     loadAll();
   </script>
