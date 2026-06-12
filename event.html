@@ -917,8 +917,8 @@
 
       if (isStableford) {
         document.getElementById('side-section').innerHTML = buildStablefordSidePotHtml(results, event);
-      } else if (format?.type === 'lone-ranger') {
-        document.getElementById('side-section').innerHTML = buildLoneRangerSidePotHtml(results, event);
+      } else if (event.sidePots?.length) {
+        document.getElementById('side-section').innerHTML = buildTeamSidePotHtml(results, event);
       } else if (event.payouts?.length) {
         document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       }
@@ -1073,7 +1073,7 @@
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
     }
 
-    function buildLoneRangerSidePotHtml(results, event) {
+    function buildTeamSidePotHtml(results, event) {
       const winnerMembers = new Set(
         results.filter(t => t.prize != null).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
       );
@@ -1766,6 +1766,7 @@
           </div>`;
 
         if (done) {
+          if (event.sidePots?.length) lbEl.insertAdjacentHTML('beforeend', buildTeamSidePotHtml(results, event));
           if (event.ctp?.length) lbEl.insertAdjacentHTML('beforeend', buildCtpHtml(event.ctp));
           lbEl.querySelectorAll('[data-lb-row]').forEach(row => {
             row.addEventListener('click', () => {
