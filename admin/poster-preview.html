@@ -291,7 +291,14 @@
       const teamSize = fmt.teamSize ? parseInt(fmt.teamSize) : 1;
       const rounds   = event.rounds || [];
       const r1       = rounds[0] || {};
-      const payouts  = event.payouts || [];
+      const np       = event.nassauPrizes;
+      const payouts  = np
+        ? [
+            ...(np.bb ? [{ amount: np.bb, label: '18-Hole Best Ball' }] : []),
+            ...(np.f9 ? [{ amount: np.f9, label: 'Front 9 Aggregate' }] : []),
+            ...(np.b9 ? [{ amount: np.b9, label: 'Back 9 Aggregate'  }] : []),
+          ]
+        : (event.payouts || []);
       const ctps     = event.ctps || null;
       const sidePots = event.sidePots || [];
       const teams    = event.teams || [];
@@ -357,8 +364,9 @@
 
       const prizeParts = [];
       payouts.forEach((p, i) => {
-        const perP = teamSize > 1 ? ` ($${Math.round(p.amount / teamSize)}/ea)` : '';
-        prizeParts.push(`${ORDINALS[i] || (i + 1) + 'th'} Place — $${p.amount}${perP}`);
+        const perP  = teamSize > 1 && !p.label ? ` ($${Math.round(p.amount / teamSize)}/ea)` : '';
+        const label = p.label || `${ORDINALS[i] || (i + 1) + 'th'} Place`;
+        prizeParts.push(`${label} — $${p.amount}${perP}`);
       });
       if (ctps) prizeParts.push(`CTP ×${ctps.count} — $${ctps.amountEach}/ea`);
       sidePots.forEach(p => prizeParts.push(`${p.name || 'Side Pot'} — $${p.amount}`));
@@ -385,7 +393,14 @@
       const teamSize = fmt.teamSize ? parseInt(fmt.teamSize) : 1;
       const rounds   = event.rounds || [];
       const r1       = rounds[0] || {};
-      const payouts  = event.payouts || [];
+      const np       = event.nassauPrizes;
+      const payouts  = np
+        ? [
+            ...(np.bb ? [{ amount: np.bb, label: '18-Hole Best Ball' }] : []),
+            ...(np.f9 ? [{ amount: np.f9, label: 'Front 9 Aggregate' }] : []),
+            ...(np.b9 ? [{ amount: np.b9, label: 'Back 9 Aggregate'  }] : []),
+          ]
+        : (event.payouts || []);
       const ctps     = event.ctps || null;
       const sidePots = event.sidePots || [];
       const teams    = event.teams || [];
@@ -463,10 +478,11 @@
       const payoutsHTML = payouts.length === 0
         ? `<div style="font-family:'Inter',sans-serif;font-size:11px;color:#374151;padding:4px 0">No payouts configured</div>`
         : payouts.map((p, i) => {
-            const dec  = PRIZE_DECORATIONS[i] || { emoji: '', cls: '' };
-            const perP = teamSize > 1 ? Math.round(p.amount / teamSize) : null;
+            const dec   = PRIZE_DECORATIONS[i] || { emoji: '', cls: '' };
+            const label = p.label || `${ORDINALS[i] || (i+1+'th')} Place`;
+            const perP  = teamSize > 1 && !p.label ? Math.round(p.amount / teamSize) : null;
             return `<div class="pr-i">
-              <span class="pr-p ${dec.cls}">${dec.emoji ? dec.emoji + ' ' : ''}${ORDINALS[i] || (i+1+'th')} Place</span>
+              <span class="pr-p ${dec.cls}">${dec.emoji ? dec.emoji + ' ' : ''}${label}</span>
               <span>
                 <span class="pr-a">$${p.amount}</span>
                 ${perP ? `<span class="pr-s">($${perP}/ea)</span>` : ''}
