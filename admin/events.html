@@ -333,6 +333,20 @@
 
   </main>
 
+  <!-- DETAILS MODAL -->
+  <div id="details-modal" class="fixed inset-0 z-50 items-center justify-center hidden" style="background:rgba(0,0,0,0.75);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl w-full max-w-lg mx-4 overflow-hidden" style="max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+      <div class="px-6 py-4 border-b border-[#2c2c2c] flex items-center justify-between flex-shrink-0">
+        <div>
+          <div id="dm-label" class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-0.5"></div>
+          <h2 id="dm-title" class="font-display text-2xl tracking-wider text-white"></h2>
+        </div>
+        <button id="details-close" class="text-gray-600 hover:text-gray-400 text-xl leading-none ml-4" style="transition:color 0.12s">×</button>
+      </div>
+      <div id="dm-body" class="overflow-y-auto px-6 py-5 text-sm font-body space-y-4"></div>
+    </div>
+  </div>
+
   <!-- ACTIVATE MODAL -->
   <div id="activate-modal" class="fixed inset-0 z-50 items-center justify-center" style="display:none;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)">
     <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-8 w-full max-w-md mx-4 card-shadow" id="modal-body"></div>
@@ -516,7 +530,8 @@
             <div class="flex items-center justify-end gap-4">
               <a href="/event.html?id=${e.id}" target="_blank"
                 class="text-xs font-heading font-600 tracking-wider text-gray-600 hover:text-gray-300"
-                style="transition:color 0.12s">View →</a>
+                style="transition:color 0.12s">Leaderboard →</a>
+              ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-white" data-id="${e.id}" style="transition:color 0.12s">Details</button>` : ''}
               ${isKv && e.tournamentId ? `<button class="rescrape-btn text-xs font-heading font-600 tracking-wider text-gray-600 hover:text-gray-400" data-id="${e.id}" data-tid="${e.tournamentId}" style="transition:color 0.12s">↺ Sync</button>` : ''}
               ${isKv && e.status === 'upcoming' ? `<button class="activate-btn text-xs font-heading font-600 tracking-wider text-emerald-500 hover:text-emerald-300" data-id="${e.id}" data-name="${(e.name || e.id).replace(/"/g, '&quot;')}" style="transition:color 0.12s">Activate</button>` : ''}
               ${isKv ? `<button class="delete-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-id="${e.id}" style="transition:color 0.12s">Delete</button>` : ''}
@@ -530,6 +545,9 @@
       });
       tbody.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', () => deleteEvent(btn.dataset.id));
+      });
+      tbody.querySelectorAll('.details-btn').forEach(btn => {
+        btn.addEventListener('click', () => showDetailsModal(btn.dataset.id));
       });
       tbody.querySelectorAll('.rescrape-btn').forEach(btn => {
         btn.addEventListener('click', () => rescrapeEvent(btn.dataset.id, btn.dataset.tid, btn));
@@ -1102,6 +1120,94 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closeModal();
     });
+
+    // ── Details modal ─────────────────────────────────────────
+    function closeDetailsModal() {
+      const m = document.getElementById('details-modal');
+      m.classList.add('hidden');
+      m.style.display = '';
+    }
+    document.getElementById('details-close').addEventListener('click', closeDetailsModal);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetailsModal(); });
+
+    function row(label, value) {
+      if (value == null || value === '' || value === '—') return '';
+      return `<div class="flex gap-3 py-1.5 border-b border-[#2c2c2c]/60">
+        <span class="text-gray-600 w-32 shrink-0">${label}</span>
+        <span class="text-gray-200">${value}</span>
+      </div>`;
+    }
+
+    function showDetailsModal(eventId) {
+      const e = state.kvEvents.find(ev => ev.id === eventId);
+      if (!e) return;
+      const fmt = state.allFormats[e.format];
+      const ORDINALS = ['1st','2nd','3rd','4th','5th'];
+
+      document.getElementById('dm-label').textContent = `${e.season || ''} · Week ${e.week || '—'}`;
+      document.getElementById('dm-title').textContent = e.name || e.id;
+
+      const dateStr = [e.startDate, e.endDate].filter(Boolean).join(' – ') || '—';
+      const payoutsHtml = (e.payouts || []).map((p, i) =>
+        `<div class="flex justify-between py-1 border-b border-[#2c2c2c]/40">
+          <span class="text-gray-500">${ORDINALS[i] || (i+1)+'th'} Place</span>
+          <span class="text-gray-200">$${p.amount}</span>
+        </div>`).join('') || '<span class="text-gray-600">None</span>';
+
+      const nassauHtml = e.nassauPrizes ? `
+        <div class="flex justify-between py-1 border-b border-[#2c2c2c]/40"><span class="text-gray-500">18-Hole Best Ball</span><span class="text-gray-200">$${e.nassauPrizes.bb ?? '—'}</span></div>
+        <div class="flex justify-between py-1 border-b border-[#2c2c2c]/40"><span class="text-gray-500">Front 9 Aggregate</span><span class="text-gray-200">$${e.nassauPrizes.f9 ?? '—'}</span></div>
+        <div class="flex justify-between py-1 border-b border-[#2c2c2c]/40"><span class="text-gray-500">Back 9 Aggregate</span><span class="text-gray-200">$${e.nassauPrizes.b9 ?? '—'}</span></div>` : '';
+
+      const ctpHtml = e.ctps ? `$${e.ctps.amountEach} × ${e.ctps.count} CTPs` : '—';
+      const sidePotsHtml = (e.sidePots || []).map(p =>
+        `<div class="flex justify-between py-1 border-b border-[#2c2c2c]/40">
+          <span class="text-gray-500">${p.name || 'Side Pot'}</span>
+          <span class="text-gray-200">$${p.amount}</span>
+        </div>`).join('') || '<span class="text-gray-600">None</span>';
+
+      const roundsHtml = (e.rounds || []).map(r => {
+        const parts = [r.course, r.stimp != null ? `Stimp ${r.stimp}` : null, r.slope != null ? `Slope ${r.slope}` : null,
+          r.rating != null ? `Rating ${r.rating}` : null, r.tees, r.fairways ? `Fairways ${r.fairways}` : null,
+          r.greens ? `Greens ${r.greens}` : null, r.pins ? `Pins ${r.pins}` : null,
+          r.wind, r.weather, r.gimmies ? `Gimmies ${r.gimmies}` : null].filter(Boolean);
+        return `<div class="py-1.5 border-b border-[#2c2c2c]/40">
+          <div class="text-gray-500 mb-0.5">Round ${r.round}</div>
+          <div class="text-gray-300">${parts.join(' · ') || '—'}</div>
+        </div>`;
+      }).join('') || '<span class="text-gray-600">None</span>';
+
+      const teamsLabel = e.teams?.length ? `${e.teams.length} teams of ${fmt?.teamSize || '?'}` : 'Not drawn';
+
+      document.getElementById('dm-body').innerHTML = `
+        <div class="space-y-0.5">
+          ${row('Format',      fmt?.name || e.format || '—')}
+          ${row('Status',      e.status)}
+          ${row('Dates',       dateStr)}
+          ${row('SGT URL',     e.url ? `<a href="${e.url}" target="_blank" class="text-flame hover:underline">${e.url}</a>` : null)}
+          ${row('Teams',       teamsLabel)}
+          ${row('Description', e.description)}
+        </div>
+        <div>
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Payouts</div>
+          ${e.nassauPrizes ? nassauHtml : payoutsHtml}
+        </div>
+        <div>
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">CTPs</div>
+          <span class="text-gray-300">${ctpHtml}</span>
+        </div>
+        <div>
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Side Pots</div>
+          ${sidePotsHtml}
+        </div>
+        <div>
+          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Round Settings</div>
+          ${roundsHtml}
+        </div>`;
+
+      document.getElementById('details-modal').classList.remove('hidden');
+      document.getElementById('details-modal').style.display = 'flex';
+    }
 
     // ── Re-scrape event from SGT ──────────────────────────────
     async function rescrapeEvent(eventId, tournamentId, btn) {
