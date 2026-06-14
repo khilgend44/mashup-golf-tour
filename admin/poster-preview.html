@@ -202,7 +202,8 @@
   </footer>
 
   <script type="module">
-    const API                = '/api/events-admin';
+    const API                = '/api/events-admin';  // public reads
+    const API_WRITE          = '/admin/api/events';   // Access-protected writes
     const FORMATS_STATIC_URL = '/data/formats.json';
     const SITE_URL           = 'mashup-golf-tour.pages.dev';
 
@@ -660,7 +661,7 @@
 
         // Convert canvas to base64 and send through our server (keeps webhook URL private)
         const base64 = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-        const res = await fetch('/api/announce-event', {
+        const res = await fetch('/admin/api/announce', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, imageBase64: base64 }),
@@ -691,7 +692,7 @@
       const btn = document.getElementById('activate-confirm');
       btn.textContent = 'Activating…'; btn.disabled = true;
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'activate-event', eventId: currentEvent.id }),

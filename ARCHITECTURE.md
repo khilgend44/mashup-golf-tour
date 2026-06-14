@@ -51,8 +51,27 @@ SimulatorGolfTour API  (provides live scorecard data)
   - `/admin/poster-preview.html` — generate and send the weekly event announcement:
     - Visual poster preview (exported as PNG via html2canvas)
     - Discord announcement text (format rules, course settings, prizes)
-    - Posts to Discord via `/api/announce-event`
+    - Posts to Discord via `/admin/api/announce`
     - After posting, prompts to activate the event (activation enables live scorecard fetching)
+
+### 2b. API Endpoints & Security Model
+The API is split into **public reads** and **protected writes** so the public site can load data freely while only an authenticated admin can change it.
+
+- **Public reads — `functions/api/*`** (route `/api/*`, no auth):
+  - `/api/events-admin?type=events|formats|scrape` — event/format lists + SGT page scrape (GET)
+  - `/api/seasons` — season list (GET)
+  - `/api/players` — roster + handicaps (GET)
+  - `/api/event-public`, `/api/get-streams` — public event/team + stream data (GET)
+  - `/api/submit-stream` — **public write by design** (players submit their own YouTube links)
+- **Protected writes — `functions/admin/api/*`** (route `/admin/api/*`, behind Cloudflare Access):
+  - `/admin/api/events` — create/update/delete/activate event, create/delete format
+  - `/admin/api/players` — onboard/add/remove player, refresh handicaps
+  - `/admin/api/seasons` — create/update/archive season
+  - `/admin/api/announce` — post event poster to Discord
+- **Why `/admin/api/`:** these live under `/admin/`, so the same Cloudflare Access application that protects the admin pages also protects them. Cloudflare blocks unauthenticated requests before they reach the function.
+- **Defense in depth:** `functions/admin/api/_lib.js` → `requireAccess()` runs on every write. It always requires the `Cf-Access-Jwt-Assertion` header (only present after passing the Access gate). If `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` env vars are set, it additionally **cryptographically verifies** the token (RS256 signature against the team's cert endpoint, plus audience + expiry). Without those vars it falls back to header-presence only — so set them for true second-layer protection.
+- **Cloudflare Access requirement:** the Access application path must cover `/admin` (prefix match), which automatically includes `/admin/api/*`. If admin writes ever return `403 "admin access required"`, the Access path isn't covering `/admin/api/`.
+- Admin pages keep reads on `/api/*` constants (`API`, `PLAYERS_API`) and send writes to `/admin/api/*` constants (`API_WRITE`, `PLAYERS_WRITE`).
 
 ### 3. Data Storage — Cloudflare KV
 - **Namespace ID:** `a6cbb9bc3e784be88136dbffe9f9796f`
@@ -128,10 +147,12 @@ SimulatorGolfTour API  (provides live scorecard data)
 | **GitHub Personal Access Token** | Cloudflare Worker → Settings → Variables & Secrets → `GITHUB_TOKEN` | ~June 2027 | Scope: `workflow` only. Regenerate at GitHub → Settings → Developer Settings → PAT (Classic) |
 | **SGT Player API Key** | Cloudflare Pages → Settings → Environment Variables → `player_api_key` | Unknown | Contact SGT admin if it stops working |
 | **Discord Streams Webhook** | Cloudflare Pages → Settings → Environment Variables → `DISCORD_STREAMS_WEBHOOK_URL` | Never | Used by `/api/submit-stream` to notify the streams channel when a player submits a YouTube link. |
-| **Discord Announce Webhook** | Cloudflare Pages → Settings → Environment Variables → `DISCORD_ANNOUNCE_WEBHOOK_URL` | Never | Used by `/api/announce-event` to post event announcement posters to the announcements channel. |
+| **Discord Announce Webhook** | Cloudflare Pages → Settings → Environment Variables → `DISCORD_ANNOUNCE_WEBHOOK_URL` | Never | Used by `/admin/api/announce` to post event announcement posters to the announcements channel. |
 | **Cloudflare API Token** | GitHub → Repo Settings → Secrets → `CLOUDFLARE_API_TOKEN` | Unknown | Used by GitHub Actions to read/write KV |
 | **Cloudflare Account ID** | GitHub → Repo Settings → Secrets → `CLOUDFLARE_ACCOUNT_ID` | Never | Value: `4e0f891a1bcff74ade11ade5d182bac9` |
 | **SGT API Key (scorecards)** | GitHub → Repo Settings → Secrets → `SGT_API_KEY` | Unknown | Used by GitHub Actions to fetch scorecards |
+| **Access Team Domain** *(optional)* | Cloudflare Pages → Settings → Environment Variables → `CF_ACCESS_TEAM_DOMAIN` | Never | e.g. `https://yourteam.cloudflareaccess.com`. Enables cryptographic verification of admin writes. Found in Zero Trust → Settings → team domain. |
+| **Access AUD Tag** *(optional)* | Cloudflare Pages → Settings → Environment Variables → `CF_ACCESS_AUD` | Never | Application Audience tag for the admin Access app. Found in Zero Trust → Access → Applications → (admin app) → Overview. Set together with `CF_ACCESS_TEAM_DOMAIN`. |
 
 ---
 

@@ -221,8 +221,10 @@
   </footer>
 
   <script type="module">
-    const API                = '/api/events-admin';
-    const PLAYERS_API        = '/api/players';
+    const API                = '/api/events-admin';  // public reads
+    const PLAYERS_API        = '/api/players';        // public reads
+    const API_WRITE          = '/admin/api/events';   // Access-protected writes
+    const PLAYERS_WRITE      = '/admin/api/players';  // Access-protected writes
     const FORMATS_STATIC_URL = '/data/formats.json';
 
     let state = {
@@ -650,7 +652,7 @@
       if (!event) return;
       const updatedEvent = { ...event, teams };
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update-event', event: updatedEvent }),
@@ -890,7 +892,7 @@
       const btn = document.getElementById('sgt-refresh-btn');
       if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
       try {
-        const res  = await fetch(PLAYERS_API, {
+        const res  = await fetch(PLAYERS_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'refresh' }),
@@ -1187,7 +1189,7 @@
       if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
       const updatedEvent = { ...event, teamSlots: lrTeams.map(t => [...t]) };
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update-event', event: updatedEvent }),

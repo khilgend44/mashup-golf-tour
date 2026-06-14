@@ -361,7 +361,8 @@
   </footer>
 
   <script type="module">
-    const API      = '/api/events-admin';
+    const API      = '/api/events-admin';   // public reads (list/scrape)
+    const API_WRITE = '/admin/api/events';   // Access-protected writes
     const FORMATS_STATIC_URL = '/data/formats.json';
     const EVENTS_STATIC_URL  = '/data/events.json';
 
@@ -603,7 +604,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       };
 
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'create-event', event }),
@@ -624,7 +625,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       const event = state.kvEvents.find(e => e.id === eventId);
       if (!confirm(`Delete "${event?.name || eventId}"? This cannot be undone.`)) return;
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'delete-event', eventId }),
@@ -656,7 +657,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       };
 
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'create-format', format }),
@@ -1098,7 +1099,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       closeModal();
       if (!id) return;
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'activate-event', eventId: id }),
@@ -1223,7 +1224,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         if (data.startDate) { updated.startDate = data.startDate; updated.date = data.startDate; }
         if (data.endDate)   updated.endDate = data.endDate;
         if (data.rounds?.length) updated.rounds = data.rounds;
-        const saveRes = await fetch(API, {
+        const saveRes = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update-event', event: updated }),

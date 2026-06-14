@@ -1,8 +1,6 @@
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+// Protected admin endpoint that posts an event announcement (poster + text) to
+// Discord.  Route: /admin/api/announce
+import { CORS, requireAccess } from './_lib.js';
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -10,6 +8,9 @@ export async function onRequestOptions() {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
+
+  const denied = await requireAccess(request, env);
+  if (denied) return denied;
 
   const webhookUrl = env.DISCORD_ANNOUNCE_WEBHOOK_URL;
   if (!webhookUrl) {
@@ -27,7 +28,6 @@ export async function onRequestPost(context) {
   }
 
   try {
-    // Decode base64 PNG to binary
     const binaryStr = atob(imageBase64);
     const bytes = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) {

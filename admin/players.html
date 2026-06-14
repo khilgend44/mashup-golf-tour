@@ -140,7 +140,8 @@
   </footer>
 
   <script>
-    const API = '/api/players';
+    const API = '/api/players';            // public reads (roster/handicaps)
+    const API_WRITE = '/admin/api/players'; // Access-protected writes
     let state = { roster: [], handicaps: {}, lastRefresh: null, seasons: [], selectedSeason: '' };
 
     function getSeasonRoster() {
@@ -327,7 +328,7 @@
     async function removePlayer(name) {
       if (!confirm(`Remove ${name} from roster?`)) return;
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'remove', player: name }),
@@ -358,7 +359,7 @@
         const body = { action: 'refresh' };
         if (seasonRoster) body.players = seasonRoster;
 
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),

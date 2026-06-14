@@ -204,8 +204,10 @@
   </main>
 
   <script>
-    const API        = '/api/seasons';
-    const PLAYERS_API = '/api/players';
+    const API        = '/api/seasons';      // public reads
+    const PLAYERS_API = '/api/players';      // public reads
+    const API_WRITE     = '/admin/api/seasons'; // Access-protected writes
+    const PLAYERS_WRITE = '/admin/api/players'; // Access-protected writes
 
     let state = {
       kvSeasons:      [],
@@ -445,7 +447,7 @@
       try {
         // Add any brand-new players to the master roster first
         for (const player of state.newPlayers) {
-          const res = await fetch(PLAYERS_API, {
+          const res = await fetch(PLAYERS_WRITE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'add', player }),
@@ -465,7 +467,7 @@
         const season = { id, name, year, status, description, players };
         const action = state.editingId ? 'update-season' : 'create-season';
 
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action, season }),
@@ -498,7 +500,7 @@
       if (!confirm(`Archive "${season.name}"? This marks it as completed.`)) return;
 
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_WRITE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'archive-season', seasonId }),
