@@ -101,6 +101,28 @@
     .status-completed { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.25); color: #4ade80; }
     .status-active    { background: rgba(251,191,36,0.1);  border: 1px solid rgba(251,191,36,0.25);  color: #fbbf24; }
 
+    /* ── Redesigned event header + leaderboard ──────────────────── */
+    .num { font-variant-numeric: tabular-nums; }
+    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; letter-spacing:.09em; padding:3px 10px; border-radius:6px; }
+    .chip-live { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.3); color:#fbbf24; }
+    .chip-done { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.25); color:#4ade80; }
+    .chip-fmt  { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.32); color:#fb923c; }
+    .chip-meta { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); color:#9ca3af; }
+    .pulse-dot { width:7px; height:7px; border-radius:50%; background:#fbbf24; animation:pulse 2s infinite; }
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(251,191,36,.5)} 70%{box-shadow:0 0 0 7px rgba(251,191,36,0)} 100%{box-shadow:0 0 0 0 rgba(251,191,36,0)} }
+    .meter { height:5px; border-radius:99px; background:rgba(255,255,255,.07); overflow:hidden; }
+    .meter > span { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,#c2530f,#f97316,#fb923c); }
+    .rank-medal { min-width:28px; height:28px; padding:0 6px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px; }
+    .medal-1 { background:linear-gradient(160deg,#fde68a,#f59e0b); color:#1a1205; box-shadow:0 4px 12px rgba(245,158,11,.35); }
+    .medal-2 { background:linear-gradient(160deg,#e5e7eb,#9ca3af); color:#1a1a1a; }
+    .medal-3 { background:linear-gradient(160deg,#d6a06a,#a16207); color:#1a1205; }
+    .prize-pill { font-variant-numeric:tabular-nums; background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.28); color:#fb923c; font-weight:700; font-size:12px; padding:3px 9px; border-radius:7px; white-space:nowrap; }
+    .lb-row.leader { background:linear-gradient(90deg, rgba(249,115,22,.10), rgba(249,115,22,0) 60%); }
+    /* Sticky leaderboard header — pins just below the 56px nav while rows scroll */
+    .lb-table thead th { position: sticky; top: 56px; z-index: 30; background:#171717; box-shadow: 0 1px 0 #2c2c2c; }
+    .lb-table thead th:first-child { border-top-left-radius: 0.75rem; }
+    .lb-table thead th:last-child  { border-top-right-radius: 0.75rem; }
+
     /* Devil's Draw reveal tiles */
     .dd-tile { perspective: 600px; width: 52px; height: 68px; flex-shrink: 0; }
     .dd-tile-inner {
@@ -411,7 +433,7 @@
         if (sr.ok) streams = await sr.json();
       } catch { /* stream icons just won't show */ }
 
-      renderHeader(event, format, results.length);
+      renderHeader(event, format, results.length, scorecards);
       renderLeaderboard(results, event, format, streams);
 
       if (event.status !== 'completed') {
@@ -427,28 +449,73 @@
       bc.innerHTML = `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
     }
 
-    function renderHeader(event, format, playerCount) {
+    function renderHeader(event, format, playerCount, scorecards = []) {
       const dateStr = event.date
         ? new Date(event.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })
         : 'Date TBD';
-      const statusClass = event.status === 'completed' ? 'status-completed' : 'status-active';
-      const statusLabel = event.status === 'completed' ? '✓ COMPLETED' : '● LIVE';
+      const isDone = event.status === 'completed';
+
+      // Prize pool — sum of all prize sources
+      let pool = 0;
+      for (const p of (event.payouts  || [])) pool += Number(p.amount) || 0;
+      for (const p of (event.sidePots || [])) pool += Number(p.amount) || 0;
+      if (event.nassauPrizes) pool += (Number(event.nassauPrizes.bb) || 0) + (Number(event.nassauPrizes.f9) || 0) + (Number(event.nassauPrizes.b9) || 0);
+      if (event.ctps) pool += (Number(event.ctps.count) || 0) * (Number(event.ctps.amountEach) || 0);
+
+      // Progress (Option B): completed cards / expected (players × rounds)
+      const totalPlayers = (event.teams?.flat().length)
+        || new Set(scorecards.map(c => c.player_name?.toLowerCase()).filter(Boolean)).size
+        || playerCount;
+      const numRounds = event.rounds?.length || 1;
+      const expected  = totalPlayers * numRounds;
+      const completedCards = scorecards.filter(c => c.status === 'Completed').length;
+      const pct = expected ? Math.min(100, Math.round(completedCards / expected * 100)) : 0;
+
+      // Chips
+      const seasonWeekLabel = `${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}${event.week ? ` · Week ${event.week}` : ''}`;
+      const courses = [...new Set((event.rounds || []).map(r => r.course).filter(Boolean))];
+      const courseChip = courses.length ? courses.join(' · ') : '';
+      const tees   = event.teeType || event.rounds?.[0]?.tees;
+      const rating = event.rating  || event.rounds?.[0]?.rating;
+      const slope  = event.slope   || event.rounds?.[0]?.slope;
+      const teeChip = (tees || rating) ? `${tees ? tees + ' Tees' : ''}${rating ? (tees ? ' · ' : '') + rating + (slope ? '/' + slope : '') : ''}` : '';
+      const teamsLabel = (format?.teamSize > 1 && event.teams?.length) ? ` &nbsp;·&nbsp; ${event.teams.length} Teams` : '';
 
       document.getElementById('event-header').innerHTML = `
-        <div class="flex flex-wrap items-start gap-3 mb-2">
-          <span class="status-badge ${statusClass}">${statusLabel}</span>
-          <span class="format-badge">⛳ ${format.name.toUpperCase()}</span>
-          ${(event.teeType || event.rating) ? `<span class="format-badge" style="color:#a0a0a0;background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.1)">
-            ${event.teeType ? event.teeType + ' Tees' : ''} ${event.rating ? '· ' + event.rating + '/' + event.slope : ''}
-          </span>` : ''}
-        </div>
-        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white mt-3 mb-2">${event.name}</h1>
-        <p class="text-gray-500 text-sm">${dateStr} &nbsp;·&nbsp; ${playerCount} Players ${event.buyIn ? '&nbsp;·&nbsp; $' + event.buyIn + ' Buy-in' : ''}</p>
-        <p class="text-gray-600 text-xs mt-2 italic">${format.description}</p>
-        <div class="mt-4">
-          <a href="event-teams.html?id=${event.id}"
-             class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
-             style="transition:all 0.15s">👥 View Teams</a>
+        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <span class="chip ${isDone ? 'chip-done' : 'chip-live'}">${isDone ? '✓ COMPLETED' : '<span class="pulse-dot"></span> LIVE'}</span>
+              <span class="chip chip-fmt">⛳ ${format.name.toUpperCase()}</span>
+              ${courseChip ? `<span class="chip chip-meta">${courseChip}</span>` : ''}
+              ${teeChip ? `<span class="chip chip-meta">${teeChip}</span>` : ''}
+            </div>
+            <div class="font-heading font-600 tracking-[.2em] text-flame text-xs uppercase mb-1">${seasonWeekLabel}</div>
+            <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">${event.name}</h1>
+            <p class="text-gray-500 text-sm mt-2">${dateStr} &nbsp;·&nbsp; ${totalPlayers} Players${teamsLabel}${event.buyIn ? ` &nbsp;·&nbsp; $${event.buyIn} Buy-in` : ''}</p>
+            <p class="text-gray-600 text-xs mt-2 italic max-w-xl">${format.description}</p>
+            <div class="mt-4">
+              <a href="event-teams.html?id=${event.id}"
+                 class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
+                 style="transition:all 0.15s">👥 View Teams</a>
+            </div>
+          </div>
+          ${pool > 0 ? `
+          <div class="shrink-0 w-full lg:w-64 bg-[#161616] border border-border rounded-xl p-4" style="box-shadow:0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04)">
+            <div class="flex items-baseline justify-between">
+              <span class="font-heading font-600 tracking-widest text-gray-500 text-[10px] uppercase">Prize Pool</span>
+              <span class="font-display text-2xl text-flame leading-none num">$${pool.toLocaleString()}</span>
+            </div>
+            ${isDone ? `
+              <div class="text-[11px] text-gray-600 mt-2">Final results</div>
+            ` : `
+              <div class="flex items-center justify-between text-[11px] text-gray-500 mb-2 mt-3">
+                <span class="num">${completedCards} / ${expected} cards in</span><span class="num text-gray-400">${pct}%</span>
+              </div>
+              <div class="meter"><span style="width:${pct}%"></span></div>
+              <div class="mt-2 text-[11px] text-gray-600">Auto-refreshes ~every 10 min</div>
+            `}
+          </div>` : ''}
         </div>
       `;
       document.title = `${event.name} — MashUp Golf`;
@@ -827,25 +894,23 @@
           <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Leaderboard</h2>
           <span class="text-xs text-gray-600">${results.length} teams &nbsp;·&nbsp; Click a row to expand scorecard</span>
         </div>
-        <div class="card-shadow rounded-xl overflow-hidden border border-border">
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="bg-surface">
-                  <th class="w-8 pl-3 py-3"></th>
-                  <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
-                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Pts' : 'Total'}</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Agg Pts' : '+/−'}</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell ${isStableford ? 'hidden' : ''}">Team Agg</th>
-                  ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
-                </tr>
-              </thead>
-              <tbody id="lb-body"></tbody>
-            </table>
-          </div>
+        <div class="card-shadow rounded-xl border border-border">
+          <table class="lb-table w-full text-sm">
+            <thead>
+              <tr class="bg-surface">
+                <th class="w-8 pl-3 py-3"></th>
+                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Pts' : 'Total'}</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Agg Pts' : '+/−'}</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell ${isStableford ? 'hidden' : ''}">Team Agg</th>
+                ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
+              </tr>
+            </thead>
+            <tbody id="lb-body"></tbody>
+          </table>
         </div>
         <div id="side-section"></div>
         <div id="ctp-section"></div>
@@ -874,17 +939,24 @@
         }).join('');
 
         const tr = document.createElement('tr');
-        tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'bg-[rgba(249,115,22,0.04)]' : ''}`;
+        tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'leader' : ''}`;
         tr.innerHTML = `
           <td class="w-8 pl-3 py-3"></td>
-          <td class="pos-col px-3 py-3 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-400'}">${posStr}</td>
+          <td class="pos-col px-3 py-3 text-center">
+            ${team.position <= 3
+              ? `<span class="rank-medal medal-${team.position}">${posStr}</span>`
+              : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
+          </td>
           <td class="px-4 py-3 leading-snug">${memberHtml}</td>
-          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${team.out}</td>
-          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${team.inn}</td>
-          <td class="px-3 py-3 text-center font-semibold font-mono">${team.total}</td>
-          <td class="px-3 py-3 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
-          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs hidden md:table-cell ${isStableford ? '!hidden' : ''}">${team.aggregate}</td>
-          ${hasPrizes ? `<td class="px-4 py-3 text-center font-semibold text-flame">${prizeStr}</td>` : ''}
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${team.out}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${team.inn}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono num">${team.total}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs num hidden md:table-cell ${isStableford ? '!hidden' : ''}">${team.aggregate}</td>
+          ${hasPrizes ? `<td class="px-4 py-3 text-center whitespace-nowrap">${
+            team.prize != null
+              ? `<span class="prize-pill">$${fmtPrize(team.prize)}</span>${teamSize > 1 ? `<div class="text-[10px] text-gray-500 mt-1 num">$${fmtPrize(team.prize / teamSize)}/ea</div>` : ''}`
+              : '<span class="text-gray-700">—</span>'}</td>` : ''}
         `;
 
         const cardTr = document.createElement('tr');
