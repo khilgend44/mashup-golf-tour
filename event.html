@@ -793,25 +793,23 @@
           <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Leaderboard</h2>
           <span class="text-xs text-gray-600">${results.length} players &nbsp;·&nbsp; Click a row to expand scorecard</span>
         </div>
-        <div class="card-shadow rounded-xl overflow-hidden border border-border">
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="bg-surface">
-                  <th class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3"></th>
-                  <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
-                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Rnds</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
-                  ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
-                </tr>
-              </thead>
-              <tbody id="lb-body"></tbody>
-            </table>
-          </div>
+        <div class="card-shadow rounded-xl border border-border">
+          <table class="lb-table w-full text-sm">
+            <thead>
+              <tr class="bg-surface">
+                <th class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3"></th>
+                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Rnds</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
+              </tr>
+            </thead>
+            <tbody id="lb-body"></tbody>
+          </table>
         </div>
         <div id="side-section"></div>
         <div id="ctp-section"></div>
@@ -827,18 +825,22 @@
 
         // Main row
         const tr = document.createElement('tr');
-        tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'bg-[rgba(249,115,22,0.04)]' : ''}`;
+        tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'leader' : ''}`;
         const playerStreams = getPlayerStreams(streams, player.player_name);
         tr.innerHTML = `
           <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5">${streamIconCell(playerStreams, isRinger)}</td>
-          <td class="pos-col px-3 py-3.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-400'}">${posStr}</td>
+          <td class="pos-col px-3 py-3.5 text-center">
+            ${player.position <= 3
+              ? `<span class="rank-medal medal-${player.position}">${posStr}</span>`
+              : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
+          </td>
           <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
-          <td class="px-3 py-3.5 text-center text-gray-500 text-xs hidden sm:table-cell">${player.roundsPlayed}</td>
-          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${player.out}</td>
-          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs hidden md:table-cell">${player.inn}</td>
-          <td class="px-3 py-3.5 text-center font-semibold font-mono">${player.total}</td>
-          <td class="px-3 py-3.5 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
-          ${hasPrizes ? `<td class="px-4 py-3.5 text-center font-semibold text-flame">${prizeStr}</td>` : ''}
+          <td class="px-3 py-3.5 text-center text-gray-500 text-xs num hidden sm:table-cell">${player.roundsPlayed}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${player.out}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${player.inn}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num">${player.total}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+          ${hasPrizes ? `<td class="px-4 py-3.5 text-center whitespace-nowrap">${player.prize != null ? `<span class="prize-pill">$${fmtPrize(player.prize)}</span>` : '<span class="text-gray-700">—</span>'}</td>` : ''}
         `;
 
         // Scorecard row (hidden by default)
@@ -1061,24 +1063,22 @@
           <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Team Standings</h2>
           <span class="text-xs text-gray-600">${results.length} teams &nbsp;·&nbsp; sorted by 18-hole best ball · click to expand</span>
         </div>
-        <div class="card-shadow rounded-xl overflow-hidden border border-border">
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="bg-surface">
-                  <th class="w-8 pl-3 py-3"></th>
-                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">BB Net</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">F9 Agg</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">B9 Agg</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Full Agg</th>
-                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pot</th>
-                </tr>
-              </thead>
-              <tbody id="lb-body"></tbody>
-            </table>
-          </div>
+        <div class="card-shadow rounded-xl border border-border">
+          <table class="lb-table w-full text-sm">
+            <thead>
+              <tr class="bg-surface">
+                <th class="w-8 pl-3 py-3"></th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">BB Net</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">F9 Agg</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">B9 Agg</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Full Agg</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pot</th>
+              </tr>
+            </thead>
+            <tbody id="lb-body"></tbody>
+          </table>
         </div>
         ${sidePotHtml}
         <div id="ctp-section"></div>
@@ -1106,11 +1106,11 @@
         tr.innerHTML = `
           <td class="w-8 pl-3 py-3"></td>
           <td class="px-4 py-3 leading-snug">${memberHtml}</td>
-          <td class="px-3 py-3 text-center font-semibold font-mono">${team.total}</td>
-          <td class="px-3 py-3 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
-          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden sm:table-cell">${team.f9Agg}</td>
-          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs hidden sm:table-cell">${team.b9Agg}</td>
-          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs hidden md:table-cell">${team.aggregate}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono num">${team.total}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${team.f9Agg}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${team.b9Agg}</td>
+          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs num hidden md:table-cell">${team.aggregate}</td>
           <td class="px-3 py-3 text-center text-xs ${potCls}">${potStr}</td>
         `;
 
@@ -1782,12 +1782,16 @@
             const scHtml = buildTeamScorecardHTML(team, format);
             const prizeStr = team.prize != null ? `$${fmtPrize(team.prize)}` : '—';
             return `
-              <tr class="lb-row border-t border-border cursor-pointer select-none" data-lb-row="${ri}">
-                <td class="px-3 py-2.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-500'}">${posStr}</td>
+              <tr class="lb-row border-t border-border cursor-pointer select-none ${isLeader ? 'leader' : ''}" data-lb-row="${ri}">
+                <td class="px-3 py-2.5 text-center">
+                  ${team.position <= 3
+                    ? `<span class="rank-medal medal-${team.position}">${posStr}</span>`
+                    : `<span class="font-heading font-700 text-sm text-gray-500 num">${posStr}</span>`}
+                </td>
                 <td class="px-4 py-2.5 leading-snug">${memberHtml}</td>
-                <td class="px-3 py-2.5 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
-                <td class="px-3 py-2.5 text-center text-gray-400 font-mono text-xs hidden sm:table-cell">${team.aggregate}</td>
-                <td class="px-4 py-2.5 text-center font-semibold ${team.prize != null ? 'text-flame' : 'text-gray-700'}">${prizeStr}</td>
+                <td class="px-3 py-2.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+                <td class="px-3 py-2.5 text-center text-gray-400 font-mono text-xs num hidden sm:table-cell">${team.aggregate}</td>
+                <td class="px-4 py-2.5 text-center whitespace-nowrap">${team.prize != null ? `<span class="prize-pill">$${fmtPrize(team.prize)}</span>` : '<span class="text-gray-700">—</span>'}</td>
               </tr>
               <tr id="lb-sc-${ri}" class="hidden">
                 <td colspan="99" class="p-0 border-b border-border">
@@ -1809,11 +1813,15 @@
           }
 
           return `
-            <tr class="border-t border-border hover:bg-[rgba(255,255,255,0.02)] transition-colors">
-              <td class="px-3 py-2.5 text-center font-heading font-700 text-sm ${isLeader ? 'text-flame' : 'text-gray-500'}">${posStr}</td>
+            <tr class="lb-row border-t border-border ${isLeader ? 'leader' : ''}">
+              <td class="px-3 py-2.5 text-center">
+                ${team.position <= 3
+                  ? `<span class="rank-medal medal-${team.position}">${posStr}</span>`
+                  : `<span class="font-heading font-700 text-sm text-gray-500 num">${posStr}</span>`}
+              </td>
               <td class="px-4 py-2.5 leading-snug">${memberHtml}</td>
-              <td class="px-3 py-2.5 text-center font-semibold font-mono ${toParCls}">${toParStr}</td>
-              <td class="px-3 py-2.5 text-center text-gray-400 font-mono text-xs hidden sm:table-cell">${team.aggregate}</td>
+              <td class="px-3 py-2.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+              <td class="px-3 py-2.5 text-center text-gray-400 font-mono text-xs num hidden sm:table-cell">${team.aggregate}</td>
             </tr>`;
         }).join('');
 
@@ -1822,21 +1830,19 @@
             ${done ? 'Final Standings' : 'Devil Score — Live'}
             <span class="text-gray-600 font-400 normal-case tracking-normal text-xs ml-2">${n}/18 holes</span>
           </h2>
-          <div class="card-shadow rounded-xl overflow-hidden border border-border">
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="bg-surface">
-                    <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-10">Pos</th>
-                    <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
-                    <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
-                    <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Agg</th>
-                    ${done ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
-                  </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </div>
+          <div class="card-shadow rounded-xl border border-border">
+            <table class="lb-table w-full text-sm">
+              <thead>
+                <tr class="bg-surface">
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-10">Pos</th>
+                  <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                  <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Agg</th>
+                  ${done ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
           </div>`;
 
         if (done) {
