@@ -68,10 +68,33 @@ The API is split into **public reads** and **protected writes** so the public si
   - `/admin/api/players` — onboard/add/remove player, refresh handicaps
   - `/admin/api/seasons` — create/update/archive season
   - `/admin/api/announce` — post event poster to Discord
-- **Why `/admin/api/`:** these live under `/admin/`, so the same Cloudflare Access application that protects the admin pages also protects them. Cloudflare blocks unauthenticated requests before they reach the function.
-- **Defense in depth:** `functions/admin/api/_lib.js` → `requireAccess()` runs on every write. It always requires the `Cf-Access-Jwt-Assertion` header (only present after passing the Access gate). If `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` env vars are set, it additionally **cryptographically verifies** the token (RS256 signature against the team's cert endpoint, plus audience + expiry). Without those vars it falls back to header-presence only — so set them for true second-layer protection.
-- **Cloudflare Access requirement:** the Access application path must cover `/admin` (prefix match), which automatically includes `/admin/api/*`. If admin writes ever return `403 "admin access required"`, the Access path isn't covering `/admin/api/`.
 - Admin pages keep reads on `/api/*` constants (`API`, `PLAYERS_API`) and send writes to `/admin/api/*` constants (`API_WRITE`, `PLAYERS_WRITE`).
+
+**Three layers of protection on every write** (`functions/admin/api/_lib.js` → `requireAccess()`):
+1. **Cloudflare Access gate** — `/admin/api/*` sits under `/admin/`, so the same Access application that guards the admin pages blocks unauthenticated requests *before* they reach the function code.
+2. **Required auth header** — the function rejects any request lacking the `Cf-Access-Jwt-Assertion` header (Cloudflare only injects this after a request passes the gate).
+3. **Cryptographic token verification** — when `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` env vars are present, the function verifies the token's RS256 signature (against `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`), audience, and expiry. If the env vars are absent it falls back to header-presence only (layer 2).
+
+**Current status:** all three layers are active in production — `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` are set in Cloudflare Pages env vars. If those vars are ever lost/cleared, writes still hold at layers 1–2.
+
+**Cloudflare Access config (confirmed working):**
+- Zero Trust → Access → Applications → admin app → **Destinations**: Domain `mashup-golf-tour.pages.dev`, Path `admin`.
+- Path is a **prefix**, so `admin` automatically covers `/admin`, `/admin/api/events`, etc.
+- **Policies** tab: allow-policy limited to the owner's Google account.
+- If admin writes ever return `403 "admin access required"`, the Access path isn't covering `/admin/api/`. If they return `403 "invalid access token"`, a `CF_ACCESS_*` env var has a wrong value (remove both to fall back to layers 1–2).
+
+**Enabling / re-creating the layer-3 env vars:**
+1. Zero Trust → Settings → **team domain** → use `https://<team>.cloudflareaccess.com` (no trailing slash) as `CF_ACCESS_TEAM_DOMAIN`.
+2. Zero Trust → Access → Applications → admin app → Overview → **Application Audience (AUD) Tag** → use as `CF_ACCESS_AUD`.
+3. Cloudflare Pages → project → Settings → Variables and Secrets (Production) → add both → **Save**, then **Deployments → Retry deployment** (env vars only take effect on a new build).
+
+**Verifying API security (run anytime):**
+```bash
+B="https://mashup-golf-tour.pages.dev"
+curl -s -o /dev/null -w "%{http_code}\n" "$B/api/events-admin?type=events"          # 200  public read works
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/api/events-admin" -d '{}'       # 405  old write path closed
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'       # 302  anonymous write blocked at gate
+```
 
 ### 3. Data Storage — Cloudflare KV
 - **Namespace ID:** `a6cbb9bc3e784be88136dbffe9f9796f`
@@ -213,5 +236,7 @@ Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/t
 | Scorecards not updating | GitHub token expired | Renew token (see above) |
 | Scorecards not updating | Cloudflare Worker stopped | Check Worker → Observability → Logs for errors |
 | Admin page won't load / redirects to login | Cloudflare Access policy issue | Check Zero Trust dashboard → Access → Applications |
+| Admin writes fail with `403 "admin access required"` | Access path no longer covers `/admin/api/` | Zero Trust → Access → Applications → admin app → Destinations → set Path to `admin` |
+| Admin writes fail with `403 "invalid access token"` | `CF_ACCESS_TEAM_DOMAIN` or `CF_ACCESS_AUD` is wrong | Re-copy values (see API Security section) or delete both env vars to fall back to layers 1–2, then redeploy |
 | Players handicap refresh fails | SGT API key expired | Contact SGT admin for new key, update `player_api_key` in Cloudflare Pages env vars |
 | Site not updating after a push | Cloudflare Pages build failed | Check Cloudflare Pages → Deployments tab for error |
