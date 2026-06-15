@@ -207,6 +207,30 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 | `data/events.json` | Historical/static events (Seasons 1–9) |
 | `data/formats.json` | Built-in game formats (merged with KV `admin:formats` at runtime) |
 | `data/scorecards/{id}.json` | Cached scorecard data per tournament |
+| `data/overrides.json` | Manual leaderboard overrides keyed by event id (see below) |
+
+---
+
+## Manual Leaderboard Overrides (DQ / score corrections)
+
+When a result needs hand-adjustment — a disqualification, a voided stream, a scoring dispute — the fix **must not** be made in `data/scorecards/{id}.json`, because the GitHub Action overwrites those files every 10 minutes. Instead, overrides live in **`data/overrides.json`**, keyed by event id, and are merged onto the event in `loadEvents()` so the scoring engine applies them (and placement money + season standings reshuffle automatically).
+
+```json
+{
+  "event-40045": {
+    "notes": "Salfrado's Round 2 voided — stream verification failed.",
+    "dq": [],
+    "scoreOverrides": [
+      { "player": "salfrado", "round": 2, "hole": 5, "net": 9 }
+    ]
+  }
+}
+```
+
+- **`scoreOverrides`** — `[{ player, hole, net, gross?, round? }]`. Corrects specific holes; `round` is optional (omit to apply to every round). `total_net` is recomputed. Applied in `scoring.js` → `applyManualOverrides()` at the top of `applyFormat`.
+- **`dq`** — `["player"]`. Removes the player from the field entirely (no result, no money).
+- **`notes`** — public banner shown on the event leaderboard explaining the adjustment.
+- This is a repo file, so edits survive the refresh and deploy on push. It works for both Season 9 and admin events, though placement **money only reshuffles for admin events** (positional payouts); Season 9 payouts are hard-coded to winner names.
 
 Admin-created events/formats for Season 10+ live in **Cloudflare KV**, not these files.
 
