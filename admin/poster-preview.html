@@ -670,9 +670,18 @@
         document.getElementById('discord-modal').style.display = 'none';
         const data = await res.json();
         if (res.ok) {
-          showStatus('✓ Posted to Discord successfully!', 'success');
           if (currentEvent?.status === 'upcoming') {
-            document.getElementById('activate-modal').style.display = 'flex';
+            const fmt = state.allFormats[currentEvent.format] || {};
+            const teamSize = parseInt(fmt.teamSize) || 1;
+            const hasTeams = currentEvent.teams?.length > 0;
+            if (teamSize > 1 && !hasTeams) {
+              showStatus(`✓ Posted to Discord. Draw teams in Admin → Teams before activating this ${teamSize}-man event.`, 'success');
+            } else {
+              showStatus('✓ Posted to Discord successfully!', 'success');
+              document.getElementById('activate-modal').style.display = 'flex';
+            }
+          } else {
+            showStatus('✓ Posted to Discord successfully!', 'success');
           }
         } else {
           showStatus(`Error: ${data.error || 'Unknown'}`, 'error');

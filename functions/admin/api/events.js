@@ -64,6 +64,18 @@ export async function onRequestPost(context) {
     return Response.json({ ok: true, event: events[idx] }, { headers: CORS });
   }
 
+  if (action === 'complete-event') {
+    const { eventId } = body;
+    if (!eventId) return Response.json({ error: 'Missing eventId' }, { status: 400, headers: CORS });
+    const raw = await kvGet(accountId, apiToken, 'admin:events');
+    const events = raw ? JSON.parse(raw) : [];
+    const idx = events.findIndex(e => e.id === eventId);
+    if (idx === -1) return Response.json({ error: 'Event not found' }, { status: 404, headers: CORS });
+    events[idx] = { ...events[idx], status: 'completed' };
+    await kvPut(accountId, apiToken, 'admin:events', JSON.stringify(events));
+    return Response.json({ ok: true, event: events[idx] }, { headers: CORS });
+  }
+
   if (action === 'delete-event') {
     const { eventId } = body;
     if (!eventId) return Response.json({ error: 'Missing eventId' }, { status: 400, headers: CORS });
