@@ -315,12 +315,12 @@
           <thead>
             <tr class="border-b border-border">
               <th class="text-left px-6 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Event</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Season</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Week</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Date</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Format</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase hidden sm:table-cell">Season</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase hidden sm:table-cell">Week</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase hidden sm:table-cell">Date</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase hidden sm:table-cell">Format</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Status</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Source</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase hidden sm:table-cell">Source</th>
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
@@ -537,14 +537,14 @@
             <div class="font-heading font-600 tracking-wider text-white text-sm">${e.name || '—'}${urlLink}</div>
             <div class="text-xs text-gray-600 font-body mt-0.5">${e.id}</div>
           </td>
-          <td class="px-4 py-3 text-center font-body text-xs text-gray-500">${e.season || '—'}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${e.week || '—'}</td>
-          <td class="px-4 py-3 text-center font-body text-xs text-gray-500">${e.date || '—'}</td>
-          <td class="px-4 py-3 text-center font-body text-xs text-gray-400">${fmtName}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-500 hidden sm:table-cell">${e.season || '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400 hidden sm:table-cell">${e.week || '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-500 hidden sm:table-cell">${e.date || '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-400 hidden sm:table-cell">${fmtName}</td>
           <td class="px-4 py-3 text-center">${statusBadge(e.status)}</td>
-          <td class="px-4 py-3 text-center">${sourceBadge(isKv)}</td>
+          <td class="px-4 py-3 text-center hidden sm:table-cell">${sourceBadge(isKv)}</td>
           <td class="px-4 py-3 text-right">
-            <div class="flex items-center justify-end gap-4">
+            <div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
 ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-white" data-id="${e.id}" style="transition:color 0.12s">Details</button>` : ''}
               ${isKv && e.tournamentId ? `<button class="rescrape-btn text-xs font-heading font-600 tracking-wider text-gray-600 hover:text-gray-400" data-id="${e.id}" data-tid="${e.tournamentId}" style="transition:color 0.12s">↺ Sync</button>` : ''}
               ${isKv && e.status === 'upcoming' ? `<button class="activate-btn text-xs font-heading font-600 tracking-wider text-emerald-500 hover:text-emerald-300" data-id="${e.id}" data-name="${(e.name || e.id).replace(/"/g, '&quot;')}" style="transition:color 0.12s">Activate</button>` : ''}
