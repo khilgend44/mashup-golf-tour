@@ -139,7 +139,7 @@
 
   <script type="module">
     import { loadSeasons, loadEvents, loadFormats, fetchScorecards } from './js/api.js';
-    import { applyFormat, applyPayouts } from './js/scoring.js';
+    import { applyFormat, applyPayouts, resolveSidePots } from './js/scoring.js';
 
     const params = new URLSearchParams(window.location.search);
 
@@ -290,6 +290,13 @@
                   rec.events.add(e.id);
                   if (r.position === 1) rec.wins++;
                 }
+              }
+              // Side-pot money (best individual net not on a winning team, etc.)
+              for (const sp of resolveSidePots(results, e, fmt)) {
+                if (!sp.player) continue;
+                const rec = ensure(sp.player.replace(/\s*\(sub\)$/, ''));
+                rec.earnings += sp.amount || 0;
+                rec.events.add(e.id);
               }
             } catch { /* skip event if scoring fails */ }
           }

@@ -1019,6 +1019,39 @@ export function applyPayouts(results, payouts) {
   }
 }
 
+// ─── Side pots ────────────────────────────────────────────────────────────────
+
+// Resolve side-pot winners + amounts from event.sidePots. Shared by the season
+// money standings and the leaderboard display so the winner logic lives in one
+// place. Requires applyPayouts to have run (reads team.prize). Returns
+// [{ player, amount }] for the paid positions only.
+//   • Nassau: best individual nets not on a pot-winning team (results.nassauSidePot)
+//   • Stableford: top individual points not on a prize-winning team
+//   • Other team formats: best individual net not on a prize-winning team
+export function resolveSidePots(results, event, format) {
+  const pots = event?.sidePots || [];
+  if (!pots.length || !Array.isArray(results)) return [];
+
+  if (format?.type === 'nassau-2man') {
+    const cand = results.nassauSidePot || [];
+    return cand.slice(0, pots.length).map((p, i) => ({ player: p.name, amount: pots[i].amount }));
+  }
+
+  const isStableford = format?.type === 'stableford-3man';
+  const winnerMembers = new Set(
+    results.filter(t => t.prize != null).flatMap(t => (t.displayMembers || []).map(m => m.toLowerCase()))
+  );
+  const eligible = results
+    .flatMap(team => (team.players || []).map(p => ({
+      name: p.name,
+      metric: isStableford ? p.individualTotal : p.totalNet,
+    })))
+    .filter(p => !winnerMembers.has(p.name.toLowerCase()))
+    .sort((a, b) => isStableford ? b.metric - a.metric : a.metric - b.metric);
+
+  return eligible.slice(0, pots.length).map((p, i) => ({ player: p.name, amount: pots[i].amount }));
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 export function formatToPar(n) {
