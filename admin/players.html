@@ -119,11 +119,12 @@
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo Events</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Total Events</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Connector</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Discord ID</th>
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody id="players-tbody">
-            <tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
+            <tr><td colspan="11" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -142,7 +143,7 @@
   <script>
     const API = '/api/players';            // public reads (roster/handicaps)
     const API_WRITE = '/admin/api/players'; // Access-protected writes
-    let state = { roster: [], handicaps: {}, lastRefresh: null, seasons: [], selectedSeason: '' };
+    let state = { roster: [], handicaps: {}, lastRefresh: null, seasons: [], selectedSeason: '', discord: {} };
 
     function getSeasonRoster() {
       if (!state.selectedSeason) return state.roster;
@@ -195,7 +196,7 @@
       }
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
         return;
       }
 
@@ -231,6 +232,9 @@
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.comboRoundsCount : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.numEvents : nd}</td>
           <td class="px-4 py-3 text-center font-body text-xs text-gray-400">${hcp ? (hcp.connector || nd) : nd}</td>
+          <td class="px-4 py-3 text-center">
+            <input type="text" inputmode="numeric" class="discord-input bg-surface border border-border rounded px-2 py-1 text-xs text-gray-200 w-36 focus:outline-none focus:border-flame" data-player="${name}" value="${(state.discord[name.toLowerCase()] || '').replace(/"/g, '&quot;')}" placeholder="—" />
+          </td>
           <td class="px-4 py-3 text-right">
             <button class="remove-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-player="${name}" style="transition:color 0.12s">Remove</button>
           </td>
@@ -240,6 +244,24 @@
       tbody.querySelectorAll('.remove-btn').forEach(btn => {
         btn.addEventListener('click', () => removePlayer(btn.dataset.player));
       });
+      tbody.querySelectorAll('.discord-input').forEach(inp => {
+        inp.addEventListener('change', () => saveDiscord(inp.dataset.player, inp.value));
+      });
+    }
+
+    async function saveDiscord(name, discordId) {
+      try {
+        const res = await fetch(API_WRITE, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set-discord', player: name, discordId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        state.discord = data.discord;
+        showStatus(discordId.trim() ? `Saved Discord ID for ${name}.` : `Cleared Discord ID for ${name}.`, 'success');
+      } catch (e) {
+        showStatus('Error saving Discord ID: ' + e.message, 'error');
+      }
     }
 
     function updateRefreshLabel() {
@@ -251,10 +273,11 @@
 
     async function loadData() {
       try {
-        const [playersRes, kvSeasonsRes, staticSeasonsRes] = await Promise.allSettled([
+        const [playersRes, kvSeasonsRes, staticSeasonsRes, discordRes] = await Promise.allSettled([
           fetch(API),
           fetch('/api/seasons'),
           fetch('/data/seasons.json'),
+          fetch(API_WRITE),   // GET → protected Discord ID map
         ]);
 
         if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
@@ -262,6 +285,10 @@
           state.roster      = data.roster      || [];
           state.handicaps   = data.handicaps   || {};
           state.lastRefresh = data.lastRefresh || null;
+        }
+
+        if (discordRes.status === 'fulfilled' && discordRes.value.ok) {
+          state.discord = (await discordRes.value.json()).discord || {};
         }
 
         const kvSeasons     = kvSeasonsRes.status === 'fulfilled'     && kvSeasonsRes.value.ok     ? await kvSeasonsRes.value.json()     : [];

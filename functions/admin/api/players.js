@@ -8,6 +8,18 @@ export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
+// Protected read: the player → Discord ID map (kept out of the public /api/players).
+export async function onRequestGet(context) {
+  const { request, env } = context;
+  const denied = await requireAccess(request, env);
+  if (denied) return denied;
+  const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+  const apiToken  = env.CLOUDFLARE_API_TOKEN;
+  if (!accountId || !apiToken) return Response.json({ error: 'Missing credentials' }, { status: 500, headers: CORS });
+  const raw = await kvGet(accountId, apiToken, 'players:discord');
+  return Response.json({ discord: raw ? JSON.parse(raw) : {} }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -31,6 +43,18 @@ export async function onRequestPost(context) {
     const cleaned = [...new Set(players.map(p => p.trim()).filter(Boolean))];
     await kvPut(accountId, apiToken, 'players:roster', JSON.stringify(cleaned));
     return Response.json({ ok: true, count: cleaned.length, roster: cleaned }, { headers: CORS });
+  }
+
+  if (action === 'set-discord') {
+    const { player, discordId } = body;
+    if (!player) return Response.json({ error: 'No player provided' }, { status: 400, headers: CORS });
+    const raw = await kvGet(accountId, apiToken, 'players:discord');
+    const map = raw ? JSON.parse(raw) : {};
+    const key = String(player).toLowerCase();
+    const id  = String(discordId || '').trim();
+    if (id) map[key] = id; else delete map[key];
+    await kvPut(accountId, apiToken, 'players:discord', JSON.stringify(map));
+    return Response.json({ ok: true, discord: map }, { headers: CORS });
   }
 
   if (action === 'add') {

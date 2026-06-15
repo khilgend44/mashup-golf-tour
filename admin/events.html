@@ -739,6 +739,17 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         if (ov[event.id]) ev = { ...event, ...ov[event.id] };
       } catch { /* no overrides */ }
 
+      // Player → Discord ID map (protected); tag players who have an ID
+      let discord = {};
+      try {
+        const r = await fetch('/admin/api/players');
+        if (r.ok) discord = (await r.json()).discord || {};
+      } catch { /* no map */ }
+      const tag = name => {
+        const id = discord[String(name).toLowerCase().replace(/\s*\(sub\)$/, '')];
+        return id ? `<@${id}>` : name;
+      };
+
       const teamSize = parseInt(format?.teamSize) || 1;
       const isTeam   = teamSize > 1;
       const fmtMoney = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -760,9 +771,9 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         lines.push('🏆 **Payouts**');
         for (const r of paid) {
           if (isTeam) {
-            lines.push(`${placeLabel(r)} — ${r.displayMembers.join(' / ')} — ${fmtMoney(r.prize)} (${fmtMoney(r.prize / teamSize)}/ea)`);
+            lines.push(`${placeLabel(r)} — ${r.displayMembers.map(tag).join(' / ')} — ${fmtMoney(r.prize)} (${fmtMoney(r.prize / teamSize)}/ea)`);
           } else {
-            lines.push(`${placeLabel(r)} — ${r.player_name} — ${fmtMoney(r.prize)}`);
+            lines.push(`${placeLabel(r)} — ${tag(r.player_name)} — ${fmtMoney(r.prize)}`);
           }
         }
         lines.push('');
@@ -773,7 +784,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         const sp = resolveSidePots(results, ev, format);
         if (sp.length) {
           lines.push('🎯 **Side Pots**');
-          sp.forEach((s, i) => lines.push(`${pots[i]?.name || 'Side Pot'} — ${s.player} — ${fmtMoney(s.amount)}`));
+          sp.forEach((s, i) => lines.push(`${pots[i]?.name || 'Side Pot'} — ${tag(s.player)} — ${fmtMoney(s.amount)}`));
           lines.push('');
         }
       }
@@ -782,7 +793,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       if (ctps.length) {
         lines.push('📍 **Closest to the Pin**');
         for (const c of ctps) {
-          lines.push(`Hole ${c.hole} — ${c.player}${c.distance ? ` — ${c.distance}` : ''} — ${fmtMoney(c.amount)}`);
+          lines.push(`Hole ${c.hole} — ${tag(c.player)}${c.distance ? ` — ${c.distance}` : ''} — ${fmtMoney(c.amount)}`);
         }
         lines.push('');
       }

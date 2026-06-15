@@ -103,6 +103,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
   - `admin:formats` — custom game formats created via admin portal (merged with `data/formats.json` at runtime)
   - `players:roster` — player list (names array)
   - `players:handicaps` — handicap data from SGT API (object keyed by lowercase player name → `{ rawCap, comboCap, numEvents, ... }`)
+  - `players:discord` — player → Discord user ID map (lowercase name → numeric ID). Read via the **protected** `GET /admin/api/players` (kept out of the public `/api/players`); edited per-player on the admin Players page. Used to `<@id>`-tag winners in the Discord results post.
   - `players:last_refresh` — ISO timestamp of last handicap pull
   - `{eventId}:{playerName}:{round}` — YouTube stream URLs submitted by players
   - `{eventId}:handicaps` — snapshot of `players:handicaps` taken at the moment an event is activated (used for historical accuracy)
