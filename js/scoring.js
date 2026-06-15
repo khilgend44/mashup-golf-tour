@@ -1,16 +1,60 @@
 export function applyFormat(scorecards, format, event = null) {
+  const cards = applyManualOverrides(scorecards, event);
   switch (format.type) {
-    case 'ringer':          return calcRinger(scorecards, format);
-    case 'escalator-doom':  return calcEscalatorDoom(scorecards, format, event);
-    case 'lone-ranger':     return calcLoneRanger(scorecards, format, event);
-    case 'shamble-2man':      return calcShamble2Man(scorecards, format, event);
-    case 'nassau-2man':       return calcNassau2Man(scorecards, format, event);
-    case 'best2-worst2-all3': return calcBest2Worst2All3(scorecards, format, event);
-    case 'devils-draw':           return calcDevilsDraw(scorecards, format, event);
-    case 'stableford-3man':       return calcStableford3Man(scorecards, format, event);
-    case 'devils-draw-4man':  return calcDevilsDraw4Man(scorecards, format, event);
+    case 'ringer':          return calcRinger(cards, format);
+    case 'escalator-doom':  return calcEscalatorDoom(cards, format, event);
+    case 'lone-ranger':     return calcLoneRanger(cards, format, event);
+    case 'shamble-2man':      return calcShamble2Man(cards, format, event);
+    case 'nassau-2man':       return calcNassau2Man(cards, format, event);
+    case 'best2-worst2-all3': return calcBest2Worst2All3(cards, format, event);
+    case 'devils-draw':           return calcDevilsDraw(cards, format, event);
+    case 'stableford-3man':       return calcStableford3Man(cards, format, event);
+    case 'devils-draw-4man':  return calcDevilsDraw4Man(cards, format, event);
     default: throw new Error(`Unknown format: ${format.type}`);
   }
+}
+
+// Manual leaderboard overrides (DQ a player, or correct specific hole scores).
+// They live on the event (merged from data/overrides.json) so they survive the
+// 10-minute scorecard refresh — the raw scorecard files are never edited.
+//   event.dq             = ["player", ...]                       full disqualification
+//   event.scoreOverrides = [{ player, hole, net, gross?, round? }]  per-hole correction
+// round is optional (omit to apply to every round a player has).
+function applyManualOverrides(scorecards, event) {
+  if (!event) return scorecards;
+  const dq = new Set((event.dq || []).map(p => String(p).toLowerCase()));
+  const overrides = event.scoreOverrides || [];
+  if (!dq.size && !overrides.length) return scorecards;
+
+  let cards = dq.size
+    ? scorecards.filter(c => !dq.has(String(c.player_name || '').toLowerCase()))
+    : scorecards;
+
+  if (overrides.length) {
+    const byPlayer = {};
+    for (const o of overrides) (byPlayer[String(o.player || '').toLowerCase()] ||= []).push(o);
+    cards = cards.map(c => {
+      const ovs = byPlayer[String(c.player_name || '').toLowerCase()];
+      if (!ovs) return c;
+      const copy = { ...c };
+      let changed = false;
+      for (const o of ovs) {
+        if (o.round != null && Number(o.round) !== Number(c.round)) continue;
+        const h = Number(o.hole);
+        if (h >= 1 && h <= 18) {
+          if (o.net   != null) { copy[`hole${h}_net`]   = o.net;   changed = true; }
+          if (o.gross != null) { copy[`hole${h}_gross`] = o.gross; }
+        }
+      }
+      if (changed) {
+        let tot = 0;
+        for (let i = 1; i <= 18; i++) tot += Number(copy[`hole${i}_net`]) || 0;
+        copy.total_net = tot;
+      }
+      return copy;
+    });
+  }
+  return cards;
 }
 
 // Fallback team lookup from KV event.teams (used when SGT TeamPlayer fields are absent).

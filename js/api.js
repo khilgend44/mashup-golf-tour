@@ -28,9 +28,10 @@ export async function loadSeasons() {
 }
 
 export async function loadEvents() {
-  const [staticRes, kvRes] = await Promise.allSettled([
+  const [staticRes, kvRes, ovRes] = await Promise.allSettled([
     fetch('data/events.json'),
     fetch('/api/events-admin?type=events'),
+    fetch('data/overrides.json'),
   ]);
   const staticEvents = staticRes.status === 'fulfilled' && staticRes.value.ok
     ? await staticRes.value.json() : [];
@@ -39,6 +40,16 @@ export async function loadEvents() {
   // KV events take precedence over static if same ID
   const map = new Map(staticEvents.map(e => [e.id, e]));
   for (const e of kvEvents) map.set(e.id, e);
+
+  // Manual overrides (DQ / score corrections / banner) keyed by event id.
+  // Stored in the repo so they survive the scorecard refresh and can be edited
+  // without touching KV. Merged onto the event for the scoring engine to apply.
+  const overrides = ovRes.status === 'fulfilled' && ovRes.value.ok
+    ? await ovRes.value.json().catch(() => ({})) : {};
+  for (const [id, ov] of Object.entries(overrides)) {
+    const e = map.get(id);
+    if (e) Object.assign(e, ov);
+  }
   return [...map.values()];
 }
 
