@@ -1,1 +1,16 @@
-{}
+{
+  "event-40045": {
+    "notes": "Salfrado's Round 1 Back 9 Stream Crashed. Scores manually adjusted per our rules.",
+    "scoreOverrides": [
+      { "player": "salfrado", "round": 1, "hole": 10, "net": 4 },
+      { "player": "salfrado", "round": 1, "hole": 11, "net": 6 },
+      { "player": "salfrado", "round": 1, "hole": 12, "net": 4 },
+      { "player": "salfrado", "round": 1, "hole": 13, "net": 4 },
+      { "player": "salfrado", "round": 1, "hole": 14, "net": 4 },
+      { "player": "salfrado", "round": 1, "hole": 15, "net": 3 },
+      { "player": "salfrado", "round": 1, "hole": 16, "net": 4 },
+      { "player": "salfrado", "round": 1, "hole": 17, "net": 4 },
+      { "player": "salfrado", "round": 1, "hole": 18, "net": 4 }
+    ]
+  }
+}
