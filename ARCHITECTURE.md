@@ -230,6 +230,7 @@ When a result needs hand-adjustment — a disqualification, a voided stream, a s
 - **`scoreOverrides`** — `[{ player, hole, net, gross?, round? }]`. Corrects specific holes; `round` is optional (omit to apply to every round). `total_net` is recomputed. Applied in `scoring.js` → `applyManualOverrides()` at the top of `applyFormat`.
 - **`dq`** — `["player"]`. Removes the player from the field entirely (no result, no money).
 - **`notes`** — public banner shown on the event leaderboard explaining the adjustment.
+- Corrected holes are flagged on the expanded scorecard with an orange ✱ and a "manually adjusted score" legend.
 - This is a repo file, so edits survive the refresh and deploy on push. It works for both Season 9 and admin events, though placement **money only reshuffles for admin events** (positional payouts); Season 9 payouts are hard-coded to winner names.
 
 Admin-created events/formats for Season 10+ live in **Cloudflare KV**, not these files.

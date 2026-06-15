@@ -85,6 +85,10 @@
     /* Round badge on ringer card */
     .rnd-badge { font-size: 9px; color: #555; display: block; line-height: 1; margin-top: 1px; }
 
+    /* Manually-adjusted score marker */
+    .adj { position: relative; }
+    .adj::after { content: '✱'; position: absolute; top: -5px; right: -8px; color: #f97316; font-size: 10px; font-weight: 700; line-height: 1; }
+
     .format-badge {
       display: inline-flex; align-items: center; gap: 5px;
       background: rgba(249,115,22,0.12); border: 1px solid rgba(249,115,22,0.3);
@@ -776,6 +780,20 @@
 
     function fmtPrize(v) { return v.toFixed(2).replace(/\.00$/, ''); }
 
+    // Holes manually corrected for a player (see data/overrides.json). Returns a
+    // Set with keys `${hole}` (any round) and `${round}:${hole}` (round-specific).
+    function overriddenHoleKeys(event, playerName) {
+      const set = new Set();
+      const name = String(playerName || '').toLowerCase().replace(/\s*\(sub\)$/, '');
+      for (const o of (event?.scoreOverrides || [])) {
+        if (String(o.player || '').toLowerCase() !== name) continue;
+        const h = Number(o.hole);
+        set.add(`${h}`);
+        if (o.round != null) set.add(`${Number(o.round)}:${h}`);
+      }
+      return set;
+    }
+
     function renderLeaderboard(results, event, format, streams = {}) {
       if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams); return; }
       if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams); return; }
@@ -855,7 +873,7 @@
           <td colspan="99" class="p-0 border-b border-border">
             <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
               <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">Ringer Card — ${player.player_name}</div>
-              ${buildScorecardHTML(player)}
+              ${buildScorecardHTML(player, event)}
               <div class="mt-4 pt-3 border-t border-border">
                 <a href="https://simulatorgolftour.com/profile/${player.player_name}" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
@@ -974,7 +992,7 @@
               <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">
                 Team Scorecard — ${team.displayMembers.join(' / ')}
               </div>
-              ${buildTeamScorecardHTML(team, format)}
+              ${buildTeamScorecardHTML(team, format, event)}
               <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
                 ${team.displayMembers.map(m => `
                   <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
@@ -1127,7 +1145,7 @@
               <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">
                 Team Scorecard — ${team.displayMembers.join(' / ')}
               </div>
-              ${buildTeamScorecardHTML(team, format)}
+              ${buildTeamScorecardHTML(team, format, event)}
               <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
                 ${team.displayMembers.map(m => `
                   <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
@@ -1224,9 +1242,11 @@
         </div>`;
     }
 
-    function buildTeamScorecardHTML(team, format) {
+    function buildTeamScorecardHTML(team, format, event = null) {
       const front = [0,1,2,3,4,5,6,7,8];
       const back  = [9,10,11,12,13,14,15,16,17];
+      const ovByPlayer = team.players.map(pl => overriddenHoleKeys(event, pl.name));
+      const hasAdjust  = ovByPlayer.some(s => s.size > 0);
       const isLoneRanger  = format?.type === 'lone-ranger';
       const isShamble     = format?.type === 'shamble-2man';
       const isNassau      = format?.type === 'nassau-2man';
@@ -1283,8 +1303,9 @@
         const score   = team.players[playerIdx].net[holeIdx];
         const par     = team.pars[holeIdx];
         const scoreCls = holeScoreClass(score, par);
-        return `<td class="${opacity}" style="padding:3px 4px">
-          <span class="sc-score ${scoreCls}">${score}</span>
+        const adjusted = ovByPlayer[playerIdx].has(`${holeIdx + 1}`);
+        return `<td class="${opacity}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
+          <span class="sc-score ${scoreCls}${adjusted ? ' adj' : ''}">${score}</span>
         </td>`;
       }
 
@@ -1392,6 +1413,7 @@
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">ALL</span> <span>Holes 13–18: all 3 scores</span>
           <span class="ml-2 text-gray-700">Dimmed scores don't count toward team total</span>
           `}
+          ${hasAdjust ? `<span class="text-flame w-full mt-0.5"><span class="adj" style="margin-right:8px"></span>manually adjusted score</span>` : ''}
         </div>`;
     }
 
@@ -1442,15 +1464,16 @@
         </div>`;
     }
 
-    function buildScorecardHTML(p) {
+    function buildScorecardHTML(p, event = null) {
       const front = [0,1,2,3,4,5,6,7,8];
       const back  = [9,10,11,12,13,14,15,16,17];
+      const ovKeys = overriddenHoleKeys(event, p.player_name);
 
-      function scoreCell(score, par, extra = '') {
+      function scoreCell(score, par, extra = '', adjusted = false) {
         const cls = holeScoreClass(score, par);
-        return `<td class="${cls}" style="padding:3px 4px">
+        return `<td class="${cls}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
           <div style="display:flex;flex-direction:column;align-items:center">
-            <span class="sc-score">${score}</span>
+            <span class="sc-score${adjusted ? ' adj' : ''}">${score}</span>
             ${extra ? `<span class="rnd-badge">${extra}</span>` : ''}
           </div>
         </td>`;
@@ -1471,9 +1494,9 @@
         return `
           <tr class="score-row" style="opacity:0.65">
             <td class="name-cell" style="color:#888">RND ${rnd.round}</td>
-            ${front.map(i => scoreCell(rnd.net[i], p.pars[i])).join('')}
+            ${front.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
             <td class="sub-cell">${rOut}</td>
-            ${back.map(i => scoreCell(rnd.net[i], p.pars[i])).join('')}
+            ${back.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
             <td class="sub-cell">${rIn}</td>
             <td class="total-cell">${rTot}</td>
             <td class="topar-cell ${rCls}">${formatToPar(rToPar)}</td>
@@ -1516,9 +1539,9 @@
               ${roundRows}
               <tr class="score-row">
                 <td class="name-cell" style="${showRounds ? 'color:#f97316' : ''}">${showRounds ? 'RINGER' : p.player_name}</td>
-                ${front.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`)).join('')}
+                ${front.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
                 <td class="sub-cell">${frontOut}</td>
-                ${back.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`)).join('')}
+                ${back.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
                 <td class="sub-cell">${backIn}</td>
                 <td class="total-cell">${p.total}</td>
                 <td class="topar-cell ${toParCls}">${formatToPar(p.toPar)}</td>
@@ -1531,6 +1554,7 @@
           <span><span class="sc-score birdie inline-flex" style="width:16px;height:16px;font-size:9px">◆</span> Birdie</span>
           <span class="text-gray-500">Par · <span class="bogey">Bogey</span> · <span class="double" style="background:#ef4444;color:#fff;padding:0 2px;border-radius:2px">Dbl+</span></span>
           ${showRounds ? `<span class="ml-2 text-gray-700">R1/R2 = round that contributed the ringer score</span>` : ''}
+          ${ovKeys.size ? `<span class="text-flame"><span class="adj" style="margin-right:8px"></span>manually adjusted score</span>` : ''}
           ${p.roundsPlayed > 1 ? `<span class="ml-auto text-gray-600">36-hole net: <span class="text-gray-400 font-medium">${p.totalNetAllRounds}</span> (tiebreaker)</span>` : ''}
         </div>
       `;
@@ -1785,7 +1809,7 @@
           const memberHtml = team.displayMembers.map(m => `<div class="text-xs text-gray-300">${m}</div>`).join('');
 
           if (done) {
-            const scHtml = buildTeamScorecardHTML(team, format);
+            const scHtml = buildTeamScorecardHTML(team, format, event);
             const prizeStr = team.prize != null ? `$${fmtPrize(team.prize)}` : '—';
             return `
               <tr class="lb-row border-t border-border cursor-pointer select-none ${isLeader ? 'leader' : ''}" data-lb-row="${ri}">
