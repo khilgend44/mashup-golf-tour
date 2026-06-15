@@ -1403,9 +1403,10 @@
             <div>
               <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">Hole ${c.hole}</div>
               <div class="font-medium text-white">${c.player}</div>
+              ${c.distance ? `<div class="text-xs text-gray-500 mt-0.5">${c.distance} from the pin</div>` : ''}
             </div>
           </div>
-          <div class="font-semibold text-flame">$${c.amount}</div>
+          <div class="font-semibold text-flame">$${fmtPrize(c.amount)}</div>
         </div>`).join('');
 
       return `

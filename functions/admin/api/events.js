@@ -65,13 +65,16 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'complete-event') {
-    const { eventId } = body;
+    const { eventId, ctp } = body;
     if (!eventId) return Response.json({ error: 'Missing eventId' }, { status: 400, headers: CORS });
     const raw = await kvGet(accountId, apiToken, 'admin:events');
     const events = raw ? JSON.parse(raw) : [];
     const idx = events.findIndex(e => e.id === eventId);
     if (idx === -1) return Response.json({ error: 'Event not found' }, { status: 404, headers: CORS });
-    events[idx] = { ...events[idx], status: 'completed' };
+    const updated = { ...events[idx], status: 'completed' };
+    // Recorded CTP winners: [{ hole, player, distance, amount }]
+    if (Array.isArray(ctp)) updated.ctp = ctp;
+    events[idx] = updated;
     await kvPut(accountId, apiToken, 'admin:events', JSON.stringify(events));
     return Response.json({ ok: true, event: events[idx] }, { headers: CORS });
   }

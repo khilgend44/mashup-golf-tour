@@ -352,6 +352,22 @@
     <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-8 w-full max-w-md mx-4 card-shadow" id="modal-body"></div>
   </div>
 
+  <!-- CTP MODAL -->
+  <div id="ctp-modal" class="fixed inset-0 z-50 items-center justify-center" style="display:none;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl w-full max-w-lg mx-4 card-shadow flex flex-col" style="max-height:90vh">
+      <div class="px-6 py-4 border-b border-[#2c2c2c]">
+        <div class="text-xs font-heading font-600 tracking-widest text-[#f97316] uppercase mb-1">Record Closest to the Pin</div>
+        <h2 id="ctp-title" class="font-display text-2xl tracking-wider text-white"></h2>
+        <p id="ctp-sub" class="text-xs text-gray-500 font-body mt-1"></p>
+      </div>
+      <div id="ctp-rows" class="overflow-y-auto px-6 py-5 space-y-4"></div>
+      <div class="px-6 py-4 border-t border-[#2c2c2c] flex items-center justify-between gap-3">
+        <button id="ctp-cancel" class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
+        <button id="ctp-save" class="px-6 py-2.5 rounded-lg bg-[#f97316] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#c2530f]" style="transition:background 0.15s"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="border-t border-border py-5 mt-auto">
     <div class="max-w-6xl mx-auto px-4 flex items-center justify-between text-xs text-gray-700 font-body">
@@ -533,6 +549,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
               ${isKv && e.tournamentId ? `<button class="rescrape-btn text-xs font-heading font-600 tracking-wider text-gray-600 hover:text-gray-400" data-id="${e.id}" data-tid="${e.tournamentId}" style="transition:color 0.12s">↺ Sync</button>` : ''}
               ${isKv && e.status === 'upcoming' ? `<button class="activate-btn text-xs font-heading font-600 tracking-wider text-emerald-500 hover:text-emerald-300" data-id="${e.id}" data-name="${(e.name || e.id).replace(/"/g, '&quot;')}" style="transition:color 0.12s">Activate</button>` : ''}
               ${isKv && e.status === 'active' ? `<button class="complete-btn text-xs font-heading font-600 tracking-wider text-sky-400 hover:text-sky-300" data-id="${e.id}" data-name="${(e.name || e.id).replace(/"/g, '&quot;')}" style="transition:color 0.12s">Complete ✓</button>` : ''}
+              ${isKv && e.status === 'completed' && (parseInt(e.ctps?.count) || 0) > 0 ? `<button class="ctp-btn text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" data-id="${e.id}" style="transition:color 0.12s">CTPs</button>` : ''}
               ${isKv ? `<button class="delete-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-id="${e.id}" style="transition:color 0.12s">Delete</button>` : ''}
             </div>
           </td>
@@ -544,6 +561,9 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       });
       tbody.querySelectorAll('.complete-btn').forEach(btn => {
         btn.addEventListener('click', () => completeEvent(btn.dataset.id, btn.dataset.name, btn));
+      });
+      tbody.querySelectorAll('.ctp-btn').forEach(btn => {
+        btn.addEventListener('click', () => showCtpModal(btn.dataset.id));
       });
       tbody.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', () => deleteEvent(btn.dataset.id));
@@ -643,23 +663,95 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       }
     }
 
+    // Players eligible to win a CTP for an event (participants, else season roster)
+    function eventPlayers(ev) {
+      const fromTeams = ev.teams?.flat?.() || [];
+      if (fromTeams.length) return [...new Set(fromTeams)].sort((a, b) => a.localeCompare(b));
+      const season = state.allSeasons.find(s => s.id === ev.season);
+      return [...(season?.players || [])].sort((a, b) => a.localeCompare(b));
+    }
+
     async function completeEvent(eventId, eventName) {
+      const ev = state.kvEvents.find(e => e.id === eventId);
+      const ctpCount = parseInt(ev?.ctps?.count) || 0;
+      if (ctpCount > 0) { showCtpModal(eventId); return; }   // modal handles complete
       if (!confirm(`Mark "${eventName}" as complete? This stops live scorecard updates and shows final results.`)) return;
+      submitComplete(eventId, eventName, null);
+    }
+
+    async function submitComplete(eventId, eventName, ctp) {
       try {
+        const body = { action: 'complete-event', eventId };
+        if (ctp) body.ctp = ctp;
         const res = await fetch(API_WRITE, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'complete-event', eventId }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         const ev = state.kvEvents.find(e => e.id === eventId);
-        if (ev) ev.status = 'completed';
+        if (ev) { ev.status = 'completed'; if (ctp) ev.ctp = ctp; }
         renderTable();
         showStatus(`"${eventName}" marked complete.`, 'success');
       } catch (e) {
         showStatus('Error completing event: ' + e.message, 'error');
       }
+    }
+
+    function showCtpModal(eventId) {
+      const ev = state.kvEvents.find(e => e.id === eventId);
+      if (!ev) return;
+      const count      = parseInt(ev.ctps?.count) || 0;
+      const amountEach = Number(ev.ctps?.amountEach) || 0;
+      const players    = eventPlayers(ev);
+      const existing   = ev.ctp || [];
+      const isCompleted = ev.status === 'completed';
+
+      document.getElementById('ctp-title').textContent = ev.name || ev.id;
+      document.getElementById('ctp-sub').textContent = `${count} CTP${count !== 1 ? 's' : ''} · $${amountEach} each — enter the hole, winner, and how close`;
+      document.getElementById('ctp-save').textContent = isCompleted ? 'Save CTPs' : 'Save & Complete';
+
+      const optsFor = sel => ['<option value="">— select player —</option>',
+        ...players.map(p => `<option value="${p}"${p === sel ? ' selected' : ''}>${p}</option>`)].join('');
+
+      document.getElementById('ctp-rows').innerHTML = Array.from({ length: count }, (_, i) => {
+        const ex = existing[i] || {};
+        return `
+          <div class="grid grid-cols-12 gap-2 items-end" data-ctp-row="${i}">
+            <div class="col-span-3">
+              <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Hole</label>
+              <input type="number" min="1" max="18" class="ctp-hole w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${ex.hole ?? ''}" />
+            </div>
+            <div class="col-span-5">
+              <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Player</label>
+              <select class="ctp-player w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame">${optsFor(ex.player)}</select>
+            </div>
+            <div class="col-span-4">
+              <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">How close</label>
+              <input type="text" placeholder="e.g. 3' 6&quot;" class="ctp-dist w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${(ex.distance ?? '').replace(/"/g, '&quot;')}" />
+            </div>
+          </div>`;
+      }).join('');
+
+      const modal = document.getElementById('ctp-modal');
+      modal.dataset.eventId = eventId;
+      modal.style.display = 'flex';
+    }
+
+    function saveCtp() {
+      const modal   = document.getElementById('ctp-modal');
+      const eventId = modal.dataset.eventId;
+      const ev      = state.kvEvents.find(e => e.id === eventId);
+      const amountEach = Number(ev.ctps?.amountEach) || 0;
+      const ctp = [];
+      for (const row of document.querySelectorAll('#ctp-rows [data-ctp-row]')) {
+        const hole     = parseInt(row.querySelector('.ctp-hole').value);
+        const player   = row.querySelector('.ctp-player').value;
+        const distance = row.querySelector('.ctp-dist').value.trim();
+        if (!player || !hole) { showStatus('Each CTP needs a hole number and a player.', 'error'); return; }
+        ctp.push({ hole, player, distance, amount: amountEach });
+      }
+      modal.style.display = 'none';
+      submitComplete(eventId, ev.name || eventId, ctp);
     }
 
     // ── Save custom format ────────────────────────────────────
@@ -1159,6 +1251,9 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
     }
     document.getElementById('details-close').addEventListener('click', closeDetailsModal);
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetailsModal(); });
+
+    document.getElementById('ctp-cancel').addEventListener('click', () => { document.getElementById('ctp-modal').style.display = 'none'; });
+    document.getElementById('ctp-save').addEventListener('click', saveCtp);
 
     function row(label, value) {
       if (value == null || value === '' || value === '—') return '';
