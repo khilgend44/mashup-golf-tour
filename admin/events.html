@@ -368,6 +368,24 @@
     </div>
   </div>
 
+  <!-- RESULTS → DISCORD MODAL -->
+  <div id="results-modal" class="fixed inset-0 z-50 items-center justify-center" style="display:none;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl w-full max-w-xl mx-4 card-shadow flex flex-col" style="max-height:90vh">
+      <div class="px-6 py-4 border-b border-[#2c2c2c]">
+        <div class="text-xs font-heading font-600 tracking-widest text-[#5865F2] uppercase mb-1">Post Results to Discord</div>
+        <h2 id="results-title" class="font-display text-2xl tracking-wider text-white"></h2>
+        <p class="text-xs text-gray-500 font-body mt-1">Edit the message below, then post it to the announcements channel.</p>
+      </div>
+      <div class="px-6 py-5 overflow-y-auto">
+        <textarea id="results-text" rows="16" class="w-full bg-surface border border-border rounded-lg px-3 py-3 text-sm text-gray-200 font-mono leading-relaxed focus:outline-none focus:border-flame" style="resize:vertical"></textarea>
+      </div>
+      <div class="px-6 py-4 border-t border-[#2c2c2c] flex items-center justify-between gap-3">
+        <button id="results-skip" class="text-gray-500 hover:text-gray-300 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Do Not Post</button>
+        <button id="results-post" class="px-6 py-2.5 rounded-lg bg-[#5865F2] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#4752c4]" style="transition:background 0.15s">Post to Discord</button>
+      </div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="border-t border-border py-5 mt-auto">
     <div class="max-w-6xl mx-auto px-4 flex items-center justify-between text-xs text-gray-700 font-body">
@@ -377,6 +395,7 @@
   </footer>
 
   <script type="module">
+    import { applyFormat, applyPayouts, resolveSidePots } from '/js/scoring.js';
     const API      = '/api/events-admin';   // public reads (list/scrape)
     const API_WRITE = '/admin/api/events';   // Access-protected writes
     const FORMATS_STATIC_URL = '/data/formats.json';
@@ -692,8 +711,96 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         if (ev) { ev.status = 'completed'; if (ctp) ev.ctp = ctp; }
         renderTable();
         showStatus(`"${eventName}" marked complete.`, 'success');
+        showResultsModal(eventId);   // offer to post results to Discord
       } catch (e) {
         showStatus('Error completing event: ' + e.message, 'error');
+      }
+    }
+
+    // ── Results → Discord ─────────────────────────────────────
+    async function fetchScorecardsLocal(tid) {
+      try {
+        const r = await fetch(`/data/scorecards/${tid}.json`);
+        if (!r.ok) return [];
+        const t = await r.text();
+        return t.trim() ? JSON.parse(t) : [];
+      } catch { return []; }
+    }
+
+    async function generateResultsMessage(event, format) {
+      // Merge any manual overrides (usually none at completion time)
+      let ev = event;
+      try {
+        const ov = await (await fetch('/data/overrides.json')).json();
+        if (ov[event.id]) ev = { ...event, ...ov[event.id] };
+      } catch { /* no overrides */ }
+
+      const teamSize = parseInt(format?.teamSize) || 1;
+      const isTeam   = teamSize > 1;
+      const fmtMoney = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      const medal    = p => p === 1 ? '🥇' : p === 2 ? '🥈' : p === 3 ? '🥉' : '';
+      const ordinal  = p => { const s = ['th','st','nd','rd'], v = p % 100; return p + (s[(v - 20) % 10] || s[v] || s[0]); };
+      const placeLabel = r => r.tied ? `T${ordinal(r.position)}` : `${medal(r.position)} ${ordinal(r.position)}`.trim();
+
+      const lines = [`🏁 **${ev.name} — COMPLETE!**`, ''];
+
+      const scorecards = await fetchScorecardsLocal(ev.tournamentId);
+      let results = [];
+      try {
+        results = applyFormat(scorecards, format, ev);
+        applyPayouts(results, ev.payouts);
+      } catch { /* leave results empty */ }
+
+      const paid = results.filter(r => r.prize != null).sort((a, b) => a.position - b.position);
+      if (paid.length) {
+        lines.push('🏆 **Payouts**');
+        for (const r of paid) {
+          if (isTeam) {
+            lines.push(`${placeLabel(r)} — ${r.displayMembers.join(' / ')} — ${fmtMoney(r.prize)} (${fmtMoney(r.prize / teamSize)}/ea)`);
+          } else {
+            lines.push(`${placeLabel(r)} — ${r.player_name} — ${fmtMoney(r.prize)}`);
+          }
+        }
+        lines.push('');
+      }
+
+      const pots = ev.sidePots || [];
+      if (pots.length && results.length) {
+        const sp = resolveSidePots(results, ev, format);
+        if (sp.length) {
+          lines.push('🎯 **Side Pots**');
+          sp.forEach((s, i) => lines.push(`${pots[i]?.name || 'Side Pot'} — ${s.player} — ${fmtMoney(s.amount)}`));
+          lines.push('');
+        }
+      }
+
+      const ctps = ev.ctp || [];
+      if (ctps.length) {
+        lines.push('📍 **Closest to the Pin**');
+        for (const c of ctps) {
+          lines.push(`Hole ${c.hole} — ${c.player}${c.distance ? ` — ${c.distance}` : ''} — ${fmtMoney(c.amount)}`);
+        }
+        lines.push('');
+      }
+
+      lines.push('Congrats to all the winners! 🏌️');
+      return lines.join('\n');
+    }
+
+    async function showResultsModal(eventId) {
+      const ev  = state.kvEvents.find(e => e.id === eventId);
+      const fmt = state.allFormats[ev?.format];
+      if (!ev) return;
+      const modal = document.getElementById('results-modal');
+      document.getElementById('results-title').textContent = ev.name || ev.id;
+      const ta = document.getElementById('results-text');
+      ta.value = 'Generating results…';
+      modal.dataset.eventId = eventId;
+      modal.style.display = 'flex';
+      try {
+        ta.value = fmt ? await generateResultsMessage(ev, fmt) : `🏁 **${ev.name} — COMPLETE!**`;
+      } catch (e) {
+        ta.value = `🏁 **${ev.name} — COMPLETE!**\n\n(Couldn't auto-build results: ${e.message} — edit as needed.)`;
       }
     }
 
@@ -1254,6 +1361,25 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
 
     document.getElementById('ctp-cancel').addEventListener('click', () => { document.getElementById('ctp-modal').style.display = 'none'; });
     document.getElementById('ctp-save').addEventListener('click', saveCtp);
+
+    document.getElementById('results-skip').addEventListener('click', () => { document.getElementById('results-modal').style.display = 'none'; });
+    document.getElementById('results-post').addEventListener('click', async () => {
+      const btn = document.getElementById('results-post');
+      const message = document.getElementById('results-text').value;
+      btn.disabled = true; btn.textContent = 'Posting…';
+      try {
+        const res = await fetch('/admin/api/announce', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        document.getElementById('results-modal').style.display = 'none';
+        showStatus('✓ Results posted to Discord.', 'success');
+      } catch (e) {
+        showStatus('Error posting to Discord: ' + e.message, 'error');
+      }
+      btn.disabled = false; btn.textContent = 'Post to Discord';
+    });
 
     function row(label, value) {
       if (value == null || value === '' || value === '—') return '';

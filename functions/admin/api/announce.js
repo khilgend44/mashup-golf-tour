@@ -23,22 +23,30 @@ export async function onRequestPost(context) {
   }
 
   const { message, imageBase64 } = body;
-  if (!imageBase64) {
-    return Response.json({ error: 'Missing imageBase64' }, { status: 400, headers: CORS });
+  if (!imageBase64 && !(message && message.trim())) {
+    return Response.json({ error: 'Nothing to post — provide a message and/or image' }, { status: 400, headers: CORS });
   }
 
   try {
-    const binaryStr = atob(imageBase64);
-    const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
+    let res;
+    if (imageBase64) {
+      // Poster announcement: image + optional text (multipart)
+      const binaryStr = atob(imageBase64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+      const form = new FormData();
+      form.append('file', new Blob([bytes], { type: 'image/png' }), 'mashup-announcement.png');
+      form.append('payload_json', JSON.stringify({ content: message || '' }));
+      res = await fetch(webhookUrl, { method: 'POST', body: form });
+    } else {
+      // Text-only post (e.g. event results)
+      res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: message }),
+      });
     }
-
-    const form = new FormData();
-    form.append('file', new Blob([bytes], { type: 'image/png' }), 'mashup-announcement.png');
-    form.append('payload_json', JSON.stringify({ content: message || '' }));
-
-    const res = await fetch(webhookUrl, { method: 'POST', body: form });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
