@@ -341,7 +341,12 @@
             ? [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4]
             : [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3]
           ).filter(p => p);
-          const kv = sgtFields.length === 0 ? kvFallback?.[card.player_name.toLowerCase()] : null;
+          // Admin-defined teams are authoritative; SGT fields fragment a team
+          // when slots come back blank. Fall back to SGT only for non-roster subs.
+          let kv = kvFallback?.[card.player_name.toLowerCase()];
+          if (!kv && kvFallback) {
+            for (const p of sgtFields) { const m = kvFallback[p.toLowerCase()]; if (m) { kv = m; break; } }
+          }
           const members = kv ? kv.displayMembers : sgtFields;
           const key = kv ? kv.key : members.map(p => p.toLowerCase()).sort().join('|');
           if (!teamsMap[key]) {
@@ -367,7 +372,7 @@
         const rootingByHole = computeRootingAnalysis(preDrawTeams);
         const rootingByTeam = preDrawTeams.map((_, ti) => rootingByHole.map(h => h[ti]));
 
-        renderHeader(event, format, preDrawTeams.length * 3);
+        renderHeader(event, format, preDrawTeams.length * (is4Man ? 4 : 3));
         document.getElementById('breadcrumb').innerHTML =
           `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
 
