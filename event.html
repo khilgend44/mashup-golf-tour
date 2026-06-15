@@ -122,6 +122,11 @@
     .lb-table thead th { position: sticky; top: 56px; z-index: 30; background:#171717; box-shadow: 0 1px 0 #2c2c2c; }
     .lb-table thead th:first-child { border-top-left-radius: 0.75rem; }
     .lb-table thead th:last-child  { border-top-right-radius: 0.75rem; }
+    /* Phones: tighten leaderboard cell padding so tables fit without sideways scroll */
+    @media (max-width: 639px) {
+      .lb-table th, .lb-table td { padding-left: 0.5rem; padding-right: 0.5rem; }
+      .rank-medal { min-width: 24px; height: 24px; font-size: 13px; padding: 0 4px; }
+    }
 
     /* Devil's Draw reveal tiles */
     .dd-tile { perspective: 600px; width: 52px; height: 68px; flex-shrink: 0; }
@@ -491,7 +496,7 @@
               ${teeChip ? `<span class="chip chip-meta">${teeChip}</span>` : ''}
             </div>
             <div class="font-heading font-600 tracking-[.2em] text-flame text-xs uppercase mb-1">${seasonWeekLabel}</div>
-            <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">${event.name}</h1>
+            <h1 class="font-display text-3xl sm:text-5xl tracking-wide sm:tracking-wider text-white leading-none break-words">${event.name}</h1>
             <p class="text-gray-500 text-sm mt-2">${dateStr} &nbsp;·&nbsp; ${totalPlayers} Players${teamsLabel}${event.buyIn ? ` &nbsp;·&nbsp; $${event.buyIn} Buy-in` : ''}</p>
             <p class="text-gray-600 text-xs mt-2 italic max-w-xl">${format.description}</p>
             <div class="mt-4">
@@ -803,7 +808,7 @@
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Rnds</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Total</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
                 ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
               </tr>
@@ -838,7 +843,7 @@
           <td class="px-3 py-3.5 text-center text-gray-500 text-xs num hidden sm:table-cell">${player.roundsPlayed}</td>
           <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${player.out}</td>
           <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${player.inn}</td>
-          <td class="px-3 py-3.5 text-center font-semibold font-mono num">${player.total}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num hidden sm:table-cell">${player.total}</td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
           ${hasPrizes ? `<td class="px-4 py-3.5 text-center whitespace-nowrap">${player.prize != null ? `<span class="prize-pill">$${fmtPrize(player.prize)}</span>` : '<span class="text-gray-700">—</span>'}</td>` : ''}
         `;
@@ -905,8 +910,8 @@
                 <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">Out</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Pts' : 'Total'}</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${isStableford ? 'Agg Pts' : '+/−'}</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase ${isStableford ? '' : 'hidden sm:table-cell'}">${isStableford ? 'Pts' : 'Total'}</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase ${isStableford ? 'hidden sm:table-cell' : ''}">${isStableford ? 'Agg Pts' : '+/−'}</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell ${isStableford ? 'hidden' : ''}">Team Agg</th>
                 ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
               </tr>
@@ -952,8 +957,8 @@
           <td class="px-4 py-3 leading-snug">${memberHtml}</td>
           <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${team.out}</td>
           <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${team.inn}</td>
-          <td class="px-3 py-3 text-center font-semibold font-mono num">${team.total}</td>
-          <td class="px-3 py-3 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono num ${isStableford ? '' : 'hidden sm:table-cell'}">${team.total}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono num ${toParCls} ${isStableford ? 'hidden sm:table-cell' : ''}">${toParStr}</td>
           <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs num hidden md:table-cell ${isStableford ? '!hidden' : ''}">${team.aggregate}</td>
           ${hasPrizes ? `<td class="px-4 py-3 text-center whitespace-nowrap">${
             team.prize != null
@@ -1069,7 +1074,7 @@
               <tr class="bg-surface">
                 <th class="w-8 pl-3 py-3"></th>
                 <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Team</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">BB Net</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">BB Net</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">F9 Agg</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">B9 Agg</th>
@@ -1106,7 +1111,7 @@
         tr.innerHTML = `
           <td class="w-8 pl-3 py-3"></td>
           <td class="px-4 py-3 leading-snug">${memberHtml}</td>
-          <td class="px-3 py-3 text-center font-semibold font-mono num">${team.total}</td>
+          <td class="px-3 py-3 text-center font-semibold font-mono num hidden sm:table-cell">${team.total}</td>
           <td class="px-3 py-3 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
           <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${team.f9Agg}</td>
           <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${team.b9Agg}</td>
