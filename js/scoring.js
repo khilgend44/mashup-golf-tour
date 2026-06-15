@@ -70,10 +70,23 @@ function buildKvTeamMap(event) {
 }
 
 function resolveTeamKey(card, sgtFields, kvTeamMap) {
+  // Admin-defined teams (event.teams, via KV) are authoritative when present.
+  // SGT's per-card TeamPlayer fields are occasionally returned incomplete
+  // (one or more slots blank), which fragments a single team into partial
+  // teams + solo players. Preferring the KV map avoids that.
+  if (kvTeamMap) {
+    // Direct membership in a defined team.
+    const kv = kvTeamMap[card.player_name.toLowerCase()];
+    if (kv) return { key: kv.key, displayMembers: kv.displayMembers, fromKv: true };
+    // Sub: player isn't on a roster team but lists a teammate who is — attach
+    // them to that team so their scores count under the right group.
+    for (const p of sgtFields) {
+      const m = p && kvTeamMap[p.toLowerCase()];
+      if (m) return { key: m.key, displayMembers: m.displayMembers, fromKv: true };
+    }
+  }
   const raw = sgtFields.filter(p => p);
   if (raw.length > 0) return { key: raw.map(p => p.toLowerCase()).sort().join('|'), displayMembers: raw, fromKv: false };
-  const kv = kvTeamMap?.[card.player_name.toLowerCase()];
-  if (kv) return { key: kv.key, displayMembers: kv.displayMembers, fromKv: true };
   return { key: '', displayMembers: [], fromKv: false };
 }
 
