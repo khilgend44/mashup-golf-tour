@@ -12,3 +12,9 @@ secrets.sh
 
 # Temporary screenshots (local only)
 temporary screenshots/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
