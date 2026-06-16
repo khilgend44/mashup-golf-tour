@@ -372,7 +372,7 @@
         const rootingByHole = computeRootingAnalysis(preDrawTeams);
         const rootingByTeam = preDrawTeams.map((_, ti) => rootingByHole.map(h => h[ti]));
 
-        renderHeader(event, format, preDrawTeams.length * (is4Man ? 4 : 3));
+        renderHeader(event, format, preDrawTeams.length * (is4Man ? 4 : 3), scorecards);
         document.getElementById('breadcrumb').innerHTML =
           `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
 
