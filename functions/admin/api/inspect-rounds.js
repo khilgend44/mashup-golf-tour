@@ -41,7 +41,8 @@ export async function onRequestGet(context) {
   // (matching the proven player-check refresh, which joins with a raw comma).
   const playerParam = players.map(p => encodeURIComponent(p)).join(',');
   const sgtUrl = `https://simulatorgolftour.com/sgt-api/mashup/player-hcp-rounds?key=${key}&players=${playerParam}`;
-  const res = await fetch(sgtUrl);
+  // Bypass any Cloudflare-side caching so a stale response can only originate at SGT.
+  const res = await fetch(sgtUrl, { cf: { cacheTtl: 0, cacheEverything: false }, headers: { 'Cache-Control': 'no-cache' } });
   if (!res.ok) return Response.json({ error: `SGT API error: ${res.status}` }, { status: 502, headers: CORS });
 
   let rounds;
