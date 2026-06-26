@@ -35,6 +35,10 @@
     .hover\:text-flame:hover { color: #f97316; }
     /* Keep column headers visible while scrolling the table. */
     thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    .dd-chev { display: inline-block; transition: transform 0.15s; }
+    details[open] .dd-chev { transform: rotate(90deg); }
     tr:hover td { background: rgba(255,255,255,0.025); }
     tr.baseline-row td { background: rgba(249,115,22,0.07); }
     tr.baseline-row td:first-child { border-left: 2px solid rgba(249,115,22,0.6); }
@@ -64,6 +68,19 @@
         class="bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-lg tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer">
       </select>
     </div>
+
+    <details class="mb-6 rounded-lg border border-border bg-card">
+      <summary class="cursor-pointer select-none px-5 py-4 flex items-start gap-3 font-heading font-600 tracking-wide text-flame hover:text-flame-dim" style="transition:color 0.12s">
+        <span class="dd-chev text-gray-500 mt-0.5">▶</span>
+        <span>Why does MashUp use a unique MashCAP instead of the COMBO handicap?</span>
+      </summary>
+      <div class="px-5 pb-5 pt-1 text-sm text-gray-400 font-body leading-relaxed space-y-3 max-w-3xl">
+        <p>The aim of MashUp has always been to create a fair playing field in Simulator Golf using <span class="text-gray-200">NET scoring</span>. Over time there have been multiple changes to the way SGT calculates the COMBO handicap, and we've had to adjust each time.</p>
+        <p>Currently, the COMBO handicap creates an imbalance across players depending on how many total rounds a player has played. For example, a player with <span class="text-gray-200">20 rounds</span> counts the average of their best <span class="text-gray-200">12</span> — that's <span class="text-gray-200">60%</span> of their total. A player at <span class="text-gray-200">48 rounds</span> counts the average of their best <span class="text-gray-200">16</span> — only <span class="text-gray-200">33%</span>. We believe this creates unfair handicaps.</p>
+        <p>The USGA aims to keep roughly <span class="text-flame">40%</span> of total rounds as the counting average. So our <span class="text-flame font-600">MashCAP</span> formula takes each player's total rounds, finds the number that equals 40% of them, and averages those best rounds.</p>
+        <p class="text-gray-500">For example: at <span class="text-gray-300">20 rounds</span> it averages the best <span class="text-gray-300">8</span>; at <span class="text-gray-300">30 rounds</span>, the best <span class="text-gray-300">12</span>; at <span class="text-gray-300">48 rounds</span>, the best <span class="text-gray-300">19</span>.</p>
+      </div>
+    </details>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
 
