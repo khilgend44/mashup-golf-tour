@@ -36,6 +36,7 @@ SimulatorGolfTour API  (provides live scorecard data)
 - **URL:** https://mashup-golf-tour.pages.dev/admin
 - Protected by **Cloudflare Access** (Google SSO — only approved Google accounts can log in)
 - Pages:
+  - `/admin/guide.html` — wiki-style operator's guide (TOC sidebar + scroll-spy): what each portal page does, the weekly workflow, the SGT admin "Game" functions (Reset Player, Delete Save Game, Update Player Resume, Create/Modify Scorecard), and Access/deploy notes. Linked as a card on the portal index. Static content — update it when admin workflows change.
   - `/admin/players.html` — manage player roster, view/refresh handicaps
   - `/admin/events.html` — create/manage seasons and events
     - SGT Event URL must be entered first — it unlocks the rest of the form and auto-populates event name, dates, rounds, and week number

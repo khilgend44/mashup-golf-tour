@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Guide — MashUp Golf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
+    .text-flame { color: #f97316; }
+    .hover\:text-flame:hover { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    /* Offset anchor targets so headings clear the sticky top nav. */
+    .anchor { scroll-margin-top: 5rem; }
+    /* Wiki TOC active state. */
+    .toc-link { transition: color 0.12s, border-color 0.12s; border-left: 2px solid transparent; }
+    .toc-link:hover { color: #e5e7eb; }
+    .toc-link.active { color: #f97316; border-left-color: #f97316; }
+    .toc-sub { padding-left: 1.5rem; }
+    /* Step number badge. */
+    .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border-radius:0.4rem; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.25); color:#f97316; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:0.8rem; flex-shrink:0; }
+    .prose-body p { line-height: 1.7; }
+    .tag { font-family:'Barlow Condensed',sans-serif; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.65rem; padding:0.15rem 0.5rem; border-radius:999px; }
+    .callout { border-left: 3px solid; border-radius: 0 0.5rem 0.5rem 0; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color 0.12s">← Site</a>
+        <span class="text-border">/</span>
+        <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color 0.12s">Admin</a>
+        <span class="text-border">/</span>
+        <span class="font-heading font-semibold tracking-wider text-sm text-flame">Guide</span>
+      </div>
+      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color 0.12s">Portal →</a>
+    </div>
+  </nav>
+
+  <div class="max-w-6xl mx-auto px-4 py-8 flex gap-10">
+
+    <!-- TABLE OF CONTENTS -->
+    <aside class="hidden lg:block w-56 shrink-0">
+      <nav id="toc" class="sticky top-20 text-sm font-body space-y-1">
+        <div class="text-[10px] font-heading font-700 tracking-widest text-gray-600 uppercase mb-2 pl-3">Contents</div>
+        <a href="#overview"   class="toc-link block pl-3 py-1 text-gray-400">Overview</a>
+        <a href="#workflow"   class="toc-link block pl-3 py-1 text-gray-400">Weekly Workflow</a>
+        <div class="pt-3 pb-1 pl-3 text-[10px] font-heading font-700 tracking-widest text-gray-600 uppercase">Admin Portal</div>
+        <a href="#events"     class="toc-link block pl-3 py-1 text-gray-400">Events</a>
+        <a href="#players"    class="toc-link block pl-3 py-1 text-gray-400">Players</a>
+        <a href="#teams"      class="toc-link block pl-3 py-1 text-gray-400">Teams</a>
+        <a href="#poster"     class="toc-link block pl-3 py-1 text-gray-400">Poster &amp; Announce</a>
+        <a href="#seasons"    class="toc-link block pl-3 py-1 text-gray-400">Seasons</a>
+        <div class="pt-3 pb-1 pl-3 text-[10px] font-heading font-700 tracking-widest text-gray-600 uppercase">SimulatorGolfTour</div>
+        <a href="#sgt-reset"  class="toc-link toc-sub block py-1 text-gray-400">Reset Player</a>
+        <a href="#sgt-delete" class="toc-link toc-sub block py-1 text-gray-400">Delete Save Game</a>
+        <a href="#sgt-resume" class="toc-link toc-sub block py-1 text-gray-400">Update Player Resume</a>
+        <a href="#sgt-card"   class="toc-link toc-sub block py-1 text-gray-400">Create/Modify Scorecard</a>
+        <div class="pt-3 pb-1 pl-3 text-[10px] font-heading font-700 tracking-widest text-gray-600 uppercase">Reference</div>
+        <a href="#access"     class="toc-link block pl-3 py-1 text-gray-400">Access &amp; Deploys</a>
+      </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 min-w-0 max-w-3xl">
+
+      <header class="mb-10">
+        <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Admin Wiki</div>
+        <h1 class="font-display text-5xl tracking-wider text-white leading-none">Operator's Guide</h1>
+        <p class="text-gray-500 text-sm mt-3 max-w-2xl leading-relaxed">Everything the MashUp admin does, in one place — what each portal page is for, the order to run them in each week, and how to fix scorecards on the SimulatorGolfTour admin page when things go sideways.</p>
+      </header>
+
+      <!-- OVERVIEW -->
+      <section id="overview" class="anchor mb-12">
+        <h2 class="font-display text-3xl tracking-wider text-white mb-4 pb-2 border-b border-border">Overview</h2>
+        <div class="prose-body text-gray-300 text-sm space-y-3">
+          <p>The admin portal lives at <a href="index.html" class="text-flame hover:text-flame-dim">/admin</a> and is locked behind Cloudflare Access (Google sign-in). It has five working pages. <span class="text-white font-600">Every change you save takes effect on the live site immediately</span> — there's no separate publish step.</p>
+          <p>Two systems are in play and it helps to keep them straight:</p>
+          <ul class="list-none space-y-2 mt-3">
+            <li class="flex gap-3"><span class="tag bg-flame/15 text-flame mt-0.5">MashUp</span><span class="text-gray-400">The admin portal on this site — seasons, events, team draws, handicaps, posters.</span></li>
+            <li class="flex gap-3"><span class="tag bg-gray-700/40 text-gray-300 mt-0.5">SGT</span><span class="text-gray-400">SimulatorGolfTour's own admin page — registrations and scorecards. This is where you go to fix a broken round.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- WEEKLY WORKFLOW -->
+      <section id="workflow" class="anchor mb-12">
+        <h2 class="font-display text-3xl tracking-wider text-white mb-4 pb-2 border-b border-border">Weekly Workflow</h2>
+        <p class="text-gray-400 text-sm mb-5">The typical order of operations to run a weekly event start to finish.</p>
+        <ol class="space-y-4">
+          <li class="flex gap-4"><span class="step-badge">1</span><div class="text-sm"><span class="text-white font-600">Create the event</span> on the <a href="#events" class="text-flame hover:text-flame-dim">Events</a> page — paste the SGT event URL first, then pick the format.</div></li>
+          <li class="flex gap-4"><span class="step-badge">2</span><div class="text-sm"><span class="text-white font-600">Refresh handicaps</span> on the <a href="#players" class="text-flame hover:text-flame-dim">Players</a> page so the draw uses current MashCAPs.</div></li>
+          <li class="flex gap-4"><span class="step-badge">3</span><div class="text-sm"><span class="text-white font-600">Draw teams</span> on the <a href="#teams" class="text-flame hover:text-flame-dim">Teams</a> page (Steps 1–4), then download the SGT Loading File.</div></li>
+          <li class="flex gap-4"><span class="step-badge">4</span><div class="text-sm"><span class="text-white font-600">Upload the loading file to SGT</span> to register the field for the tournament.</div></li>
+          <li class="flex gap-4"><span class="step-badge">5</span><div class="text-sm"><span class="text-white font-600">Announce it</span> on the <a href="#poster" class="text-flame hover:text-flame-dim">Poster</a> page — post to Discord, then activate the event (activation turns on live scorecard fetching).</div></li>
+          <li class="flex gap-4"><span class="step-badge">6</span><div class="text-sm"><span class="text-white font-600">During play</span>, fix any broken rounds on the <a href="#sgt-reset" class="text-flame hover:text-flame-dim">SGT admin page</a> as needed.</div></li>
+        </ol>
+      </section>
+
+      <!-- EVENTS -->
+      <section id="events" class="anchor mb-12">
+        <div class="flex items-center justify-between gap-3 mb-4 pb-2 border-b border-border flex-wrap">
+          <h2 class="font-display text-3xl tracking-wider text-white">Events</h2>
+          <a href="events.html" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">Open Events →</a>
+        </div>
+        <p class="text-gray-400 text-sm mb-4">Create and manage each week's event: format, tournament link, dates, and rounds.</p>
+        <ul class="space-y-2.5 text-sm text-gray-300">
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div><span class="text-white font-600">Paste the SGT Event URL first.</span> It unlocks the rest of the form and auto-fills the event name, dates, round settings, and week number by scraping the SGT page.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>The event name is <span class="text-white">locked after the scrape</span> — changing the format later won't rename it.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div><span class="text-white">Details</span> opens a metadata panel (format, payouts, rounds) for active or completed events.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div><span class="text-white">↺ Sync</span> re-scrapes SGT to refresh dates and round settings on an existing event.</div></li>
+        </ul>
+        <div class="callout border-flame/50 bg-flame/5 mt-5 px-4 py-3 text-sm text-gray-300"><span class="text-flame font-600">Activation matters:</span> an event only fetches live scorecards once it's <span class="text-white">active</span>. You normally activate it from the Poster page after announcing, but you can also do it here.</div>
+      </section>
+
+      <!-- PLAYERS -->
+      <section id="players" class="anchor mb-12">
+        <div class="flex items-center justify-between gap-3 mb-4 pb-2 border-b border-border flex-wrap">
+          <h2 class="font-display text-3xl tracking-wider text-white">Players</h2>
+          <a href="players.html" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">Open Players →</a>
+        </div>
+        <p class="text-gray-400 text-sm mb-4">The roster and the handicap engine. This is where MashCAPs get pulled and refreshed.</p>
+        <ul class="space-y-2.5 text-sm text-gray-300">
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div><span class="text-white font-600">Refresh Handicaps</span> pulls every player's round history from SGT and recomputes their <span class="text-flame">MashCAP</span> — the average of their best 40% of rounds. This is the number that drives team draws and scoring.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>The table sorts by MashCAP (best to worst). A player without a MashCAP yet shows an <span class="text-amber-400">amber ⚠ fallback</span> using their raw SGT cap.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Add, onboard, or remove players here. You can also set each player's <span class="text-white">Discord ID</span>, which is used to @-tag winners in the results post.</div></li>
+        </ul>
+        <div class="callout border-amber-500/50 bg-amber-500/5 mt-5 px-4 py-3 text-sm text-gray-300"><span class="text-amber-400 font-600">SGT rate limit:</span> the round-history API caps at roughly one full pull per 24 hours. If a refresh comes back missing players, you've likely hit the daily window — wait and retry later. Refresh <span class="text-white">before</span> doing a team draw so the draw is balanced on current numbers.</div>
+      </section>
+
+      <!-- TEAMS -->
+      <section id="teams" class="anchor mb-12">
+        <div class="flex items-center justify-between gap-3 mb-4 pb-2 border-b border-border flex-wrap">
+          <h2 class="font-display text-3xl tracking-wider text-white">Teams</h2>
+          <a href="teams.html" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">Open Teams →</a>
+        </div>
+        <p class="text-gray-400 text-sm mb-5">Draw teams for an event and produce the file SGT needs to register everyone. Four steps:</p>
+
+        <div class="space-y-5">
+          <div class="flex gap-4">
+            <span class="step-badge">1</span>
+            <div class="text-sm">
+              <div class="text-white font-600 mb-1">Create Teams</div>
+              <p class="text-gray-400 mb-2">Three ways to build the draw:</p>
+              <ul class="space-y-1.5 text-gray-300">
+                <li class="flex gap-2"><span class="text-flame">–</span><span><span class="text-white">Tiered Draw</span> — pulls one player from each handicap tier for balanced teams.</span></li>
+                <li class="flex gap-2"><span class="text-flame">–</span><span><span class="text-white">Completely Random</span> — everyone shuffled, pure luck.</span></li>
+                <li class="flex gap-2"><span class="text-flame">–</span><span><span class="text-white">Manual Entry</span> — click a player chip, then click a team slot to place them. Save unlocks once every slot is filled.</span></li>
+              </ul>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <span class="step-badge">2</span>
+            <div class="text-sm">
+              <div class="text-white font-600 mb-1">Generate SGT Loading File</div>
+              <p class="text-gray-400">Downloads the CSV used to register the field on SGT. It uses the season-scoped player list and the adjusted (relative) handicaps.</p>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <span class="step-badge">3</span>
+            <div class="text-sm">
+              <div class="text-white font-600 mb-1">Upload SGT Loading File</div>
+              <p class="text-gray-400">Take the CSV over to the SGT admin page and upload it to register everyone for the tournament.</p>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <span class="step-badge">4</span>
+            <div class="text-sm">
+              <div class="text-white font-600 mb-1">Configure Special Team Orders</div>
+              <p class="text-gray-400">For formats that need a fixed slot order (e.g. Lone Ranger). All teams are pre-loaded; use the ▲▼ buttons to reorder. Default is A = Slot 1, B = Slot 2, C = Slot 3.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- POSTER -->
+      <section id="poster" class="anchor mb-12">
+        <div class="flex items-center justify-between gap-3 mb-4 pb-2 border-b border-border flex-wrap">
+          <h2 class="font-display text-3xl tracking-wider text-white">Poster &amp; Announce</h2>
+          <a href="poster-preview.html" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">Open Poster →</a>
+        </div>
+        <p class="text-gray-400 text-sm mb-4">Generate the weekly announcement and post it to Discord.</p>
+        <ul class="space-y-2.5 text-sm text-gray-300">
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Renders a <span class="text-white">visual poster</span> (exported as a PNG) plus the Discord announcement text — format rules, course settings, and prizes.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>One click posts the image and text to the Discord announcements channel.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>After posting it <span class="text-white">prompts you to activate the event</span> — say yes to turn on live scorecard fetching for the week.</div></li>
+        </ul>
+      </section>
+
+      <!-- SEASONS -->
+      <section id="seasons" class="anchor mb-12">
+        <div class="flex items-center justify-between gap-3 mb-4 pb-2 border-b border-border flex-wrap">
+          <h2 class="font-display text-3xl tracking-wider text-white">Seasons</h2>
+          <a href="seasons.html" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">Open Seasons →</a>
+        </div>
+        <p class="text-gray-400 text-sm mb-4">Manage the season container that events and rosters live under.</p>
+        <ul class="space-y-2.5 text-sm text-gray-300">
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Create a new season and mark it <span class="text-white">active</span> — the home page and handicap pages key off the active season.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Assign the <span class="text-white">player roster</span> for the season. The season roster is what scopes handicaps, draws, and the public handicap table.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div><span class="text-white">Archive</span> completed seasons to keep the portal tidy while preserving their data.</div></li>
+        </ul>
+      </section>
+
+      <!-- SGT ADMIN -->
+      <section class="anchor mb-8">
+        <h2 class="font-display text-3xl tracking-wider text-white mb-3">SimulatorGolfTour Admin Page</h2>
+        <p class="text-gray-400 text-sm mb-4 leading-relaxed">These functions live on <span class="text-gray-200">SGT's own admin page</span> at <a href="https://www.simulatorgolftour.com/admin" target="_blank" rel="noopener" class="text-flame hover:text-flame-dim">www.simulatorgolftour.com/admin</a>, not this portal — under the <span class="text-white font-600">Game</span> section. You'll need them when a player's round breaks mid-tournament. The golden rule for all of them:</p>
+        <div class="callout border-flame/50 bg-flame/5 px-4 py-3 text-sm text-gray-300 mb-2"><span class="text-flame font-600">Always screenshot the player's scorecard in SGT before you delete or modify anything</span>, and double-check you've selected the correct <span class="text-white">Tournament and Round</span>.</div>
+      </section>
+
+      <!-- SGT: Reset Player -->
+      <section id="sgt-reset" class="anchor mb-8">
+        <div class="card-shadow bg-card border border-border rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag bg-gray-700/40 text-gray-300">SGT · Game</span>
+            <h3 class="font-heading font-700 text-xl tracking-wide text-white">Reset Player</h3>
+          </div>
+          <p class="text-sm text-gray-300 leading-relaxed">Resets a player inside an existing round back to a specific hole's tee box. For example, a player is on hole 5 and something totally wacky happens inside that hole — have them exit the round, then reset them to hole 5 so they can replay it cleanly.</p>
+        </div>
+      </section>
+
+      <!-- SGT: Delete Save Game -->
+      <section id="sgt-delete" class="anchor mb-8">
+        <div class="card-shadow bg-card border border-border rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag bg-gray-700/40 text-gray-300">SGT · Game</span>
+            <h3 class="font-heading font-700 text-xl tracking-wide text-white">Delete Save Game</h3>
+          </div>
+          <p class="text-sm text-gray-300 leading-relaxed mb-3">For when all hell breaks loose on a player inside a round. It can also completely delete a player's scorecard if they're forced to replay.</p>
+          <ul class="space-y-2 text-sm text-gray-300">
+            <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Every time this has been used, you've had to choose <span class="text-white">YES to "Delete Scorecard"</span>. (It's unclear when you'd ever delete the game but keep the scorecard.)</div></li>
+            <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Be careful to pick the correct <span class="text-white">Tournament and Round</span> to delete.</div></li>
+            <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>You'll <span class="text-white">also</span> need to run <a href="#sgt-resume" class="text-flame hover:text-flame-dim">Update Player Resume</a> afterward to put the player back in a playable state.</div></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- SGT: Update Player Resume -->
+      <section id="sgt-resume" class="anchor mb-8">
+        <div class="card-shadow bg-card border border-border rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag bg-gray-700/40 text-gray-300">SGT · Game</span>
+            <h3 class="font-heading font-700 text-xl tracking-wide text-white">Update Player Resume</h3>
+          </div>
+          <p class="text-sm text-gray-300 leading-relaxed mb-3">Resets a player's playing status. Example: they completed Round 1 but forgot to stream, so they need to replay it.</p>
+          <ol class="space-y-2 text-sm text-gray-300">
+            <li class="flex gap-3"><span class="step-badge">1</span><div>First use <a href="#sgt-delete" class="text-flame hover:text-flame-dim">Delete Save Game</a> to remove their scorecard.</div></li>
+            <li class="flex gap-3"><span class="step-badge">2</span><div>Then use this function to reset the player back to Round 1.</div></li>
+            <li class="flex gap-3"><span class="step-badge">3</span><div>Afterward, check <span class="text-white">View Registrations</span> to confirm the player is <span class="text-white">"In Progress"</span> or <span class="text-white">"Pending."</span></div></li>
+          </ol>
+          <div class="callout border-amber-500/50 bg-amber-500/5 mt-4 px-4 py-3 text-sm text-gray-300"><span class="text-amber-400 font-600">Watch the status:</span> if a player shows <span class="text-white">"Completed,"</span> they will <span class="text-white">not</span> see the tournament in their Tournaments window in GSPRO — so they can't replay until you reset them.</div>
+        </div>
+      </section>
+
+      <!-- SGT: Create/Modify Scorecard -->
+      <section id="sgt-card" class="anchor mb-12">
+        <div class="card-shadow bg-card border border-border rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag bg-gray-700/40 text-gray-300">SGT · Game</span>
+            <h3 class="font-heading font-700 text-xl tracking-wide text-white">Create / Modify Scorecard</h3>
+          </div>
+          <p class="text-sm text-gray-300 leading-relaxed mb-3">Manually create a whole scorecard for a player, or update a single hole.</p>
+          <ul class="space-y-2 text-sm text-gray-300 mb-4">
+            <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div><span class="text-white">Creating</span> a full card is rare — maybe there's a good stream where you can see every score but no scorecard exists.</div></li>
+            <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div><span class="text-white">Modifying</span> is the common case — usually fixing a <span class="text-white">ghost read</span> or a single bad hole.</div></li>
+          </ul>
+          <p class="text-sm text-gray-400 mb-2">To modify one hole:</p>
+          <ol class="space-y-2 text-sm text-gray-300">
+            <li class="flex gap-3"><span class="step-badge">1</span><div>Confirm the right <span class="text-white">Tournament and Round</span>.</div></li>
+            <li class="flex gap-3"><span class="step-badge">2</span><div>Change the first box to <span class="text-white">"UPDATE."</span></div></li>
+            <li class="flex gap-3"><span class="step-badge">3</span><div>Go to the hole in question and type in a new <span class="text-white">Gross and Net</span> score.</div></li>
+          </ol>
+          <div class="callout border-flame/50 bg-flame/5 mt-4 px-4 py-3 text-sm text-gray-300"><span class="text-flame font-600">Best practice:</span> screenshot the card before changing it. Using UPDATE lets you modify just one hole without touching the rest.</div>
+        </div>
+      </section>
+
+      <!-- ACCESS & DEPLOYS -->
+      <section id="access" class="anchor mb-12">
+        <h2 class="font-display text-3xl tracking-wider text-white mb-4 pb-2 border-b border-border">Access &amp; Deploys</h2>
+        <ul class="space-y-2.5 text-sm text-gray-300">
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>The admin portal is gated by <span class="text-white">Cloudflare Access</span> (Google sign-in) — only approved accounts get in.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Portal changes are <span class="text-white">live instantly</span> (they write to storage, not code).</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>On the Equinix/Zscaler network, <span class="text-white">mashupgolf.com may be blocked</span> as a "newly observed domain." Use the <span class="text-white">pages.dev</span> address instead, or a non-corporate network.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Live scorecards fetch automatically every ~20 minutes, but only for <span class="text-white">active</span> events.</div></li>
+        </ul>
+      </section>
+
+      <footer class="border-t border-border pt-5 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin Guide</footer>
+
+    </main>
+  </div>
+
+  <script>
+    // Scroll-spy: highlight the TOC link for the section currently in view.
+    (function () {
+      const links = Array.from(document.querySelectorAll('#toc .toc-link'));
+      const map = new Map();
+      links.forEach(l => {
+        const id = l.getAttribute('href').slice(1);
+        const sec = document.getElementById(id);
+        if (sec) map.set(sec, l);
+      });
+      const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            const link = map.get(e.target);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-10% 0px -75% 0px', threshold: 0 });
+      map.forEach((_, sec) => obs.observe(sec));
+    })();
+  </script>
+</body>
+</html>
