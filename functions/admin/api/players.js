@@ -2,7 +2,19 @@
 // Route: /admin/api/players.  Reads remain public at /api/players.
 import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
 
-const SGT_API_BASE = 'https://simulatorgolftour.com/sgt-api/mashup/player-check';
+const SGT_API_BASE   = 'https://simulatorgolftour.com/sgt-api/mashup/player-check';
+const SGT_ROUNDS_API = 'https://simulatorgolftour.com/sgt-api/mashup/player-hcp-rounds';
+
+// Official MashUp handicap: average of the best floor(N * 0.40) scoring
+// differentials. Duplicates kept, no minimum round count (per league rule).
+function computeMashupCap(diffs) {
+  const n = diffs.length;
+  const counting = Math.floor(n * 0.40);
+  if (counting <= 0) return null;
+  const best = [...diffs].sort((a, b) => a - b).slice(0, counting);
+  const cap = best.reduce((a, b) => a + b, 0) / counting;
+  return { cap: Math.round(cap * 100) / 100, rounds: n, counting };
+}
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -106,6 +118,34 @@ export async function onRequestPost(context) {
         comboRoundsCount: p.comboRoundsCount,
       };
     }
+
+    // Also pull per-round differentials and compute the MashUp handicap, merging
+    // it onto each player's entry. Supplementary — failures must not break the
+    // core handicap refresh. Note: SGT caps player-hcp-rounds at ~1 response per
+    // key per 24h, so this may only populate fully on the first call of a window.
+    try {
+      const roundsUrl = `${SGT_ROUNDS_API}?key=${sgtKey}&players=${playersToFetch.map(p => encodeURIComponent(p)).join(',')}`;
+      const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
+      if (rRes.ok) {
+        const rounds = await rRes.json();
+        if (Array.isArray(rounds)) {
+          const diffsByPlayer = {};
+          for (const r of rounds) {
+            if (!r || r.player == null || typeof r.differential !== 'number') continue;
+            const k = String(r.player).toLowerCase();
+            (diffsByPlayer[k] = diffsByPlayer[k] || []).push(r.differential);
+          }
+          for (const [k, diffs] of Object.entries(diffsByPlayer)) {
+            const m = computeMashupCap(diffs);
+            if (m && fetched[k]) {
+              fetched[k].mashupCap      = m.cap;
+              fetched[k].mashupRounds   = m.rounds;
+              fetched[k].mashupCounting = m.counting;
+            }
+          }
+        }
+      }
+    } catch { /* MashUp cap is supplementary; ignore failures */ }
 
     const now = new Date().toISOString();
 

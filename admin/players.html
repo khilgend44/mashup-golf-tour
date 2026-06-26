@@ -112,6 +112,7 @@
             <tr class="border-b border-border">
               <th class="text-left px-6 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">#</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">MashUp</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Adjusted</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Raw</th>
@@ -124,7 +125,7 @@
             </tr>
           </thead>
           <tbody id="players-tbody">
-            <tr><td colspan="11" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
+            <tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -196,7 +197,7 @@
       }
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
         return;
       }
 
@@ -225,6 +226,7 @@
         return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}" data-player="${name}">
           <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-flame font-600" ${hcp && hcp.mashupCap !== undefined ? `title="best ${hcp.mashupCounting} of ${hcp.mashupRounds} rounds"` : ''}>${hcp && hcp.mashupCap !== undefined ? hcpDisplay(hcp.mashupCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.rawCap) : nd}</td>
