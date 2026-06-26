@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Handicaps — MashUp Golf Tour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    /* Brand colors as real CSS so the class works on JS-rendered cells too. */
+    .text-flame { color: #f97316; }
+    .hover\:text-flame:hover { color: #f97316; }
+    /* Keep column headers visible while scrolling the table. */
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
+    tr:hover td { background: rgba(255,255,255,0.025); }
+    tr.baseline-row td { background: rgba(249,115,22,0.07); }
+    tr.baseline-row td:first-child { border-left: 2px solid rgba(249,115,22,0.6); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <header class="border-b border-border">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <span class="font-display text-2xl tracking-wider text-white">MASHUP GOLF TOUR</span>
+        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Handicaps</span>
+      </div>
+      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color 0.12s">← Back to Site</a>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
+
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+      <div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">MashCAP Handicaps</h1>
+        <p class="text-gray-500 text-sm mt-2 max-w-xl">A player's MashCAP is the average of the best <span class="text-gray-300">40%</span> of their rounds — the lower the number, the better. <span class="text-gray-300">Adjusted</span> is relative to the lowest player in the season.</p>
+      </div>
+      <select id="season-select"
+        class="bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-lg tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer">
+      </select>
+    </div>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+      <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+        <h2 class="font-display text-2xl tracking-wider text-white">ROSTER <span id="player-count" class="text-gray-600 text-lg"></span></h2>
+      </div>
+      <div class="overflow-auto" style="max-height: calc(100vh - 16rem)">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">MashCAP</th>
+              <th class="text-left  px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Adjusted</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Total Events</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Counting Events</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="6" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-5xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour</div>
+  </footer>
+
+  <script>
+    const state = { handicaps: {}, seasons: [], selected: '' };
+
+    function hcpDisplay(val) {
+      if (val === undefined || val === null || val === '') return '—';
+      const n = parseFloat(val);
+      if (isNaN(n)) return '—';
+      return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1);
+    }
+
+    function showStatus(msg) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'rounded-lg px-4 py-3 text-sm font-body mb-4 bg-red-900/30 border border-red-800/40 text-red-300';
+    }
+
+    function seasonRoster() {
+      const s = state.seasons.find(x => x.id === state.selected);
+      return (s && Array.isArray(s.players)) ? s.players : [];
+    }
+
+    function render() {
+      const tbody = document.getElementById('tbody');
+      const roster = seasonRoster();
+
+      const rows = roster.map(name => {
+        const h = state.handicaps[name.toLowerCase()] || {};
+        const mc = (h.mashCap !== undefined && h.mashCap !== null) ? parseFloat(h.mashCap) : null;
+        return { name, mc, rounds: h.mashCapRounds, counting: h.mashCapCounting };
+      });
+
+      // Adjusted baseline = lowest MashCAP among players who have one.
+      const withMc = rows.filter(r => r.mc !== null).map(r => r.mc);
+      const minMc  = withMc.length ? Math.min(...withMc) : null;
+
+      // Players with a MashCAP first (best to worst); the rest alphabetical.
+      rows.sort((a, b) => {
+        if (a.mc !== null && b.mc !== null) return a.mc - b.mc;
+        if (a.mc !== null) return -1;
+        if (b.mc !== null) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      document.getElementById('player-count').textContent = `(${rows.length})`;
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-600 font-body text-sm">No players in this season.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const hasMc = r.mc !== null;
+        const adjusted = hasMc && minMc !== null ? Math.round(r.mc - minMc) : null;
+        const isBaseline = hasMc && r.mc === minMc;
+        const link = hasMc
+          ? `<a href="counting-events.html?player=${encodeURIComponent(r.name)}" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">See Counting Events →</a>`
+          : '';
+        return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}">
+          <td class="px-4 py-3 text-center font-body text-sm text-flame font-600">${hasMc ? hcpDisplay(r.mc) : '<span class="text-gray-600">—</span>'}</td>
+          <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${r.name}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : '<span class="text-gray-600">—</span>'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.rounds != null ? r.rounds : '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.counting != null ? r.counting : '—'}</td>
+          <td class="px-4 py-3 text-right whitespace-nowrap">${link}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function buildSeasonOptions() {
+      const sel = document.getElementById('season-select');
+      // Newest first; default to the active season if present, else the first.
+      const seasons = [...state.seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
+      sel.innerHTML = seasons.map(s => `<option value="${s.id}">${s.name || s.id}</option>`).join('');
+      const active = seasons.find(s => s.status === 'active') || seasons[0];
+      state.selected = active ? active.id : '';
+      if (state.selected) sel.value = state.selected;
+      sel.addEventListener('change', e => { state.selected = e.target.value; render(); });
+    }
+
+    async function init() {
+      try {
+        const [pRes, sRes] = await Promise.all([
+          fetch('/api/players'),
+          fetch('/api/seasons'),
+        ]);
+        const pData = await pRes.json();
+        const sData = await sRes.json();
+        state.handicaps = pData.handicaps || {};
+        state.seasons   = Array.isArray(sData) ? sData : Object.values(sData);
+        if (state.seasons.length === 0) { showStatus('No seasons found.'); return; }
+        buildSeasonOptions();
+        render();
+      } catch (e) {
+        showStatus('Could not load handicaps: ' + e.message);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
