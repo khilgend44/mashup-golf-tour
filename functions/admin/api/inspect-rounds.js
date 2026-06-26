@@ -9,6 +9,33 @@
 // Protected by Cloudflare Access.
 import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
 
+// Realistic sample (boiler_kh's actual 42 rounds) for demoing the public
+// counting-events page before a real refresh has stored rounds. 42 rounds →
+// floor(16.8)=16 counting → MashCAP -1.06.
+const SAMPLE_ROUNDS = [
+  { date: '2026-03-07', differential: -4.9, tour: 'MSH' }, { date: '2026-04-13', differential: -3.5, tour: 'MSH' },
+  { date: '2026-02-09', differential: -2.3, tour: 'PRO' }, { date: '2026-05-17', differential: -1.3, tour: 'PRO' },
+  { date: '2026-06-08', differential: -1.3, tour: 'PRO' }, { date: '2026-04-05', differential: -1.3, tour: 'MSH' },
+  { date: '2026-01-19', differential: -0.9, tour: 'MSH' }, { date: '2025-12-29', differential: -0.8, tour: 'PRO' },
+  { date: '2026-01-12', differential: -0.8, tour: 'SGT' }, { date: '2026-01-18', differential: -0.5, tour: 'SGT' },
+  { date: '2026-04-26', differential: -0.2, tour: 'PRO' }, { date: '2026-03-15', differential: 0.1, tour: 'MSH' },
+  { date: '2026-04-21', differential: 0.1, tour: 'MSH' }, { date: '2026-03-23', differential: 0.1, tour: 'MSH' },
+  { date: '2026-05-11', differential: 0.1, tour: 'PRO' }, { date: '2026-02-01', differential: 0.4, tour: 'SGT' },
+  { date: '2026-04-20', differential: 0.6, tour: 'PRO' }, { date: '2026-03-07', differential: 0.7, tour: 'MSH' },
+  { date: '2026-01-12', differential: 0.8, tour: 'SGT' }, { date: '2025-12-29', differential: 0.9, tour: 'PRO' },
+  { date: '2026-05-17', differential: 0.9, tour: 'PRO' }, { date: '2026-01-04', differential: 1.2, tour: 'MSH' },
+  { date: '2026-05-24', differential: 1.2, tour: 'PRO' }, { date: '2026-01-25', differential: 1.3, tour: 'MSH' },
+  { date: '2026-06-15', differential: 1.4, tour: 'PRO' }, { date: '2026-03-02', differential: 1.5, tour: 'SGT' },
+  { date: '2026-01-12', differential: 1.7, tour: 'PRO' }, { date: '2026-01-18', differential: 2.3, tour: 'SGT' },
+  { date: '2026-04-13', differential: 2.4, tour: 'PRO' }, { date: '2026-05-11', differential: 2.6, tour: 'SGT' },
+  { date: '2026-02-22', differential: 3.3, tour: 'SGT' }, { date: '2026-03-30', differential: 3.3, tour: 'SGT' },
+  { date: '2026-02-22', differential: 3.3, tour: 'SGT' }, { date: '2026-02-09', differential: 4, tour: 'PRO' },
+  { date: '2026-05-11', differential: 4.2, tour: 'SGT' }, { date: '2026-03-30', differential: 4.9, tour: 'SGT' },
+  { date: '2026-05-04', differential: 4.9, tour: 'PRO' }, { date: '2026-03-16', differential: 5.7, tour: 'SGT' },
+  { date: '2026-06-22', differential: 5.8, tour: 'SGT' }, { date: '2026-06-01', differential: 6, tour: 'PRO' },
+  { date: '2026-06-01', differential: 6, tour: 'PRO' }, { date: '2026-04-26', differential: 8, tour: 'PRO' },
+];
+
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
@@ -43,6 +70,22 @@ export async function onRequestGet(context) {
     map[k] = entry;
     await kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(map));
     return Response.json({ ok: true, seeded: k, entry }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+  }
+
+  // Debug seed: write the SAMPLE_ROUNDS array to players:rounds for one player
+  // so the public counting-events page can be demoed before a real refresh.
+  //   ?seedRounds=boiler_kh
+  const seedRoundsPlayer = url.searchParams.get('seedRounds');
+  if (seedRoundsPlayer) {
+    const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken  = env.CLOUDFLARE_API_TOKEN;
+    if (!accountId || !apiToken) return Response.json({ error: 'Missing KV credentials' }, { status: 500, headers: CORS });
+    const raw = await kvGet(accountId, apiToken, 'players:rounds');
+    const map = raw ? JSON.parse(raw) : {};
+    const k = seedRoundsPlayer.toLowerCase();
+    map[k] = SAMPLE_ROUNDS;
+    await kvPut(accountId, apiToken, 'players:rounds', JSON.stringify(map));
+    return Response.json({ ok: true, seededRounds: k, count: SAMPLE_ROUNDS.length }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
   }
 
   const key = env.player_api_key;

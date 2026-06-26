@@ -109,16 +109,24 @@
 
     async function init() {
       if (!playerParam) { showStatus('No player specified.'); return; }
-      let rounds = [];
+      let rounds = [], lastRefresh = null;
       try {
-        const res = await fetch(`/api/player-rounds?player=${encodeURIComponent(playerParam)}`);
-        const data = await res.json();
-        rounds = Array.isArray(data.rounds) ? data.rounds : [];
+        const [rRes, pRes] = await Promise.all([
+          fetch(`/api/player-rounds?player=${encodeURIComponent(playerParam)}`),
+          fetch('/api/players'),
+        ]);
+        const rData = await rRes.json();
+        rounds = Array.isArray(rData.rounds) ? rData.rounds : [];
+        const pData = await pRes.json().catch(() => ({}));
+        lastRefresh = pData.lastRefresh || null;
       } catch (e) {
         showStatus('Could not load rounds: ' + e.message);
         return;
       }
 
+      const updated = lastRefresh
+        ? `Updated ${new Date(lastRefresh).toLocaleDateString()} ${new Date(lastRefresh).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        : '';
       const summary = document.getElementById('summary');
 
       if (rounds.length === 0) {
@@ -127,14 +135,17 @@
         return;
       }
 
-      // Best (lowest) first; the best floor(N * 0.40) rounds count toward MashCAP.
-      const sorted = [...rounds].sort((a, b) => a.differential - b.differential);
-      const n = sorted.length;
+      // The best (lowest) floor(N * 0.40) differentials count toward MashCAP —
+      // determined by differential, independent of display order.
+      const n = rounds.length;
       const counting = Math.floor(n * 0.40);
-      const best = sorted.slice(0, counting);
+      const byDiff = [...rounds].sort((a, b) => a.differential - b.differential);
+      const countingSet = new Set(byDiff.slice(0, counting));
       const mashCap = counting > 0
-        ? Math.round((best.reduce((s, r) => s + r.differential, 0) / counting) * 100) / 100
+        ? Math.round((byDiff.slice(0, counting).reduce((s, r) => s + r.differential, 0) / counting) * 100) / 100
         : null;
+      // Display newest first.
+      const byDate = [...rounds].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
 
       summary.innerHTML = `
         <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">${playerParam}</h1>
@@ -148,11 +159,12 @@
             <div class="font-display text-4xl text-white leading-none">${counting} <span class="text-gray-600">/ ${n}</span></div>
           </div>
         </div>
-        <p class="text-gray-500 text-sm mt-4 max-w-xl">MashCAP is the average of the best <span class="text-gray-300">40%</span> of rounds (the lowest differentials). The <span class="text-flame">${counting}</span> highlighted rounds below count toward it.</p>`;
+        <p class="text-gray-500 text-sm mt-4 max-w-xl">MashCAP is the average of the best <span class="text-gray-300">40%</span> of rounds (the lowest differentials). The <span class="text-flame">${counting}</span> highlighted rounds below count toward it.</p>
+        ${updated ? `<p class="text-xs text-gray-700 mt-2">${updated}</p>` : ''}`;
 
       const tbody = document.getElementById('tbody');
-      tbody.innerHTML = sorted.map((r, i) => {
-        const isCounting = i < counting;
+      tbody.innerHTML = byDate.map((r) => {
+        const isCounting = countingSet.has(r);
         return `<tr class="border-b border-border/50 ${isCounting ? 'counts' : ''}">
           <td class="px-4 py-2.5 font-body text-sm ${isCounting ? 'text-white' : 'text-gray-400'}">${fmtDate(r.date)}</td>
           <td class="px-4 py-2.5 text-center"><span class="tour-badge ${tourClass(r.tour)}">${r.tour || '—'}</span></td>
