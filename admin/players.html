@@ -234,7 +234,7 @@
         const fallback = !hasMash && hcp && hcp.rawCap !== undefined && hcp.rawCap !== null;
         // MashCAP cell: flame when real; amber ⚠ + the Raw value being used when falling back.
         const mashCapCell = hasMash
-          ? `<td class="px-4 py-3 text-center font-body text-sm text-flame font-600" title="best ${hcp.mashCapCounting} of ${hcp.mashCapRounds} rounds">${hcpDisplay(hcp.mashCap)}</td>`
+          ? `<td class="px-4 py-3 text-center font-body text-sm font-600" style="color:#f97316" title="best ${hcp.mashCapCounting} of ${hcp.mashCapRounds} rounds">${hcpDisplay(hcp.mashCap)}</td>`
           : fallback
             ? `<td class="px-4 py-3 text-center font-body text-sm text-amber-400" title="No MashCAP yet — using SGT Raw (${hcpDisplay(hcp.rawCap)}) for registration &amp; scoring">⚠ ${hcpDisplay(hcp.rawCap)}</td>`
             : `<td class="px-4 py-3 text-center font-body text-sm text-gray-600">${nd}</td>`;
@@ -243,7 +243,7 @@
           ${mashCapCell}
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm" style="color:#f97316">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.rawCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp && hcp.minComboCap !== undefined ? hcpDisplay(hcp.minComboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.comboRoundsCount : nd}</td>
