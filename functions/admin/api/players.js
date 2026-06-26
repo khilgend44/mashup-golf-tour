@@ -5,6 +5,12 @@ import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
 const SGT_API_BASE   = 'https://simulatorgolftour.com/sgt-api/mashup/player-check';
 const SGT_ROUNDS_API = 'https://simulatorgolftour.com/sgt-api/mashup/player-hcp-rounds';
 
+// SGT's COMBO handicap counts only a player's most-recent rounds — their
+// comboRoundsCount, which tops out at 48. The hcp-rounds API can return more
+// (up to 60), so we trim each player to their combo-log window before computing
+// MashCAP. This fallback cap is used only if comboRoundsCount is unavailable.
+const ROUND_CAP_FALLBACK = 48;
+
 // Official MashCAP handicap: average of the best floor(N * 0.40) scoring
 // differentials. Duplicates kept, no minimum round count (per league rule).
 function computeMashCap(diffs) {
@@ -130,16 +136,21 @@ export async function onRequestPost(context) {
       if (rRes.ok) {
         const rounds = await rRes.json();
         if (Array.isArray(rounds)) {
-          const diffsByPlayer = {};
           roundsByPlayer = {};
           for (const r of rounds) {
             if (!r || r.player == null || typeof r.differential !== 'number') continue;
             const k = String(r.player).toLowerCase();
-            (diffsByPlayer[k]  = diffsByPlayer[k]  || []).push(r.differential);
             (roundsByPlayer[k] = roundsByPlayer[k] || []).push({ date: r.date, differential: r.differential, tour: r.tour });
           }
-          for (const [k, diffs] of Object.entries(diffsByPlayer)) {
-            const m = computeMashCap(diffs);
+          // Trim each player to their SGT combo-log window (most-recent first) so
+          // MashCAP is the best 40% of exactly the rounds SGT's COMBO counts, not the
+          // wider set hcp-rounds returns. Dates are YYYY-MM-DD, so string sort = date sort.
+          for (const k of Object.keys(roundsByPlayer)) {
+            roundsByPlayer[k].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+            const comboCount = fetched[k] ? Number(fetched[k].comboRoundsCount) : NaN;
+            const cap = comboCount > 0 ? comboCount : ROUND_CAP_FALLBACK;
+            if (roundsByPlayer[k].length > cap) roundsByPlayer[k] = roundsByPlayer[k].slice(0, cap);
+            const m = computeMashCap(roundsByPlayer[k].map(r => r.differential));
             if (m && fetched[k]) {
               fetched[k].mashCap         = m.cap;
               fetched[k].mashCapRounds   = m.rounds;
@@ -152,14 +163,20 @@ export async function onRequestPost(context) {
 
     const now = new Date().toISOString();
 
-    let finalHandicaps;
-    if (scopedPlayers) {
-      const existingRaw = await kvGet(accountId, apiToken, 'players:handicaps');
-      const existing = existingRaw ? JSON.parse(existingRaw) : {};
-      finalHandicaps = { ...existing, ...fetched };
-    } else {
-      finalHandicaps = fetched;
+    // Load existing data up front. SGT's hcp-rounds endpoint can return a thin
+    // payload (its ~24h cache), so we carry over previously-computed MashCAPs for
+    // any player this pull didn't cover — a partial refresh must never erase good
+    // data. Core caps (rawCap, comboCap, …) come fresh from the reliable player-check.
+    const existingRaw = await kvGet(accountId, apiToken, 'players:handicaps');
+    const existing = existingRaw ? JSON.parse(existingRaw) : {};
+    for (const k of Object.keys(fetched)) {
+      if (fetched[k].mashCap == null && existing[k] && existing[k].mashCap != null) {
+        fetched[k].mashCap         = existing[k].mashCap;
+        fetched[k].mashCapRounds   = existing[k].mashCapRounds;
+        fetched[k].mashCapCounting = existing[k].mashCapCounting;
+      }
     }
+    const finalHandicaps = scopedPlayers ? { ...existing, ...fetched } : fetched;
 
     await Promise.all([
       kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(finalHandicaps)),
@@ -167,13 +184,12 @@ export async function onRequestPost(context) {
     ]);
 
     // Persist the raw per-round records (date/differential/tour) for the public
-    // "See Counting Events" detail page. Merge on a scoped refresh, replace on full.
+    // "See Counting Events" detail page. Always merge so a thin rounds payload
+    // only updates the players it returned and never wipes the rest.
     if (roundsByPlayer && Object.keys(roundsByPlayer).length) {
-      let finalRounds = roundsByPlayer;
-      if (scopedPlayers) {
-        const existingRoundsRaw = await kvGet(accountId, apiToken, 'players:rounds');
-        finalRounds = { ...(existingRoundsRaw ? JSON.parse(existingRoundsRaw) : {}), ...roundsByPlayer };
-      }
+      const existingRoundsRaw = await kvGet(accountId, apiToken, 'players:rounds');
+      const existingRounds = existingRoundsRaw ? JSON.parse(existingRoundsRaw) : {};
+      const finalRounds = { ...existingRounds, ...roundsByPlayer };
       await kvPut(accountId, apiToken, 'players:rounds', JSON.stringify(finalRounds));
     }
 
