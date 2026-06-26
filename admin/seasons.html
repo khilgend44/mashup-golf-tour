@@ -32,6 +32,8 @@
     .text-flame { color: #f97316; }
     .hover\:text-flame:hover { color: #f97316; }
     body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    /* Sticky table headers: keep column labels visible while scrolling. */
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     .badge-green  { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
     .badge-gray   { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
@@ -187,7 +189,7 @@
     </div>
 
     <!-- SEASONS TABLE -->
-    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-auto" style="max-height: calc(100vh - 12rem)">
       <div id="seasons-loading" class="px-6 py-8 text-center text-gray-600 text-sm font-body">Loading seasons…</div>
       <table id="seasons-table" class="w-full hidden">
         <thead>

@@ -29,6 +29,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    /* Sticky table headers: keep column labels visible while scrolling. */
+    thead th { position: sticky; top: 0; z-index: 20; background: #141414; box-shadow: inset 0 -1px 0 #2c2c2c; }
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     .hero-glow { background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(34,197,94,0.12) 0%, transparent 70%); }
     .event-card { transition: background 0.12s, transform 0.12s; }
@@ -320,7 +322,7 @@
 
     function standingsTable(standings) {
       return `
-        <div class="card-shadow rounded-xl overflow-hidden border border-border">
+        <div class="card-shadow rounded-xl overflow-auto border border-border" style="max-height: calc(100vh - 12rem)">
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-surface">
