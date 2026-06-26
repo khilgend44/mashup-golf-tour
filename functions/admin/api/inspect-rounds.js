@@ -7,7 +7,7 @@
 //   (no players)     → whole roster from KV (players:roster)
 //   ?raw=1           → return the raw SGT rounds instead of the computed table
 // Protected by Cloudflare Access.
-import { CORS, kvGet, requireAccess } from './_lib.js';
+import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -19,10 +19,34 @@ export async function onRequestGet(context) {
   const denied = await requireAccess(request, env);
   if (denied) return denied;
 
+  const url = new URL(request.url);
+
+  // Debug seed: write a MashCAP straight into KV for one player, for display
+  // illustration only (no SGT call, no refresh). Example:
+  //   ?seedMashCap=boiler_kh&value=-1.06&rounds=42&counting=16
+  const seedPlayer = url.searchParams.get('seedMashCap');
+  if (seedPlayer) {
+    const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken  = env.CLOUDFLARE_API_TOKEN;
+    if (!accountId || !apiToken) return Response.json({ error: 'Missing KV credentials' }, { status: 500, headers: CORS });
+    const value = parseFloat(url.searchParams.get('value'));
+    if (Number.isNaN(value)) return Response.json({ error: 'value (number) required' }, { status: 400, headers: CORS });
+    const rounds   = parseInt(url.searchParams.get('rounds')   || '', 10);
+    const counting = parseInt(url.searchParams.get('counting') || '', 10);
+    const raw = await kvGet(accountId, apiToken, 'players:handicaps');
+    const map = raw ? JSON.parse(raw) : {};
+    const k = seedPlayer.toLowerCase();
+    const entry = map[k] || {};
+    entry.mashCap = value;
+    if (!Number.isNaN(rounds))   entry.mashCapRounds   = rounds;
+    if (!Number.isNaN(counting)) entry.mashCapCounting = counting;
+    map[k] = entry;
+    await kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(map));
+    return Response.json({ ok: true, seeded: k, entry }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+  }
+
   const key = env.player_api_key;
   if (!key) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
-
-  const url = new URL(request.url);
   const scoped = (url.searchParams.get('players') || '').split(',').map(s => s.trim()).filter(Boolean);
 
   // Determine the player list: explicit ?players= or the full roster from KV.
