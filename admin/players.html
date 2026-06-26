@@ -230,9 +230,17 @@
         const cap = regCap(hcp);
         const adjusted = cap !== null ? Math.round(cap + offset) : null;
         const isBaseline = cap !== null && cap === minRaw;
+        const hasMash = hcp && hcp.mashCap !== undefined && hcp.mashCap !== null;
+        const fallback = !hasMash && hcp && hcp.rawCap !== undefined && hcp.rawCap !== null;
+        // MashCAP cell: flame when real; amber ⚠ + the Raw value being used when falling back.
+        const mashCapCell = hasMash
+          ? `<td class="px-4 py-3 text-center font-body text-sm text-flame font-600" title="best ${hcp.mashCapCounting} of ${hcp.mashCapRounds} rounds">${hcpDisplay(hcp.mashCap)}</td>`
+          : fallback
+            ? `<td class="px-4 py-3 text-center font-body text-sm text-amber-400" title="No MashCAP yet — using SGT Raw (${hcpDisplay(hcp.rawCap)}) for registration &amp; scoring">⚠ ${hcpDisplay(hcp.rawCap)}</td>`
+            : `<td class="px-4 py-3 text-center font-body text-sm text-gray-600">${nd}</td>`;
         return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}" data-player="${name}">
           <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-flame font-600" ${hcp && hcp.mashCap !== undefined ? `title="best ${hcp.mashCapCounting} of ${hcp.mashCapRounds} rounds"` : ''}>${hcp && hcp.mashCap !== undefined ? hcpDisplay(hcp.mashCap) : nd}</td>
+          ${mashCapCell}
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>

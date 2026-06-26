@@ -956,6 +956,20 @@
         return;
       }
 
+      // Players in this season with no MashCAP yet — they'll register on their
+      // SGT Raw cap fallback. Flag them so the admin notices before downloading.
+      const fallbackPlayers = seasonPlayers.filter(p => {
+        const h = state.handicaps[p.name.toLowerCase()];
+        const hasMash = h && h.mashCap !== undefined && h.mashCap !== null;
+        const hasRaw  = h && h.rawCap  !== undefined && h.rawCap  !== null;
+        return !hasMash && hasRaw;
+      }).map(p => p.name);
+      const fallbackNote = fallbackPlayers.length === 0 ? '' : `
+        <div class="border border-amber-700/40 bg-amber-900/15 rounded-lg px-4 py-3 mt-3 text-xs font-body text-amber-300">
+          <span class="font-semibold">⚠ ${fallbackPlayers.length} player${fallbackPlayers.length === 1 ? '' : 's'} without a MashCAP</span> — registering on their SGT Raw cap until the next refresh:
+          <span class="text-amber-200/90">${fallbackPlayers.join(', ')}</span>
+        </div>`;
+
       panel.innerHTML = `
         <div class="flex flex-wrap items-center gap-4">
           <div class="text-sm font-body text-gray-400">${summary}</div>
@@ -964,6 +978,7 @@
             style="transition:background 0.15s">↓ Download CSV</button>
         </div>
         ${needsTeams ? `<div class="text-xs font-body text-yellow-600 mt-2">⚠ No teams drawn yet — draw and save teams first.</div>` : ''}
+        ${fallbackNote}
         <div class="text-xs font-body text-gray-700 mt-2">Handicaps refreshed ${formatRefreshAge(state.lastRefresh)}</div>`;
 
       document.getElementById('sgt-download-btn')?.addEventListener('click', () => downloadSgtCsv(event));
