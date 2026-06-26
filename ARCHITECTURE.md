@@ -1,6 +1,6 @@
 # MashUp Golf Tour — Architecture Reference
 
-Last updated: June 12, 2026
+Last updated: June 26, 2026
 
 ---
 
@@ -25,10 +25,12 @@ SimulatorGolfTour API  (provides live scorecard data)
 ## Components
 
 ### 1. Website Hosting — Cloudflare Pages
-- **URL:** https://mashup-golf-tour.pages.dev
+- **Custom domain:** https://mashupgolf.com (registered + DNS on Cloudflare; bound as a **Custom domain** in the Pages project, which is what wires routing — manually-created CNAMEs alone produce an Error 522)
+- **Pages URL:** https://mashup-golf-tour.pages.dev (always works; use this when the custom domain misbehaves)
 - **Repo:** https://github.com/khilgend44/mashup-golf-tour
-- Every `git push` to `main` auto-deploys the site within ~1 minute.
-- No manual deploy step needed.
+- Every `git push` to `main` auto-deploys the site within ~1–2 minutes. No manual deploy step.
+- **Heads-up (Zscaler):** on the Equinix corporate network, `mashupgolf.com` is blocked by Zscaler's *"Newly Registered and Observed Domains"* category (the page is fine — Zscaler intercepts before it reaches Cloudflare). Use `pages.dev` on the corporate network, or test from a non-corporate network; the block clears as the domain ages (~30 days) or via an InfoSec allowlist request.
+- If a deploy ever seems stuck (rare Cloudflare-side hiccup), an empty commit (`git commit --allow-empty`) re-triggers it.
 
 ### 2. Admin Portal — `/admin`
 - **URL:** https://mashup-golf-tour.pages.dev/admin
@@ -61,6 +63,7 @@ The API is split into **public reads** and **protected writes** so the public si
   - `/api/events-admin?type=events|formats|scrape` — event/format lists + SGT page scrape (GET)
   - `/api/seasons` — season list (GET)
   - `/api/players` — roster + handicaps (GET)
+  - `/api/player-rounds` — stored per-round MashCAP data; whole map or `?player=x` (GET)
   - `/api/event-public`, `/api/get-streams` — public event/team + stream data (GET)
   - `/api/submit-stream` — **public write by design** (players submit their own YouTube links)
 - **Protected writes — `functions/admin/api/*`** (route `/admin/api/*`, behind Cloudflare Access):
@@ -120,10 +123,12 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - **Triggered by:** Cloudflare Worker (not GitHub's built-in scheduler — see below)
 
 ### Team Assignment in the Scoring Engine
-- All team formats (`js/scoring.js`) determine teams using **`TeamPlayer1/2/3/4` from the SGT API scorecard** as the primary source
-- **Fallback:** if those fields are absent (e.g. tournament was not uploaded as a team event in SGT), teams are resolved from `event.teams` stored in KV
-- `event.teams` is an array of arrays of player names: `[['A','B','C'], ['D','E','F'], ...]` — saved by the admin teams page
-- This fallback applies to all 7 team formats: Escalator, Devil's Draw (3-man & 4-man), Stableford, Best2/Worst2, Shamble, Lone Ranger
+- All team formats (`js/scoring.js` → `resolveTeamKey`) group players into teams using **`event.teams` (the admin-defined draw, stored in KV) as the authoritative source** whenever it is present.
+- **Why KV-first (changed June 2026):** SGT's per-card `TeamPlayer1–4` fields are sometimes returned *incomplete* (one or more slots blank), which fragments a single team into partial teams + solo players. This surfaced on the first 4-man Devil's Draw (S8W6), where the leaderboard showed a mix of 4-man, 3-man, and solo "teams." Preferring the admin draw eliminates it.
+- **Fallback to SGT `TeamPlayer1–4`** only when the event has no `event.teams`, or for a player who isn't on any roster team (e.g. a sub) — in which case they're attached to a team via a listed teammate, or grouped by their own SGT fields.
+- The Devil's Draw **pre-draw** view (`event.html`) and the **scoring engine** both use this KV-first logic so they agree.
+- `event.teams` is an array of arrays of player names: `[['A','B','C'], ['D','E','F'], ...]` — saved by the admin teams page.
+- Applies to all team formats: Escalator, Devil's Draw (3-man & 4-man), Stableford, Best2/Worst2, Shamble, Lone Ranger.
 
 ### 5. Cron Trigger — Cloudflare Worker
 - **Worker name:** `mashup-scorecard-trigger`
@@ -171,8 +176,9 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - **Formula:** average of the best `floor(roundCount × 0.40)` differentials. Round counting rounds **down**; duplicates kept; no minimum round count.
 - Stored as `mashCap` (plus `mashCapRounds`, `mashCapCounting`) merged into each player's entry in `players:handicaps`; shown as the far-left **MashCAP** column on the admin Players table (which also sorts by it).
 - **MashCAP drives team registration and scoring.** Both the Players and Teams pages use a `regCap(h)` accessor = MashCAP if present, else SGT `rawCap` (fallback only until a player has a MashCAP). The adjusted/relative handicap written to the SGT Loading File (`round(regCap − minRegCap)`) and the balanced-team tiers are all based on this.
-- Computed in `computeMashCap()` in `functions/admin/api/players.js`. A temporary protected inspector lives at `functions/admin/api/inspect-rounds.js`.
-- **Public pages:** `handicaps.html` (season-scoped MashCAP table, linked from the home nav) and `counting-events.html?player=X` (per-player breakdown of every round with the best 40% marked). The latter reads `players:rounds` via the public `/api/player-rounds` endpoint. The refresh action persists those rounds to KV.
+- Computed in `computeMashCap()` in `functions/admin/api/players.js`. A temporary **protected** debug inspector lives at `functions/admin/api/inspect-rounds.js` — it can return the computed table for the roster, and has demo-seed params (`?seedMashCap=player&value=…`, `?seedRounds=player`) that write directly to KV for previewing the pages before a real refresh. **Remove it once the feature is settled.**
+- A real refresh overwrites any seeded/demo values with live data, so demo seeds are self-cleaning.
+- **Public pages:** `handicaps.html` (season-scoped MashCAP table, linked from the home nav with a "Why MashCAP vs COMBO" explainer; shows a last-updated timestamp from `players:last_refresh`) and `counting-events.html?player=X` (per-player breakdown of every round, sorted newest-first, with the best 40% marked). The latter reads `players:rounds` via the public `/api/player-rounds` endpoint. The refresh action persists those rounds to KV.
 
 ---
 
@@ -267,6 +273,15 @@ Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/t
 
 ---
 
+## Frontend Conventions
+
+These two patterns are applied across all admin + public pages — match them when adding pages or tables.
+
+- **Custom brand colors in JS-rendered content:** the Tailwind Play CDN only generates config colors (e.g. `text-flame` = `#f97316`) for HTML present at load time — **not** for rows/cells injected later via JavaScript, which render white. Every page therefore defines the brand colors as **real CSS rules** in its `<style>` block: `.text-flame { color:#f97316 }` (and `.hover\:text-flame:hover { color:#f97316 }`). Use the `text-flame` class freely; the CSS rule guarantees the color in dynamic tables.
+- **Sticky table headers:** all data tables keep their column headers pinned while scrolling. Pattern: wrap the table in `<div class="overflow-auto" style="max-height: calc(100vh - 12rem)">` and add `thead th { position: sticky; top: 0; z-index: 20; background: <header-bg>; box-shadow: inset 0 -1px 0 #2c2c2c; }` to the page's `<style>`. The `overflow` wrapper is **required** — any non-`visible` overflow ancestor otherwise scopes the sticky to itself and breaks it. The `max-height` offset is per-page (more content above the table → larger offset). `event.html` leaderboards use their own tuned offset (`top: 56px`) to clear a sticky bar.
+
+---
+
 ## If Something Breaks
 
 | Symptom | Likely Cause | Fix |
@@ -278,3 +293,6 @@ Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/t
 | Admin writes fail with `403 "invalid access token"` | `CF_ACCESS_TEAM_DOMAIN` or `CF_ACCESS_AUD` is wrong | Re-copy values (see API Security section) or delete both env vars to fall back to layers 1–2, then redeploy |
 | Players handicap refresh fails | SGT API key expired | Contact SGT admin for new key, update `player_api_key` in Cloudflare Pages env vars |
 | Site not updating after a push | Cloudflare Pages build failed | Check Cloudflare Pages → Deployments tab for error |
+| `mashupgolf.com` shows **Error 522** | Domain has DNS records but isn't bound as a Pages **Custom domain** (no routing) | Pages project → Custom domains → add `mashupgolf.com` (and `www`); let Pages create the records |
+| `mashupgolf.com` blocked / 403 on the work network | Zscaler "Newly Registered Domains" category (Equinix network) | Use `pages.dev`, test off-network, or wait ~30 days / request an InfoSec allowlist |
+| MashCAP column shows amber ⚠ fallback for everyone | No MashCAP stored yet — `player-hcp-rounds` 24h cap, or no refresh since the feature shipped | Run **Refresh Handicaps**; the full roster populates once the SGT 24h window has reset |
