@@ -123,6 +123,7 @@ export async function onRequestPost(context) {
     // it onto each player's entry. Supplementary — failures must not break the
     // core handicap refresh. Note: SGT caps player-hcp-rounds at ~1 response per
     // key per 24h, so this may only populate fully on the first call of a window.
+    let roundsByPlayer = null;
     try {
       const roundsUrl = `${SGT_ROUNDS_API}?key=${sgtKey}&players=${playersToFetch.map(p => encodeURIComponent(p)).join(',')}`;
       const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
@@ -130,10 +131,12 @@ export async function onRequestPost(context) {
         const rounds = await rRes.json();
         if (Array.isArray(rounds)) {
           const diffsByPlayer = {};
+          roundsByPlayer = {};
           for (const r of rounds) {
             if (!r || r.player == null || typeof r.differential !== 'number') continue;
             const k = String(r.player).toLowerCase();
-            (diffsByPlayer[k] = diffsByPlayer[k] || []).push(r.differential);
+            (diffsByPlayer[k]  = diffsByPlayer[k]  || []).push(r.differential);
+            (roundsByPlayer[k] = roundsByPlayer[k] || []).push({ date: r.date, differential: r.differential, tour: r.tour });
           }
           for (const [k, diffs] of Object.entries(diffsByPlayer)) {
             const m = computeMashCap(diffs);
@@ -162,6 +165,17 @@ export async function onRequestPost(context) {
       kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(finalHandicaps)),
       kvPut(accountId, apiToken, 'players:last_refresh', now),
     ]);
+
+    // Persist the raw per-round records (date/differential/tour) for the public
+    // "See Counting Events" detail page. Merge on a scoped refresh, replace on full.
+    if (roundsByPlayer && Object.keys(roundsByPlayer).length) {
+      let finalRounds = roundsByPlayer;
+      if (scopedPlayers) {
+        const existingRoundsRaw = await kvGet(accountId, apiToken, 'players:rounds');
+        finalRounds = { ...(existingRoundsRaw ? JSON.parse(existingRoundsRaw) : {}), ...roundsByPlayer };
+      }
+      await kvPut(accountId, apiToken, 'players:rounds', JSON.stringify(finalRounds));
+    }
 
     return Response.json({ ok: true, count: data.length, lastRefresh: now, handicaps: finalHandicaps }, { headers: CORS });
   }

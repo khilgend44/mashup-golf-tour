@@ -103,6 +103,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
   - `admin:formats` — custom game formats created via admin portal (merged with `data/formats.json` at runtime)
   - `players:roster` — player list (names array)
   - `players:handicaps` — handicap data from SGT API (object keyed by lowercase player name → `{ rawCap, comboCap, numEvents, ..., mashCap, mashCapRounds, mashCapCounting }`)
+  - `players:rounds` — raw per-round records used for MashCAP, keyed by lowercase player name → `[{ date, differential, tour }]`. Written by the refresh action; served publicly by `/api/player-rounds` for the counting-events detail page.
   - `players:discord` — player → Discord user ID map (lowercase name → numeric ID). Read via the **protected** `GET /admin/api/players` (kept out of the public `/api/players`); edited per-player on the admin Players page. Used to `<@id>`-tag winners in the Discord results post.
   - `players:last_refresh` — ISO timestamp of last handicap pull
   - `{eventId}:{playerName}:{round}` — YouTube stream URLs submitted by players
@@ -171,6 +172,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - Stored as `mashCap` (plus `mashCapRounds`, `mashCapCounting`) merged into each player's entry in `players:handicaps`; shown as the far-left **MashCAP** column on the admin Players table (which also sorts by it).
 - **MashCAP drives team registration and scoring.** Both the Players and Teams pages use a `regCap(h)` accessor = MashCAP if present, else SGT `rawCap` (fallback only until a player has a MashCAP). The adjusted/relative handicap written to the SGT Loading File (`round(regCap − minRegCap)`) and the balanced-team tiers are all based on this.
 - Computed in `computeMashCap()` in `functions/admin/api/players.js`. A temporary protected inspector lives at `functions/admin/api/inspect-rounds.js`.
+- **Public pages:** `handicaps.html` (season-scoped MashCAP table, linked from the home nav) and `counting-events.html?player=X` (per-player breakdown of every round with the best 40% marked). The latter reads `players:rounds` via the public `/api/player-rounds` endpoint. The refresh action persists those rounds to KV.
 
 ---
 

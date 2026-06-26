@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Counting Events — MashUp Golf Tour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .text-flame { color: #f97316; }
+    .hover\:text-flame:hover { color: #f97316; }
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
+    tr.counts td { background: rgba(249,115,22,0.08); }
+    tr.counts td:first-child { border-left: 2px solid rgba(249,115,22,0.7); }
+    .tour-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; letter-spacing: 0.05em; }
+    .tour-MSH { background: rgba(249,115,22,0.15); color: #fb923c; }
+    .tour-PRO { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .tour-SGT { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .tour-other { background: rgba(148,163,184,0.15); color: #cbd5e1; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <header class="border-b border-border">
+    <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <span class="font-display text-2xl tracking-wider text-white">MASHUP GOLF TOUR</span>
+        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Counting Events</span>
+      </div>
+      <a href="handicaps.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color 0.12s">← All Handicaps</a>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 w-full flex-1">
+    <div id="summary" class="mb-6"></div>
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+    <div id="table-wrap" class="card-shadow bg-card border border-border rounded-lg overflow-hidden hidden">
+      <div class="overflow-auto" style="max-height: calc(100vh - 18rem)">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-left   px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Date</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Tour</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">DIFF</th>
+              <th class="text-right  px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Counts?</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-3xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour</div>
+  </footer>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const playerParam = params.get('player') || '';
+
+    function fmtDiff(n) {
+      const v = parseFloat(n);
+      if (isNaN(v)) return '—';
+      return v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1);
+    }
+    function fmtCap(n) {
+      const v = parseFloat(n);
+      if (isNaN(v)) return '—';
+      return v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
+    }
+    function fmtDate(d) {
+      if (!d) return '—';
+      const dt = new Date(`${d}T12:00:00`);
+      if (isNaN(dt)) return d;
+      return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function tourClass(t) {
+      return ['MSH', 'PRO', 'SGT'].includes(t) ? `tour-${t}` : 'tour-other';
+    }
+    function showStatus(msg) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'rounded-lg px-4 py-3 text-sm font-body mb-4 bg-red-900/30 border border-red-800/40 text-red-300';
+    }
+
+    async function init() {
+      if (!playerParam) { showStatus('No player specified.'); return; }
+      let rounds = [];
+      try {
+        const res = await fetch(`/api/player-rounds?player=${encodeURIComponent(playerParam)}`);
+        const data = await res.json();
+        rounds = Array.isArray(data.rounds) ? data.rounds : [];
+      } catch (e) {
+        showStatus('Could not load rounds: ' + e.message);
+        return;
+      }
+
+      const summary = document.getElementById('summary');
+
+      if (rounds.length === 0) {
+        summary.innerHTML = `<h1 class="font-display text-4xl tracking-wider text-white leading-none">${playerParam}</h1>`;
+        showStatus('No round data stored for this player yet — it populates after the next handicap refresh.');
+        return;
+      }
+
+      // Best (lowest) first; the best floor(N * 0.40) rounds count toward MashCAP.
+      const sorted = [...rounds].sort((a, b) => a.differential - b.differential);
+      const n = sorted.length;
+      const counting = Math.floor(n * 0.40);
+      const best = sorted.slice(0, counting);
+      const mashCap = counting > 0
+        ? Math.round((best.reduce((s, r) => s + r.differential, 0) / counting) * 100) / 100
+        : null;
+
+      summary.innerHTML = `
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">${playerParam}</h1>
+        <div class="flex flex-wrap items-end gap-x-8 gap-y-3 mt-4">
+          <div>
+            <div class="text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">MashCAP</div>
+            <div class="font-display text-4xl text-flame leading-none">${mashCap !== null ? fmtCap(mashCap) : '—'}</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Counting / Total</div>
+            <div class="font-display text-4xl text-white leading-none">${counting} <span class="text-gray-600">/ ${n}</span></div>
+          </div>
+        </div>
+        <p class="text-gray-500 text-sm mt-4 max-w-xl">MashCAP is the average of the best <span class="text-gray-300">40%</span> of rounds (the lowest differentials). The <span class="text-flame">${counting}</span> highlighted rounds below count toward it.</p>`;
+
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = sorted.map((r, i) => {
+        const isCounting = i < counting;
+        return `<tr class="border-b border-border/50 ${isCounting ? 'counts' : ''}">
+          <td class="px-4 py-2.5 font-body text-sm ${isCounting ? 'text-white' : 'text-gray-400'}">${fmtDate(r.date)}</td>
+          <td class="px-4 py-2.5 text-center"><span class="tour-badge ${tourClass(r.tour)}">${r.tour || '—'}</span></td>
+          <td class="px-4 py-2.5 text-center font-body text-sm font-600 ${isCounting ? 'text-flame' : 'text-gray-400'}">${fmtDiff(r.differential)}</td>
+          <td class="px-4 py-2.5 text-right">${isCounting
+            ? '<span class="text-[10px] font-heading font-700 tracking-widest text-flame">✓ COUNTS</span>'
+            : '<span class="text-[10px] font-heading font-600 tracking-widest text-gray-700">—</span>'}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('table-wrap').classList.remove('hidden');
+    }
+
+    init();
+  </script>
+</body>
+</html>
