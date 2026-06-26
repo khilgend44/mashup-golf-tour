@@ -37,7 +37,10 @@ export async function onRequestGet(context) {
   if (players.length === 0) return Response.json({ error: 'No players to look up' }, { status: 400, headers: CORS });
 
   // One comma-separated request for the whole list.
-  const sgtUrl = `https://simulatorgolftour.com/sgt-api/mashup/player-hcp-rounds?key=${key}&players=${encodeURIComponent(players.join(','))}`;
+  // Encode each name individually but keep commas literal as the list delimiter
+  // (matching the proven player-check refresh, which joins with a raw comma).
+  const playerParam = players.map(p => encodeURIComponent(p)).join(',');
+  const sgtUrl = `https://simulatorgolftour.com/sgt-api/mashup/player-hcp-rounds?key=${key}&players=${playerParam}`;
   const res = await fetch(sgtUrl);
   if (!res.ok) return Response.json({ error: `SGT API error: ${res.status}` }, { status: 502, headers: CORS });
 
