@@ -1995,11 +1995,15 @@
           const drawStr = JSON.stringify(state.draw, null, 2).replace(/^/gm, '        ').trimStart();
           jsonHtml = `
             <div class="mt-6 bg-emerald-900/10 border border-emerald-800/30 rounded-xl px-5 py-4">
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-xs font-heading font-600 tracking-widest text-emerald-400 uppercase">Draw Complete — Save to events.json</div>
-                <button id="btn-copy" class="text-xs bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-700/40 text-emerald-400 rounded px-3 py-1.5 font-heading tracking-wider" style="transition:background 0.12s">Copy</button>
+              <div class="flex items-center justify-between mb-2 gap-3 flex-wrap">
+                <div class="text-xs font-heading font-600 tracking-widest text-emerald-400 uppercase">Draw Complete — Finalize</div>
+                <div class="flex items-center gap-2">
+                  <button id="btn-save-draw" class="text-xs bg-emerald-600/80 hover:bg-emerald-600 border border-emerald-500/60 text-white rounded px-3 py-1.5 font-heading tracking-wider" style="transition:background 0.12s">Save Draw to Event</button>
+                  <button id="btn-copy" class="text-xs bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-700/40 text-emerald-400 rounded px-3 py-1.5 font-heading tracking-wider" style="transition:background 0.12s">Copy JSON</button>
+                </div>
               </div>
-              <p class="text-xs text-gray-600 mb-3">Paste these two fields into the Week 6 event in data/events.json, then reload the regular event page to see final results.</p>
+              <p class="text-xs text-gray-600 mb-2"><span class="text-gray-400">Save Draw to Event</span> writes the draw to this event and flips the regular page to final standings (requires admin login). For a static repo event, use <span class="text-gray-400">Copy JSON</span> and paste both fields into <span class="font-mono">data/events.json</span> instead.</p>
+              <div id="save-draw-status" class="text-xs font-heading tracking-wider mb-3 hidden"></div>
               <pre id="json-out" class="text-xs text-gray-300 bg-[#0c0c0c] rounded-lg p-4 overflow-x-auto leading-relaxed font-mono">"devilsDraw": ${drawStr},
 "revealOrder": ${revStr}</pre>
             </div>`;
@@ -2093,8 +2097,41 @@
           if (!el) return;
           navigator.clipboard.writeText(el.textContent).then(() => {
             const btn = document.getElementById('btn-copy');
-            if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 2000); }
+            if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy JSON', 2000); }
           });
+        });
+
+        // Save draw straight to the event (KV events; requires admin Access login).
+        document.getElementById('btn-save-draw')?.addEventListener('click', async () => {
+          const btn = document.getElementById('btn-save-draw');
+          const statusEl = document.getElementById('save-draw-status');
+          const show = (msg, ok) => {
+            statusEl.textContent = msg;
+            statusEl.className = `text-xs font-heading tracking-wider mb-3 ${ok ? 'text-emerald-400' : 'text-red-400'}`;
+          };
+          btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
+          try {
+            const res = await fetch('/admin/api/events', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              redirect: 'manual', // a 302 → Access login surfaces as an opaque redirect
+              body: JSON.stringify({ action: 'set-devils-draw', eventId: event.id, devilsDraw: state.draw, revealOrder: state.revealOrder }),
+            });
+            if (res.ok) {
+              show('✓ Saved. Reload the event page (without ?reveal=true) to see final standings.', true);
+              btn.textContent = 'Saved ✓';
+            } else if (res.type === 'opaqueredirect' || res.status === 0 || res.status === 302 || res.status === 401 || res.status === 403) {
+              show('Not signed in to admin. Open /admin and log in via Cloudflare Access, then retry.', false);
+              btn.textContent = orig; btn.disabled = false;
+            } else {
+              const e = await res.json().catch(() => ({}));
+              show(`Save failed: ${e.error || res.status}. Use Copy JSON as a fallback.`, false);
+              btn.textContent = orig; btn.disabled = false;
+            }
+          } catch (err) {
+            show(`Save failed: ${err.message}. Use Copy JSON as a fallback.`, false);
+            btn.textContent = orig; btn.disabled = false;
+          }
         });
 
         renderLeaderboard(done);

@@ -79,6 +79,24 @@ export async function onRequestPost(context) {
     return Response.json({ ok: true, event: events[idx] }, { headers: CORS });
   }
 
+  if (action === 'set-devils-draw') {
+    const { eventId, devilsDraw, revealOrder } = body;
+    if (!eventId) return Response.json({ error: 'Missing eventId' }, { status: 400, headers: CORS });
+    if (!devilsDraw || typeof devilsDraw !== 'object')
+      return Response.json({ error: 'Missing devilsDraw' }, { status: 400, headers: CORS });
+    const raw = await kvGet(accountId, apiToken, 'admin:events');
+    const events = raw ? JSON.parse(raw) : [];
+    const idx = events.findIndex(e => e.id === eventId);
+    if (idx === -1) return Response.json({ error: 'Event not found in KV (static events are edited in data/events.json)' }, { status: 404, headers: CORS });
+    events[idx] = {
+      ...events[idx],
+      devilsDraw,
+      revealOrder: Array.isArray(revealOrder) && revealOrder.length ? revealOrder : Object.values(devilsDraw).flat(),
+    };
+    await kvPut(accountId, apiToken, 'admin:events', JSON.stringify(events));
+    return Response.json({ ok: true, event: events[idx] }, { headers: CORS });
+  }
+
   if (action === 'delete-event') {
     const { eventId } = body;
     if (!eventId) return Response.json({ error: 'Missing eventId' }, { status: 400, headers: CORS });
