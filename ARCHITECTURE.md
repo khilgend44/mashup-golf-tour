@@ -29,7 +29,7 @@ SimulatorGolfTour API  (provides live scorecard data)
 - **Pages URL:** https://mashup-golf-tour.pages.dev (always works; use this when the custom domain misbehaves)
 - **Repo:** https://github.com/khilgend44/mashup-golf-tour
 - Every `git push` to `main` auto-deploys the site within ~1–2 minutes. No manual deploy step.
-- **Heads-up (Zscaler):** on the Equinix corporate network, `mashupgolf.com` is blocked by Zscaler's *"Newly Registered and Observed Domains"* category (the page is fine — Zscaler intercepts before it reaches Cloudflare). Use `pages.dev` on the corporate network, or test from a non-corporate network; the block clears as the domain ages (~30 days) or via an InfoSec allowlist request.
+- **Heads-up (Zscaler):** on corporate network, `mashupgolf.com` is blocked by Zscaler's *"Newly Registered and Observed Domains"* category (the page is fine — Zscaler intercepts before it reaches Cloudflare). Use `pages.dev` on the corporate network, or test from a non-corporate network; the block clears as the domain ages (~30 days) or via an InfoSec allowlist request.
 - If a deploy ever seems stuck (rare Cloudflare-side hiccup), an empty commit (`git commit --allow-empty`) re-triggers it.
 
 ### 2. Admin Portal — `/admin`
@@ -179,6 +179,16 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - Computed in `computeMashCap()` in `functions/admin/api/players.js`. A temporary **protected** debug inspector lives at `functions/admin/api/inspect-rounds.js` — it can return the computed table for the roster, and has demo-seed params (`?seedMashCap=player&value=…`, `?seedRounds=player`) that write directly to KV for previewing the pages before a real refresh. **Remove it once the feature is settled.**
 - A real refresh overwrites any seeded/demo values with live data, so demo seeds are self-cleaning.
 - **Public pages:** `handicaps.html` (season-scoped MashCAP table, linked from the home nav with a "Why MashCAP vs COMBO" explainer; shows a last-updated timestamp from `players:last_refresh`) and `counting-events.html?player=X` (per-player breakdown of every round, sorted newest-first, with the best 40% marked). The latter reads `players:rounds` via the public `/api/player-rounds` endpoint. The refresh action persists those rounds to KV.
+
+---
+
+## Hole-in-One Pot
+
+A standing prize pool that grows every season and pays out the first time a member records a hole-in-one in a tour event; until then the full balance carries over.
+
+- **Page:** `hole-in-one.html` (public, linked from the home nav). Shows the current total as an animated count-up, a "how it works" explainer, and a season-by-season contribution table with proportional growth bars.
+- **Data is static, hardcoded in the page** — a `CONTRIBUTIONS` array near the bottom of the file. Each season is one row (`{ source, players, perPlayer }`); flat/seed contributions use `{ source, amount, note }` with `perPlayer: null`. The hero total, table amounts, and footer total are all **computed from that array** (`players × perPlayer`, summed) — no hand-maintained arithmetic. As of Season 9 the pot is **$483.60** (admin $100 seed + S6–S9 pools).
+- **To update:** add one row to `CONTRIBUTIONS` when a season closes; on payout, flip the status pill to "Claimed" and reset. Deliberately *not* wired to KV/the admin portal given how rarely it changes — revisit if it needs admin-managed editing.
 
 ---
 
