@@ -5,9 +5,9 @@ import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
 const SGT_API_BASE   = 'https://simulatorgolftour.com/sgt-api/mashup/player-check';
 const SGT_ROUNDS_API = 'https://simulatorgolftour.com/sgt-api/mashup/player-hcp-rounds';
 
-// Official MashUp handicap: average of the best floor(N * 0.40) scoring
+// Official MashCAP handicap: average of the best floor(N * 0.40) scoring
 // differentials. Duplicates kept, no minimum round count (per league rule).
-function computeMashupCap(diffs) {
+function computeMashCap(diffs) {
   const n = diffs.length;
   const counting = Math.floor(n * 0.40);
   if (counting <= 0) return null;
@@ -136,11 +136,11 @@ export async function onRequestPost(context) {
             (diffsByPlayer[k] = diffsByPlayer[k] || []).push(r.differential);
           }
           for (const [k, diffs] of Object.entries(diffsByPlayer)) {
-            const m = computeMashupCap(diffs);
+            const m = computeMashCap(diffs);
             if (m && fetched[k]) {
-              fetched[k].mashupCap      = m.cap;
-              fetched[k].mashupRounds   = m.rounds;
-              fetched[k].mashupCounting = m.counting;
+              fetched[k].mashCap         = m.cap;
+              fetched[k].mashCapRounds   = m.rounds;
+              fetched[k].mashCapCounting = m.counting;
             }
           }
         }

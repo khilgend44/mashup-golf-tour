@@ -102,7 +102,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
   - `admin:events` — events created via admin portal (Season 10+)
   - `admin:formats` — custom game formats created via admin portal (merged with `data/formats.json` at runtime)
   - `players:roster` — player list (names array)
-  - `players:handicaps` — handicap data from SGT API (object keyed by lowercase player name → `{ rawCap, comboCap, numEvents, ..., mashupCap, mashupRounds, mashupCounting }`)
+  - `players:handicaps` — handicap data from SGT API (object keyed by lowercase player name → `{ rawCap, comboCap, numEvents, ..., mashCap, mashCapRounds, mashCapCounting }`)
   - `players:discord` — player → Discord user ID map (lowercase name → numeric ID). Read via the **protected** `GET /admin/api/players` (kept out of the public `/api/players`); edited per-player on the admin Players page. Used to `<@id>`-tag winners in the Discord results post.
   - `players:last_refresh` — ISO timestamp of last handicap pull
   - `{eventId}:{playerName}:{round}` — YouTube stream URLs submitted by players
@@ -165,11 +165,12 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
   - `player-check` — computed SGT caps (`rawCap`, `comboCap`, `numEvents`, …)
   - `player-hcp-rounds` — raw per-round scoring differentials (`{ player, date, differential, tour }`). Also caps at ~1 response per key per 24h and **ignores the `players` param within a window** (returns the first cached result), so it must be pulled in one full-roster call.
 
-### 9b. MashUp Handicap
+### 9b. MashCAP — the league's official handicap
 - The league's own handicap, computed during the same "Refresh Handicaps" action from `player-hcp-rounds`.
 - **Formula:** average of the best `floor(roundCount × 0.40)` differentials. Round counting rounds **down**; duplicates kept; no minimum round count.
-- Stored as `mashupCap` (plus `mashupRounds`, `mashupCounting`) merged into each player's entry in `players:handicaps`; shown in the **MashUp** column on the admin Players table. Additive — does not affect the SGT caps used for team registration/scoring.
-- Computed in `computeMashupCap()` in `functions/admin/api/players.js`. A temporary protected inspector lives at `functions/admin/api/inspect-rounds.js`.
+- Stored as `mashCap` (plus `mashCapRounds`, `mashCapCounting`) merged into each player's entry in `players:handicaps`; shown as the far-left **MashCAP** column on the admin Players table (which also sorts by it).
+- **MashCAP drives team registration and scoring.** Both the Players and Teams pages use a `regCap(h)` accessor = MashCAP if present, else SGT `rawCap` (fallback only until a player has a MashCAP). The adjusted/relative handicap written to the SGT Loading File (`round(regCap − minRegCap)`) and the balanced-team tiers are all based on this.
+- Computed in `computeMashCap()` in `functions/admin/api/players.js`. A temporary protected inspector lives at `functions/admin/api/inspect-rounds.js`.
 
 ---
 
@@ -259,7 +260,7 @@ Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/t
 - **Format:** 10 columns — `Player1, HCP1, Player2, HCP2, Player3, HCP3, Player4, HCP4, teamID, opponentID`
 - **Team events:** one row per team, sequential teamID starting at 10001
 - **Solo events** (teamSize < 2): one row per player, only first 2 columns filled, no teamID
-- **Handicap used:** adjusted handicap (`Math.round(rawCap - minRaw)`) — must be refreshed within 24 hours before generating
+- **Handicap used:** adjusted MashCAP (`Math.round(regCap - minRegCap)`, where `regCap` = MashCAP, falling back to SGT `rawCap` until a player has a MashCAP) — must be refreshed within 24 hours before generating
 - **Encoding:** UTF-8 BOM (`﻿`) required for SGT compatibility
 
 ---

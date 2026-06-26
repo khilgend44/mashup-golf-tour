@@ -111,8 +111,8 @@
           <thead>
             <tr class="border-b border-border">
               <th class="text-left px-6 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">#</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">MashCAP</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">MashUp</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Adjusted</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Raw</th>
@@ -178,6 +178,16 @@
       return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1);
     }
 
+    // The cap that drives adjusted handicaps / registration / scoring.
+    // MashCAP is authoritative; fall back to SGT rawCap only until a player
+    // has a MashCAP value.
+    function regCap(h) {
+      if (!h) return null;
+      if (h.mashCap !== undefined && h.mashCap !== null) return parseFloat(h.mashCap);
+      if (h.rawCap  !== undefined && h.rawCap  !== null) return parseFloat(h.rawCap);
+      return null;
+    }
+
     function renderTable(roster, handicaps, filter = '') {
       const tbody = document.getElementById('players-tbody');
       const filtered = filter
@@ -201,32 +211,29 @@
         return;
       }
 
-      // Adjusted handicap offset is relative to the lowest raw cap among displayed players
-      const rawValues = filtered
-        .map(p => { const h = handicaps[p.toLowerCase()]; return h ? parseFloat(h.rawCap) : NaN; })
-        .filter(n => !isNaN(n));
-      const minRaw = rawValues.length ? Math.min(...rawValues) : null;
+      // Adjusted handicap offset is relative to the lowest MashCAP among displayed players
+      const capValues = filtered
+        .map(p => regCap(handicaps[p.toLowerCase()]))
+        .filter(n => n !== null);
+      const minRaw = capValues.length ? Math.min(...capValues) : null;
       const offset = minRaw !== null ? -minRaw : 0;
 
       const sorted = [...filtered].sort((a, b) => {
-        const ha = handicaps[a.toLowerCase()];
-        const hb = handicaps[b.toLowerCase()];
-        const ra = ha && ha.rawCap !== undefined ? parseFloat(ha.rawCap) : Infinity;
-        const rb = hb && hb.rawCap !== undefined ? parseFloat(hb.rawCap) : Infinity;
-        return ra - rb;
+        const ra = regCap(handicaps[a.toLowerCase()]);
+        const rb = regCap(handicaps[b.toLowerCase()]);
+        return (ra === null ? Infinity : ra) - (rb === null ? Infinity : rb);
       });
 
       tbody.innerHTML = sorted.map((name, i) => {
         const hcp = handicaps[name.toLowerCase()] || null;
         const nd = '—';
-        const adjusted = hcp && hcp.rawCap !== undefined
-          ? Math.round(parseFloat(hcp.rawCap) + offset)
-          : null;
-        const isBaseline = hcp && parseFloat(hcp.rawCap) === minRaw;
+        const cap = regCap(hcp);
+        const adjusted = cap !== null ? Math.round(cap + offset) : null;
+        const isBaseline = cap !== null && cap === minRaw;
         return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}" data-player="${name}">
           <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-flame font-600" ${hcp && hcp.mashCap !== undefined ? `title="best ${hcp.mashCapCounting} of ${hcp.mashCapRounds} rounds"` : ''}>${hcp && hcp.mashCap !== undefined ? hcpDisplay(hcp.mashCap) : nd}</td>
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-flame font-600" ${hcp && hcp.mashupCap !== undefined ? `title="best ${hcp.mashupCounting} of ${hcp.mashupRounds} rounds"` : ''}>${hcp && hcp.mashupCap !== undefined ? hcpDisplay(hcp.mashupCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.rawCap) : nd}</td>

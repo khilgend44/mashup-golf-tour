@@ -237,6 +237,16 @@
     };
 
     // ── Utilities ──────────────────────────────────────────────
+    // The cap that drives adjusted handicaps / registration / scoring.
+    // MashCAP is authoritative; fall back to SGT rawCap only until a player
+    // has a MashCAP value.
+    function regCap(h) {
+      if (!h) return null;
+      if (h.mashCap !== undefined && h.mashCap !== null) return parseFloat(h.mashCap);
+      if (h.rawCap  !== undefined && h.rawCap  !== null) return parseFloat(h.rawCap);
+      return null;
+    }
+
     function showStatus(msg, type = 'info') {
       const bar = document.getElementById('status-bar');
       bar.className = `rounded-lg px-4 py-3 text-sm font-body ${
@@ -363,8 +373,7 @@
       const withRaw = (state.roster || [])
         .filter(name => !inSeason || inSeason.has(name.toLowerCase()))
         .map(name => {
-          const h = state.handicaps[name.toLowerCase()];
-          const rawCap = h?.rawCap !== undefined ? parseFloat(h.rawCap) : null;
+          const rawCap = regCap(state.handicaps[name.toLowerCase()]);
           return { name, rawCap };
         })
         .sort((a, b) => {
@@ -587,7 +596,7 @@
         ? new Set(rtSeason.players.map(p => p.toLowerCase())) : null;
       const rawVals = (state.roster || [])
         .filter(n => !rtInSeason || rtInSeason.has(n.toLowerCase()))
-        .map(n => { const h = hcaps[n.toLowerCase()]; return h?.rawCap !== undefined ? parseFloat(h.rawCap) : null; })
+        .map(n => regCap(hcaps[n.toLowerCase()]))
         .filter(v => v !== null);
       const minRaw = rawVals.length ? Math.min(...rawVals) : 0;
       const hasPairs = teamSize > 1 && Object.keys(rtPartnerships).length > 0;
@@ -625,8 +634,8 @@
                     ${hasRepeat ? `<span class="text-[9px] text-yellow-600 font-body">repeat</span>` : ''}
                   </div>
                   ${team.map((name, pi) => {
-                    const h    = hcaps[name.toLowerCase()];
-                    const cap  = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) - minRaw) : '—';
+                    const rc   = regCap(hcaps[name.toLowerCase()]);
+                    const cap  = rc !== null ? Math.round(rc - minRaw) : '—';
                     const tier = teamSize > 1 ? TIER_NAMES[pi] : null;
                     const isConflict = conflictPlayers.has(name);
                     return `<div class="flex items-center justify-between py-0.5 gap-1">
@@ -967,13 +976,13 @@
 
       const seasonPlayers = getSortedPlayers(event.season);
       const minRaw    = seasonPlayers.reduce((min, p) => {
-        const raw = state.handicaps[p.name.toLowerCase()]?.rawCap;
-        return raw !== undefined ? Math.min(min, parseFloat(raw)) : min;
+        const raw = regCap(state.handicaps[p.name.toLowerCase()]);
+        return raw !== null ? Math.min(min, raw) : min;
       }, Infinity);
       const capOffset = isFinite(minRaw) ? -minRaw : 0;
       const adjCap = name => {
-        const h = state.handicaps[name.toLowerCase()];
-        return h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : 0;
+        const rc = regCap(state.handicaps[name.toLowerCase()]);
+        return rc !== null ? Math.round(rc + capOffset) : 0;
       };
 
       const header = 'TeamPlayer1,Player1 HCP,TeamPlayer2,Player2 HCP,TeamPlayer3,Player3 HCP,TeamPlayer4,Player4 HCP,teamID,opponentID';
@@ -1055,11 +1064,11 @@
       }
     }
 
-    // Sort a team's players by ascending rawCap (A = lowest = Slot 1 default)
+    // Sort a team's players by ascending MashCAP (A = lowest = Slot 1 default)
     function defaultSlotOrder(team) {
       return [...team].sort((a, b) => {
-        const ha = parseFloat(state.handicaps[a.toLowerCase()]?.rawCap ?? Infinity);
-        const hb = parseFloat(state.handicaps[b.toLowerCase()]?.rawCap ?? Infinity);
+        const ha = regCap(state.handicaps[a.toLowerCase()]) ?? Infinity;
+        const hb = regCap(state.handicaps[b.toLowerCase()]) ?? Infinity;
         return ha - hb;
       });
     }
