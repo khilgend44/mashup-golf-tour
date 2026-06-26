@@ -305,5 +305,5 @@ These two patterns are applied across all admin + public pages — match them wh
 | Players handicap refresh fails | SGT API key expired | Contact SGT admin for new key, update `player_api_key` in Cloudflare Pages env vars |
 | Site not updating after a push | Cloudflare Pages build failed | Check Cloudflare Pages → Deployments tab for error |
 | `mashupgolf.com` shows **Error 522** | Domain has DNS records but isn't bound as a Pages **Custom domain** (no routing) | Pages project → Custom domains → add `mashupgolf.com` (and `www`); let Pages create the records |
-| `mashupgolf.com` blocked / 403 on the work network | Zscaler "Newly Registered Domains" category (Equinix network) | Use `pages.dev`, test off-network, or wait ~30 days / request an InfoSec allowlist |
+| `mashupgolf.com` blocked / 403 on the work network | Zscaler "Newly Registered Domains" category (corporate networks) | Use `pages.dev`, test off-network, or wait ~30 days / request an InfoSec allowlist |
 | MashCAP column shows amber ⚠ fallback for everyone | No MashCAP stored yet — `player-hcp-rounds` 24h cap, or no refresh since the feature shipped | Run **Refresh Handicaps**; the full roster populates once the SGT 24h window has reset |
