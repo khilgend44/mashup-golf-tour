@@ -68,8 +68,9 @@
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
 
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
-      <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+      <div class="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
         <h2 class="font-display text-2xl tracking-wider text-white">ROSTER <span id="player-count" class="text-gray-600 text-lg"></span></h2>
+        <span id="last-updated" class="text-xs font-body text-gray-600"></span>
       </div>
       <div class="overflow-auto" style="max-height: calc(100vh - 16rem)">
         <table class="w-full text-sm">
@@ -96,7 +97,15 @@
   </footer>
 
   <script>
-    const state = { handicaps: {}, seasons: [], selected: '' };
+    const state = { handicaps: {}, seasons: [], selected: '', lastRefresh: null };
+
+    function updateUpdatedLabel() {
+      const el = document.getElementById('last-updated');
+      if (!el) return;
+      if (!state.lastRefresh) { el.textContent = ''; return; }
+      const d = new Date(state.lastRefresh);
+      el.textContent = `Updated ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
 
     function hcpDisplay(val) {
       if (val === undefined || val === null || val === '') return '—';
@@ -182,11 +191,13 @@
         ]);
         const pData = await pRes.json();
         const sData = await sRes.json();
-        state.handicaps = pData.handicaps || {};
-        state.seasons   = Array.isArray(sData) ? sData : Object.values(sData);
+        state.handicaps   = pData.handicaps || {};
+        state.lastRefresh = pData.lastRefresh || null;
+        state.seasons     = Array.isArray(sData) ? sData : Object.values(sData);
         if (state.seasons.length === 0) { showStatus('No seasons found.'); return; }
         buildSeasonOptions();
         render();
+        updateUpdatedLabel();
       } catch (e) {
         showStatus('Could not load handicaps: ' + e.message);
       }
