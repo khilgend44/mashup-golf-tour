@@ -30,6 +30,13 @@
   <style>
     body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    /* Custom brand colors must be real CSS rules: the Tailwind CDN doesn't
+       generate config colors for JS-rendered cells, so text-flame would render
+       white in dynamic table rows. */
+    .text-flame { color: #f97316; }
+    .hover\:text-flame:hover { color: #f97316; }
+    /* Keep the roster table column headers visible while scrolling. */
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
     .badge-green  { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
     .badge-red    { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
     .badge-yellow { background: rgba(234,179,8,0.12);  color: #facc15; border: 1px solid rgba(234,179,8,0.2); }
@@ -106,7 +113,7 @@
         <input id="search-input" type="text" placeholder="Search..."
           class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 w-40" />
       </div>
-      <div class="overflow-x-auto">
+      <div class="overflow-auto" style="max-height: calc(100vh - 13rem)">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-border">
@@ -234,7 +241,7 @@
         const fallback = !hasMash && hcp && hcp.rawCap !== undefined && hcp.rawCap !== null;
         // MashCAP cell: flame when real; amber ⚠ + the Raw value being used when falling back.
         const mashCapCell = hasMash
-          ? `<td class="px-4 py-3 text-center font-body text-sm font-600" style="color:#f97316" title="best ${hcp.mashCapCounting} of ${hcp.mashCapRounds} rounds">${hcpDisplay(hcp.mashCap)}</td>`
+          ? `<td class="px-4 py-3 text-center font-body text-sm text-flame font-600" title="best ${hcp.mashCapCounting} of ${hcp.mashCapRounds} rounds">${hcpDisplay(hcp.mashCap)}</td>`
           : fallback
             ? `<td class="px-4 py-3 text-center font-body text-sm text-amber-400" title="No MashCAP yet — using SGT Raw (${hcpDisplay(hcp.rawCap)}) for registration &amp; scoring">⚠ ${hcpDisplay(hcp.rawCap)}</td>`
             : `<td class="px-4 py-3 text-center font-body text-sm text-gray-600">${nd}</td>`;
@@ -243,7 +250,7 @@
           ${mashCapCell}
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm" style="color:#f97316">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.rawCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp && hcp.minComboCap !== undefined ? hcpDisplay(hcp.minComboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.comboRoundsCount : nd}</td>

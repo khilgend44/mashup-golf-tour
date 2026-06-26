@@ -28,6 +28,9 @@
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Brand colors as real CSS so the class works on JS-rendered cells too. */
+    .text-flame { color: #f97316; }
+    .hover\:text-flame:hover { color: #f97316; }
     body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     input, select, textarea {
