@@ -134,5 +134,18 @@
     "description": "Playoff invitational tournament. Players qualify from season standings. Earlier rounds eliminate teams; only the final standings and payouts are recorded here.",
     "type": "invitational",
     "teamSize": 3
+  },
+  "best-ball-3man": {
+    "id": "best-ball-3man",
+    "name": "3-Man, 2 Best Ball",
+    "shortName": "3man, 2BB",
+    "description": "3-player teams. On every hole the two lowest NET scores among the three teammates count toward the team total. Lowest 18-hole team total wins.",
+    "scoringBasis": "net",
+    "type": "best-ball-3man",
+    "lowScoreWins": true,
+    "teamSize": 3,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Total team aggregate score — all three players over 18 holes" }
+    ]
   }
 }
