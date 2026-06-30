@@ -752,7 +752,13 @@
       const pool = allPlayers.filter(p => !assigned.has(p.name.toLowerCase()));
       const placed = manualState.teams.reduce((s, t) => s + t.length, 0);
       const total = numTeams * teamSize;
-      const allFilled = placed === total;
+      // Not every event uses the whole roster. Allow saving a subset: every
+      // non-empty team must be FULL (no half-filled teams, which would break
+      // scoring) and at least one full team must exist. Leftover players can
+      // stay unassigned and simply won't be on a team for this event.
+      const fullTeams    = manualState.teams.filter(t => t.length === teamSize);
+      const partialTeams = manualState.teams.filter(t => t.length > 0 && t.length < teamSize);
+      const canSave      = fullTeams.length > 0 && partialTeams.length === 0;
 
       // Build tier color for player chips
       const used = allPlayers.slice(0, total);
@@ -825,10 +831,14 @@
               class="text-xs text-gray-600 hover:text-gray-400 font-heading font-600 tracking-wider"
               style="transition:color 0.12s">↺ Clear All</button>
             <button type="button" id="manual-save-btn"
-              ${allFilled ? '' : 'disabled'}
+              ${canSave ? '' : 'disabled'}
               class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed"
               style="transition:background 0.15s">Save Teams</button>
-            ${!allFilled ? `<span class="text-xs text-gray-600">${placed} / ${total} placed</span>` : ''}
+            <span class="text-xs ${partialTeams.length ? 'text-amber-400' : 'text-gray-600'}">${
+              partialTeams.length
+                ? `${partialTeams.length} team${partialTeams.length === 1 ? '' : 's'} not full — fill or clear to save`
+                : `${fullTeams.length} full team${fullTeams.length === 1 ? '' : 's'} · ${pool.length} player${pool.length === 1 ? '' : 's'} unassigned`
+            }</span>
           </div>
         </div>`;
 
@@ -867,8 +877,9 @@
       });
 
       document.getElementById('manual-save-btn').addEventListener('click', () => {
-        if (!allFilled) return;
-        rtLastTeams = manualState.teams.map(t => [...t]);
+        if (!canSave) return;
+        // Save only complete teams; unassigned players are intentionally omitted.
+        rtLastTeams = fullTeams.map(t => [...t]);
         saveTeams(rtEventId, rtLastTeams);
       });
     }
