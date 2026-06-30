@@ -19,8 +19,10 @@
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     .field { width: 100%; background: #141414; border: 1px solid #2c2c2c; border-radius: 0.5rem; padding: 0.6rem 0.75rem; color: #f3f4f6; font-size: 0.9rem; }
     .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
-    details > summary { list-style: none; cursor: pointer; }
-    details > summary::-webkit-details-marker { display: none; }
+    .pl { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 0.4rem; }
+    .pl:hover { background: rgba(255,255,255,0.03); }
+    .pl input { accent-color: #f97316; width: 0.95rem; height: 0.95rem; flex-shrink: 0; }
+    .pl.noid { opacity: 0.5; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -37,10 +39,9 @@
 
   <main class="max-w-3xl mx-auto px-4 py-8 w-full flex-1">
     <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">League Alert</h1>
-    <p class="text-gray-500 text-sm mt-2 max-w-xl">Post a Discord message that <span class="text-gray-300">@-mentions every current-season player</span>. Goes to the announcements channel. <span class="text-amber-400">Use sparingly</span> — it pings the whole league.</p>
+    <p class="text-gray-500 text-sm mt-2 max-w-xl">Post a Discord message to the announcements channel and <span class="text-gray-300">@-mention selected players</span>. Choose everyone, or pick specific players. <span class="text-amber-400">Use sparingly.</span></p>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body my-4"></div>
-
     <div id="loading" class="text-center py-16 text-gray-600 text-sm">Loading…</div>
 
     <form id="alert-form" class="hidden mt-6 space-y-5">
@@ -49,20 +50,24 @@
         <select id="season" class="field"></select>
       </div>
 
+      <!-- Recipients -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Recipients</label>
+          <div class="flex items-center gap-3 text-xs font-heading font-600 tracking-wider">
+            <span id="sel-count" class="text-flame"></span>
+            <button type="button" id="sel-all" class="text-gray-400 hover:text-white" style="transition:color .12s">All</button>
+            <button type="button" id="sel-none" class="text-gray-400 hover:text-white" style="transition:color .12s">None</button>
+          </div>
+        </div>
+        <div id="recipients" class="card-shadow bg-card border border-border rounded-xl p-2 grid grid-cols-2 sm:grid-cols-3 gap-x-2 overflow-auto" style="max-height: 18rem"></div>
+        <div id="noid-note" class="hidden text-[11px] text-amber-400 mt-1.5"></div>
+      </div>
+
       <div>
         <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="message">Message</label>
         <textarea id="message" rows="5" class="field" placeholder="e.g. ⚠️ Heads up — this week's course has changed. Check the event page before you play."></textarea>
-        <div class="text-[11px] text-gray-600 mt-1">The @-mentions are added automatically after your message.</div>
-      </div>
-
-      <!-- Who gets tagged -->
-      <div class="card-shadow bg-card border border-border rounded-xl p-4">
-        <div class="text-sm text-gray-300">This will tag <span id="tag-count" class="text-flame font-600">0</span> of <span id="roster-count" class="text-white">0</span> players in <span id="season-name" class="text-white"></span>.</div>
-        <details id="missing-wrap" class="mt-2 hidden">
-          <summary class="text-xs text-amber-400 hover:text-amber-300">⚠ <span id="missing-count">0</span> players have no Discord ID and won't be pinged — show</summary>
-          <div id="missing-list" class="mt-2 flex flex-wrap gap-1.5"></div>
-          <div class="text-[11px] text-gray-600 mt-2">Add their Discord ID on the <a href="players.html" class="text-flame hover:text-flame-dim">Players</a> page so they get tagged.</div>
-        </details>
+        <div class="text-[11px] text-gray-600 mt-1">The @-mentions for the selected players are added automatically after your message.</div>
       </div>
 
       <button type="submit" id="send-btn" class="w-full py-3 rounded-lg bg-flame text-white font-heading font-700 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Send League Alert</button>
@@ -73,9 +78,7 @@
     <div class="max-w-3xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
   </footer>
 
-  <script type="module">
-    import { loadSeasons } from '../js/api.js';
-
+  <script>
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     const state = { seasons: [], discord: {} };
@@ -88,30 +91,53 @@
       el.classList.remove('hidden');
     }
 
+    // Seasons live in two places (static data/seasons.json + KV /api/seasons).
+    // Use ABSOLUTE paths so this works from /admin/ (relative paths would 404).
+    async function fetchSeasons() {
+      const [s, k] = await Promise.allSettled([fetch('/data/seasons.json'), fetch('/api/seasons')]);
+      const parse = r => (r.status === 'fulfilled' && r.value.ok) ? r.value.json() : Promise.resolve([]);
+      const [sj, kj] = await Promise.all([parse(s), parse(k)]);
+      const map = new Map((Array.isArray(sj) ? sj : Object.values(sj)).map(x => [x.id, x]));
+      for (const x of (Array.isArray(kj) ? kj : Object.values(kj))) map.set(x.id, x);
+      return [...map.values()];
+    }
+
     function currentRoster() {
       const s = state.seasons.find(x => x.id === $('season').value);
       return (s && Array.isArray(s.players)) ? s.players : [];
     }
+    function hasId(name) { return !!state.discord[name.toLowerCase()]; }
 
-    function renderPreview() {
-      const roster = currentRoster();
-      const s = state.seasons.find(x => x.id === $('season').value);
-      const tagged = roster.filter(p => state.discord[p.toLowerCase()]);
-      const missing = roster.filter(p => !state.discord[p.toLowerCase()]);
-      $('roster-count').textContent = roster.length;
-      $('tag-count').textContent = tagged.length;
-      $('season-name').textContent = s ? (s.name || s.id) : '';
-      $('missing-count').textContent = missing.length;
-      $('missing-wrap').classList.toggle('hidden', missing.length === 0);
-      $('missing-list').innerHTML = missing.map(n => `<span class="text-[11px] bg-surface border border-border rounded px-2 py-0.5 text-gray-400">${esc(n)}</span>`).join('');
+    function selectedPlayers() {
+      return [...$('recipients').querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
+    }
+
+    function updateCount() {
+      const sel = selectedPlayers().filter(hasId);
+      $('sel-count').textContent = `${sel.length} selected`;
+    }
+
+    function renderRecipients() {
+      const roster = [...currentRoster()].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      const withId = roster.filter(hasId);
+      const noId = roster.filter(n => !hasId(n));
+      $('recipients').innerHTML = roster.map(n => {
+        const ok = hasId(n);
+        return `<label class="pl ${ok ? '' : 'noid'}">
+          <input type="checkbox" value="${esc(n)}" ${ok ? 'checked' : 'disabled'} />
+          <span class="text-sm ${ok ? 'text-gray-200' : 'text-gray-500'} truncate">${esc(n)}</span>
+          ${ok ? '' : '<span class="text-[10px] text-amber-500/70 ml-auto">no ID</span>'}
+        </label>`;
+      }).join('');
+      $('recipients').querySelectorAll('input').forEach(c => c.addEventListener('change', updateCount));
+      $('noid-note').textContent = noId.length ? `${noId.length} player${noId.length === 1 ? '' : 's'} have no Discord ID and can't be tagged — add IDs on the Players page.` : '';
+      $('noid-note').classList.toggle('hidden', noId.length === 0);
+      updateCount();
     }
 
     async function init() {
       try {
-        const [seasons, pRes] = await Promise.all([
-          loadSeasons(),
-          fetch('/admin/api/players'),
-        ]);
+        const [seasons, pRes] = await Promise.all([fetchSeasons(), fetch('/admin/api/players')]);
         if (!pRes.ok) throw new Error(pRes.status === 302 || pRes.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${pRes.status})`);
         state.discord = (await pRes.json()).discord || {};
         state.seasons = [...seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
@@ -119,30 +145,33 @@
         sel.innerHTML = state.seasons.map(s => `<option value="${s.id}">${esc(s.name || s.id)}</option>`).join('');
         const active = state.seasons.find(s => s.status === 'active') || state.seasons[0];
         if (active) sel.value = active.id;
-        sel.addEventListener('change', renderPreview);
+        sel.addEventListener('change', renderRecipients);
         $('loading').classList.add('hidden');
         $('alert-form').classList.remove('hidden');
-        renderPreview();
+        renderRecipients();
       } catch (e) {
         $('loading').textContent = e.message;
         $('loading').className = 'text-center py-16 text-red-400 text-sm';
       }
     }
 
+    $('sel-all').addEventListener('click', () => { $('recipients').querySelectorAll('input:not(:disabled)').forEach(c => c.checked = true); updateCount(); });
+    $('sel-none').addEventListener('click', () => { $('recipients').querySelectorAll('input').forEach(c => c.checked = false); updateCount(); });
+
     $('alert-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       setStatus('');
       const message = $('message').value.trim();
-      const roster = currentRoster();
-      const tagged = roster.filter(p => state.discord[p.toLowerCase()]);
+      const usernames = selectedPlayers().filter(hasId);
       if (!message) return setStatus('Please enter a message.', 'error');
-      if (!confirm(`Send this alert to Discord and @-mention ${tagged.length} player${tagged.length === 1 ? '' : 's'}? This pings the whole league.`)) return;
+      if (!usernames.length) return setStatus('Select at least one player to tag.', 'error');
+      if (!confirm(`Post this alert and @-mention ${usernames.length} player${usernames.length === 1 ? '' : 's'}?`)) return;
 
       const btn = $('send-btn'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Sending…';
       try {
         const res = await fetch('/admin/api/league-alert', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, usernames: roster }),
+          body: JSON.stringify({ message, usernames }),
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error || `Failed (${res.status})`);
