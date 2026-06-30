@@ -165,10 +165,10 @@
 
       const key = name.toLowerCase();
       const handicaps = pData.handicaps || {};
-      const h = handicaps[key];
+      const h = handicaps[key] || {};
       // resolve canonical display name from the roster
       const display = (pData.roster || []).find(n => n.toLowerCase() === key) || name;
-      if (!h) return fail(`Player "${name}" not found.`);
+      const inRoster = (pData.roster || []).some(n => n.toLowerCase() === key);
 
       const rounds = Array.isArray(prData.rounds) ? prData.rounds : [];
       const mashCap = h.mashCap != null ? +h.mashCap : null;
@@ -189,6 +189,13 @@
         rec = { name: display, earnings: 0, ctpEarnings: 0, wins: 0, podiums: 0, events: new Set(), finishes: [] };
       }
       const eventsPlayed = rec.events instanceof Set ? rec.events.size : (rec.events || 0);
+
+      // A profile exists if we have any data for this name. Season-9-only players
+      // have no handicap entry but do have events/finishes — still show them.
+      // Only fail for a truly unknown name (e.g. a typo with nothing behind it).
+      if (!inRoster && mashCap == null && !rounds.length && eventsPlayed === 0) {
+        return fail(`Player "${name}" not found.`);
+      }
 
       const trend = rollingMashCap(rounds);
       const form = recentForm(rounds);
