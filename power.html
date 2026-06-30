@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Power Rankings — MashUp Golf Tour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .text-flame { color: #f97316; }
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
+    tr:hover td { background: rgba(255,255,255,0.025); }
+    .hot { color: #34d399; } .cold { color: #fbbf24; } .steady { color: #9ca3af; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <header class="border-b border-border">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
+        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Power Rankings</span>
+      </div>
+      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+      <div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Power Rankings</h1>
+        <p class="text-gray-500 text-sm mt-2 max-w-xl">Who's <span class="hot">heating up</span> and who's <span class="cold">cooling off</span> — ranked by how each player's <span class="text-gray-300">last 5 rounds</span> compare to their own season average. Left of the line = playing better than usual lately.</p>
+      </div>
+      <select id="season-select" class="bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-lg tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer"></select>
+    </div>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+      <div class="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-display text-2xl tracking-wider text-white">FORM GUIDE <span id="ranked-count" class="text-gray-600 text-lg"></span></h2>
+        <div class="flex items-center gap-4 text-[11px] font-heading font-600 tracking-widest uppercase">
+          <span class="hot">◀ Hot</span><span class="cold">Cold ▶</span>
+        </div>
+      </div>
+      <div class="overflow-auto" style="max-height: calc(100vh - 16rem)">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-center px-3 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">#</th>
+              <th class="text-left  px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase w-2/5">Form</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Last 5</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Avg</th>
+              <th class="text-right px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Δ</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="6" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-5xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour</div>
+  </footer>
+
+  <script type="module">
+    import { recentForm } from './js/stats.js';
+
+    const state = { handicaps: {}, rounds: {}, seasons: [], selected: '' };
+    const hcp = v => v == null || isNaN(+v) ? '—' : (+v > 0 ? `+${(+v).toFixed(1)}` : (+v).toFixed(1));
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+    function showStatus(msg) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'rounded-lg px-4 py-3 text-sm font-body mb-4 bg-red-900/30 border border-red-800/40 text-red-300';
+    }
+
+    function seasonRoster() {
+      const s = state.seasons.find(x => x.id === state.selected);
+      return (s && Array.isArray(s.players)) ? s.players : [];
+    }
+
+    // Diverging heat bar: green pulls left (hot), amber pushes right (cold).
+    function heatBar(delta, maxAbs) {
+      const w = maxAbs > 0 ? Math.min(100, Math.abs(delta) / maxAbs * 100) : 0;
+      const hot = delta < 0;
+      return `<div class="flex items-center w-full" style="height:18px">
+        <div class="flex-1 flex justify-end"><div style="width:${hot ? w : 0}%;height:7px;background:#34d399;border-radius:4px 0 0 4px"></div></div>
+        <div style="width:1px;height:14px;background:#3a3a3a;flex:0 0 auto"></div>
+        <div class="flex-1 flex justify-start"><div style="width:${hot ? 0 : w}%;height:7px;background:#fbbf24;border-radius:0 4px 4px 0"></div></div>
+      </div>`;
+    }
+
+    function render() {
+      const tbody = document.getElementById('tbody');
+      const roster = seasonRoster();
+
+      const rows = roster.map(name => {
+        const key = name.toLowerCase();
+        const h = state.handicaps[key] || {};
+        const mc = h.mashCap != null ? +h.mashCap : null;
+        const rounds = state.rounds[key] || [];
+        const form = recentForm(rounds, 5);
+        return { name, mc, form };
+      });
+
+      // Ranked = has form with >= 3 recent rounds. Sorted hottest (most negative delta) first.
+      const ranked = rows.filter(r => r.form && r.form.count >= 3).sort((a, b) => a.form.delta - b.form.delta);
+      const unranked = rows.filter(r => !(r.form && r.form.count >= 3));
+      const maxAbs = Math.max(0.1, ...ranked.map(r => Math.abs(r.form.delta)));
+
+      document.getElementById('ranked-count').textContent = `(${ranked.length})`;
+
+      if (!ranked.length && !unranked.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-600 text-sm">No players in this season.</td></tr>`;
+        return;
+      }
+
+      const label = { hot: '🔥 Hot', cold: '🧊 Cold', steady: '― Steady' };
+
+      const rankedHtml = ranked.map((r, i) => {
+        const f = r.form;
+        const deltaStr = f.delta === 0 ? '0.0' : (f.delta > 0 ? `+${f.delta.toFixed(1)}` : f.delta.toFixed(1));
+        return `<tr class="border-b border-border/50">
+          <td class="px-3 py-3 text-center font-heading font-700 ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
+          <td class="px-4 py-3">
+            <a href="player.html?name=${encodeURIComponent(r.name)}" class="font-heading font-600 tracking-wider text-white hover:text-flame" style="transition:color .12s">${esc(r.name)}</a>
+            <span class="ml-2 text-[11px] ${f.label}">${label[f.label]}</span>
+          </td>
+          <td class="px-4 py-3">${heatBar(f.delta, maxAbs)}</td>
+          <td class="px-4 py-3 text-right font-mono text-gray-300">${hcp(f.avg)}</td>
+          <td class="px-4 py-3 text-right font-mono text-gray-500">${hcp(f.base)}</td>
+          <td class="px-5 py-3 text-right font-mono font-600 ${f.label}">${deltaStr}</td>
+        </tr>`;
+      }).join('');
+
+      const unrankedHtml = unranked.length ? `
+        <tr><td colspan="6" class="px-5 pt-5 pb-2 text-[10px] font-heading font-600 tracking-widest text-gray-700 uppercase">Not enough recent rounds</td></tr>
+        ${unranked.map(r => `<tr class="border-b border-border/30 opacity-50">
+          <td class="px-3 py-2 text-center text-gray-700">—</td>
+          <td class="px-4 py-2"><a href="player.html?name=${encodeURIComponent(r.name)}" class="font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">${esc(r.name)}</a></td>
+          <td class="px-4 py-2"></td>
+          <td class="px-4 py-2 text-right font-mono text-gray-700">—</td>
+          <td class="px-4 py-2 text-right font-mono text-gray-700">—</td>
+          <td class="px-5 py-2 text-right font-mono text-gray-700">—</td>
+        </tr>`).join('')}` : '';
+
+      tbody.innerHTML = rankedHtml + unrankedHtml;
+    }
+
+    function buildSeasonOptions() {
+      const sel = document.getElementById('season-select');
+      const seasons = [...state.seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
+      sel.innerHTML = seasons.map(s => `<option value="${s.id}">${esc(s.name || s.id)}</option>`).join('');
+      const active = seasons.find(s => s.status === 'active') || seasons[0];
+      state.selected = active ? active.id : '';
+      if (state.selected) sel.value = state.selected;
+      sel.addEventListener('change', e => { state.selected = e.target.value; render(); });
+    }
+
+    async function init() {
+      try {
+        const [pRes, rRes, sRes] = await Promise.all([
+          fetch('/api/players'), fetch('/api/player-rounds'), fetch('/api/seasons'),
+        ]);
+        const pData = await pRes.json();
+        const rData = await rRes.json();
+        const sData = await sRes.json();
+        state.handicaps = pData.handicaps || {};
+        state.rounds = rData.rounds || {};
+        state.seasons = Array.isArray(sData) ? sData : Object.values(sData);
+        if (!state.seasons.length) { showStatus('No seasons found.'); return; }
+        buildSeasonOptions();
+        render();
+      } catch (e) {
+        showStatus('Could not load power rankings: ' + e.message);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

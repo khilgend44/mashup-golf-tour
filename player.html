@@ -172,7 +172,7 @@
       const eventsPlayed = rec.events instanceof Set ? rec.events.size : (rec.events || 0);
 
       const trend = rollingMashCap(rounds);
-      const form = recentForm(rounds, mashCap);
+      const form = recentForm(rounds);
 
       // adjusted vs field (lowest MashCAP among players who have one)
       const allMc = Object.values(handicaps).map(x => x.mashCap).filter(v => v != null).map(Number);
@@ -257,7 +257,7 @@
                   <span class="text-gray-200">${hcp(d.form.avg)}</span></p>
                 <p class="text-xs text-gray-600 mt-1">
                   ${d.form.delta === 0 ? 'right at' : (d.form.delta < 0 ? `${hcp(Math.abs(d.form.delta))} better than` : `${hcp(d.form.delta)} above`)}
-                  their MashCAP
+                  their ${hcp(d.form.base)} average
                 </p>
               </div>` : `<div class="flex-1 flex items-center justify-center text-gray-600 text-sm">Not enough rounds.</div>`}
           </div>

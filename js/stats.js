@@ -41,18 +41,22 @@ export function rollingMashCap(rounds, cap = COMBO_ROUND_CAP) {
   return out;
 }
 
-// Recent form: average of the last `n` differentials vs the player's MashCAP.
-// Negative delta = playing better than their handicap ("hot").
-export function recentForm(rounds, mashCap, n = 5) {
-  if (!Array.isArray(rounds) || !rounds.length || mashCap == null) return null;
-  const recent = [...rounds]
-    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-    .slice(0, n);
-  if (!recent.length) return null;
-  const avg = recent.reduce((a, b) => a + b.differential, 0) / recent.length;
-  const delta = Math.round((avg - mashCap) * 100) / 100;
+// Recent form: the player's last `n` rounds vs their own baseline (the mean of
+// their earlier rounds). Negative delta = playing better than usual lately
+// ("hot"). NB: we compare to the player's *average*, not their MashCAP —
+// MashCAP is a best-40% metric, so almost any stretch looks worse than it,
+// which would make everyone read "cold."
+export function recentForm(rounds, n = 5) {
+  if (!Array.isArray(rounds) || rounds.length < 3) return null;
+  const desc = [...rounds].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const mean = arr => arr.reduce((s, r) => s + r.differential, 0) / arr.length;
+  const recent = desc.slice(0, n);
+  const prior = desc.slice(n);
+  const recentAvg = mean(recent);
+  const base = prior.length >= 3 ? mean(prior) : mean(desc); // baseline = earlier form, or all if too few
+  const delta = Math.round((recentAvg - base) * 100) / 100;
   const label = delta <= -1 ? 'hot' : delta >= 1 ? 'cold' : 'steady';
-  return { count: recent.length, avg: Math.round(avg * 100) / 100, delta, label };
+  return { count: recent.length, avg: Math.round(recentAvg * 100) / 100, base: Math.round(base * 100) / 100, delta, label };
 }
 
 // ── Per-player season/career money + finishes (scoring-engine derived) ────────
