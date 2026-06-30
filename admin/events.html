@@ -692,12 +692,15 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       }
     }
 
-    // Players eligible to win a CTP for an event (participants, else season roster)
+    // Players eligible to win a CTP for an event: the full season roster, plus
+    // anyone who was on a team in this event (subs/guests may not be on the
+    // roster). A CTP can go to any season player — not just event participants
+    // (e.g. finale events where only a few teams are loaded).
     function eventPlayers(ev) {
       const fromTeams = ev.teams?.flat?.() || [];
-      if (fromTeams.length) return [...new Set(fromTeams)].sort((a, b) => a.localeCompare(b));
       const season = state.allSeasons.find(s => s.id === ev.season);
-      return [...(season?.players || [])].sort((a, b) => a.localeCompare(b));
+      const all = new Set([...(season?.players || []), ...fromTeams]);
+      return [...all].sort((a, b) => a.localeCompare(b));
     }
 
     async function completeEvent(eventId, eventName) {
