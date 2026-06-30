@@ -301,7 +301,7 @@
       const pointsLeader = pointsStandings[0];
       const ctpKing      = ctpStandings[0];
 
-      const fmt = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      const fmt = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
       return `
         <!-- Stat callout row -->
@@ -438,7 +438,7 @@
           ? `<span class="font-display text-base tracking-wider text-amber-600">3</span>`
           : `<span class="text-gray-600 font-heading text-xs">${rank}</span>`;
 
-        const fmt = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        const fmt = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         return `
           <tr class="table-row border-b border-border/40">
             <td class="py-2.5 px-4 text-center w-10">${rankCell}</td>

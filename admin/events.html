@@ -761,7 +761,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
 
       const teamSize = parseInt(format?.teamSize) || 1;
       const isTeam   = teamSize > 1;
-      const fmtMoney = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      const fmtMoney = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const medal    = p => p === 1 ? '🥇' : p === 2 ? '🥈' : p === 3 ? '🥉' : '';
       const ordinal  = p => { const s = ['th','st','nd','rd'], v = p % 100; return p + (s[(v - 20) % 10] || s[v] || s[0]); };
       const placeLabel = r => r.tied ? `T${ordinal(r.position)}` : `${medal(r.position)} ${ordinal(r.position)}`.trim();

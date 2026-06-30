@@ -783,7 +783,7 @@
       return streams[playerName.toLowerCase()] || null;
     }
 
-    function fmtPrize(v) { return v.toFixed(2).replace(/\.00$/, ''); }
+    function fmtPrize(v) { return v.toFixed(2); }
 
     // Holes manually corrected for a player (see data/overrides.json). Returns a
     // Set with keys `${hole}` (any round) and `${round}:${hole}` (round-specific).
@@ -2163,8 +2163,8 @@
             <tr class="standings-row border-t border-border">
               <td class="px-3 py-4 text-center font-heading font-700 text-base ${col}">${label}</td>
               <td class="px-4 py-4 leading-relaxed">${names}</td>
-              <td class="px-4 py-4 text-right font-mono font-semibold text-flame">$${(amount * players.length).toLocaleString()}</td>
-              <td class="px-4 py-4 text-right font-mono text-gray-400 hidden sm:table-cell">$${amount.toLocaleString()} each</td>
+              <td class="px-4 py-4 text-right font-mono font-semibold text-flame">$${(amount * players.length).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td class="px-4 py-4 text-right font-mono text-gray-400 hidden sm:table-cell">$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} each</td>
             </tr>`;
         }).join('');
 
