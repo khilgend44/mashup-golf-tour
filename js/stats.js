@@ -131,6 +131,46 @@ export async function buildPlayerStats(completedEvents, formats) {
   return players;
 }
 
+// ── Individual scoring rounds (from raw event scorecards) ─────────────────────
+// Scans each completed event's cached scorecards and emits one record per
+// completed player round: gross/net totals, to-par, and birdie/eagle counts.
+// Powers the Scoring records (lowest round, most birdies, …).
+// NB: assumes each player has their own ball (true for all current formats).
+// Single-ball formats (scramble/alt-shot) would duplicate the team score across
+// partners — exclude those events if/when they exist.
+export async function scanScorecardRounds(events) {
+  const out = [];
+  for (const e of events) {
+    if (e.tournamentId == null) continue;
+    let cards;
+    try { cards = await fetchScorecards(e.tournamentId); } catch { continue; }
+    for (const c of cards) {
+      if (!c || c.status !== 'Completed') continue;
+      const totalGross = Number(c.total_gross);
+      if (!totalGross) continue; // incomplete / blank card
+      const totalNet = Number(c.total_net) || null;
+      let birdies = 0, eagles = 0;
+      for (let h = 1; h <= 18; h++) {
+        const g = Number(c[`hole${h}_gross`]);
+        const par = Number(c[`h${h}_Par`]);
+        if (!g || !par) continue;
+        const d = g - par;
+        if (d <= -2) eagles++;
+        else if (d === -1) birdies++;
+      }
+      out.push({
+        player: c.player_name,
+        event: e.name, week: e.week, season: e.season, eventId: e.id,
+        totalGross,
+        totalNet,
+        toParGross: c.toPar_gross != null ? Number(c.toPar_gross) : null,
+        birdies, eagles,
+      });
+    }
+  }
+  return out;
+}
+
 // Convenience: pull a single player's record (case-insensitive) from a stats map.
 export function playerRecord(statsMap, name) {
   const rec = statsMap[String(name).toLowerCase()];
