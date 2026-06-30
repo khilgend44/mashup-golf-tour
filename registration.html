@@ -18,6 +18,7 @@
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     .text-flame { color: #f97316; }
     label.req::after { content: ' *'; color: #f97316; }
+    #data-block.optional label.req::after { content: ''; }  /* returning+changed: fields optional */
     .field { width: 100%; background: #141414; border: 1px solid #2c2c2c; border-radius: 0.5rem; padding: 0.6rem 0.75rem; color: #f3f4f6; font-size: 0.9rem; }
     .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
     select.field { appearance: none; }
@@ -75,6 +76,7 @@
 
       <!-- Data fields (new players, or returning + changed) -->
       <div id="data-block" class="hidden space-y-5">
+        <div id="changed-note" class="hidden text-xs text-flame bg-flame/10 border border-flame/30 rounded-lg px-3 py-2">Returning player — only fill in what's <span class="text-white">changed</span>. Leave the rest blank to keep what we have on file.</div>
         <div>
           <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="launchMonitor">Launch Monitor</label>
           <input id="launchMonitor" name="launchMonitor" class="field" autocomplete="off" placeholder="e.g. GSPro · Uneekor · Trackman · SkyTrak" />
@@ -146,9 +148,13 @@
     function applyVisibility() {
       const hasUser = $('username').value.trim().length > 0 && state.checked && !state.alreadyRegistered;
       show($('returning-block'), hasUser && state.returning);
-      // Data fields needed for new players, or returning players who chose "changed".
+      // Data fields appear for new players, or returning players who chose "changed".
       const needData = hasUser && (!state.returning || state.changed === true);
       show($('data-block'), needData);
+      // Returning + changed → fields are OPTIONAL (fill only what changed).
+      const optionalMode = hasUser && state.returning && state.changed === true;
+      $('data-block').classList.toggle('optional', optionalMode);
+      show($('changed-note'), optionalMode);
       // Agreements + submit appear once we know who they are (and not already registered),
       // and—for returning players—once they've answered the "anything changed?" question.
       const ready = hasUser && (!state.returning || state.changed !== null);
@@ -215,20 +221,25 @@
       if (!($('ag-livestream').checked && $('ag-openapi').checked && $('ag-handicap').checked))
         return setStatus('Please accept all three agreements.', 'error');
 
-      const needData = !state.returning || state.changed === true;
+      const isNew = !state.returning;
+      const collectData = isNew || state.changed === true;   // new players, or returning + changed
       const payload = {
         season: SEASON, username,
         returning: state.returning, changed: state.changed === true,
         agreements: { livestream: true, openapi: true, handicap: true },
       };
-      if (needData) {
+      if (collectData) {
         payload.launchMonitor = $('launchMonitor').value.trim();
         payload.region        = $('region').value.trim();
         payload.discordName   = $('discordName').value.trim();
         payload.email         = $('email').value.trim();
-        if (!payload.launchMonitor) return setStatus('Please enter your launch monitor.', 'error');
-        if (!payload.region)        return setStatus('Please select your region.', 'error');
-        if (!payload.email || !/.+@.+\..+/.test(payload.email)) return setStatus('Please enter a valid email.', 'error');
+        if (isNew) {
+          if (!payload.launchMonitor) return setStatus('Please enter your launch monitor.', 'error');
+          if (!payload.region)        return setStatus('Please select your region.', 'error');
+          if (!payload.email || !/.+@.+\..+/.test(payload.email)) return setStatus('Please enter a valid email.', 'error');
+        } else if (payload.email && !/.+@.+\..+/.test(payload.email)) {
+          return setStatus('Enter a valid email, or leave it blank to keep your current one.', 'error');
+        }
       }
 
       const btn = $('submit-btn'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Submitting…';

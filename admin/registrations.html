@@ -118,11 +118,16 @@
             : '<span class="badge bg-red-500/15 text-red-400">Declined</span>';
         const returning = r.returning
           ? `<span class="badge bg-gray-700/40 text-gray-300">Returning${r.changed ? ' · updated' : ' · no changes'}</span>` : '';
-        // For a returning player with no changes, show their stored meta as the effective info.
-        const lm  = r.launchMonitor || (r.returning && !r.changed ? meta.launchMonitor : '') || '—';
-        const reg = r.region        || (r.returning && !r.changed ? meta.region : '')        || '—';
-        const dsc = r.discordName   || (r.returning && !r.changed ? meta.discordName : '')   || '';
-        const fromMeta = (r.returning && !r.changed) ? '<span class="text-[10px] text-gray-600 ml-1">(on file)</span>' : '';
+        // For returning players, a blank submitted field means "unchanged" — show
+        // the value on file so the effective info is visible (and flag it).
+        const onFileTag = '<span class="text-[10px] text-gray-600 ml-1">(on file)</span>';
+        const eff = (rv, mv) => (rv && String(rv).trim())
+          ? { v: rv, tag: '' }
+          : (r.returning && mv ? { v: mv, tag: onFileTag } : { v: '', tag: '' });
+        const lmE = eff(r.launchMonitor, meta.launchMonitor);
+        const regE = eff(r.region, meta.region);
+        const dscE = eff(r.discordName, meta.discordName);
+        const emailE = eff(r.email, meta.email);
 
         const actions = r.status === 'pending'
           ? `<button data-act="approve" data-id="${r.id}" class="px-4 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-heading font-600 tracking-wider">Approve</button>
@@ -142,10 +147,10 @@
           </div>
 
           <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 mt-4 text-sm">
-            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Launch Monitor</span><span class="text-gray-200">${esc(lm)}</span>${fromMeta}</div>
-            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Region</span><span class="text-gray-200">${esc(reg)}</span>${fromMeta}</div>
-            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Discord</span><span class="text-gray-200">${esc(dsc || '—')}</span></div>
-            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Email</span><span class="text-gray-300">${esc(r.email || '—')}</span></div>
+            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Launch Monitor</span><span class="text-gray-200">${esc(lmE.v || '—')}</span>${lmE.tag}</div>
+            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Region</span><span class="text-gray-200">${esc(regE.v || '—')}</span>${regE.tag}</div>
+            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Discord</span><span class="text-gray-200">${esc(dscE.v || '—')}</span>${dscE.tag}</div>
+            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Email</span><span class="text-gray-300">${esc(emailE.v || '—')}</span>${emailE.tag}</div>
           </div>
 
           <div class="flex items-center gap-3 mt-3 text-[11px] text-gray-600">

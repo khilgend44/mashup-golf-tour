@@ -55,12 +55,16 @@ export async function onRequestPost(context) {
   const email         = String(body.email || '').trim();
   const discordName   = String(body.discordName || '').trim();
 
-  // New players (or returning players whose info changed) must supply the data.
-  // Returning players with no changes can omit it — the admin uses stored meta.
-  if (!returning || changed) {
+  // New players must supply all fields. Returning players who changed something
+  // fill in ONLY what's new — every field is optional and a blank keeps what's
+  // on file (the admin merges against players:meta on approval). No stored data
+  // is ever sent to the browser, so nothing is exposed by username lookup.
+  if (!returning) {
     if (!launchMonitor) return json({ error: 'Launch monitor is required.' }, 400);
     if (!region)        return json({ error: 'Region is required.' }, 400);
     if (!email || !/.+@.+\..+/.test(email)) return json({ error: 'A valid email is required.' }, 400);
+  } else if (email && !/.+@.+\..+/.test(email)) {
+    return json({ error: 'Please enter a valid email, or leave it blank to keep your current one.' }, 400);
   }
 
   const key = `registrations:${season}`;
