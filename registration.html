@@ -79,7 +79,11 @@
         <div id="changed-note" class="hidden text-xs text-flame bg-flame/10 border border-flame/30 rounded-lg px-3 py-2">Returning player — only fill in what's <span class="text-white">changed</span>. Leave the rest blank to keep what we have on file.</div>
         <div>
           <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="launchMonitor">Launch Monitor</label>
-          <input id="launchMonitor" name="launchMonitor" class="field" autocomplete="off" placeholder="e.g. GSPro · Uneekor · Trackman · SkyTrak" />
+          <select id="launchMonitor" class="field">
+            <option value="">— select your launch monitor —</option>
+            <option value="__other__">Other (not listed)</option>
+          </select>
+          <input id="launchMonitorOther" class="field mt-2 hidden" autocomplete="off" placeholder="enter your launch monitor" />
         </div>
         <div>
           <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="region">Geographic Location</label>
@@ -196,6 +200,29 @@
       applyVisibility();
     }
 
+    // Launch monitor: dropdown from data/launch-monitors.json + an "Other" box.
+    function getLaunchMonitor() {
+      const sel = $('launchMonitor').value;
+      return sel === '__other__' ? $('launchMonitorOther').value.trim() : sel;
+    }
+    async function loadLaunchMonitors() {
+      try {
+        const res = await fetch('data/launch-monitors.json');
+        if (!res.ok) return;
+        const list = await res.json();
+        const sel = $('launchMonitor');
+        const otherOpt = sel.querySelector('option[value="__other__"]');
+        (Array.isArray(list) ? list : []).forEach(lm => {
+          const o = document.createElement('option');
+          o.value = lm; o.textContent = lm;
+          sel.insertBefore(o, otherOpt);
+        });
+      } catch { /* keep just the Other option */ }
+    }
+    $('launchMonitor').addEventListener('change', () => {
+      show($('launchMonitorOther'), $('launchMonitor').value === '__other__');
+    });
+
     $('lookup-btn').addEventListener('click', checkUsername);
     $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); checkUsername(); } });
     $('username').addEventListener('blur', () => { if ($('username').value.trim()) checkUsername(); }); // fallback
@@ -229,7 +256,7 @@
         agreements: { livestream: true, openapi: true, handicap: true },
       };
       if (collectData) {
-        payload.launchMonitor = $('launchMonitor').value.trim();
+        payload.launchMonitor = getLaunchMonitor();
         payload.region        = $('region').value.trim();
         payload.discordName   = $('discordName').value.trim();
         payload.email         = $('email').value.trim();
@@ -259,6 +286,7 @@
       }
     });
 
+    loadLaunchMonitors();
     applyVisibility();
   </script>
 </body>
