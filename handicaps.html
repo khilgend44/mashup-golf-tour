@@ -180,7 +180,7 @@
           : '';
         return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}">
           <td class="px-4 py-3 text-center font-body text-sm text-flame font-600">${hasMc ? hcpDisplay(r.mc) : '<span class="text-gray-600">—</span>'}</td>
-          <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${r.name}</td>
+          <td class="px-4 py-3 font-heading font-600 tracking-wider text-sm"><a href="player.html?name=${encodeURIComponent(r.name)}" class="text-white hover:text-flame" style="transition:color .12s">${r.name}</a></td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : '<span class="text-gray-600">—</span>'}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.rounds != null ? r.rounds : '—'}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.counting != null ? r.counting : '—'}</td>

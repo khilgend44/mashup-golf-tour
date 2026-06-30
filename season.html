@@ -142,6 +142,7 @@
   <script type="module">
     import { loadSeasons, loadEvents, loadFormats, fetchScorecards } from './js/api.js';
     import { applyFormat, applyPayouts, resolveSidePots } from './js/scoring.js';
+    import { buildPlayerStats } from './js/stats.js';
 
     const params = new URLSearchParams(window.location.search);
 
@@ -255,65 +256,11 @@
     // CTP winnings (both eras) come from e.ctp = [{ hole, player, distance, amount }].
     // Note: side-pot money for admin events is not yet aggregated (no recorded winners).
     async function buildStandings(completedEvents, formats) {
-      const players = {};
-      const ensure = name => {
-        const key = name.toLowerCase();
-        if (!players[key]) players[key] = { name, earnings: 0, ctpEarnings: 0, wins: 0, events: new Set() };
-        return players[key];
-      };
-
-      for (const e of completedEvents) {
-        const hasNames = (e.payouts || []).some(p => p.player);
-
-        if (hasNames) {
-          for (const p of e.payouts) {
-            if (!p.player) continue;
-            const rec = ensure(p.player);
-            rec.earnings += p.amount || 0;
-            rec.events.add(e.id);
-            if (p.place === 1) rec.wins++;
-          }
-        } else {
-          // Resolve finishers + prize money from cached scorecards
-          const fmt = formats[e.format];
-          if (fmt && e.tournamentId != null) {
-            try {
-              const scorecards = await fetchScorecards(e.tournamentId);
-              const results = applyFormat(scorecards, fmt, e);
-              applyPayouts(results, e.payouts);   // no-op when payouts empty (e.g. Nassau prizes set in-engine)
-              const teamSize = parseInt(fmt.teamSize) || 1;
-              for (const r of results) {
-                if (r.prize == null) continue;
-                const members = r.isTeam ? r.displayMembers : [r.player_name];
-                const share   = r.isTeam ? r.prize / teamSize : r.prize;
-                for (const m of members) {
-                  const rec = ensure(m.replace(/\s*\(sub\)$/, ''));
-                  rec.earnings += share;
-                  rec.events.add(e.id);
-                  if (r.position === 1) rec.wins++;
-                }
-              }
-              // Side-pot money (best individual net not on a winning team, etc.)
-              for (const sp of resolveSidePots(results, e, fmt)) {
-                if (!sp.player) continue;
-                const rec = ensure(sp.player.replace(/\s*\(sub\)$/, ''));
-                rec.earnings += sp.amount || 0;
-                rec.events.add(e.id);
-              }
-            } catch { /* skip event if scoring fails */ }
-          }
-        }
-
-        // CTP winnings (resolved winners stored on the event)
-        for (const c of (e.ctp || [])) {
-          if (!c.player) continue;
-          const rec = ensure(c.player);
-          rec.ctpEarnings += c.amount || 0;
-          rec.events.add(e.id);
-        }
-      }
-
-      return Object.values(players)
+      // Per-player money/wins now live in the shared engine (js/stats.js), which
+      // also powers the player profiles. Here we just shape it into the sorted
+      // money-list rows this table renders.
+      const statsMap = await buildPlayerStats(completedEvents, formats);
+      return Object.values(statsMap)
         .map(p => ({ ...p, total: p.earnings + p.ctpEarnings, events: p.events.size }))
         .sort((a, b) => b.total - a.total);
     }
@@ -338,7 +285,7 @@
               ${standings.map((p, i) => `
                 <tr class="standings-row border-t border-border">
                   <td class="px-3 py-3 text-center font-heading font-700 text-sm ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
-                  <td class="px-4 py-3 font-medium text-white">${p.name}</td>
+                  <td class="px-4 py-3 font-medium"><a href="player.html?name=${encodeURIComponent(p.name)}" class="text-white hover:text-flame" style="transition:color .12s">${p.name}</a></td>
                   <td class="px-4 py-3 text-center text-gray-400">${p.wins > 0 ? p.wins : '—'}</td>
                   <td class="px-4 py-3 text-right text-gray-300 font-mono text-sm hidden sm:table-cell">$${money(p.earnings)}</td>
                   <td class="px-4 py-3 text-right text-gray-400 font-mono text-sm hidden sm:table-cell">${p.ctpEarnings > 0 ? '$' + money(p.ctpEarnings) : '—'}</td>

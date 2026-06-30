@@ -22,9 +22,31 @@ const MIME = {
   '.woff': 'font/woff',
 };
 
+// Proxy the read-only public API to production so dynamic pages (leaderboards,
+// handicaps, player profiles…) can be previewed locally with real data.
+// Static files are still served from disk; only /api/* is forwarded.
+const API_ORIGIN = process.env.API_ORIGIN || 'https://mashup-golf-tour.pages.dev';
+
 const server = createServer(async (req, res) => {
   let urlPath = req.url.split('?')[0];
   if (urlPath === '/') urlPath = '/index.html';
+
+  if (urlPath.startsWith('/api/')) {
+    try {
+      const upstream = await fetch(API_ORIGIN + req.url, { headers: { 'Accept': 'application/json' } });
+      const body = Buffer.from(await upstream.arrayBuffer());
+      res.writeHead(upstream.status, {
+        'Content-Type': upstream.headers.get('content-type') || 'application/json',
+        'Cache-Control': 'no-store',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end(body);
+    } catch (e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'proxy failed: ' + e.message }));
+    }
+    return;
+  }
 
   const filePath = join(__dirname, urlPath);
   const ext = extname(filePath).toLowerCase();
