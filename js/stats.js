@@ -77,6 +77,21 @@ export async function buildPlayerStats(completedEvents, formats) {
 
   for (const e of completedEvents) {
     const meta = { eventId: e.id, tournamentId: e.tournamentId, name: e.name, format: e.format, week: e.week, season: e.season, date: e.date };
+
+    // Participation = anyone with a completed scorecard actually played this
+    // event. Named-payout events (e.g. Season 9) only list money winners, so
+    // counting "events played" from payouts alone undercounts everyone who
+    // played without placing. Load scorecards once and reuse them below.
+    let scorecards = null;
+    if (e.tournamentId != null) {
+      try { scorecards = await fetchScorecards(e.tournamentId); } catch { /* none cached */ }
+    }
+    if (scorecards) {
+      for (const c of scorecards) {
+        if (c && c.status === 'Completed' && c.player_name) ensure(c.player_name).events.add(e.id);
+      }
+    }
+
     const hasNames = (e.payouts || []).some(p => p.player);
 
     if (hasNames) {
@@ -91,9 +106,8 @@ export async function buildPlayerStats(completedEvents, formats) {
       }
     } else {
       const fmt = formats[e.format];
-      if (fmt && e.tournamentId != null) {
+      if (fmt && scorecards) {
         try {
-          const scorecards = await fetchScorecards(e.tournamentId);
           const results = applyFormat(scorecards, fmt, e);
           applyPayouts(results, e.payouts);
           const teamSize = parseInt(fmt.teamSize) || 1;
