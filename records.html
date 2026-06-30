@@ -128,7 +128,6 @@
         recordCard('All-Time Money', 'Career earnings incl. CTP', topN(players, p => p.earnings + p.ctpEarnings, 4).map(p => ({ name: p.name, value: p.earnings + p.ctpEarnings, detail: `${p.events.size} events` })), money),
         recordCard('Most Wins', 'First-place finishes', topN(players, p => p.wins, 4).filter(p => p.wins > 0).map(p => ({ name: p.name, value: p.wins })), v => v),
         recordCard('Most Top-3s', 'Podium finishes', topN(players, p => p.podiums, 4).filter(p => p.podiums > 0).map(p => ({ name: p.name, value: p.podiums })), v => v),
-        recordCard('Iron Man', 'Most events played', topN(players, p => p.events.size, 4).map(p => ({ name: p.name, value: p.events.size })), v => v),
       ];
 
       // ── Scoring (from raw scorecards) ──────────────────────────────────
@@ -136,19 +135,11 @@
       for (const r of scoring) careerBirdies[r.player] = (careerBirdies[r.player] || 0) + r.birdies;
       const careerBirdieArr = Object.entries(careerBirdies).map(([name, value]) => ({ name, value }));
 
-      // Lowest single differential ever (best handicap round)
-      const allDiffs = [];
-      for (const [name, rounds] of Object.entries(roundsMap)) {
-        for (const rd of rounds) if (typeof rd.differential === 'number') allDiffs.push({ name, value: rd.differential, detail: rd.date });
-      }
-
-      const evLabel = r => `${r.event || ''}`.replace(/—.*/, '').trim() || r.event;
       const scoringCards = [
         recordCard('Lowest Net Round', 'Single 18-hole net total', topN(scoring, r => r.totalNet, 4, 'asc').map(r => ({ name: r.player, value: r.totalNet, detail: r.event })), v => v),
         recordCard('Lowest Gross Round', 'Single 18-hole gross total', topN(scoring, r => r.totalGross, 4, 'asc').map(r => ({ name: r.player, value: r.totalGross, detail: r.event })), v => v),
         recordCard('Most Birdies (Round)', 'Birdies in one round', topN(scoring, r => r.birdies, 4).filter(r => r.birdies > 0).map(r => ({ name: r.player, value: r.birdies, detail: r.event })), v => v),
         recordCard('Most Birdies (Career)', 'Total across all events', topN(careerBirdieArr, x => x.value, 4).filter(x => x.value > 0), v => v),
-        recordCard('Lowest Differential', 'Best handicap round ever', topN(allDiffs, x => x.value, 4, 'asc'), hcp),
       ];
 
       // ── Handicap ───────────────────────────────────────────────────────
