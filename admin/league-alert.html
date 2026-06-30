@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>League Alert — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .field { width: 100%; background: #141414; border: 1px solid #2c2c2c; border-radius: 0.5rem; padding: 0.6rem 0.75rem; color: #f3f4f6; font-size: 0.9rem; }
+    .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-3xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Site</a>
+      <span class="text-border">/</span>
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Admin</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">League Alert</span>
+    </div>
+  </nav>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 w-full flex-1">
+    <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">League Alert</h1>
+    <p class="text-gray-500 text-sm mt-2 max-w-xl">Post a Discord message that <span class="text-gray-300">@-mentions every current-season player</span>. Goes to the announcements channel. <span class="text-amber-400">Use sparingly</span> — it pings the whole league.</p>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body my-4"></div>
+
+    <div id="loading" class="text-center py-16 text-gray-600 text-sm">Loading…</div>
+
+    <form id="alert-form" class="hidden mt-6 space-y-5">
+      <div>
+        <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="season">Season</label>
+        <select id="season" class="field"></select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="message">Message</label>
+        <textarea id="message" rows="5" class="field" placeholder="e.g. ⚠️ Heads up — this week's course has changed. Check the event page before you play."></textarea>
+        <div class="text-[11px] text-gray-600 mt-1">The @-mentions are added automatically after your message.</div>
+      </div>
+
+      <!-- Who gets tagged -->
+      <div class="card-shadow bg-card border border-border rounded-xl p-4">
+        <div class="text-sm text-gray-300">This will tag <span id="tag-count" class="text-flame font-600">0</span> of <span id="roster-count" class="text-white">0</span> players in <span id="season-name" class="text-white"></span>.</div>
+        <details id="missing-wrap" class="mt-2 hidden">
+          <summary class="text-xs text-amber-400 hover:text-amber-300">⚠ <span id="missing-count">0</span> players have no Discord ID and won't be pinged — show</summary>
+          <div id="missing-list" class="mt-2 flex flex-wrap gap-1.5"></div>
+          <div class="text-[11px] text-gray-600 mt-2">Add their Discord ID on the <a href="players.html" class="text-flame hover:text-flame-dim">Players</a> page so they get tagged.</div>
+        </details>
+      </div>
+
+      <button type="submit" id="send-btn" class="w-full py-3 rounded-lg bg-flame text-white font-heading font-700 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Send League Alert</button>
+    </form>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-3xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script type="module">
+    import { loadSeasons } from '../js/api.js';
+
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const state = { seasons: [], discord: {} };
+
+    function setStatus(msg, kind) {
+      const el = $('status');
+      if (!msg) { el.classList.add('hidden'); return; }
+      el.textContent = msg;
+      el.className = `rounded-lg px-4 py-3 text-sm font-body my-4 ${kind === 'error' ? 'bg-red-900/30 border border-red-800/40 text-red-300' : 'bg-emerald-900/30 border border-emerald-800/40 text-emerald-300'}`;
+      el.classList.remove('hidden');
+    }
+
+    function currentRoster() {
+      const s = state.seasons.find(x => x.id === $('season').value);
+      return (s && Array.isArray(s.players)) ? s.players : [];
+    }
+
+    function renderPreview() {
+      const roster = currentRoster();
+      const s = state.seasons.find(x => x.id === $('season').value);
+      const tagged = roster.filter(p => state.discord[p.toLowerCase()]);
+      const missing = roster.filter(p => !state.discord[p.toLowerCase()]);
+      $('roster-count').textContent = roster.length;
+      $('tag-count').textContent = tagged.length;
+      $('season-name').textContent = s ? (s.name || s.id) : '';
+      $('missing-count').textContent = missing.length;
+      $('missing-wrap').classList.toggle('hidden', missing.length === 0);
+      $('missing-list').innerHTML = missing.map(n => `<span class="text-[11px] bg-surface border border-border rounded px-2 py-0.5 text-gray-400">${esc(n)}</span>`).join('');
+    }
+
+    async function init() {
+      try {
+        const [seasons, pRes] = await Promise.all([
+          loadSeasons(),
+          fetch('/admin/api/players'),
+        ]);
+        if (!pRes.ok) throw new Error(pRes.status === 302 || pRes.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${pRes.status})`);
+        state.discord = (await pRes.json()).discord || {};
+        state.seasons = [...seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
+        const sel = $('season');
+        sel.innerHTML = state.seasons.map(s => `<option value="${s.id}">${esc(s.name || s.id)}</option>`).join('');
+        const active = state.seasons.find(s => s.status === 'active') || state.seasons[0];
+        if (active) sel.value = active.id;
+        sel.addEventListener('change', renderPreview);
+        $('loading').classList.add('hidden');
+        $('alert-form').classList.remove('hidden');
+        renderPreview();
+      } catch (e) {
+        $('loading').textContent = e.message;
+        $('loading').className = 'text-center py-16 text-red-400 text-sm';
+      }
+    }
+
+    $('alert-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('');
+      const message = $('message').value.trim();
+      const roster = currentRoster();
+      const tagged = roster.filter(p => state.discord[p.toLowerCase()]);
+      if (!message) return setStatus('Please enter a message.', 'error');
+      if (!confirm(`Send this alert to Discord and @-mention ${tagged.length} player${tagged.length === 1 ? '' : 's'}? This pings the whole league.`)) return;
+
+      const btn = $('send-btn'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Sending…';
+      try {
+        const res = await fetch('/admin/api/league-alert', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, usernames: roster }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || `Failed (${res.status})`);
+        setStatus(`Sent ✓ — tagged ${d.tagged} player${d.tagged === 1 ? '' : 's'}${d.posts > 1 ? ` across ${d.posts} messages` : ''}.`, 'success');
+        $('message').value = '';
+      } catch (err) {
+        setStatus(err.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
