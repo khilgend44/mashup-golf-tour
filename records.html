@@ -54,12 +54,11 @@
 
   <script type="module">
     import { loadSeasons, loadEvents, loadFormats } from './js/api.js';
-    import { buildPlayerStats, playerRecord, scanScorecardRounds, mashCapFromRounds } from './js/stats.js';
+    import { buildPlayerStats, scanScorecardRounds } from './js/stats.js';
 
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     const enc = s => encodeURIComponent(s);
     const money = n => '$' + (+n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const hcp = v => v == null || isNaN(+v) ? '—' : (+v > 0 ? `+${(+v).toFixed(1)}` : (+v).toFixed(1));
     const plink = name => `<a href="player.html?name=${enc(name)}" class="rc-link font-heading font-600 tracking-wider">${esc(name)}</a>`;
 
     // ── A single record card: a highlighted leader + up to 3 runners-up ──────
@@ -103,11 +102,10 @@
     }
 
     async function init() {
-      let pData, rData, seasons, events, formats;
+      let pData, seasons, events, formats;
       try {
-        [pData, rData, seasons, events, formats] = await Promise.all([
+        [pData, seasons, events, formats] = await Promise.all([
           fetch('/api/players').then(r => r.json()),
-          fetch('/api/player-rounds').then(r => r.json()),
           loadSeasons(), loadEvents(), loadFormats(),
         ]);
       } catch (e) {
@@ -115,8 +113,6 @@
         return;
       }
 
-      const handicaps = pData.handicaps || {};
-      const roundsMap = rData.rounds || {};
       const completed = events.filter(e => e.status === 'completed');
 
       const statsMap = await buildPlayerStats(completed, formats);
@@ -140,29 +136,6 @@
         recordCard('Lowest Gross Round', 'Single 18-hole gross total', topN(scoring, r => r.totalGross, 4, 'asc').map(r => ({ name: r.player, value: r.totalGross, detail: r.event })), v => v),
         recordCard('Most Birdies (Round)', 'Birdies in one round', topN(scoring, r => r.birdies, 4).filter(r => r.birdies > 0).map(r => ({ name: r.player, value: r.birdies, detail: r.event })), v => v),
         recordCard('Most Birdies (Career)', 'Total across all events', topN(careerBirdieArr, x => x.value, 4).filter(x => x.value > 0), v => v),
-      ];
-
-      // ── Handicap ───────────────────────────────────────────────────────
-      const mcArr = Object.entries(handicaps)
-        .filter(([, h]) => h.mashCap != null)
-        .map(([name, h]) => ({ name: rosterName(name, pData), value: +h.mashCap }));
-
-      // Most improved: first-half vs second-half MashCAP (needs enough rounds)
-      const improved = [];
-      for (const [name, rounds] of Object.entries(roundsMap)) {
-        if (!Array.isArray(rounds) || rounds.length < 10) continue;
-        const asc = [...rounds].sort((a, b) => a.date < b.date ? -1 : 1);
-        const mid = Math.floor(asc.length / 2);
-        const first = mashCapFromRounds(asc.slice(0, mid));
-        const last = mashCapFromRounds(asc.slice(mid));
-        if (!first || !last) continue;
-        const drop = Math.round((first.cap - last.cap) * 100) / 100; // positive = improved
-        improved.push({ name: rosterName(name, pData), value: drop, detail: `${hcp(first.cap)} → ${hcp(last.cap)}` });
-      }
-
-      const handicapCards = [
-        recordCard('Lowest MashCAP', 'Best current handicap', topN(mcArr, x => x.value, 4, 'asc'), hcp),
-        recordCard('Most Improved', 'Biggest handicap drop, first half → second half', topN(improved, x => x.value, 4).filter(x => x.value > 0).map(x => ({ ...x, value: x.value })), v => `−${(+v).toFixed(1)}`),
       ];
 
       // ── Closest to Pin ─────────────────────────────────────────────────
@@ -211,7 +184,6 @@
       app.innerHTML = `
         <section>${sectionHeader('Money &amp; Results')}${grid(moneyCards)}</section>
         <section>${sectionHeader('Scoring')}${grid(scoringCards)}</section>
-        <section>${sectionHeader('Handicap')}${grid(handicapCards)}</section>
         <section>${sectionHeader('Closest to Pin')}${grid(ctpCards)}</section>
 
         <section class="hof-glow rounded-2xl pt-6">
@@ -251,12 +223,6 @@
           </div>
         </section>
       `;
-    }
-
-    // Resolve a roster's display-case name from a lowercase key.
-    function rosterName(lcKey, pData) {
-      const hit = (pData.roster || []).find(n => n.toLowerCase() === lcKey);
-      return hit || lcKey;
     }
 
     init();
