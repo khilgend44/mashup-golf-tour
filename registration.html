@@ -57,7 +57,10 @@
       <!-- Username -->
       <div>
         <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="username">GSPro / SGT Username</label>
-        <input id="username" name="username" class="field" autocomplete="off" placeholder="your SGT username" />
+        <div class="flex gap-2 items-stretch">
+          <input id="username" name="username" class="field flex-1" autocomplete="off" placeholder="your SGT username" />
+          <button type="button" id="lookup-btn" class="shrink-0 px-6 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-50" style="transition:background .15s">Continue</button>
+        </div>
         <div id="username-note" class="text-xs mt-1.5 hidden"></div>
       </div>
 
@@ -160,6 +163,8 @@
       show($('username-note'), false);
       applyVisibility();
       if (!username) return;
+      const btn = $('lookup-btn'), origLabel = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Checking…';
       try {
         const res = await fetch(`/api/registration-check?username=${encodeURIComponent(username)}&season=${SEASON}`);
         const d = await res.json();
@@ -181,10 +186,13 @@
           show(note, true);
         }
       } catch { state.checked = true; /* fall through as new player */ }
+      finally { btn.disabled = false; btn.textContent = origLabel; }
       applyVisibility();
     }
 
-    $('username').addEventListener('blur', checkUsername);
+    $('lookup-btn').addEventListener('click', checkUsername);
+    $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); checkUsername(); } });
+    $('username').addEventListener('blur', () => { if ($('username').value.trim()) checkUsername(); }); // fallback
     $('username').addEventListener('input', () => { state.checked = false; applyVisibility(); });
 
     document.querySelectorAll('.changed-btn').forEach(btn => {
