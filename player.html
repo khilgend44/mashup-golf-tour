@@ -77,41 +77,60 @@
       return `<span class="tour ${cls}">${esc(t || '—')}</span>`;
     }
 
+    // Nice round axis tick values across [lo, hi].
+    function niceTicks(lo, hi, target = 4) {
+      const span = (hi - lo) || 1;
+      const raw = span / target;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+      const n = raw / mag;
+      const step = (n >= 5 ? 5 : n >= 2 ? 2 : n >= 1 ? 1 : 0.5) * mag;
+      const ticks = [];
+      for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(Math.round(v * 100) / 100);
+      return ticks;
+    }
+
     // ── MashCAP trend SVG line chart (lower = better) ────────────────────────
     function trendChart(points) {
       if (!points || points.length < 2) {
         return `<div class="text-center text-gray-600 text-sm py-10">Not enough rounds yet to chart a trend.</div>`;
       }
-      const W = 640, H = 200, padX = 12, padT = 18, padB = 22;
+      const W = 640, H = 210, axisW = 38, padT = 12, padB = 14, padR = 10;
+      const plotT = padT, plotB = H - padB, plotL = axisW, plotR = W - padR;
       const caps = points.map(p => p.cap);
       let min = Math.min(...caps), max = Math.max(...caps);
       if (min === max) { min -= 1; max += 1; }
       const pad = (max - min) * 0.15; min -= pad; max += pad;
-      const x = i => padX + (i / (points.length - 1)) * (W - padX * 2);
-      const y = c => padT + (1 - (c - min) / (max - min)) * (H - padT - padB);
+      const x = i => plotL + (i / (points.length - 1)) * (plotR - plotL);
+      const y = c => plotT + (1 - (c - min) / (max - min)) * (plotB - plotT);
       const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.cap).toFixed(1)}`).join(' ');
-      const area = `${line} L${x(points.length - 1).toFixed(1)},${(H - padB).toFixed(1)} L${x(0).toFixed(1)},${(H - padB).toFixed(1)} Z`;
+      const area = `${line} L${x(points.length - 1).toFixed(1)},${plotB.toFixed(1)} L${x(0).toFixed(1)},${plotB.toFixed(1)} Z`;
       const last = points[points.length - 1];
       const first = points[0];
       const better = last.cap < first.cap;
+      // Y-axis: a gridline + value label per nice tick (lower value = better).
+      const gridHtml = niceTicks(min, max, 4).map(t => {
+        const yy = y(t).toFixed(1);
+        return `<line x1="${plotL}" y1="${yy}" x2="${plotR}" y2="${yy}" stroke="#242424" stroke-width="1"/>
+          <text x="${plotL - 6}" y="${yy}" text-anchor="end" dominant-baseline="middle" fill="#6b7280" font-family="Inter, sans-serif" font-size="11">${hcp(t)}</text>`;
+      }).join('');
       return `
-        <svg viewBox="0 0 ${W} ${H}" class="w-full" style="height:auto" preserveAspectRatio="none">
+        <svg viewBox="0 0 ${W} ${H}" class="w-full" style="height:auto;display:block">
           <defs>
             <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#f97316" stop-opacity="0.28"/>
               <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
             </linearGradient>
           </defs>
-          <line x1="${padX}" y1="${y(max - pad).toFixed(1)}" x2="${W - padX}" y2="${y(max - pad).toFixed(1)}" stroke="#2c2c2c" stroke-width="1" stroke-dasharray="3 4"/>
-          <line x1="${padX}" y1="${y(min + pad).toFixed(1)}" x2="${W - padX}" y2="${y(min + pad).toFixed(1)}" stroke="#2c2c2c" stroke-width="1" stroke-dasharray="3 4"/>
+          ${gridHtml}
+          <line x1="${plotL}" y1="${plotT}" x2="${plotL}" y2="${plotB}" stroke="#2c2c2c" stroke-width="1"/>
           <path d="${area}" fill="url(#trendFill)"/>
-          <path d="${line}" fill="none" stroke="#f97316" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+          <path d="${line}" fill="none" stroke="#f97316" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
           <circle cx="${x(points.length - 1).toFixed(1)}" cy="${y(last.cap).toFixed(1)}" r="3.5" fill="#0c0c0c" stroke="#f97316" stroke-width="2"/>
         </svg>
-        <div class="flex items-center justify-between text-[11px] text-gray-600 mt-1 px-1">
-          <span>${esc(first.date)} &nbsp;·&nbsp; ${hcp(first.cap)}</span>
+        <div class="flex items-center justify-between text-[11px] text-gray-600 mt-1" style="padding-left:${(axisW / W * 100).toFixed(1)}%">
+          <span>${esc(first.date)}</span>
           <span class="${better ? 'text-emerald-400' : 'text-amber-400'} font-heading font-600 tracking-wide">${better ? '▼ improving' : '▲ rising'}</span>
-          <span>${esc(last.date)} &nbsp;·&nbsp; <span class="text-flame">${hcp(last.cap)}</span></span>
+          <span>${esc(last.date)}</span>
         </div>`;
     }
 
