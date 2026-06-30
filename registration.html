@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Season 10 Registration — MashUp Golf Tour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .text-flame { color: #f97316; }
+    label.req::after { content: ' *'; color: #f97316; }
+    .field { width: 100%; background: #141414; border: 1px solid #2c2c2c; border-radius: 0.5rem; padding: 0.6rem 0.75rem; color: #f3f4f6; font-size: 0.9rem; }
+    .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
+    select.field { appearance: none; }
+    .agree { display: flex; gap: 0.65rem; align-items: flex-start; padding: 0.85rem; border: 1px solid #2c2c2c; border-radius: 0.6rem; background: #141414; cursor: pointer; }
+    .agree:hover { border-color: rgba(249,115,22,0.35); }
+    .agree input { margin-top: 0.2rem; accent-color: #f97316; width: 1rem; height: 1rem; flex-shrink: 0; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <header class="border-b border-border">
+    <div class="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
+        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Registration</span>
+      </div>
+      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 py-8 w-full flex-1">
+    <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Season 10 Registration</h1>
+    <!-- TODO(season-10): finalize entry fee, dates, and waitlist status before going live. -->
+    <p class="text-gray-500 text-sm mt-2 max-w-xl">Sign up to play Season 10 of the MashUp Golf Tour. Entry fee, schedule, and full rules are posted in the league rules doc. Your registration is reviewed by an admin before you're added to the season.</p>
+
+    <!-- SUCCESS -->
+    <div id="success" class="hidden card-shadow bg-card border border-emerald-800/40 rounded-xl px-6 py-10 mt-8 text-center">
+      <div class="text-4xl mb-3">✅</div>
+      <h2 class="font-display text-3xl tracking-wider text-white">You're in the queue</h2>
+      <p class="text-gray-400 text-sm mt-2 max-w-md mx-auto">Thanks, <span id="success-name" class="text-flame"></span> — your registration is <span class="text-white">pending review</span>. We'll reach out via Discord once it's approved.</p>
+    </div>
+
+    <!-- FORM -->
+    <form id="reg-form" class="mt-8 space-y-6">
+      <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
+
+      <!-- Username -->
+      <div>
+        <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="username">GSPro / SGT Username</label>
+        <input id="username" name="username" class="field" autocomplete="off" placeholder="your SGT username" />
+        <div id="username-note" class="text-xs mt-1.5 hidden"></div>
+      </div>
+
+      <!-- Returning: anything changed? -->
+      <div id="returning-block" class="hidden card-shadow bg-card border border-border rounded-xl p-4">
+        <div class="text-sm text-gray-300 mb-2">👋 Welcome back! We have your details on file. <span class="text-white">Has anything changed</span> since last season (launch monitor, location, email)?</div>
+        <div class="flex gap-2">
+          <button type="button" data-changed="no"  class="changed-btn flex-1 py-2 rounded-lg border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame/50" style="transition:border-color .12s">No, all the same</button>
+          <button type="button" data-changed="yes" class="changed-btn flex-1 py-2 rounded-lg border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame/50" style="transition:border-color .12s">Yes, update my info</button>
+        </div>
+      </div>
+
+      <!-- Data fields (new players, or returning + changed) -->
+      <div id="data-block" class="hidden space-y-5">
+        <div>
+          <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="launchMonitor">Launch Monitor</label>
+          <input id="launchMonitor" name="launchMonitor" class="field" autocomplete="off" placeholder="e.g. GSPro · Uneekor · Trackman · SkyTrak" />
+        </div>
+        <div>
+          <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="region">Geographic Location</label>
+          <select id="region" name="region" class="field">
+            <option value="">— select your region —</option>
+            <option>US/Canada (PT/MT)</option>
+            <option>US/Canada (ET/CT)</option>
+            <option>Europe</option>
+            <option>Middle East/Africa</option>
+            <option>Australia/New Zealand</option>
+            <option>Japan/China/Korea/Malaysia/Singapore/India</option>
+            <option>South America</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="discordName">Discord Name</label>
+          <input id="discordName" name="discordName" class="field" autocomplete="off" placeholder="only if different from your SGT username" />
+        </div>
+        <div>
+          <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="email">Email</label>
+          <input id="email" name="email" type="email" class="field" autocomplete="off" placeholder="for contact if Discord is unavailable" />
+          <div class="text-[11px] text-gray-600 mt-1">Used only to contact you about the tour — never shared or shown publicly.</div>
+        </div>
+      </div>
+
+      <!-- Agreements -->
+      <div id="agree-block" class="hidden space-y-3">
+        <div class="text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Agreements</div>
+        <!-- TODO(season-10): confirm handicap wording for the MashCAP era. -->
+        <label class="agree"><input type="checkbox" id="ag-livestream" />
+          <span class="text-sm text-gray-300">I agree to <span class="text-white">live-stream all of my MashUp rounds</span> via YouTube.</span></label>
+        <label class="agree"><input type="checkbox" id="ag-openapi" />
+          <span class="text-sm text-gray-300">I understand that <span class="text-white">OpenAPI is banned</span> from MashUp, and using it as my connection to GSPro is an immediate DQ.</span></label>
+        <label class="agree"><input type="checkbox" id="ag-handicap" />
+          <span class="text-sm text-gray-300">I acknowledge that I have an <span class="text-white">active SimulatorGolfTour account with an established handicap</span>, and that my SGT account will remain active for the season.</span></label>
+      </div>
+
+      <div id="submit-block" class="hidden pt-1">
+        <button type="submit" id="submit-btn" class="w-full py-3 rounded-lg bg-flame text-white font-heading font-700 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Submit Registration</button>
+      </div>
+    </form>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-2xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour</div>
+  </footer>
+
+  <script>
+    const SEASON = 'season-10';
+    const state = { returning: false, alreadyRegistered: false, changed: null, checked: false };
+    const $ = id => document.getElementById(id);
+
+    function show(el, on) { el.classList.toggle('hidden', !on); }
+    function setStatus(msg, kind) {
+      const el = $('status');
+      if (!msg) { show(el, false); return; }
+      el.textContent = msg;
+      el.className = `rounded-lg px-4 py-3 text-sm font-body ${kind === 'error'
+        ? 'bg-red-900/30 border border-red-800/40 text-red-300'
+        : 'bg-flame/10 border border-flame/30 text-flame'}`;
+      show(el, true);
+    }
+
+    // Decide which sections are visible based on the returning-player state.
+    function applyVisibility() {
+      const hasUser = $('username').value.trim().length > 0 && state.checked && !state.alreadyRegistered;
+      show($('returning-block'), hasUser && state.returning);
+      // Data fields needed for new players, or returning players who chose "changed".
+      const needData = hasUser && (!state.returning || state.changed === true);
+      show($('data-block'), needData);
+      // Agreements + submit appear once we know who they are (and not already registered),
+      // and—for returning players—once they've answered the "anything changed?" question.
+      const ready = hasUser && (!state.returning || state.changed !== null);
+      show($('agree-block'), ready);
+      show($('submit-block'), ready);
+    }
+
+    async function checkUsername() {
+      const username = $('username').value.trim();
+      state.checked = false; state.returning = false; state.alreadyRegistered = false; state.changed = null;
+      $('returning-block').querySelectorAll('.changed-btn').forEach(b => b.classList.remove('border-flame', 'text-white'));
+      show($('username-note'), false);
+      applyVisibility();
+      if (!username) return;
+      try {
+        const res = await fetch(`/api/registration-check?username=${encodeURIComponent(username)}&season=${SEASON}`);
+        const d = await res.json();
+        state.checked = true;
+        state.returning = !!d.returning;
+        state.alreadyRegistered = !!d.alreadyRegistered;
+        const note = $('username-note');
+        if (state.alreadyRegistered) {
+          note.className = 'text-xs mt-1.5 text-amber-400';
+          note.textContent = '✓ This username is already registered for Season 10.';
+          show(note, true);
+        } else if (state.returning) {
+          note.className = 'text-xs mt-1.5 text-emerald-400';
+          note.textContent = '👋 Returning player recognized.';
+          show(note, true);
+        } else {
+          note.className = 'text-xs mt-1.5 text-gray-500';
+          note.textContent = 'New player — welcome!';
+          show(note, true);
+        }
+      } catch { state.checked = true; /* fall through as new player */ }
+      applyVisibility();
+    }
+
+    $('username').addEventListener('blur', checkUsername);
+    $('username').addEventListener('input', () => { state.checked = false; applyVisibility(); });
+
+    document.querySelectorAll('.changed-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.changed = btn.dataset.changed === 'yes';
+        document.querySelectorAll('.changed-btn').forEach(b => b.classList.remove('border-flame', 'text-white'));
+        btn.classList.add('border-flame', 'text-white');
+        applyVisibility();
+      });
+    });
+
+    $('reg-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('');
+      const username = $('username').value.trim();
+      if (!username) return setStatus('Please enter your SGT username.', 'error');
+      if (!state.checked) { await checkUsername(); }
+      if (state.alreadyRegistered) return setStatus('This username is already registered for Season 10.', 'error');
+
+      if (!($('ag-livestream').checked && $('ag-openapi').checked && $('ag-handicap').checked))
+        return setStatus('Please accept all three agreements.', 'error');
+
+      const needData = !state.returning || state.changed === true;
+      const payload = {
+        season: SEASON, username,
+        returning: state.returning, changed: state.changed === true,
+        agreements: { livestream: true, openapi: true, handicap: true },
+      };
+      if (needData) {
+        payload.launchMonitor = $('launchMonitor').value.trim();
+        payload.region        = $('region').value.trim();
+        payload.discordName   = $('discordName').value.trim();
+        payload.email         = $('email').value.trim();
+        if (!payload.launchMonitor) return setStatus('Please enter your launch monitor.', 'error');
+        if (!payload.region)        return setStatus('Please select your region.', 'error');
+        if (!payload.email || !/.+@.+\..+/.test(payload.email)) return setStatus('Please enter a valid email.', 'error');
+      }
+
+      const btn = $('submit-btn'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Submitting…';
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.message || d.error || 'Submission failed.');
+        $('success-name').textContent = username;
+        show($('reg-form'), false);
+        show($('success'), true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        setStatus(err.message, 'error');
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+
+    applyVisibility();
+  </script>
+</body>
+</html>
