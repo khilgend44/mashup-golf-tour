@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registrations — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .tab.active { color: #f97316; border-color: #f97316; }
+    .badge { font-family:'Barlow Condensed',sans-serif; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; font-size:0.6rem; padding:0.12rem 0.45rem; border-radius:999px; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Site</a>
+      <span class="text-border">/</span>
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Admin</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">Registrations</span>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+      <div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Registrations</h1>
+        <p class="text-gray-500 text-sm mt-2"><span id="season-label">Season 10</span> · review and approve signups</p>
+      </div>
+      <div id="counts" class="flex items-center gap-4 text-sm font-heading font-600 tracking-wider"></div>
+    </div>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+
+    <div class="flex items-center gap-1 mb-5 border-b border-border">
+      <button data-tab="pending"  class="tab active px-4 py-2 text-sm font-heading font-600 tracking-wider text-gray-400 border-b-2 border-transparent">Pending</button>
+      <button data-tab="approved" class="tab px-4 py-2 text-sm font-heading font-600 tracking-wider text-gray-400 border-b-2 border-transparent">Approved</button>
+      <button data-tab="declined" class="tab px-4 py-2 text-sm font-heading font-600 tracking-wider text-gray-400 border-b-2 border-transparent">Declined</button>
+      <button data-tab="all"      class="tab px-4 py-2 text-sm font-heading font-600 tracking-wider text-gray-400 border-b-2 border-transparent">All</button>
+    </div>
+
+    <div id="list" class="space-y-3">
+      <div class="text-center py-16 text-gray-600 text-sm">Loading registrations…</div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-5xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script>
+    const API = '/admin/api/registrations';
+    const params = new URLSearchParams(location.search);
+    const SEASON = params.get('season') || 'season-10';
+    const state = { regs: [], meta: {}, tab: 'pending' };
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const when = iso => iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
+
+    function setStatus(msg, kind) {
+      const el = $('status');
+      if (!msg) { el.classList.add('hidden'); return; }
+      el.textContent = msg;
+      el.className = `rounded-lg px-4 py-3 text-sm font-body mb-4 ${kind === 'error' ? 'bg-red-900/30 border border-red-800/40 text-red-300' : 'bg-emerald-900/30 border border-emerald-800/40 text-emerald-300'}`;
+      el.classList.remove('hidden');
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(`${API}?season=${encodeURIComponent(SEASON)}`);
+        if (!res.ok) throw new Error(res.status === 302 || res.status === 401 || res.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${res.status})`);
+        const d = await res.json();
+        state.regs = Array.isArray(d.registrations) ? d.registrations : [];
+        state.meta = d.meta || {};
+        $('season-label').textContent = (SEASON.replace('season-', 'Season '));
+        render();
+      } catch (e) {
+        $('list').innerHTML = `<div class="text-center py-16 text-red-400 text-sm">${esc(e.message)}</div>`;
+      }
+    }
+
+    function render() {
+      const counts = { pending: 0, approved: 0, declined: 0 };
+      state.regs.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
+      $('counts').innerHTML =
+        `<span class="text-flame">${counts.pending} pending</span>` +
+        `<span class="text-gray-500">${counts.approved} approved</span>` +
+        `<span class="text-gray-600">${counts.declined} declined</span>`;
+
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === state.tab));
+
+      let rows = [...state.regs].sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1));
+      if (state.tab !== 'all') rows = rows.filter(r => r.status === state.tab);
+
+      if (!rows.length) {
+        $('list').innerHTML = `<div class="text-center py-16 text-gray-600 text-sm">No ${state.tab === 'all' ? '' : state.tab} registrations.</div>`;
+        return;
+      }
+
+      $('list').innerHTML = rows.map(r => {
+        const meta = state.meta[r.username.toLowerCase()] || {};
+        const statusBadge = r.status === 'pending'
+          ? '<span class="badge bg-flame/15 text-flame">Pending</span>'
+          : r.status === 'approved'
+            ? '<span class="badge bg-emerald-500/15 text-emerald-400">Approved</span>'
+            : '<span class="badge bg-red-500/15 text-red-400">Declined</span>';
+        const returning = r.returning
+          ? `<span class="badge bg-gray-700/40 text-gray-300">Returning${r.changed ? ' · updated' : ' · no changes'}</span>` : '';
+        // For a returning player with no changes, show their stored meta as the effective info.
+        const lm  = r.launchMonitor || (r.returning && !r.changed ? meta.launchMonitor : '') || '—';
+        const reg = r.region        || (r.returning && !r.changed ? meta.region : '')        || '—';
+        const dsc = r.discordName   || (r.returning && !r.changed ? meta.discordName : '')   || '';
+        const fromMeta = (r.returning && !r.changed) ? '<span class="text-[10px] text-gray-600 ml-1">(on file)</span>' : '';
+
+        const actions = r.status === 'pending'
+          ? `<button data-act="approve" data-id="${r.id}" class="px-4 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-heading font-600 tracking-wider">Approve</button>
+             <button data-act="decline" data-id="${r.id}" class="px-4 py-1.5 rounded-lg border border-red-800/50 text-red-300 hover:bg-red-900/30 text-xs font-heading font-600 tracking-wider">Decline</button>`
+          : `<button data-act="reset" data-id="${r.id}" class="px-3 py-1.5 rounded-lg border border-border text-gray-400 hover:text-gray-200 text-xs font-heading font-600 tracking-wider">↺ Reset to pending</button>`;
+
+        return `<div class="card-shadow bg-card border border-border rounded-xl p-5">
+          <div class="flex items-start justify-between gap-3 flex-wrap">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <a href="../player.html?name=${encodeURIComponent(r.username)}" target="_blank" class="font-heading font-700 text-lg text-white hover:text-flame" style="transition:color .12s">${esc(r.username)}</a>
+                ${statusBadge}${returning}
+              </div>
+              <div class="text-xs text-gray-500 mt-0.5">Submitted ${when(r.submittedAt)}${r.reviewedAt ? ` · reviewed ${when(r.reviewedAt)}` : ''}</div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">${actions}</div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 mt-4 text-sm">
+            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Launch Monitor</span><span class="text-gray-200">${esc(lm)}</span>${fromMeta}</div>
+            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Region</span><span class="text-gray-200">${esc(reg)}</span>${fromMeta}</div>
+            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Discord</span><span class="text-gray-200">${esc(dsc || '—')}</span></div>
+            <div><span class="text-gray-600 text-xs uppercase tracking-wider font-heading mr-2">Email</span><span class="text-gray-300">${esc(r.email || '—')}</span></div>
+          </div>
+
+          <div class="flex items-center gap-3 mt-3 text-[11px] text-gray-600">
+            <span title="Agreed to live-stream">📺 Stream ✓</span>
+            <span title="OpenAPI ban acknowledged">🚫 OpenAPI ✓</span>
+            <span title="Handicap acknowledged">⛳ Handicap ✓</span>
+          </div>
+
+          ${r.status === 'declined' && r.declineReason ? `<div class="mt-3 text-xs text-red-300/80 bg-red-900/10 border border-red-900/30 rounded-lg px-3 py-2">Declined: ${esc(r.declineReason)}</div>` : ''}
+        </div>`;
+      }).join('');
+
+      // wire actions
+      $('list').querySelectorAll('[data-act]').forEach(btn => {
+        btn.addEventListener('click', () => act(btn.dataset.act, btn.dataset.id));
+      });
+    }
+
+    async function act(action, id) {
+      const rec = state.regs.find(r => r.id === id);
+      let reason;
+      if (action === 'decline') {
+        reason = prompt(`Decline ${rec?.username}? Optional reason (kept on record):`, '');
+        if (reason === null) return;       // cancelled
+      } else if (action === 'approve') {
+        if (!confirm(`Approve ${rec?.username} for ${SEASON.replace('season-', 'Season ')}? Their info will be saved to the player record.`)) return;
+      }
+      try {
+        const res = await fetch(API, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, id, season: SEASON, reason }),
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.error || `Action failed (${res.status})`);
+        }
+        const d = await res.json();
+        if (action === 'delete') state.regs = state.regs.filter(r => r.id !== id);
+        else if (d.registration) Object.assign(rec, d.registration);
+        if (d.meta) state.meta[rec.username.toLowerCase()] = d.meta;
+        setStatus(`${rec?.username}: ${action === 'approve' ? 'approved' : action === 'decline' ? 'declined' : 'updated'}.`, 'success');
+        render();
+      } catch (e) {
+        setStatus(e.message, 'error');
+      }
+    }
+
+    document.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => { state.tab = t.dataset.tab; render(); });
+    });
+
+    load();
+  </script>
+</body>
+</html>
