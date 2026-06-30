@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Player Data — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .field { background: #141414; border: 1px solid #2c2c2c; border-radius: 0.4rem; padding: 0.3rem 0.5rem; color: #e5e7eb; font-size: 0.8rem; }
+    .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Site</a>
+      <span class="text-border">/</span>
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Admin</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">Player Data</span>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 w-full flex-1">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+      <div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Player Data</h1>
+        <p class="text-gray-500 text-sm mt-2 max-w-xl">The persistent player record — name, contact, equipment, and pay service. Admin-only; never shown publicly. Set <span class="text-gray-300">Pay Service</span> when a player pays.</p>
+      </div>
+      <span id="count" class="text-sm font-heading font-600 tracking-wider text-gray-500"></span>
+    </div>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+
+    <!-- IMPORT -->
+    <details class="mb-6 card-shadow bg-card border border-border rounded-xl">
+      <summary class="cursor-pointer select-none px-5 py-4 font-heading font-600 tracking-wide text-flame">⬆ Import / bulk-update from a spreadsheet</summary>
+      <div class="px-5 pb-5 space-y-3">
+        <p class="text-xs text-gray-500">Paste rows from your sheet (including the header row). Recognized columns: <span class="text-gray-300">Player, Name, Discord Tag, Email, Pay Service, Launch Monitor, Region</span> (order doesn't matter; extra columns ignored). Existing players are updated — blank cells won't overwrite existing values.</p>
+        <textarea id="paste" rows="6" class="w-full field font-mono text-xs" placeholder="Player&#9;Discord Tag&#9;Email&#9;Name&#9;Pay Service&#9;Launch Monitor&#10;adamw19&#9;@adamw19&#9;adam@example.com&#9;Adam Wille&#9;Venmo&#9;Uneekor EyeXO"></textarea>
+        <div class="flex items-center gap-3">
+          <button id="parse-btn" class="px-4 py-2 rounded-lg border border-border text-gray-300 hover:text-white text-sm font-heading font-600 tracking-wider" style="transition:color .12s">Preview</button>
+          <button id="import-btn" class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40" disabled>Import</button>
+          <span id="parse-note" class="text-xs text-gray-500"></span>
+        </div>
+        <div id="preview" class="hidden overflow-auto rounded-lg border border-border" style="max-height:240px"></div>
+      </div>
+    </details>
+
+    <!-- TABLE -->
+    <div class="card-shadow bg-card border border-border rounded-xl overflow-hidden">
+      <div class="overflow-auto" style="max-height: calc(100vh - 18rem)">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Name</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Discord</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Email</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Launch Monitor</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Region</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Pay Service</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="7" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script>
+    const API = '/admin/api/player-meta';
+    const PAY_OPTIONS = ['', 'Venmo', 'PayPal', 'Other'];
+    const state = { meta: {}, parsed: [] };
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+    function setStatus(msg, kind) {
+      const el = $('status');
+      if (!msg) { el.classList.add('hidden'); return; }
+      el.textContent = msg;
+      el.className = `rounded-lg px-4 py-3 text-sm font-body mb-4 ${kind === 'error' ? 'bg-red-900/30 border border-red-800/40 text-red-300' : 'bg-emerald-900/30 border border-emerald-800/40 text-emerald-300'}`;
+      el.classList.remove('hidden');
+    }
+
+    // Map a header label to a meta field.
+    const HEADER_MAP = {
+      'player': 'username', 'username': 'username', 'sgt': 'username', 'sgt username': 'username',
+      'name': 'name', 'real name': 'name',
+      'discord': 'discordName', 'discord tag': 'discordName', 'discord name': 'discordName',
+      'email': 'email',
+      'pay service': 'payService', 'pay': 'payService', 'payment': 'payService',
+      'launch monitor': 'launchMonitor', 'monitor': 'launchMonitor',
+      'region': 'region', 'location': 'region', 'geographic location': 'region',
+    };
+
+    function parsePaste() {
+      const text = $('paste').value.trim();
+      if (!text) { state.parsed = []; $('import-btn').disabled = true; $('parse-note').textContent = ''; $('preview').classList.add('hidden'); return; }
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const delim = lines[0].includes('\t') ? '\t' : ',';
+      const headers = lines[0].split(delim).map(h => h.trim().toLowerCase());
+      const fields = headers.map(h => HEADER_MAP[h] || null);
+      if (!fields.includes('username')) {
+        $('parse-note').textContent = 'Could not find a "Player"/username column in the header row.';
+        $('import-btn').disabled = true; $('preview').classList.add('hidden'); state.parsed = [];
+        return;
+      }
+      const rows = lines.slice(1).map(line => {
+        const cells = line.split(delim);
+        const obj = {};
+        fields.forEach((f, i) => { if (f) obj[f] = (cells[i] || '').trim(); });
+        return obj;
+      }).filter(o => o.username);
+      state.parsed = rows;
+      $('import-btn').disabled = rows.length === 0;
+      $('parse-note').textContent = `${rows.length} player${rows.length === 1 ? '' : 's'} ready to import.`;
+      const cols = ['username', 'name', 'discordName', 'email', 'payService', 'launchMonitor', 'region'];
+      $('preview').innerHTML = `<table class="w-full text-xs"><thead><tr class="bg-surface">${cols.map(c => `<th class="text-left px-2 py-1 text-gray-500">${c}</th>`).join('')}</tr></thead><tbody>${rows.slice(0, 20).map(r => `<tr class="border-t border-border/50">${cols.map(c => `<td class="px-2 py-1 text-gray-300">${esc(r[c] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      $('preview').classList.remove('hidden');
+    }
+
+    async function doImport() {
+      if (!state.parsed.length) return;
+      const btn = $('import-btn'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Importing…';
+      try {
+        const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'import', players: state.parsed }) });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Import failed (${res.status})`);
+        const d = await res.json();
+        setStatus(`Imported/updated ${d.imported} players. Total on file: ${d.total}.`, 'success');
+        $('paste').value = ''; parsePaste();
+        await load();
+      } catch (e) { setStatus(e.message, 'error'); btn.textContent = orig; btn.disabled = false; }
+    }
+
+    async function setField(username, field, value, label) {
+      try {
+        const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set', username, field, value }) });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+        const d = await res.json();
+        state.meta[username.toLowerCase()] = d.player;
+        setStatus(`${username}: ${label || field} updated.`, 'success');
+      } catch (e) { setStatus(e.message, 'error'); }
+    }
+
+    function render() {
+      const rows = Object.values(state.meta).sort((a, b) => String(a.username).toLowerCase().localeCompare(String(b.username).toLowerCase()));
+      $('count').textContent = `${rows.length} players`;
+      const tb = $('tbody');
+      if (!rows.length) { tb.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-600 text-sm">No player data yet — import your list above.</td></tr>`; return; }
+      tb.innerHTML = rows.map(p => `<tr class="border-b border-border/50">
+        <td class="px-4 py-2.5 font-heading font-600 tracking-wider text-white">${esc(p.username)}</td>
+        <td class="px-4 py-2.5"><input class="field name-input" data-user="${esc(p.username)}" value="${esc(p.name || '')}" placeholder="—" style="width:10rem" /></td>
+        <td class="px-4 py-2.5 text-gray-400">${esc(p.discordName || '—')}</td>
+        <td class="px-4 py-2.5 text-gray-400">${esc(p.email || '—')}</td>
+        <td class="px-4 py-2.5 text-gray-400">${esc(p.launchMonitor || '—')}</td>
+        <td class="px-4 py-2.5 text-gray-400">${esc(p.region || '—')}</td>
+        <td class="px-4 py-2.5">
+          <select class="field pay-select" data-user="${esc(p.username)}">
+            ${PAY_OPTIONS.map(o => `<option value="${o}"${(p.payService || '') === o ? ' selected' : ''}>${o || '—'}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('');
+      tb.querySelectorAll('.pay-select').forEach(sel => {
+        sel.addEventListener('change', () => setField(sel.dataset.user, 'payService', sel.value, 'pay service'));
+      });
+      tb.querySelectorAll('.name-input').forEach(inp => {
+        inp.addEventListener('change', () => setField(inp.dataset.user, 'name', inp.value.trim(), 'name'));
+      });
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(API);
+        if (!res.ok) throw new Error(res.status === 302 || res.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${res.status})`);
+        state.meta = (await res.json()).meta || {};
+        render();
+      } catch (e) {
+        $('tbody').innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
+      }
+    }
+
+    $('parse-btn').addEventListener('click', parsePaste);
+    $('paste').addEventListener('input', () => { $('import-btn').disabled = true; });
+    $('import-btn').addEventListener('click', doImport);
+    load();
+  </script>
+</body>
+</html>

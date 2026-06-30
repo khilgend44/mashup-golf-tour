@@ -60,11 +60,12 @@ export async function onRequestPost(context) {
     const lc = rec.username.toLowerCase();
     const prev = meta[lc] || {};
     meta[lc] = {
-      ...prev,
+      ...prev,                                       // preserves admin-entered fields like name
       username:      rec.username,
       launchMonitor: rec.launchMonitor || prev.launchMonitor || '',
       region:        rec.region || prev.region || '',
       discordName:   rec.discordName || prev.discordName || '',
+      email:         rec.email || prev.email || '',  // admin-only; never public
       updatedAt:     now,
     };
     await Promise.all([
