@@ -95,6 +95,7 @@ export async function buildPlayerStats(completedEvents, formats) {
     const hasNames = (e.payouts || []).some(p => p.player);
 
     if (hasNames) {
+      const placed = new Set();
       for (const p of e.payouts) {
         if (!p.player) continue;
         const rec = ensure(p.player);
@@ -103,6 +104,20 @@ export async function buildPlayerStats(completedEvents, formats) {
         if (p.place === 1) rec.wins++;
         if (p.place <= 3) rec.podiums++;
         rec.finishes.push({ ...meta, position: p.place, prize: p.amount || 0 });
+        placed.add(stripSub(p.player).toLowerCase());
+      }
+      // Players who played but finished out of the money get a position-less
+      // finish, so the full schedule appears in Event Results. We don't compute
+      // a place for these — named-payout events use manually-adjusted results.
+      if (scorecards) {
+        const seen = new Set();
+        for (const c of scorecards) {
+          if (!c || c.status !== 'Completed' || !c.player_name) continue;
+          const k = stripSub(c.player_name).toLowerCase();
+          if (placed.has(k) || seen.has(k)) continue;
+          seen.add(k);
+          ensure(c.player_name).finishes.push({ ...meta, position: null, prize: 0 });
+        }
       }
     } else {
       const fmt = formats[e.format];

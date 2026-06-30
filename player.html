@@ -194,10 +194,12 @@
       const best = positions.length ? Math.min(...positions) : null;
 
       // event results timeline (newest first)
-      const finishes = [...d.rec.finishes].sort((a, b) => {
+      const allFinishes = [...d.rec.finishes].sort((a, b) => {
         if (a.date && b.date) return a.date < b.date ? 1 : -1;
         return (b.week || 0) - (a.week || 0);
       });
+      const finishes = allFinishes.slice(0, 15);
+      const eventsTitle = allFinishes.length > 15 ? 'Event Results — Most Recent 15' : 'Event Results';
 
       const formColor = { hot: 'text-flame', cold: 'text-blue-400', steady: 'text-gray-400' };
       const formLabel = { hot: '🔥 Hot', cold: '🧊 Cold', steady: '― Steady' };
@@ -266,7 +268,7 @@
         <!-- EVENT RESULTS -->
         ${finishes.length ? `
         <section class="card-shadow bg-card border border-border rounded-lg overflow-hidden mb-6">
-          <div class="px-5 py-4 border-b border-border"><h2 class="font-display text-2xl tracking-wider text-white">Event Results</h2></div>
+          <div class="px-5 py-4 border-b border-border"><h2 class="font-display text-2xl tracking-wider text-white">${eventsTitle}</h2></div>
           <div class="divide-y divide-border/60">
             ${finishes.map(f => `
               <div class="px-5 py-3 flex items-center gap-4">
