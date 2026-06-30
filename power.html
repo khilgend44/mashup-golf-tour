@@ -19,7 +19,7 @@
     .text-flame { color: #f97316; }
     thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
     tr:hover td { background: rgba(255,255,255,0.025); }
-    .hot { color: #34d399; } .cold { color: #fbbf24; } .steady { color: #9ca3af; }
+    .hot { color: #f97316; } .cold { color: #60a5fa; } .steady { color: #9ca3af; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -78,6 +78,7 @@
 
   <script type="module">
     import { recentForm } from './js/stats.js';
+    import { loadSeasons } from './js/api.js';
 
     const state = { handicaps: {}, rounds: {}, seasons: [], selected: '' };
     const hcp = v => v == null || isNaN(+v) ? '—' : (+v > 0 ? `+${(+v).toFixed(1)}` : (+v).toFixed(1));
@@ -99,9 +100,9 @@
       const w = maxAbs > 0 ? Math.min(100, Math.abs(delta) / maxAbs * 100) : 0;
       const hot = delta < 0;
       return `<div class="flex items-center w-full" style="height:18px">
-        <div class="flex-1 flex justify-end"><div style="width:${hot ? w : 0}%;height:7px;background:#34d399;border-radius:4px 0 0 4px"></div></div>
+        <div class="flex-1 flex justify-end"><div style="width:${hot ? w : 0}%;height:7px;background:#f97316;border-radius:4px 0 0 4px"></div></div>
         <div style="width:1px;height:14px;background:#3a3a3a;flex:0 0 auto"></div>
-        <div class="flex-1 flex justify-start"><div style="width:${hot ? 0 : w}%;height:7px;background:#fbbf24;border-radius:0 4px 4px 0"></div></div>
+        <div class="flex-1 flex justify-start"><div style="width:${hot ? 0 : w}%;height:7px;background:#60a5fa;border-radius:0 4px 4px 0"></div></div>
       </div>`;
     }
 
@@ -174,15 +175,14 @@
 
     async function init() {
       try {
-        const [pRes, rRes, sRes] = await Promise.all([
-          fetch('/api/players'), fetch('/api/player-rounds'), fetch('/api/seasons'),
+        const [pRes, rRes, seasons] = await Promise.all([
+          fetch('/api/players'), fetch('/api/player-rounds'), loadSeasons(),
         ]);
         const pData = await pRes.json();
         const rData = await rRes.json();
-        const sData = await sRes.json();
         state.handicaps = pData.handicaps || {};
         state.rounds = rData.rounds || {};
-        state.seasons = Array.isArray(sData) ? sData : Object.values(sData);
+        state.seasons = seasons;
         if (!state.seasons.length) { showStatus('No seasons found.'); return; }
         buildSeasonOptions();
         render();

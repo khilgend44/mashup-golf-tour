@@ -202,15 +202,21 @@
 
     async function init() {
       try {
-        const [pRes, sRes] = await Promise.all([
+        // Seasons live in two places — static data/seasons.json (e.g. Season 9)
+        // and KV /api/seasons (e.g. Season 8). Merge both, KV winning on id.
+        const [pRes, staticRes, kvRes] = await Promise.all([
           fetch('/api/players'),
+          fetch('data/seasons.json'),
           fetch('/api/seasons'),
         ]);
         const pData = await pRes.json();
-        const sData = await sRes.json();
+        const staticSeasons = staticRes.ok ? await staticRes.json() : [];
+        const kvSeasons     = kvRes.ok ? await kvRes.json() : [];
+        const sMap = new Map((Array.isArray(staticSeasons) ? staticSeasons : Object.values(staticSeasons)).map(s => [s.id, s]));
+        for (const s of (Array.isArray(kvSeasons) ? kvSeasons : Object.values(kvSeasons))) sMap.set(s.id, s);
         state.handicaps   = pData.handicaps || {};
         state.lastRefresh = pData.lastRefresh || null;
-        state.seasons     = Array.isArray(sData) ? sData : Object.values(sData);
+        state.seasons     = [...sMap.values()];
         if (state.seasons.length === 0) { showStatus('No seasons found.'); return; }
         buildSeasonOptions();
         render();
