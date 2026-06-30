@@ -176,6 +176,34 @@ export async function onRequestPost(context) {
         fetched[k].mashCapCounting = existing[k].mashCapCounting;
       }
     }
+
+    // Restore "dropped" players: roster players SGT's player-check didn't return
+    // this refresh (typically inactive players with no recent rounds). On a full
+    // refresh they'd otherwise vanish from the handicap list. If we have any
+    // rounds for them — freshly pulled OR previously stored — compute a
+    // last-known MashCAP so they keep a handicap. Flagged `stale` for the UI.
+    const existingRoundsRaw = await kvGet(accountId, apiToken, 'players:rounds');
+    const existingRounds = existingRoundsRaw ? JSON.parse(existingRoundsRaw) : {};
+    for (const rosterName of playersToFetch) {
+      const k = String(rosterName).toLowerCase();
+      if (fetched[k]) continue;                       // SGT returned them — fresh data already set
+      const rounds = (roundsByPlayer && roundsByPlayer[k]) || existingRounds[k];
+      let m = null;
+      if (Array.isArray(rounds) && rounds.length) {
+        const recent = [...rounds]
+          .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+          .slice(0, ROUND_CAP_FALLBACK);
+        m = computeMashCap(recent.map(r => r.differential));
+      }
+      const prior = existing[k];
+      if (!m && !prior) continue;                     // nothing to keep
+      fetched[k] = {
+        ...(prior || {}),
+        ...(m ? { mashCap: m.cap, mashCapRounds: m.rounds, mashCapCounting: m.counting } : {}),
+        stale: true,                                  // carried over, not freshly pulled
+      };
+    }
+
     const finalHandicaps = scopedPlayers ? { ...existing, ...fetched } : fetched;
 
     await Promise.all([
@@ -187,8 +215,6 @@ export async function onRequestPost(context) {
     // "See Counting Events" detail page. Always merge so a thin rounds payload
     // only updates the players it returned and never wipes the rest.
     if (roundsByPlayer && Object.keys(roundsByPlayer).length) {
-      const existingRoundsRaw = await kvGet(accountId, apiToken, 'players:rounds');
-      const existingRounds = existingRoundsRaw ? JSON.parse(existingRoundsRaw) : {};
       const finalRounds = { ...existingRounds, ...roundsByPlayer };
       await kvPut(accountId, apiToken, 'players:rounds', JSON.stringify(finalRounds));
     }

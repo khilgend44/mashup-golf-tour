@@ -251,9 +251,9 @@
             </div>
             <div class="text-left sm:text-right shrink-0">
               <div class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase">MashCAP</div>
-              <div class="font-display text-5xl sm:text-6xl text-flame leading-none">${hcp(d.mashCap)}</div>
+              <div class="font-display text-5xl sm:text-6xl text-flame leading-none ${d.h.stale ? 'opacity-60' : ''}">${hcp(d.mashCap)}</div>
               <div class="text-[11px] text-gray-600 mt-1">
-                ${d.adjusted != null ? `adjusted <span class="text-gray-400">${d.adjusted}</span> &nbsp;·&nbsp; ` : ''}best ${d.h.mashCapCounting ?? '—'}/${d.h.mashCapRounds ?? d.rounds.length}
+                ${d.adjusted != null ? `adjusted <span class="text-gray-400">${d.adjusted}</span> &nbsp;·&nbsp; ` : ''}best ${d.h.mashCapCounting ?? '—'}/${d.h.mashCapRounds ?? d.rounds.length}${d.h.stale ? ' &nbsp;·&nbsp; <span class="text-gray-500" title="Last known — not in the latest SGT pull">last known</span>' : ''}
               </div>
             </div>
           </div>

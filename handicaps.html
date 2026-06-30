@@ -149,7 +149,7 @@
       const rows = roster.map(name => {
         const h = state.handicaps[name.toLowerCase()] || {};
         const mc = (h.mashCap !== undefined && h.mashCap !== null) ? parseFloat(h.mashCap) : null;
-        return { name, mc, rounds: h.mashCapRounds, counting: h.mashCapCounting };
+        return { name, mc, rounds: h.mashCapRounds, counting: h.mashCapCounting, stale: !!h.stale };
       });
 
       // Adjusted baseline = lowest MashCAP among players who have one.
@@ -179,7 +179,7 @@
           ? `<a href="counting-events.html?player=${encodeURIComponent(r.name)}" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">See Counting Events →</a>`
           : '';
         return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}">
-          <td class="px-4 py-3 text-center font-body text-sm text-flame font-600">${hasMc ? hcpDisplay(r.mc) : '<span class="text-gray-600">—</span>'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-flame font-600 ${r.stale ? 'opacity-60' : ''}">${hasMc ? hcpDisplay(r.mc) + (r.stale ? `<span class="text-gray-500 font-normal" title="Last known — this player wasn't in the latest SGT handicap pull">*</span>` : '') : '<span class="text-gray-600">—</span>'}</td>
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-sm"><a href="player.html?name=${encodeURIComponent(r.name)}" class="text-white hover:text-flame" style="transition:color .12s">${r.name}</a></td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : '<span class="text-gray-600">—</span>'}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.rounds != null ? r.rounds : '—'}</td>
