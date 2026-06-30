@@ -43,11 +43,12 @@ SimulatorGolfTour API  (provides live scorecard data)
     - Event name is locked after SGT scrape and does not change when format is changed
     - **Details** button shows a metadata panel (format, payouts, rounds, etc.) for active/completed events
     - **↺ Sync** button re-scrapes SGT to refresh dates and round settings on an existing event
+    - **Complete ✓** opens the CTP-winner modal then marks the event completed. The CTP winner picker offers the **full season roster** (unioned with any team members) — a CTP can go to any season player, not just event participants (`eventPlayers()`), for finale/partial-field events
   - `/admin/teams.html` — draw teams for an event (Steps 1–4):
     - Step 1: Create Teams — three modes:
       - **Tiered Draw**: 1 player pulled from each handicap tier, produces balanced teams
       - **Completely Random**: all players shuffled, pure luck
-      - **Manual Entry**: click-to-assign UI — select a player chip, click a team slot to place them; Save button enabled when all slots filled
+      - **Manual Entry**: click-to-assign UI — select a player chip, click a team slot to place them. Save enables once there's **≥1 full team and no half-filled teams**; only complete teams are saved and leftover players stay unassigned (so finale/partial-field events that don't use the whole roster can be saved)
     - Step 2: Generate SGT Loading File (CSV download for SimulatorGolfTour registration) — uses season-scoped player list
     - Step 3: Upload SGT Loading File (manual instruction — links to SGT Admin)
     - Step 4: Configure Special Team Orders (Lone Ranger slot assignments) — all teams pre-loaded, ▲▼ swap buttons per player, default order A=Slot1/B=Slot2/C=Slot3
@@ -68,7 +69,7 @@ The API is split into **public reads** and **protected writes** so the public si
   - `/api/event-public`, `/api/get-streams` — public event/team + stream data (GET)
   - `/api/submit-stream` — **public write by design** (players submit their own YouTube links)
 - **Protected writes — `functions/admin/api/*`** (route `/admin/api/*`, behind Cloudflare Access):
-  - `/admin/api/events` — create/update/delete/activate event, create/delete format
+  - `/admin/api/events` — create/update/delete/activate/complete event, create/delete format, **`set-devils-draw`** (saves a Devil's Draw `devilsDraw`+`revealOrder` onto a KV event — called by the "Save Draw to Event" button in `event.html?...&reveal=true`)
   - `/admin/api/players` — onboard/add/remove player, refresh handicaps
   - `/admin/api/seasons` — create/update/archive season
   - `/admin/api/announce` — post event poster to Discord
@@ -195,6 +196,19 @@ A standing prize pool that grows every season and pays out the first time a memb
 
 ---
 
+## Player-Facing Stats Features (`js/stats.js` engine)
+
+A set of read-only public pages built on a **shared stats engine, `js/stats.js`** — the single source of truth for per-player money/wins/finishes and MashCAP-from-rounds math. `season.html` was refactored to use it too (its `buildStandings` is now a thin wrapper), so money standings agree everywhere.
+
+- **`js/stats.js` exports:** `buildPlayerStats(completedEvents, formats)` (per-player `{earnings, ctpEarnings, wins, podiums, events, finishes[]}` — runs the scoring engine per event, mirrors `season.html`'s old logic incl. team-prize splitting + side pots), `scanScorecardRounds(events)` (reads raw `data/scorecards/*.json` hole-by-hole → per-round gross/net/birdies/eagles; **assumes each player plays their own ball — exclude scramble/alt-shot events if they ever exist**), `mashCapFromRounds`/`rollingMashCap` (MashCAP + its trend over time), `recentForm` (last-N rounds vs the player's *own average* — NOT their MashCAP, which is a best-40% metric that would read everyone "cold").
+- **`player.html?name=X`** — player profile: MashCAP hero, an SVG MashCAP-trend chart, Events/Wins/Top-3/Earnings, recent form (hot/cold), event-results timeline, and full round history. Player names across the site (Handicaps + Season standings) link here.
+- **`power.html`** — Power Rankings / form guide: ranks the season roster by recent form with a diverging heat bar (Hot = orange, Cold = blue). Season selector via the merged `loadSeasons()`.
+- **`records.html`** — Records & Hall of Fame: all-time leaderboards (Money/Results, Scoring, Handicap, CTP) + Hall of Fame (season champions = money-list leader per season, event winners roll, Hole-in-One Club placeholder).
+- **Roadmap:** these are phases 1–3 of a 5-phase stats plan (`1+2 → 5 → 4 → 6`). Remaining: Season Superlatives (auto-awards into the recap) and Weekly Pick'em (needs member-submitted picks + player identity — the only one requiring new writes).
+- **Local dev:** `serve.mjs` now **proxies `/api/*` to production** (`API_ORIGIN`), so these dynamic pages can be previewed locally with real data instead of 404ing.
+
+---
+
 ## Credentials & Keys (Check These Annually)
 
 | What | Where Stored | Expires | Notes |
@@ -273,7 +287,11 @@ New formats must be defined in Claude Code — **do not use the admin UI's "New 
 1. New function in `js/scoring.js`
 2. New `case` in the `applyFormat()` switch statement
 3. New entry in `data/formats.json` (with `tiebreakers[]` array)
-4. New `<option>` in the admin events.html `nf-type` dropdown
+4. New `<option>` in the admin events.html `nf-type` dropdown (the **`f-format`** event dropdown is dynamic via `loadFormats()` and auto-includes it; only `nf-type` is hardcoded)
+
+Most recent example: **`best-ball-3man`** ("3-Man, 2 Best Ball", `calcBestBall3Man`) — every hole sums the two lowest NET scores of the three teammates; tie → total team aggregate. Built by copying `calcBest2Worst2All3` (the same per-hole "best 2 of 3" logic), so the result shape plugs straight into payouts/CTP/side-pots.
+
+**Manual / one-off scoring:** the `invitational` type has **no engine logic** — `event.html` detects it and renders final standings straight from the event's hand-entered `payouts`/`ctp` (the event has `tournamentId: null`, no scorecards). Use this pattern for tournaments scored outside the system (e.g. the multi-week elimination Invitational).
 
 ## SGT Loading File (Team Registration CSV)
 
@@ -288,7 +306,9 @@ Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/t
 
 ## Frontend Conventions
 
-These two patterns are applied across all admin + public pages — match them when adding pages or tables.
+These patterns are applied across all admin + public pages — match them when adding pages or tables.
+
+- **Money formatting:** all standings/prize money is shown to **two decimal places** (`toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })`). Each page defines its own `money`/`fmt` helper — use 2/2, not `minimumFractionDigits: 0` (which drops `$258.50` → `$258.5`).
 
 - **Custom brand colors in JS-rendered content:** the Tailwind Play CDN only generates config colors (e.g. `text-flame` = `#f97316`) for HTML present at load time — **not** for rows/cells injected later via JavaScript, which render white. Every page therefore defines the brand colors as **real CSS rules** in its `<style>` block: `.text-flame { color:#f97316 }` (and `.hover\:text-flame:hover { color:#f97316 }`). Use the `text-flame` class freely; the CSS rule guarantees the color in dynamic tables.
 - **Sticky table headers:** all data tables keep their column headers pinned while scrolling. Pattern: wrap the table in `<div class="overflow-auto" style="max-height: calc(100vh - 12rem)">` and add `thead th { position: sticky; top: 0; z-index: 20; background: <header-bg>; box-shadow: inset 0 -1px 0 #2c2c2c; }` to the page's `<style>`. The `overflow` wrapper is **required** — any non-`visible` overflow ancestor otherwise scopes the sticky to itself and breaks it. The `max-height` offset is per-page (more content above the table → larger offset). `event.html` leaderboards use their own tuned offset (`top: 56px`) to clear a sticky bar.
