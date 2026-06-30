@@ -77,11 +77,10 @@ export async function buildPlayerStats(completedEvents, formats) {
 
   for (const e of completedEvents) {
     const meta = { eventId: e.id, tournamentId: e.tournamentId, name: e.name, format: e.format, week: e.week, season: e.season, date: e.date };
+    const fmt = formats[e.format];
 
-    // Participation = anyone with a completed scorecard actually played this
-    // event. Named-payout events (e.g. Season 9) only list money winners, so
-    // counting "events played" from payouts alone undercounts everyone who
-    // played without placing. Load scorecards once and reuse them below.
+    // Load cached scorecards once: used for participation (who played) and for
+    // engine-computed finishing positions.
     let scorecards = null;
     if (e.tournamentId != null) {
       try { scorecards = await fetchScorecards(e.tournamentId); } catch { /* none cached */ }
@@ -92,60 +91,74 @@ export async function buildPlayerStats(completedEvents, formats) {
       }
     }
 
+    // Format-aware finishing position for every player, from the scoring engine.
+    // Used for placements/wins/podiums in BOTH eras: for named-payout events
+    // (Season 9) these match the official winners AND give a real place to
+    // players who didn't cash. Money is still taken from the official source.
+    let results = null;
+    if (fmt && scorecards) {
+      try { results = applyFormat(scorecards, fmt, e); } catch { /* unscored */ }
+    }
+    const posByPlayer = {};
+    if (results) {
+      for (const r of results) {
+        const members = r.isTeam ? r.displayMembers : [r.player_name];
+        for (const m of (members || [])) if (m) posByPlayer[stripSub(m).toLowerCase()] = r.position;
+      }
+    }
+
     const hasNames = (e.payouts || []).some(p => p.player);
 
     if (hasNames) {
-      const placed = new Set();
+      // MONEY from the official named payouts — each listed player gets their
+      // recorded amount (not split), preserving the season's manual adjustments.
+      const prizeByPlayer = {}, placeByPlayer = {};
       for (const p of e.payouts) {
         if (!p.player) continue;
-        const rec = ensure(p.player);
-        rec.earnings += p.amount || 0;
-        rec.events.add(e.id);
-        if (p.place === 1) rec.wins++;
-        if (p.place <= 3) rec.podiums++;
-        rec.finishes.push({ ...meta, position: p.place, prize: p.amount || 0 });
-        placed.add(stripSub(p.player).toLowerCase());
+        const key = stripSub(p.player).toLowerCase();
+        ensure(p.player).earnings += p.amount || 0;
+        prizeByPlayer[key] = (prizeByPlayer[key] || 0) + (p.amount || 0);
+        if (placeByPlayer[key] == null || p.place < placeByPlayer[key]) placeByPlayer[key] = p.place;
       }
-      // Players who played but finished out of the money get a position-less
-      // finish, so the full schedule appears in Event Results. We don't compute
-      // a place for these — named-payout events use manually-adjusted results.
-      if (scorecards) {
-        const seen = new Set();
-        for (const c of scorecards) {
-          if (!c || c.status !== 'Completed' || !c.player_name) continue;
-          const k = stripSub(c.player_name).toLowerCase();
-          if (placed.has(k) || seen.has(k)) continue;
-          seen.add(k);
-          ensure(c.player_name).finishes.push({ ...meta, position: null, prize: 0 });
+      // One finish per participant: engine position (fall back to the official
+      // payout place, then null) + their official prize.
+      const rosterNames = scorecards
+        ? scorecards.filter(c => c && c.status === 'Completed' && c.player_name).map(c => c.player_name)
+        : e.payouts.filter(p => p.player).map(p => p.player);
+      const seen = new Set();
+      for (const name of rosterNames) {
+        const key = stripSub(name).toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const rec = ensure(name);
+        const pos = posByPlayer[key] ?? placeByPlayer[key] ?? null;
+        rec.events.add(e.id);
+        rec.finishes.push({ ...meta, position: pos, prize: prizeByPlayer[key] || 0 });
+        if (pos === 1) rec.wins++;
+        if (pos != null && pos <= 3) rec.podiums++;
+      }
+    } else if (results) {
+      // Engine-scored events (positional payouts): money via applyPayouts + split.
+      applyPayouts(results, e.payouts);
+      const teamSize = parseInt(fmt.teamSize) || 1;
+      for (const r of results) {
+        const members = r.isTeam ? r.displayMembers : [r.player_name];
+        if (!members || !members[0]) continue;
+        const share = r.prize == null ? 0 : (r.isTeam ? r.prize / teamSize : r.prize);
+        for (const m of members) {
+          const rec = ensure(m);
+          rec.events.add(e.id);
+          rec.finishes.push({ ...meta, position: r.position, prize: share });
+          if (share) rec.earnings += share;
+          if (r.position === 1) rec.wins++;
+          if (r.position <= 3) rec.podiums++;
         }
       }
-    } else {
-      const fmt = formats[e.format];
-      if (fmt && scorecards) {
-        try {
-          const results = applyFormat(scorecards, fmt, e);
-          applyPayouts(results, e.payouts);
-          const teamSize = parseInt(fmt.teamSize) || 1;
-          for (const r of results) {
-            const members = r.isTeam ? r.displayMembers : [r.player_name];
-            if (!members || !members[0]) continue;
-            const share = r.prize == null ? 0 : (r.isTeam ? r.prize / teamSize : r.prize);
-            for (const m of members) {
-              const rec = ensure(m);
-              rec.events.add(e.id);
-              rec.finishes.push({ ...meta, position: r.position, prize: share });
-              if (share) rec.earnings += share;
-              if (r.position === 1) rec.wins++;
-              if (r.position <= 3) rec.podiums++;
-            }
-          }
-          for (const sp of resolveSidePots(results, e, fmt)) {
-            if (!sp.player) continue;
-            const rec = ensure(sp.player);
-            rec.earnings += sp.amount || 0;
-            rec.events.add(e.id);
-          }
-        } catch { /* skip event if scoring fails */ }
+      for (const sp of resolveSidePots(results, e, fmt)) {
+        if (!sp.player) continue;
+        const rec = ensure(sp.player);
+        rec.earnings += sp.amount || 0;
+        rec.events.add(e.id);
       }
     }
 
