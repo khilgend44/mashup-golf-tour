@@ -64,12 +64,12 @@
     // ── A single record card: a highlighted leader + up to 3 runners-up ──────
     function recordCard(title, sub, entries, fmtVal) {
       if (!entries.length) {
-        return `<div class="card-shadow bg-card border border-border rounded-xl p-5">
+        return `<div class="card-shadow bg-card border border-border rounded-xl p-5 min-w-0">
           <div class="text-[10px] font-heading font-700 tracking-widest text-gray-600 uppercase mb-2">${title}</div>
           <div class="text-sm text-gray-600">No data yet.</div></div>`;
       }
       const [top, ...rest] = entries;
-      return `<div class="card-shadow bg-card border border-border rounded-xl p-5 flex flex-col">
+      return `<div class="card-shadow bg-card border border-border rounded-xl p-5 flex flex-col min-w-0">
         <div class="text-[10px] font-heading font-700 tracking-widest text-flame uppercase mb-3">${title}</div>
         <div class="flex items-baseline justify-between gap-3">
           <div class="min-w-0">
@@ -215,10 +215,10 @@
 
           <div class="card-shadow bg-card border border-border rounded-xl p-5 mt-4">
             <div class="text-[10px] font-heading font-700 tracking-widest text-flame uppercase mb-3">Event Winners</div>
-            ${winnerEvents.length ? `<div class="grid sm:grid-cols-2 gap-x-6 gap-y-1">${winnerEvents.map(e => `
-              <div class="flex items-baseline justify-between gap-2 py-1 border-b border-border/30 text-sm">
-                <span class="text-gray-400 truncate">${esc(e.name || 'Event')}</span>
-                <span class="shrink-0 text-right">${e.winners.map(plink).join(', ')}</span>
+            ${winnerEvents.length ? `<div class="grid sm:grid-cols-2 gap-x-6 gap-y-2">${winnerEvents.map(e => `
+              <div class="py-1.5 border-b border-border/30 min-w-0">
+                <div class="text-sm text-gray-400 truncate">${esc(e.name || 'Event')}</div>
+                <div class="text-xs text-gray-300 mt-0.5" style="overflow-wrap:anywhere">🏆 ${e.winners.map(plink).join(', ')}</div>
               </div>`).join('')}</div>` : '<div class="text-sm text-gray-600">No completed events yet.</div>'}
           </div>
         </section>
