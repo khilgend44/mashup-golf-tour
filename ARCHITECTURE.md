@@ -83,7 +83,7 @@ The API is split into **public reads** and **protected writes** so the public si
 **Current status:** all three layers are active in production — `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` are set in Cloudflare Pages env vars. If those vars are ever lost/cleared, writes still hold at layers 1–2.
 
 **Cloudflare Access config (confirmed working):**
-- Zero Trust → Access → Applications → admin app → **Destinations**: Domain `mashup-golf-tour.pages.dev`, Path `admin`.
+- Zero Trust → Access → Applications → admin app → **Destinations**: must include **every hostname** the site is served on — both `mashup-golf-tour.pages.dev` **and** the custom domain `mashupgolf.com` (+ `www.` if it resolves), each with Path `admin`. ⚠️ **Access matches on hostname+path** — a hostname NOT listed here is NOT gated, so `/admin` on that hostname loads without the Google login. (The `/admin/api/*` endpoints still hold via the in-code `requireAccess` header check, but the pages themselves would be viewable.)
 - Path is a **prefix**, so `admin` automatically covers `/admin`, `/admin/api/events`, etc.
 - **Policies** tab: allow-policy limited to the owner's Google account.
 - If admin writes ever return `403 "admin access required"`, the Access path isn't covering `/admin/api/`. If they return `403 "invalid access token"`, a `CF_ACCESS_*` env var has a wrong value (remove both to fall back to layers 1–2).
