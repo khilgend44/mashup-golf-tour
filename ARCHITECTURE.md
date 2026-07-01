@@ -26,6 +26,7 @@ SimulatorGolfTour API  (provides live scorecard data)
 
 ### 1. Website Hosting — Cloudflare Pages
 - **Custom domain:** https://mashupgolf.com — **registered at Names.com**, but its **nameservers point to Cloudflare** (so DNS records are managed in the Cloudflare dashboard, not Names.com). Bound as a **Custom domain** in the Pages project, which is what wires routing — manually-created CNAMEs alone produce an Error 522.
+  - **`www.mashupgolf.com`** is also a bound Pages Custom domain (CNAME `www` → pages.dev, proxied). Both apex and www must exist: Cloudflare Access's auth callback lands on the exact host requested, so if `www` has no DNS record the login dead-ends at `www.mashupgolf.com/cdn-cgi/access/authorized` with "server can't be found." (Also: the zone's negative-cache TTL is ~30 min, so a device that cached an old NXDOMAIN keeps failing until it expires — bust it with airplane-mode/another device.)
 - **Pages URL:** https://mashup-golf-tour.pages.dev (always works; use this when the custom domain misbehaves)
 - **Repo:** https://github.com/khilgend44/mashup-golf-tour
 - Every `git push` to `main` auto-deploys the site within ~1–2 minutes. No manual deploy step.
