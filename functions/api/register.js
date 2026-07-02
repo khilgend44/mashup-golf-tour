@@ -39,7 +39,11 @@ export async function onRequestPost(context) {
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
 
-  const season   = String(body.season || 'season-10');
+  // Season must look like a real season id — prevents writing arbitrary
+  // `registrations:<anything>` keys (path traversal / KV pollution).
+  const season = String(body.season || 'season-10');
+  if (!/^season-\d{1,4}$/.test(season)) return json({ error: 'Invalid season.' }, 400);
+
   const username = String(body.username || '').trim();
   if (!username) return json({ error: 'SGT username is required' }, 400);
 
@@ -48,12 +52,33 @@ export async function onRequestPost(context) {
   if (!a.livestream || !a.openapi || !a.handicap)
     return json({ error: 'You must accept all agreements to register.' }, 400);
 
-  const returning    = !!body.returning;
-  const changed      = !!body.changed;
+  const changed       = !!body.changed;
   const launchMonitor = String(body.launchMonitor || '').trim();
   const region        = String(body.region || '').trim();
   const email         = String(body.email || '').trim();
   const discordName   = String(body.discordName || '').trim();
+
+  // Length caps so a single record can't be padded to bloat KV storage.
+  if (username.length > 40)      return json({ error: 'Username is too long.' }, 400);
+  if (discordName.length > 60)   return json({ error: 'Discord name is too long.' }, 400);
+  if (region.length > 80)        return json({ error: 'Region is too long.' }, 400);
+  if (launchMonitor.length > 80) return json({ error: 'Launch monitor is too long.' }, 400);
+  if (email.length > 120)        return json({ error: 'Email is too long.' }, 400);
+
+  const key = `registrations:${season}`;
+  const lc = username.toLowerCase();
+  const [metaRaw, rosterRaw, listRaw] = await Promise.all([
+    kvGet(accountId, apiToken, 'players:meta'),
+    kvGet(accountId, apiToken, 'players:roster'),
+    kvGet(accountId, apiToken, key),
+  ]);
+  const meta   = metaRaw   ? JSON.parse(metaRaw)   : {};
+  const roster = rosterRaw ? JSON.parse(rosterRaw) : [];
+  const list   = listRaw   ? JSON.parse(listRaw)   : [];
+
+  // Decide "returning" from what we actually have on file — NOT the client's
+  // flag, which could be set true to skip the new-player required fields.
+  const returning = !!meta[lc] || roster.some(n => String(n).toLowerCase() === lc);
 
   // New players must supply all fields. Returning players who changed something
   // fill in ONLY what's new — every field is optional and a blank keeps what's
@@ -67,12 +92,7 @@ export async function onRequestPost(context) {
     return json({ error: 'Please enter a valid email, or leave it blank to keep your current one.' }, 400);
   }
 
-  const key = `registrations:${season}`;
-  const raw = await kvGet(accountId, apiToken, key);
-  const list = raw ? JSON.parse(raw) : [];
-
   // One active registration per SGT username per season (declined can re-apply).
-  const lc = username.toLowerCase();
   if (list.some(r => r.username.toLowerCase() === lc && r.status !== 'declined'))
     return json({ error: 'already-registered', message: `${username} is already registered for this season.` }, 409);
 

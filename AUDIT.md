@@ -10,16 +10,20 @@ Phases: (1) Public write surface ✅ · (2) Admin auth chain · (3) PII & data l
 
 Scope: everything reachable without auth under `functions/api/*` — the two by-design public writes (`register.js`, `submit-stream.js`) plus every public read that carries a KV-write-capable token. Question asked of each: what can an anonymous internet user cause — spam, KV pollution, Discord abuse, overwriting other people's data, info disclosure?
 
-### 🔴 P1-1 — Discord mention injection via `@everyone` (submit-stream.js, register.js) — ✅ FIXED 2026-07-02
+### 🔴 P1-1 — Discord mention injection via `@everyone` (submit-stream.js, register.js) — ✅ FIXED & VERIFIED 2026-07-02
+**Verified in prod (commit 2d8d6da):** posted a self-mention `<@id>` via `/api/submit-stream`; the mention rendered as a chip but delivered **no notification/ping**, confirming `allowed_mentions:{parse:[]}` suppresses pings. (Note: user-ID mentions still render visually — `allowed_mentions` controls notification, not rendering; only `@everyone`/`@here` also change appearance to plain text.)
 Attacker-controlled text is interpolated straight into a Discord webhook `content` string with **no `allowed_mentions`**, so Discord parses any mentions in it.
 - [submit-stream.js:61](functions/api/submit-stream.js#L61) and [:71](functions/api/submit-stream.js#L71) — `players` / `eventName` are user input; webhook is always configured, so this is **live in production**. Submitting a stream with a player name or event name of `@everyone` (or `@here`, or `<@&roleid>`) mass-pings the streams channel.
 - [register.js:96](functions/api/register.js#L96) — same pattern with `username`/`region`; only fires if `DISCORD_REGISTER_WEBHOOK_URL` is set (currently optional/unset), so latent.
 - Contrast [league-alert.js](functions/admin/api/league-alert.js) which correctly sends `allowed_mentions: { parse: ['users'] }`. **Fix:** add `allowed_mentions: { parse: [] }` (streams/register posts don't need to ping anyone) to both webhook calls.
 
-### 🔴 P1-2 — Stream hijacking: no ownership check (submit-stream.js)
+### 🔴 P1-2 — Stream hijacking: no ownership check (submit-stream.js) — ✅ MITIGATED 2026-07-02
+**Chosen approach: validate + alert on overwrite** (no player login exists, so true prevention isn't possible without per-player secrets — accepted). Implemented: reject submissions whose `eventId` isn't a known non-completed event in `admin:events`, reject player names not on `players:roster` or the event's draw, and post a Discord ⚠️ alert whenever a submission *replaces* an already-stored link (with was/now URLs). Legit self-service (fixing your own link) still works, just visibly. Residual risk: a league member can still overwrite another's link — but it now always alerts the channel. **This also closes P1-4** (eventId + player names are now validated before any KV write).
 [submit-stream.js:52-65](functions/api/submit-stream.js#L52-L65) writes `${eventId}:${player}:${round}` for whatever `players`/`eventId` the request names. Nothing verifies the submitter *is* that player or that they're in the event. Anyone who knows an active event ID and a player's SGT name can **overwrite that player's stream URL**. The YouTube regex prevents XSS, but a griefer can repoint a competitor's "live" link to any other YouTube video, or blank-overwrite it. **Fix options:** treat re-submission of an existing key as needing confirmation, log/notify on overwrite, or accept it as low-stakes (small known community) and just document.
 
-### 🟡 P1-3 — Unbounded registration spam + arbitrary season keys (register.js)
+### 🟡 P1-3 — Unbounded registration spam + arbitrary season keys (register.js) — ✅ CODE FIXED 2026-07-02 · ⏳ rate-limit rule pending (dashboard)
+Fixed in code: `season` now must match `^season-\d{1,4}$` (no traversal / arbitrary keys); field length caps (username 40, discordName 60, region/launchMonitor 80, email 120); and **`returning` is computed server-side** from `players:meta`/`players:roster` instead of trusting the client flag — closing the required-field bypass (`returning:true` no longer lets an empty record through for a genuinely new username).
+**Still needs a dashboard step** (can't be done well in a Pages Function): a Cloudflare WAF **Rate limiting rule** on `/api/register` for the volumetric flooding. Suggested: Security → WAF → Rate limiting rules → match `URI Path eq "/api/register"` and method POST → e.g. 5 requests / 1 min per IP → Block. Same rule pattern is worth adding for `/api/submit-stream`.
 [register.js](functions/api/register.js) has no rate limit, no field-length caps, and takes `season` from the body ([:42](functions/api/register.js#L42)) to form the KV key `registrations:${season}`. Consequences:
 - An anonymous user can flood `registrations:season-10` with unlimited fake pending entries (each new username passes the dup-check), burying your real approvals queue and growing one KV value toward the 25 MB limit.
 - Arbitrary `season` values let them create unlimited *distinct* `registrations:<anything>` keys — KV namespace pollution.
@@ -27,7 +31,7 @@ Attacker-controlled text is interpolated straight into a Discord webhook `conten
 - Client-asserted `returning: true` ([:51](functions/api/register.js#L51)) bypasses the new-player required-field checks — spam entries can carry no data at all.
 **Fix:** whitelist `season` against known seasons, cap field lengths (e.g. 100 chars), and add a Cloudflare rate-limit rule on `/api/register`.
 
-### 🟡 P1-4 — Arbitrary KV key writes (submit-stream.js)
+### 🟡 P1-4 — Arbitrary KV key writes (submit-stream.js) — ✅ FIXED 2026-07-02 (via P1-2)
 [submit-stream.js:25](functions/api/submit-stream.js#L25) validates only that `players` is a non-empty array and `eventId` is present — neither is checked against real events/roster. Combined with the YouTube-URL requirement the *value* is constrained, but the *keys* (`<eventId>:<player>:<round>`) are attacker-chosen, so KV can be seeded with junk keys under any prefix. Lower impact than P1-3 (KV's 512-byte key cap limits size) but same class: unauthenticated writes with no validation of the referenced entities. **Fix:** validate `eventId` exists and `players` are on that event's roster before writing.
 
 ### 🟡 P1-5 — Wildcard CORS on the write endpoints
