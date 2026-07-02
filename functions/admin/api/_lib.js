@@ -19,6 +19,17 @@ export const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Admin pages are served on the gated pages.dev host; the custom domains are
+// allowed too for completeness. A browser only omits the Origin header on
+// same-origin requests, so "Origin present AND not ours" means the request was
+// made from another site's page — reject it (CSRF defense-in-depth, independent
+// of the Access session cookie's SameSite setting).
+const ADMIN_ALLOWED_ORIGINS = ['https://mashupgolf.com', 'https://www.mashupgolf.com'];
+const ADMIN_ORIGIN_RE = /^https:\/\/([a-z0-9-]+\.)?mashup-golf-tour\.pages\.dev$/;
+function originAllowed(origin) {
+  return ADMIN_ALLOWED_ORIGINS.includes(origin) || ADMIN_ORIGIN_RE.test(origin);
+}
+
 export async function kvGet(accountId, apiToken, key) {
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${apiToken}` } });
@@ -38,6 +49,12 @@ export async function kvPut(accountId, apiToken, key, value) {
 
 // Returns null if authorized, or a 403 Response if not.
 export async function requireAccess(request, env) {
+  // Reject cross-origin browser requests outright (CSRF). No Origin header ⇒
+  // same-origin or non-browser caller, which still has to pass the checks below.
+  const origin = request.headers.get('Origin');
+  if (origin && !originAllowed(origin)) {
+    return Response.json({ error: 'Forbidden — cross-origin request' }, { status: 403, headers: CORS });
+  }
   const jwt = request.headers.get('Cf-Access-Jwt-Assertion');
   if (!jwt) {
     return Response.json({ error: 'Unauthorized — admin access required' }, { status: 403, headers: CORS });

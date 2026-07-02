@@ -55,6 +55,42 @@ Both writes send `Access-Control-Allow-Origin: *` ([register.js:7](functions/api
 - **YouTube URL regex** blocks script/`javascript:` payloads in stream values. ✅
 - **Old write paths closed:** `players.js`, `seasons.js`, `events-admin.js` are read-only; writes correctly moved to `/admin/api/*`. ✅
 
+---
+
+## Phase 2 — Admin auth chain (2026-07-02)
+
+Scope: every endpoint under `functions/admin/api/*` and the shared guard in `_lib.js` — does each write actually enforce auth, is the JWT verification sound, and is there any way to reach a handler without passing `requireAccess`?
+
+**Verdict: the auth chain is strong.** Findings below are one cleanup + defense-in-depth hardening, not holes.
+
+### Clean / verified
+- **Every admin data handler enforces auth.** All 8 files (`events`, `players`, `seasons`, `announce`, `league-alert`, `player-meta`, `registrations`, `inspect-rounds`) call `requireAccess` at the top of every `onRequestGet`/`onRequestPost` **and** immediately `if (denied) return denied;`. No handler calls it without returning. ✅
+- **No catch-all handler** in `functions/admin/api/` that could skip the guard (the only `onRequest` is `_middleware.js`, the custom-domain→pages.dev redirect). ✅
+- **JWT verification resists algorithm confusion.** [_lib.js:76-82](functions/admin/api/_lib.js#L76-L82) imports the key as `RSASSA-PKCS1-v1_5`/SHA-256 and verifies with that fixed algorithm — it does **not** trust `header.alg`, so `alg:none` and an HS256 downgrade both fail. It checks `exp`, `iss`, `aud`, and the signature against the team's JWKS. ✅
+- **Layered correctly:** Access gate (edge) → `_middleware.js` redirect for non-pages.dev hosts → in-code `requireAccess` header+JWT check. The `Cf-Access-Jwt-Assertion` header can't be spoofed because all traffic transits Cloudflare (no separate origin to hit directly), and Access overwrites client-supplied `Cf-Access-*` headers. ✅
+- Public `/api/*` remain read-only; all writes live under `/admin/api/*`. ✅
+
+### 🟡 P2-1 — Debug endpoint `inspect-rounds.js` still in production — ✅ FIXED 2026-07-02
+Deleted `functions/admin/api/inspect-rounds.js` (orphan, unreferenced) and updated the ARCHITECTURE.md note. Removes the extra write surface and the URL-driven KV seed foot-gun.
+[inspect-rounds.js](functions/admin/api/inspect-rounds.js) is Access-protected, but it's an **orphan** (nothing in the site references it — confirmed by grep) that ARCHITECTURE.md explicitly says to "Remove it once the feature is settled." MashCAP is settled (`handicaps.html` + `counting-events.html` are live). Beyond attack surface, its `?seedMashCap=` / `?seedRounds=` params let an admin **overwrite `players:handicaps` / `players:rounds` straight from a URL** — an accidental-data-corruption foot-gun (a bookmarked/shared debug URL clobbers real handicap data until the next refresh). **Fix:** delete the file and the ARCHITECTURE.md note that references it.
+
+### 🟡 P2-2 — Admin writes: wildcard CORS + no in-code Origin/CSRF check — ✅ FIXED 2026-07-02
+Added a centralized Origin check in `requireAccess` ([_lib.js](functions/admin/api/_lib.js)): if an `Origin` header is present and not one of our hosts (`mashupgolf.com`, `www`, `*.mashup-golf-tour.pages.dev`), the request is rejected 403 before any auth/logic — so a cross-origin browser POST can't reach a handler regardless of the Access cookie's SameSite. Same-origin admin UI is unaffected (same-origin GETs omit Origin; same-origin POSTs send our own allowlisted Origin). The response CORS header is left wildcard intentionally — harmless without `Allow-Credentials`, and the Origin guard is the substantive control. Covers all 8 admin endpoints at once.
+[_lib.js:16-20](functions/admin/api/_lib.js#L16-L20) sets `Access-Control-Allow-Origin: *` (no `Allow-Credentials`) and no endpoint checks the request `Origin`. CSRF protection thus rests **entirely** on Cloudflare Access and the `CF_Authorization` cookie's `SameSite` attribute (Cloudflare-managed, not verifiable from code). If that cookie is ever `SameSite=None`, a logged-in admin who visits a malicious page could have a state-changing POST forwarded through Access (which injects the JWT header) and executed — the attacker can't *read* the response (wildcard CORS without credentials blocks that), but the **write still lands**. **Fix (defense-in-depth, cheap):** add an Origin allowlist check to admin writes (reject cross-origin POSTs), mirroring the P1-5 pattern. The admin UI is same-origin, so this breaks nothing and removes the dependency on Cloudflare's cookie config.
+
+### 🔵 P2-3 — JWKS cache doesn't refresh on an unknown `kid` (availability)
+[_lib.js:88-96](functions/admin/api/_lib.js#L88-L96) refetches the signing keys only when the cache is >1h old. When Cloudflare rotates its Access signing key, a **valid** token carrying the new `kid` is rejected (key not in cache) for up to an hour → admin lockout. Not a security hole (fails closed), but an availability nick. **Fix:** on `kid` not found, force one cache refresh before giving up.
+
+### 🔵 P2-4 — JWT with no `exp` is accepted
+[_lib.js:68](functions/admin/api/_lib.js#L68) is `if (payload.exp && payload.exp < now)` — a token **lacking** `exp` skips the expiry check (and there's no `nbf` check). Cloudflare Access always issues `exp`, so this is theoretical, but a belt-and-suspenders verifier should require `exp` to be present. **Fix:** reject tokens missing `exp`.
+
+### Suggested Phase 2 priority
+1. **P2-1** — delete the orphan debug endpoint (removes surface + a data-corruption foot-gun; one file).
+2. **P2-2** — add an Origin check to admin writes (defense-in-depth against CSRF).
+3. P2-3 / P2-4 — minor `_lib.js` hardening; batch together.
+
+---
+
 ### Suggested fix priority if actioning Phase 1
 1. P1-1 (`allowed_mentions`) — one-line change each, closes a live mass-ping vector.
 2. P1-2 / P1-4 — validate event + player ownership in submit-stream.
