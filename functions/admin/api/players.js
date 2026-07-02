@@ -109,10 +109,32 @@ export async function onRequestPost(context) {
     if (playersToFetch.length === 0) return Response.json({ error: 'No players to refresh' }, { status: 400, headers: CORS });
 
     const url = `${SGT_API_BASE}?key=${sgtKey}&players=${playersToFetch.join(',')}`;
-    const sgtRes = await fetch(url);
+    // SGT's player-check for the whole roster can take tens of seconds. Bound it
+    // so a hung/unresponsive SGT returns a clean error instead of the request
+    // hanging forever (which shows as an endless spinner in the admin UI).
+    let sgtRes;
+    try {
+      sgtRes = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+    } catch (e) {
+      const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
+      return Response.json(
+        { error: timedOut
+            ? 'SGT took too long to respond. Try selecting a single season (fewer players), or retry in a moment.'
+            : `Could not reach SGT: ${e.message}` },
+        { status: 504, headers: CORS });
+    }
     if (!sgtRes.ok) return Response.json({ error: `SGT API error: ${sgtRes.status}` }, { status: 502, headers: CORS });
 
-    const data = await sgtRes.json();
+    // SGT returns 200 with an empty body when the API key is rejected, so guard
+    // the parse — otherwise a bad/expired key surfaces as a cryptic error.
+    let data;
+    try { data = await sgtRes.json(); } catch { data = null; }
+    if (!Array.isArray(data)) {
+      return Response.json(
+        { error: 'SGT returned an unexpected (empty/non-JSON) response — the player_api_key may be invalid or expired.' },
+        { status: 502, headers: CORS });
+    }
+
     const fetched = {};
     for (const p of data) {
       fetched[p.user_name.toLowerCase()] = {
@@ -132,7 +154,7 @@ export async function onRequestPost(context) {
     let roundsByPlayer = null;
     try {
       const roundsUrl = `${SGT_ROUNDS_API}?key=${sgtKey}&players=${playersToFetch.map(p => encodeURIComponent(p)).join(',')}`;
-      const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
+      const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(90_000) });
       if (rRes.ok) {
         const rounds = await rRes.json();
         if (Array.isArray(rounds)) {
