@@ -93,7 +93,7 @@ export async function onRequestPost(context) {
     try {
       await fetch(webhook, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: `📝 New registration: **${username}**${region ? ` · ${region}` : ''}${returning && !changed ? ' · returning' : ''} — pending review` }),
+        body: JSON.stringify({ content: `📝 New registration: **${username}**${region ? ` · ${region}` : ''}${returning && !changed ? ' · returning' : ''} — pending review`, allowed_mentions: { parse: [] } }),
       });
     } catch { /* ping is best-effort */ }
   }

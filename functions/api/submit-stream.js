@@ -58,7 +58,7 @@ export async function onRequestPost(context) {
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: `🎥 **${players[0]}** posted stream(s) for **${eventName || eventId}**\n${lines.join('\n')}` }),
+        body: JSON.stringify({ content: `🎥 **${players[0]}** posted stream(s) for **${eventName || eventId}**\n${lines.join('\n')}`, allowed_mentions: { parse: [] } }),
       });
     } else {
       for (const player of players) {
@@ -68,7 +68,7 @@ export async function onRequestPost(context) {
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: `🎥 **${playerList}** ${players.length > 1 ? 'are' : 'is'} live for **${eventName || eventId}**\n${youtubeUrl}` }),
+        body: JSON.stringify({ content: `🎥 **${playerList}** ${players.length > 1 ? 'are' : 'is'} live for **${eventName || eventId}**\n${youtubeUrl}`, allowed_mentions: { parse: [] } }),
       });
     }
   } catch (err) {
