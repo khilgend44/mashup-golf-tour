@@ -3,12 +3,24 @@
 // season registration record (admin-only read) — never in players:meta, never
 // in any public response, never in the repo.
 const KV_NAMESPACE_ID = 'a6cbb9bc3e784be88136dbffe9f9796f';
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-const json = (obj, status = 200) => Response.json(obj, { status, headers: CORS });
+
+// Restrict CORS to our own origins — registration is a same-origin write, so no
+// third-party site needs cross-origin access here. (This doesn't stop curl or
+// server-side callers — CORS never does — it stops a malicious website from
+// POSTing to this endpoint from one of your players' browsers.)
+const ALLOWED_ORIGINS = ['https://mashupgolf.com', 'https://www.mashupgolf.com'];
+function corsFor(request) {
+  const origin = request.headers.get('Origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ||
+    /^https:\/\/([a-z0-9-]+\.)?mashup-golf-tour\.pages\.dev$/.test(origin);
+  const h = {
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
+  };
+  if (allowed) h['Access-Control-Allow-Origin'] = origin;
+  return h;
+}
 
 async function kvGet(accountId, apiToken, key) {
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
@@ -26,12 +38,13 @@ async function kvPut(accountId, apiToken, key, value) {
   if (!res.ok) throw new Error(`KV put failed: ${res.status}`);
 }
 
-export async function onRequestOptions() {
-  return new Response(null, { status: 204, headers: CORS });
+export async function onRequestOptions(context) {
+  return new Response(null, { status: 204, headers: corsFor(context.request) });
 }
 
 export async function onRequestPost(context) {
   const { request, env } = context;
+  const json = (obj, status = 200) => Response.json(obj, { status, headers: corsFor(request) });
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken  = env.CLOUDFLARE_API_TOKEN;
   if (!accountId || !apiToken) return json({ error: 'Storage not configured' }, 500);
