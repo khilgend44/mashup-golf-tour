@@ -126,7 +126,7 @@ async function handlePost(context) {
     // hanging forever (which shows as an endless spinner in the admin UI).
     let sgtRes;
     try {
-      sgtRes = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+      sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(120_000) });
     } catch (e) {
       const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
       return Response.json(
