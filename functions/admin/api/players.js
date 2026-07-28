@@ -39,6 +39,18 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
+  // Catch-all: any uncaught throw below (a transient KV write failure, an
+  // unexpected SGT payload shape, etc.) would otherwise skip our CORS headers
+  // and surface in the browser as an opaque "Failed to fetch" instead of a
+  // real error message.
+  try {
+    return await handlePost(context);
+  } catch (e) {
+    return Response.json({ error: `Unexpected error: ${e.message}` }, { status: 500, headers: CORS });
+  }
+}
+
+async function handlePost(context) {
   const { request, env } = context;
 
   const denied = await requireAccess(request, env);
@@ -137,6 +149,7 @@ export async function onRequestPost(context) {
 
     const fetched = {};
     for (const p of data) {
+      if (!p || !p.user_name) continue;
       fetched[p.user_name.toLowerCase()] = {
         rawCap: p.rawCap,
         comboCap: p.comboCap,
