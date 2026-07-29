@@ -121,13 +121,23 @@ async function handlePost(context) {
     if (playersToFetch.length === 0) return Response.json({ error: 'No players to refresh' }, { status: 400, headers: CORS });
 
     const url = `${SGT_API_BASE}?key=${sgtKey}&players=${playersToFetch.join(',')}`;
-    // SGT's player-check for the whole roster can take tens of seconds. Bound it
-    // so a hung/unresponsive SGT returns a clean error instead of the request
-    // hanging forever (which shows as an endless spinner in the admin UI).
-    let sgtRes;
-    try {
-      sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(120_000) });
-    } catch (e) {
+    const roundsUrl = `${SGT_ROUNDS_API}?key=${sgtKey}&players=${playersToFetch.map(p => encodeURIComponent(p)).join(',')}`;
+
+    // player-check and hcp-rounds don't depend on each other to be *started* —
+    // only the trimming logic below needs both results — so fire them together
+    // instead of sequentially. A full-roster player-check can take tens of
+    // seconds on its own; run back-to-back with hcp-rounds that summed to up to
+    // ~210s in one HTTP request, long enough that the connection itself could be
+    // cut before our code ever gets to respond (surfacing as a bare "Failed to
+    // fetch" in the browser, bypassing our own error handling entirely). Running
+    // them concurrently caps the wait at whichever call is slower.
+    const [sgtSettled, roundsSettled] = await Promise.allSettled([
+      fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(120_000) }),
+      fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(90_000) }),
+    ]);
+
+    if (sgtSettled.status === 'rejected') {
+      const e = sgtSettled.reason;
       const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
       return Response.json(
         { error: timedOut
@@ -135,6 +145,7 @@ async function handlePost(context) {
             : `Could not reach SGT: ${e.message}` },
         { status: 504, headers: CORS });
     }
+    const sgtRes = sgtSettled.value;
     if (!sgtRes.ok) return Response.json({ error: `SGT API error: ${sgtRes.status}` }, { status: 502, headers: CORS });
 
     // SGT returns 200 with an empty body when the API key is rejected, so guard
@@ -166,10 +177,8 @@ async function handlePost(context) {
     // key per 24h, so this may only populate fully on the first call of a window.
     let roundsByPlayer = null;
     try {
-      const roundsUrl = `${SGT_ROUNDS_API}?key=${sgtKey}&players=${playersToFetch.map(p => encodeURIComponent(p)).join(',')}`;
-      const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(90_000) });
-      if (rRes.ok) {
-        const rounds = await rRes.json();
+      if (roundsSettled.status === 'fulfilled' && roundsSettled.value.ok) {
+        const rounds = await roundsSettled.value.json();
         if (Array.isArray(rounds)) {
           roundsByPlayer = {};
           for (const r of rounds) {
