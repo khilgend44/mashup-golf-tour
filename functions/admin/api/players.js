@@ -132,7 +132,7 @@ async function handlePost(context) {
     // fetch" in the browser, bypassing our own error handling entirely). Running
     // them concurrently caps the wait at whichever call is slower.
     const [sgtSettled, roundsSettled] = await Promise.allSettled([
-      fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(120_000) }),
+      fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(180_000) }),
       fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(90_000) }),
     ]);
 
