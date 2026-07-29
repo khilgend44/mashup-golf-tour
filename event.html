@@ -116,7 +116,6 @@
     .chip-done { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.25); color:#4ade80; }
     .chip-fmt  { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.32); color:#fb923c; }
     .chip-meta { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); color:#9ca3af; }
-    .chip-course { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16); color:#e5e7eb; }
     .pulse-dot { width:7px; height:7px; border-radius:50%; background:#fbbf24; animation:pulse 2s infinite; }
     @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(251,191,36,.5)} 70%{box-shadow:0 0 0 7px rgba(251,191,36,0)} 100%{box-shadow:0 0 0 0 rgba(251,191,36,0)} }
     .meter { height:5px; border-radius:99px; background:rgba(255,255,255,.07); overflow:hidden; }
@@ -508,11 +507,11 @@
             <div class="flex flex-wrap items-center gap-2 mb-3">
               <span class="chip ${isDone ? 'chip-done' : 'chip-live'}">${isDone ? '✓ COMPLETED' : '<span class="pulse-dot"></span> LIVE'}</span>
               <span class="chip chip-fmt">⛳ ${format.name.toUpperCase()}</span>
-              ${courseChip ? `<span class="chip chip-course">📍 ${courseChip}</span>` : ''}
               ${teeChip ? `<span class="chip chip-meta">${teeChip}</span>` : ''}
             </div>
             <div class="font-heading font-600 tracking-[.2em] text-flame text-xs uppercase mb-1">${seasonWeekLabel}</div>
             <h1 class="font-display text-3xl sm:text-5xl tracking-wide sm:tracking-wider text-white leading-none break-words">${event.name}</h1>
+            ${courseChip ? `<p class="flex items-center gap-1.5 text-gray-300 text-lg sm:text-xl font-heading font-600 tracking-wide mt-2"><span class="text-flame">📍</span>${courseChip}</p>` : ''}
             <p class="text-gray-500 text-sm mt-2">${dateStr} &nbsp;·&nbsp; ${totalPlayers} Players${teamsLabel}${event.buyIn ? ` &nbsp;·&nbsp; $${event.buyIn} Buy-in` : ''}</p>
             <p class="text-gray-600 text-xs mt-2 italic max-w-xl">${format.description}</p>
             <div class="mt-4">
