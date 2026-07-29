@@ -502,6 +502,44 @@
       const teeChip = (tees || rating) ? `${tees ? tees + ' Tees' : ''}${rating ? (tees ? ' · ' : '') + rating + (slope ? '/' + slope : '') : ''}` : '';
       const teamsLabel = (format?.teamSize > 1 && event.teams?.length) ? ` &nbsp;·&nbsp; ${event.teams.length} Teams` : '';
 
+      // Round settings panel — built entirely from our own scraped data (never
+      // links out to SGT). Season 8/10 events carry a full rounds[] array;
+      // Season 9's static data only has the three flat fields below, so it
+      // gets a sparser single-round card rather than nothing.
+      const SETTINGS_FIELDS = [
+        { key: 'stimp',    label: 'Stimp'    },
+        { key: 'fairways', label: 'Fairways' },
+        { key: 'greens',   label: 'Greens'   },
+        { key: 'tees',     label: 'Tees'     },
+        { key: 'slope',    label: 'Slope'    },
+        { key: 'rating',   label: 'Rating'   },
+        { key: 'pins',     label: 'Pins'     },
+        { key: 'weather',  label: 'Weather'  },
+        { key: 'wind',     label: 'Wind'     },
+        { key: 'gimmies',  label: 'Gimmies'  },
+        { key: 'putting',  label: 'Putting'  },
+      ];
+      const rawSettingsRounds = (event.rounds && event.rounds.length) ? event.rounds
+        : (event.teeType || event.rating || event.slope) ? [{ round: 1, tees: event.teeType, rating: event.rating, slope: event.slope }]
+        : [];
+      const settingsRounds = rawSettingsRounds
+        .map(r => ({ ...r, fields: SETTINGS_FIELDS.filter(f => r[f.key] != null && r[f.key] !== '') }))
+        .filter(r => r.fields.length > 0);
+      const settingsPanelHtml = settingsRounds.length ? `
+        <div class="grid grid-cols-1 ${settingsRounds.length > 1 ? 'sm:grid-cols-2' : ''} gap-3">
+          ${settingsRounds.map(r => `
+            <div class="bg-[#161616] border border-border rounded-lg p-4">
+              <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-3">Round ${r.round || 1}${r.course ? ` <span class="text-gray-500 normal-case tracking-normal font-body">— ${r.course}</span>` : ''}</div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3">
+                ${r.fields.map(f => `
+                  <div>
+                    <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">${f.label}</div>
+                    <div class="text-sm text-gray-300 font-body mt-0.5">${r[f.key]}</div>
+                  </div>`).join('')}
+              </div>
+            </div>`).join('')}
+        </div>` : '';
+
       document.getElementById('event-header').innerHTML = `
         <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div class="min-w-0">
@@ -519,11 +557,16 @@
             ) : ''}
             <p class="text-gray-500 text-sm mt-2">${dateStr} &nbsp;·&nbsp; ${totalPlayers} Players${teamsLabel}${event.buyIn ? ` &nbsp;·&nbsp; $${event.buyIn} Buy-in` : ''}</p>
             <p class="text-gray-600 text-xs mt-2 italic max-w-xl">${format.description}</p>
-            <div class="mt-4">
+            <div class="mt-4 flex flex-wrap items-center gap-2">
               <a href="event-teams.html?id=${event.id}"
                  class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
                  style="transition:all 0.15s">👥 View Teams</a>
+              ${settingsPanelHtml ? `
+              <button id="settings-toggle" type="button"
+                 class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
+                 style="transition:all 0.15s">⚙ Round Settings <span id="settings-chevron">›</span></button>` : ''}
             </div>
+            ${settingsPanelHtml ? `<div id="settings-panel" class="hidden mt-3">${settingsPanelHtml}</div>` : ''}
           </div>
           ${pool > 0 ? `
           <div class="shrink-0 w-full lg:w-64 bg-[#161616] border border-border rounded-xl p-4" style="box-shadow:0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04)">
@@ -544,6 +587,14 @@
         </div>
       `;
       document.title = `${event.name} — MashUp Golf`;
+
+      document.getElementById('settings-toggle')?.addEventListener('click', () => {
+        const panel = document.getElementById('settings-panel');
+        const chevron = document.getElementById('settings-chevron');
+        const opening = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden');
+        if (chevron) chevron.textContent = opening ? '↑' : '›';
+      });
     }
 
     function renderStreamForm(event, players, format, streams = {}) {
