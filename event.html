@@ -491,10 +491,11 @@
 
       // Chips
       const seasonWeekLabel = `${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}${event.week ? ` · Week ${event.week}` : ''}`;
-      const courses = event.course
-        ? [event.course]
-        : [...new Set((event.rounds || []).map(r => r.course).filter(Boolean))];
+      const courseRounds = (event.rounds || []).filter(r => r && r.course);
+      const courses = event.course ? [event.course] : [...new Set(courseRounds.map(r => r.course))];
       const courseChip = courses.length ? courses.join(' · ') : '';
+      const roundCourseIds = [...new Set(courseRounds.map(r => r.courseId).filter(Boolean))];
+      const linkCourseId = event.courseId || (roundCourseIds.length === 1 ? roundCourseIds[0] : null);
       const tees   = event.teeType || event.rounds?.[0]?.tees;
       const rating = event.rating  || event.rounds?.[0]?.rating;
       const slope  = event.slope   || event.rounds?.[0]?.slope;
@@ -511,7 +512,11 @@
             </div>
             <div class="font-heading font-600 tracking-[.2em] text-flame text-xs uppercase mb-1">${seasonWeekLabel}</div>
             <h1 class="font-display text-3xl sm:text-5xl tracking-wide sm:tracking-wider text-white leading-none break-words">${event.name}</h1>
-            ${courseChip ? `<p class="flex items-center gap-1.5 text-gray-300 text-lg sm:text-xl font-heading font-600 tracking-wide mt-2"><span class="text-flame">📍</span>${courseChip}</p>` : ''}
+            ${courseChip ? (
+              linkCourseId && courses.length === 1
+                ? `<a href="/api/course-scorecard?id=${linkCourseId}" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-gray-300 hover:text-white text-lg sm:text-xl font-heading font-600 tracking-wide mt-2 w-fit" style="transition:color 0.12s"><span class="text-flame">📍</span>${courseChip}<span class="text-gray-600 text-xs font-body font-500 normal-case tracking-normal">(scorecard)</span></a>`
+                : `<p class="flex items-center gap-1.5 text-gray-300 text-lg sm:text-xl font-heading font-600 tracking-wide mt-2"><span class="text-flame">📍</span>${courseChip}</p>`
+            ) : ''}
             <p class="text-gray-500 text-sm mt-2">${dateStr} &nbsp;·&nbsp; ${totalPlayers} Players${teamsLabel}${event.buyIn ? ` &nbsp;·&nbsp; $${event.buyIn} Buy-in` : ''}</p>
             <p class="text-gray-600 text-xs mt-2 italic max-w-xl">${format.description}</p>
             <div class="mt-4">

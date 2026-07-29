@@ -10,5 +10,8 @@ secrets.sh
 # Dev server logs
 *.log
 
+# Local wrangler pages dev state
+.wrangler/
+
 # Temporary screenshots (local only)
 temporary screenshots/

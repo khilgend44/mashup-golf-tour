@@ -1,6 +1,6 @@
 // Protected admin WRITE endpoint for events + formats.  Route: /admin/api/events
 // Reads (list/scrape) remain public at /api/events-admin.
-import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
+import { CORS, kvGet, kvPut, requireAccess, resolveCourseIds } from './_lib.js';
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -25,6 +25,7 @@ export async function onRequestPost(context) {
   if (action === 'create-event') {
     const { event } = body;
     if (!event || !event.id) return Response.json({ error: 'Missing event data' }, { status: 400, headers: CORS });
+    if (Array.isArray(event.rounds)) event.rounds = await resolveCourseIds(event.rounds);
     const raw = await kvGet(accountId, apiToken, 'admin:events');
     const events = raw ? JSON.parse(raw) : [];
     if (events.find(e => e.id === event.id))
@@ -37,6 +38,7 @@ export async function onRequestPost(context) {
   if (action === 'update-event') {
     const { event } = body;
     if (!event || !event.id) return Response.json({ error: 'Missing event data' }, { status: 400, headers: CORS });
+    if (Array.isArray(event.rounds)) event.rounds = await resolveCourseIds(event.rounds);
     const raw = await kvGet(accountId, apiToken, 'admin:events');
     const events = raw ? JSON.parse(raw) : [];
     const idx = events.findIndex(e => e.id === event.id);

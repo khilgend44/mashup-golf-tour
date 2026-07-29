@@ -47,6 +47,76 @@ export async function kvPut(accountId, apiToken, key, value) {
   if (!res.ok) throw new Error(`KV put failed: ${res.status}`);
 }
 
+// ─── SGT course name → id resolution ─────────────────────────────────────
+// Powers the "scorecard" deep-link on event pages (see /api/course-scorecard).
+// SGT's courses/page-data endpoint has no per-course lookup — it returns
+// every course (~2500) as a single ~14MB payload — so we cache the parsed
+// name→id map in this isolate for a while on top of Cloudflare's own edge
+// cache of the raw fetch, since re-parsing on every single event save would
+// be wasteful for data that only grows a few courses a month.
+let courseIndexCache = { map: null, fetchedAt: 0 };
+const COURSE_INDEX_TTL = 6 * 3600_000; // 6h
+
+async function getCourseIndex() {
+  if (courseIndexCache.map && Date.now() - courseIndexCache.fetchedAt < COURSE_INDEX_TTL) {
+    return courseIndexCache.map;
+  }
+  const res = await fetch('https://simulatorgolftour.com/sgt-api/courses/page-data', {
+    cf: { cacheTtl: 86400, cacheEverything: true },
+  });
+  if (!res.ok) throw new Error(`SGT course list fetch failed: ${res.status}`);
+  const data = await res.json();
+  const html = data.html || '';
+
+  // Parsed with HTMLRewriter (not regex) — the course cards nest a
+  // data-course-id-bearing skeleton loader inside each real card, which
+  // makes naive substring/regex scanning mispair ids with the wrong name.
+  const map = new Map();
+  let currentId = null;
+  let capturingName = false;
+  let nameBuffer = '';
+
+  const rewriter = new HTMLRewriter()
+    .on('div.course-card[data-course-id]', {
+      element(el) { currentId = el.getAttribute('data-course-id'); },
+    })
+    .on('div.course-card [data-sort-key="NAME"]', {
+      element() { capturingName = true; nameBuffer = ''; },
+      text(chunk) {
+        if (!capturingName) return;
+        nameBuffer += chunk.text;
+        if (chunk.lastInTextNode) {
+          const name = nameBuffer.trim();
+          if (name && currentId) map.set(name.toLowerCase(), currentId);
+          capturingName = false;
+        }
+      },
+    });
+
+  await rewriter.transform(new Response(html, { headers: { 'Content-Type': 'text/html' } })).text();
+
+  courseIndexCache = { map, fetchedAt: Date.now() };
+  return map;
+}
+
+// Best-effort: attach courseId to any round with a course name but no id yet.
+// Never throws — a lookup miss/failure just leaves that round's id unset,
+// it must never block an event save.
+export async function resolveCourseIds(rounds) {
+  if (!Array.isArray(rounds) || rounds.length === 0) return rounds;
+  if (!rounds.some(r => r?.course && !r.courseId)) return rounds;
+  try {
+    const index = await getCourseIndex();
+    return rounds.map(r => {
+      if (!r?.course || r.courseId) return r;
+      const id = index.get(String(r.course).trim().toLowerCase());
+      return id ? { ...r, courseId: Number(id) } : r;
+    });
+  } catch {
+    return rounds;
+  }
+}
+
 // Returns null if authorized, or a 403 Response if not.
 export async function requireAccess(request, env) {
   // Reject cross-origin browser requests outright (CSRF). No Origin header ⇒
