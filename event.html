@@ -116,6 +116,7 @@
     .chip-done { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.25); color:#4ade80; }
     .chip-fmt  { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.32); color:#fb923c; }
     .chip-meta { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); color:#9ca3af; }
+    .chip-course { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16); color:#e5e7eb; }
     .pulse-dot { width:7px; height:7px; border-radius:50%; background:#fbbf24; animation:pulse 2s infinite; }
     @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(251,191,36,.5)} 70%{box-shadow:0 0 0 7px rgba(251,191,36,0)} 100%{box-shadow:0 0 0 0 rgba(251,191,36,0)} }
     .meter { height:5px; border-radius:99px; background:rgba(255,255,255,.07); overflow:hidden; }
@@ -491,7 +492,9 @@
 
       // Chips
       const seasonWeekLabel = `${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}${event.week ? ` · Week ${event.week}` : ''}`;
-      const courses = [...new Set((event.rounds || []).map(r => r.course).filter(Boolean))];
+      const courses = event.course
+        ? [event.course]
+        : [...new Set((event.rounds || []).map(r => r.course).filter(Boolean))];
       const courseChip = courses.length ? courses.join(' · ') : '';
       const tees   = event.teeType || event.rounds?.[0]?.tees;
       const rating = event.rating  || event.rounds?.[0]?.rating;
@@ -505,7 +508,7 @@
             <div class="flex flex-wrap items-center gap-2 mb-3">
               <span class="chip ${isDone ? 'chip-done' : 'chip-live'}">${isDone ? '✓ COMPLETED' : '<span class="pulse-dot"></span> LIVE'}</span>
               <span class="chip chip-fmt">⛳ ${format.name.toUpperCase()}</span>
-              ${courseChip ? `<span class="chip chip-meta">${courseChip}</span>` : ''}
+              ${courseChip ? `<span class="chip chip-course">📍 ${courseChip}</span>` : ''}
               ${teeChip ? `<span class="chip chip-meta">${teeChip}</span>` : ''}
             </div>
             <div class="font-heading font-600 tracking-[.2em] text-flame text-xs uppercase mb-1">${seasonWeekLabel}</div>
