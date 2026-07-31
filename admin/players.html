@@ -404,13 +404,13 @@
 
       btn.disabled = true;
       icon.classList.add('spin');
-      showStatus(`Fetching handicaps for ${scopeLabel}… this can take a few minutes when SGT is slow to respond — hang tight.`, 'info');
+      showStatus(`Fetching handicaps for ${scopeLabel}… this can take up to several minutes when SGT is slow to respond — hang tight.`, 'info');
 
       // Safety net so the spinner always resolves — long enough not to abort a
-      // legitimately slow SGT refresh (server-side timeout is 180s), short
-      // enough to catch a true hang.
+      // legitimately slow SGT refresh (server-side timeout is now 240s + 120s,
+      // sequential = up to 360s), short enough to catch a true hang.
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 300_000);
+      const timer = setTimeout(() => ctrl.abort(), 420_000);
       try {
         const body = { action: 'refresh' };
         if (seasonRoster) body.players = seasonRoster;
