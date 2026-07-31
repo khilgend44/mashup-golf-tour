@@ -45,8 +45,8 @@
 
   <main class="max-w-2xl mx-auto px-4 py-8 w-full flex-1">
     <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Season 10 Registration</h1>
-    <!-- TODO(season-10): finalize entry fee, dates, and waitlist status before going live. -->
-    <p class="text-gray-500 text-sm mt-2 max-w-xl">Sign up to play Season 10 of the MashUp Golf Tour. Entry fee, schedule, and full rules are posted in the league rules doc. Your registration is reviewed by an admin before you're added to the season.</p>
+    <!-- TODO(season-10): fill in start date, Invitational timing, and waitlist status once finalized. -->
+    <p class="text-gray-500 text-sm mt-2 max-w-xl">Sign up to play Season 10 of the MashUp Golf Tour. The season costs <span class="text-gray-300">$142</span>, due in full before Week 1 — full breakdown and rules are on the <a href="rules.html" class="text-gray-400 hover:text-white underline underline-offset-2" style="transition:color 0.12s">rules page</a>. Exact start date will be announced soon. Your registration is reviewed by an admin before you're added to the season.</p>
 
     <!-- SUCCESS -->
     <div id="success" class="hidden card-shadow bg-card border border-emerald-800/40 rounded-xl px-6 py-10 mt-8 text-center">
@@ -124,6 +124,8 @@
           <span class="text-sm text-gray-300">I understand that <span class="text-white">OpenAPI is banned</span> from MashUp, and using it as my connection to GSPro is an immediate DQ.</span></label>
         <label class="agree"><input type="checkbox" id="ag-handicap" />
           <span class="text-sm text-gray-300">I acknowledge that I have an <span class="text-white">active SimulatorGolfTour account with an established handicap</span>, and that my SGT account will remain active for the season.</span></label>
+        <label class="agree"><input type="checkbox" id="ag-payment" />
+          <span class="text-sm text-gray-300">I understand the season costs <span class="text-white">$142</span>, due in full before Week 1.</span></label>
       </div>
 
       <div id="submit-block" class="hidden pt-1">
@@ -249,8 +251,8 @@
       if (!state.checked) { await checkUsername(); }
       if (state.alreadyRegistered) return setStatus('This username is already registered for Season 10.', 'error');
 
-      if (!($('ag-livestream').checked && $('ag-openapi').checked && $('ag-handicap').checked))
-        return setStatus('Please accept all three agreements.', 'error');
+      if (!($('ag-livestream').checked && $('ag-openapi').checked && $('ag-handicap').checked && $('ag-payment').checked))
+        return setStatus('Please accept all four agreements.', 'error');
 
       const isNew = !state.returning;
       const collectData = isNew || state.changed === true;   // new players, or returning + changed
