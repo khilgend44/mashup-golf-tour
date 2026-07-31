@@ -51,7 +51,7 @@ export async function onRequestPost(context) {
 }
 
 async function handlePost(context) {
-  const { request, env } = context;
+  const { request, env, waitUntil } = context;
 
   const denied = await requireAccess(request, env);
   if (denied) return denied;
@@ -115,148 +115,181 @@ async function handlePost(context) {
 
     const scopedPlayers = Array.isArray(body.players) && body.players.length ? body.players : null;
 
-    const rosterRaw = await kvGet(accountId, apiToken, 'players:roster');
-    const fullRoster = rosterRaw ? JSON.parse(rosterRaw) : [];
-    const playersToFetch = scopedPlayers || fullRoster;
-    if (playersToFetch.length === 0) return Response.json({ error: 'No players to refresh' }, { status: 400, headers: CORS });
+    // A full refresh can take several minutes (two sequential SGT calls, each
+    // with its own multi-minute timeout). Stream newline-delimited progress
+    // messages as each stage completes, ending with one {done:true, ...} line
+    // carrying the result — instead of leaving the admin UI on one static
+    // "hang tight" message for the whole wait. Once streaming starts we can no
+    // longer change the HTTP status code, so success/failure is carried in
+    // that final line's `ok` field rather than the response status.
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+    const send = obj => writer.write(encoder.encode(JSON.stringify(obj) + '\n'));
 
-    const url = `${SGT_API_BASE}?key=${sgtKey}&players=${playersToFetch.join(',')}`;
-    // Sequential, not parallel: two concurrent requests on the same API key
-    // may be competing for the same rate-limited backend on SGT's end, which
-    // could be *adding* to the slowness rather than avoiding it. Give
-    // player-check — the one that's actually required — the full timeout
-    // budget on its own first.
-    let sgtRes;
-    try {
-      sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(240_000) });
-    } catch (e) {
-      const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
-      return Response.json(
-        { error: timedOut
-            ? 'SGT took too long to respond. Try selecting a single season (fewer players), or retry in a moment.'
-            : `Could not reach SGT: ${e.message}` },
-        { status: 504, headers: CORS });
-    }
-    if (!sgtRes.ok) return Response.json({ error: `SGT API error: ${sgtRes.status}` }, { status: 502, headers: CORS });
+    const work = (async () => {
+      try {
+        await send({ status: 'Loading roster…' });
+        const rosterRaw = await kvGet(accountId, apiToken, 'players:roster');
+        const fullRoster = rosterRaw ? JSON.parse(rosterRaw) : [];
+        const playersToFetch = scopedPlayers || fullRoster;
+        if (playersToFetch.length === 0) {
+          await send({ done: true, ok: false, error: 'No players to refresh' });
+          return;
+        }
 
-    // SGT returns 200 with an empty body when the API key is rejected, so guard
-    // the parse — otherwise a bad/expired key surfaces as a cryptic error.
-    let data;
-    try { data = await sgtRes.json(); } catch { data = null; }
-    if (!Array.isArray(data)) {
-      return Response.json(
-        { error: 'SGT returned an unexpected (empty/non-JSON) response — the player_api_key may be invalid or expired.' },
-        { status: 502, headers: CORS });
-    }
+        await send({ status: `Fetching player summaries for ${playersToFetch.length} players…` });
+        const url = `${SGT_API_BASE}?key=${sgtKey}&players=${playersToFetch.join(',')}`;
+        // Sequential, not parallel: two concurrent requests on the same API key
+        // may be competing for the same rate-limited backend on SGT's end, which
+        // could be *adding* to the slowness rather than avoiding it. Give
+        // player-check — the one that's actually required — the full timeout
+        // budget on its own first.
+        let sgtRes;
+        try {
+          sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(240_000) });
+        } catch (e) {
+          const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
+          await send({ done: true, ok: false, error: timedOut
+              ? 'SGT took too long to respond. Try selecting a single season (fewer players), or retry in a moment.'
+              : `Could not reach SGT: ${e.message}` });
+          return;
+        }
+        if (!sgtRes.ok) {
+          await send({ done: true, ok: false, error: `SGT API error: ${sgtRes.status}` });
+          return;
+        }
 
-    const fetched = {};
-    for (const p of data) {
-      if (!p || !p.user_name) continue;
-      fetched[p.user_name.toLowerCase()] = {
-        rawCap: p.rawCap,
-        comboCap: p.comboCap,
-        numEvents: p.NumEvents,
-        connector: p.Connector_Used || '',
-        minComboCap: p.minComboCap,
-        comboRoundsCount: p.comboRoundsCount,
-      };
-    }
+        // SGT returns 200 with an empty body when the API key is rejected, so guard
+        // the parse — otherwise a bad/expired key surfaces as a cryptic error.
+        let data;
+        try { data = await sgtRes.json(); } catch { data = null; }
+        if (!Array.isArray(data)) {
+          await send({ done: true, ok: false, error: 'SGT returned an unexpected (empty/non-JSON) response — the player_api_key may be invalid or expired.' });
+          return;
+        }
 
-    // Also pull per-round differentials and compute the MashUp handicap, merging
-    // it onto each player's entry. Supplementary — failures must not break the
-    // core handicap refresh. Note: SGT caps player-hcp-rounds at ~1 response per
-    // key per 24h, so this may only populate fully on the first call of a window.
-    let roundsByPlayer = null;
-    try {
-      const roundsUrl = `${SGT_ROUNDS_API}?key=${sgtKey}&players=${playersToFetch.map(p => encodeURIComponent(p)).join(',')}`;
-      const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(120_000) });
-      if (rRes.ok) {
-        const rounds = await rRes.json();
-        if (Array.isArray(rounds)) {
-          roundsByPlayer = {};
-          for (const r of rounds) {
-            if (!r || r.player == null || typeof r.differential !== 'number') continue;
-            const k = String(r.player).toLowerCase();
-            (roundsByPlayer[k] = roundsByPlayer[k] || []).push({ date: r.date, differential: r.differential, tour: r.tour });
-          }
-          // Trim each player to their SGT combo-log window (most-recent first) so
-          // MashCAP is the best 40% of exactly the rounds SGT's COMBO counts, not the
-          // wider set hcp-rounds returns. Dates are YYYY-MM-DD, so string sort = date sort.
-          for (const k of Object.keys(roundsByPlayer)) {
-            roundsByPlayer[k].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-            const comboCount = fetched[k] ? Number(fetched[k].comboRoundsCount) : NaN;
-            const cap = comboCount > 0 ? comboCount : ROUND_CAP_FALLBACK;
-            if (roundsByPlayer[k].length > cap) roundsByPlayer[k] = roundsByPlayer[k].slice(0, cap);
-            const m = computeMashCap(roundsByPlayer[k].map(r => r.differential));
-            if (m && fetched[k]) {
-              fetched[k].mashCap         = m.cap;
-              fetched[k].mashCapRounds   = m.rounds;
-              fetched[k].mashCapCounting = m.counting;
+        const fetched = {};
+        for (const p of data) {
+          if (!p || !p.user_name) continue;
+          fetched[p.user_name.toLowerCase()] = {
+            rawCap: p.rawCap,
+            comboCap: p.comboCap,
+            numEvents: p.NumEvents,
+            connector: p.Connector_Used || '',
+            minComboCap: p.minComboCap,
+            comboRoundsCount: p.comboRoundsCount,
+          };
+        }
+
+        await send({ status: `Got ${data.length} player summaries — fetching round history…` });
+
+        // Also pull per-round differentials and compute the MashUp handicap, merging
+        // it onto each player's entry. Supplementary — failures must not break the
+        // core handicap refresh. Note: SGT caps player-hcp-rounds at ~1 response per
+        // key per 24h, so this may only populate fully on the first call of a window.
+        let roundsByPlayer = null;
+        try {
+          const roundsUrl = `${SGT_ROUNDS_API}?key=${sgtKey}&players=${playersToFetch.map(p => encodeURIComponent(p)).join(',')}`;
+          const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(120_000) });
+          if (rRes.ok) {
+            const rounds = await rRes.json();
+            if (Array.isArray(rounds)) {
+              roundsByPlayer = {};
+              for (const r of rounds) {
+                if (!r || r.player == null || typeof r.differential !== 'number') continue;
+                const k = String(r.player).toLowerCase();
+                (roundsByPlayer[k] = roundsByPlayer[k] || []).push({ date: r.date, differential: r.differential, tour: r.tour });
+              }
+              // Trim each player to their SGT combo-log window (most-recent first) so
+              // MashCAP is the best 40% of exactly the rounds SGT's COMBO counts, not the
+              // wider set hcp-rounds returns. Dates are YYYY-MM-DD, so string sort = date sort.
+              for (const k of Object.keys(roundsByPlayer)) {
+                roundsByPlayer[k].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+                const comboCount = fetched[k] ? Number(fetched[k].comboRoundsCount) : NaN;
+                const cap = comboCount > 0 ? comboCount : ROUND_CAP_FALLBACK;
+                if (roundsByPlayer[k].length > cap) roundsByPlayer[k] = roundsByPlayer[k].slice(0, cap);
+                const m = computeMashCap(roundsByPlayer[k].map(r => r.differential));
+                if (m && fetched[k]) {
+                  fetched[k].mashCap         = m.cap;
+                  fetched[k].mashCapRounds   = m.rounds;
+                  fetched[k].mashCapCounting = m.counting;
+                }
+              }
             }
           }
+        } catch { /* MashUp cap is supplementary; ignore failures */ }
+
+        await send({ status: 'Saving results…' });
+
+        const now = new Date().toISOString();
+
+        // Load existing data up front. SGT's hcp-rounds endpoint can return a thin
+        // payload (its ~24h cache), so we carry over previously-computed MashCAPs for
+        // any player this pull didn't cover — a partial refresh must never erase good
+        // data. Core caps (rawCap, comboCap, …) come fresh from the reliable player-check.
+        const existingRaw = await kvGet(accountId, apiToken, 'players:handicaps');
+        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        for (const k of Object.keys(fetched)) {
+          if (fetched[k].mashCap == null && existing[k] && existing[k].mashCap != null) {
+            fetched[k].mashCap         = existing[k].mashCap;
+            fetched[k].mashCapRounds   = existing[k].mashCapRounds;
+            fetched[k].mashCapCounting = existing[k].mashCapCounting;
+          }
         }
+
+        // Restore "dropped" players: roster players SGT's player-check didn't return
+        // this refresh (typically inactive players with no recent rounds). On a full
+        // refresh they'd otherwise vanish from the handicap list. If we have any
+        // rounds for them — freshly pulled OR previously stored — compute a
+        // last-known MashCAP so they keep a handicap. Flagged `stale` for the UI.
+        const existingRoundsRaw = await kvGet(accountId, apiToken, 'players:rounds');
+        const existingRounds = existingRoundsRaw ? JSON.parse(existingRoundsRaw) : {};
+        for (const rosterName of playersToFetch) {
+          const k = String(rosterName).toLowerCase();
+          if (fetched[k]) continue;                       // SGT returned them — fresh data already set
+          const rounds = (roundsByPlayer && roundsByPlayer[k]) || existingRounds[k];
+          let m = null;
+          if (Array.isArray(rounds) && rounds.length) {
+            const recent = [...rounds]
+              .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+              .slice(0, ROUND_CAP_FALLBACK);
+            m = computeMashCap(recent.map(r => r.differential));
+          }
+          const prior = existing[k];
+          if (!m && !prior) continue;                     // nothing to keep
+          fetched[k] = {
+            ...(prior || {}),
+            ...(m ? { mashCap: m.cap, mashCapRounds: m.rounds, mashCapCounting: m.counting } : {}),
+            stale: true,                                  // carried over, not freshly pulled
+          };
+        }
+
+        const finalHandicaps = scopedPlayers ? { ...existing, ...fetched } : fetched;
+
+        await Promise.all([
+          kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(finalHandicaps)),
+          kvPut(accountId, apiToken, 'players:last_refresh', now),
+        ]);
+
+        // Persist the raw per-round records (date/differential/tour) for the public
+        // "See Counting Events" detail page. Always merge so a thin rounds payload
+        // only updates the players it returned and never wipes the rest.
+        if (roundsByPlayer && Object.keys(roundsByPlayer).length) {
+          const finalRounds = { ...existingRounds, ...roundsByPlayer };
+          await kvPut(accountId, apiToken, 'players:rounds', JSON.stringify(finalRounds));
+        }
+
+        await send({ done: true, ok: true, count: data.length, lastRefresh: now, handicaps: finalHandicaps });
+      } catch (e) {
+        await send({ done: true, ok: false, error: `Unexpected error: ${e.message}` });
+      } finally {
+        await writer.close();
       }
-    } catch { /* MashUp cap is supplementary; ignore failures */ }
+    })();
+    if (waitUntil) waitUntil(work);
 
-    const now = new Date().toISOString();
-
-    // Load existing data up front. SGT's hcp-rounds endpoint can return a thin
-    // payload (its ~24h cache), so we carry over previously-computed MashCAPs for
-    // any player this pull didn't cover — a partial refresh must never erase good
-    // data. Core caps (rawCap, comboCap, …) come fresh from the reliable player-check.
-    const existingRaw = await kvGet(accountId, apiToken, 'players:handicaps');
-    const existing = existingRaw ? JSON.parse(existingRaw) : {};
-    for (const k of Object.keys(fetched)) {
-      if (fetched[k].mashCap == null && existing[k] && existing[k].mashCap != null) {
-        fetched[k].mashCap         = existing[k].mashCap;
-        fetched[k].mashCapRounds   = existing[k].mashCapRounds;
-        fetched[k].mashCapCounting = existing[k].mashCapCounting;
-      }
-    }
-
-    // Restore "dropped" players: roster players SGT's player-check didn't return
-    // this refresh (typically inactive players with no recent rounds). On a full
-    // refresh they'd otherwise vanish from the handicap list. If we have any
-    // rounds for them — freshly pulled OR previously stored — compute a
-    // last-known MashCAP so they keep a handicap. Flagged `stale` for the UI.
-    const existingRoundsRaw = await kvGet(accountId, apiToken, 'players:rounds');
-    const existingRounds = existingRoundsRaw ? JSON.parse(existingRoundsRaw) : {};
-    for (const rosterName of playersToFetch) {
-      const k = String(rosterName).toLowerCase();
-      if (fetched[k]) continue;                       // SGT returned them — fresh data already set
-      const rounds = (roundsByPlayer && roundsByPlayer[k]) || existingRounds[k];
-      let m = null;
-      if (Array.isArray(rounds) && rounds.length) {
-        const recent = [...rounds]
-          .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-          .slice(0, ROUND_CAP_FALLBACK);
-        m = computeMashCap(recent.map(r => r.differential));
-      }
-      const prior = existing[k];
-      if (!m && !prior) continue;                     // nothing to keep
-      fetched[k] = {
-        ...(prior || {}),
-        ...(m ? { mashCap: m.cap, mashCapRounds: m.rounds, mashCapCounting: m.counting } : {}),
-        stale: true,                                  // carried over, not freshly pulled
-      };
-    }
-
-    const finalHandicaps = scopedPlayers ? { ...existing, ...fetched } : fetched;
-
-    await Promise.all([
-      kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(finalHandicaps)),
-      kvPut(accountId, apiToken, 'players:last_refresh', now),
-    ]);
-
-    // Persist the raw per-round records (date/differential/tour) for the public
-    // "See Counting Events" detail page. Always merge so a thin rounds payload
-    // only updates the players it returned and never wipes the rest.
-    if (roundsByPlayer && Object.keys(roundsByPlayer).length) {
-      const finalRounds = { ...existingRounds, ...roundsByPlayer };
-      await kvPut(accountId, apiToken, 'players:rounds', JSON.stringify(finalRounds));
-    }
-
-    return Response.json({ ok: true, count: data.length, lastRefresh: now, handicaps: finalHandicaps }, { headers: CORS });
+    return new Response(readable, { headers: { ...CORS, 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store' } });
   }
 
   return Response.json({ error: 'Unknown action' }, { status: 400, headers: CORS });

@@ -421,13 +421,37 @@
           body: JSON.stringify(body),
           signal: ctrl.signal,
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        state.handicaps   = data.handicaps;
-        state.lastRefresh = data.lastRefresh;
+
+        // The refresh endpoint streams newline-delimited progress messages
+        // ({status: "..."}) followed by one final {done: true, ok, ...} line —
+        // read incrementally instead of a single res.json() so we can show
+        // live progress through a multi-minute refresh.
+        if (!res.body) throw new Error('No response body from server.');
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let result = null;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const msg = JSON.parse(line);
+            if (msg.done) result = msg;
+            else if (msg.status) showStatus(`${scopeLabel}: ${msg.status}`, 'info');
+          }
+        }
+        if (!result) throw new Error('Connection closed before the refresh finished.');
+        if (!result.ok) throw new Error(result.error);
+
+        state.handicaps   = result.handicaps;
+        state.lastRefresh = result.lastRefresh;
         renderTable(getSeasonRoster(), state.handicaps, document.getElementById('search-input').value);
         updateRefreshLabel();
-        showStatus(`Updated ${data.count} player handicaps.`, 'success');
+        showStatus(`Updated ${result.count} player handicaps.`, 'success');
       } catch (e) {
         const msg = e.name === 'AbortError'
           ? 'timed out. Try selecting a single season to refresh fewer players at once.'
