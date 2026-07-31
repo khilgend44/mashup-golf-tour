@@ -142,15 +142,16 @@ async function handlePost(context) {
     // itself. If the connection dies mid-refresh, the streamed response body
     // becomes unreadable and we'd otherwise have zero visibility into what
     // happened — this survives that and is readable via
-    // GET /admin/api/players?debug=refresh. Not awaited (fire-and-forget) so
-    // logging never slows the actual refresh down.
+    // GET /admin/api/players?debug=refresh. Awaited (not fire-and-forget) —
+    // a KV put is fast, and skipping the await raced the final entry against
+    // the Worker being torn down right after, which could drop it silently.
     const startedAt = Date.now();
     const trail = [];
-    const send = obj => {
+    const send = async obj => {
       trail.push({ ...obj, at: new Date().toISOString(), elapsedMs: Date.now() - startedAt });
       console.log('[players:refresh]', JSON.stringify(trail[trail.length - 1]));
-      kvPut(accountId, apiToken, 'players:refresh_debug', JSON.stringify(trail)).catch(() => {});
-      return writer.write(encoder.encode(JSON.stringify(obj) + '\n'));
+      try { await kvPut(accountId, apiToken, 'players:refresh_debug', JSON.stringify(trail)); } catch { /* debug trail is best-effort */ }
+      await writer.write(encoder.encode(JSON.stringify(obj) + '\n'));
     };
 
     const work = (async () => {
