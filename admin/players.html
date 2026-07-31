@@ -92,6 +92,11 @@
       </div>
       <div class="flex items-center gap-3">
         <div id="last-refresh-label" class="text-xs text-gray-600 font-body"></div>
+        <button id="debug-btn"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface border border-border text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-gray-300 hover:border-gray-600"
+          style="transition:all 0.15s" title="View the last refresh's stage-by-stage debug trail">
+          🐛 Debug
+        </button>
         <button id="refresh-btn"
           class="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-flame/40"
           style="transition:all 0.15s">
@@ -104,7 +109,8 @@
       </div>
     </div>
 
-
+    <!-- Debug Trail -->
+    <div id="debug-panel" class="hidden card-shadow bg-card border border-border rounded-lg p-5"></div>
 
     <!-- Players Table -->
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
@@ -461,6 +467,44 @@
         clearTimeout(timer);
         btn.disabled = false;
         icon.classList.remove('spin');
+      }
+    });
+
+    document.getElementById('debug-btn').addEventListener('click', async () => {
+      const panel = document.getElementById('debug-panel');
+      if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+
+      panel.classList.remove('hidden');
+      panel.innerHTML = '<p class="text-sm text-gray-500 font-body">Loading…</p>';
+      try {
+        const res  = await fetch(`${API_WRITE}?debug=refresh`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        const trail = data.trail || [];
+        if (!trail.length) {
+          panel.innerHTML = '<p class="text-sm text-gray-500 font-body">No refresh has run yet.</p>';
+          return;
+        }
+        panel.innerHTML = `
+          <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Last Refresh — Stage-by-Stage</div>
+          <div class="space-y-1.5 font-body text-sm">
+            ${trail.map((t, i) => {
+              const secs = (t.elapsedMs / 1000).toFixed(1) + 's';
+              const label = t.done
+                ? (t.ok ? `✅ Done — ${t.count ?? '?'} players updated` : `❌ Failed: ${t.error || 'unknown error'}`)
+                : t.status;
+              const color = t.done ? (t.ok ? 'text-emerald-400' : 'text-red-400') : 'text-gray-300';
+              return `<div class="flex items-baseline gap-3">
+                <span class="text-gray-600 w-8 text-right shrink-0">${i + 1}.</span>
+                <span class="${color} flex-1">${label}</span>
+                <span class="text-gray-600 text-xs shrink-0">${secs}</span>
+              </div>`;
+            }).join('')}
+          </div>
+          <p class="text-[11px] text-gray-700 mt-3">Recorded ${new Date(trail[0].at).toLocaleString()}</p>
+        `;
+      } catch (e) {
+        panel.innerHTML = `<p class="text-sm text-red-400 font-body">Couldn't load debug trail: ${e.message}</p>`;
       }
     });
 

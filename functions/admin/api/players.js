@@ -27,6 +27,12 @@ export async function onRequestOptions() {
 }
 
 // Protected read: the player → Discord ID map (kept out of the public /api/players).
+// ?debug=refresh instead returns the last-known refresh debug trail (written
+// by the refresh action's send() helper below) — a stage-by-stage record of
+// the most recent refresh attempt, useful for troubleshooting one that died
+// mid-stream and left no other trace (the streamed response body itself
+// becomes unreadable once the connection drops, so this is the only way to
+// see how far it got).
 export async function onRequestGet(context) {
   const { request, env } = context;
   const denied = await requireAccess(request, env);
@@ -34,6 +40,12 @@ export async function onRequestGet(context) {
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken  = env.CLOUDFLARE_API_TOKEN;
   if (!accountId || !apiToken) return Response.json({ error: 'Missing credentials' }, { status: 500, headers: CORS });
+
+  if (new URL(request.url).searchParams.get('debug') === 'refresh') {
+    const raw = await kvGet(accountId, apiToken, 'players:refresh_debug');
+    return Response.json({ trail: raw ? JSON.parse(raw) : [] }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+  }
+
   const raw = await kvGet(accountId, apiToken, 'players:discord');
   return Response.json({ discord: raw ? JSON.parse(raw) : {} }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
 }
@@ -125,7 +137,21 @@ async function handlePost(context) {
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
-    const send = obj => writer.write(encoder.encode(JSON.stringify(obj) + '\n'));
+
+    // Debug trail: persisted to KV on every stage, independent of the stream
+    // itself. If the connection dies mid-refresh, the streamed response body
+    // becomes unreadable and we'd otherwise have zero visibility into what
+    // happened — this survives that and is readable via
+    // GET /admin/api/players?debug=refresh. Not awaited (fire-and-forget) so
+    // logging never slows the actual refresh down.
+    const startedAt = Date.now();
+    const trail = [];
+    const send = obj => {
+      trail.push({ ...obj, at: new Date().toISOString(), elapsedMs: Date.now() - startedAt });
+      console.log('[players:refresh]', JSON.stringify(trail[trail.length - 1]));
+      kvPut(accountId, apiToken, 'players:refresh_debug', JSON.stringify(trail)).catch(() => {});
+      return writer.write(encoder.encode(JSON.stringify(obj) + '\n'));
+    };
 
     const work = (async () => {
       try {
