@@ -165,6 +165,7 @@
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <a href="../player.html?name=${encodeURIComponent(r.username)}" target="_blank" class="font-heading font-700 text-lg text-white hover:text-flame" style="transition:color .12s">${esc(r.username)}</a>
+                <a href="https://simulatorgolftour.com/profile/${encodeURIComponent(r.username)}" target="_blank" rel="noopener" class="text-xs text-gray-500 hover:text-flame font-heading font-600 tracking-wide" style="transition:color .12s" title="View on Simulator Golf Tour">↗ SGT Profile</a>
                 ${statusBadge}${returning}
               </div>
               <div class="text-xs text-gray-500 mt-0.5">Submitted ${when(r.submittedAt)}${r.reviewedAt ? ` · reviewed ${when(r.reviewedAt)}` : ''}</div>
