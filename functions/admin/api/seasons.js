@@ -45,6 +45,22 @@ export async function onRequestPost(context) {
     return Response.json({ ok: true, season }, { headers: CORS });
   }
 
+  if (action === 'add-player') {
+    const { seasonId, player } = body;
+    if (!seasonId || !player) return Response.json({ error: 'Missing seasonId or player' }, { status: 400, headers: CORS });
+    const raw = await kvGet(accountId, apiToken, 'admin:seasons');
+    const seasons = raw ? JSON.parse(raw) : [];
+    const idx = seasons.findIndex(s => s.id === seasonId);
+    if (idx === -1)
+      return Response.json({ error: `Season ${seasonId} not found — create it first in admin/seasons.html (static seasons like season-9 can't be edited here).` }, { status: 404, headers: CORS });
+    const trimmed = String(player).trim();
+    const players = Array.isArray(seasons[idx].players) ? [...seasons[idx].players] : [];
+    if (!players.find(p => p.toLowerCase() === trimmed.toLowerCase())) players.push(trimmed);
+    seasons[idx] = { ...seasons[idx], players };
+    await kvPut(accountId, apiToken, 'admin:seasons', JSON.stringify(seasons));
+    return Response.json({ ok: true, season: seasons[idx] }, { headers: CORS });
+  }
+
   if (action === 'archive-season') {
     const { seasonId } = body;
     if (!seasonId) return Response.json({ error: 'Missing seasonId' }, { status: 400, headers: CORS });

@@ -61,10 +61,13 @@
   </footer>
 
   <script>
-    const API = '/admin/api/registrations';
+    const API           = '/admin/api/registrations';
+    const SEASONS_API    = '/api/seasons';          // public read
+    const SEASONS_WRITE  = '/admin/api/seasons';    // Access-protected writes
+    const PLAYERS_WRITE  = '/admin/api/players';    // Access-protected writes
     const params = new URLSearchParams(location.search);
     const SEASON = params.get('season') || 'season-10';
-    const state = { regs: [], meta: {}, tab: 'pending' };
+    const state = { regs: [], meta: {}, tab: 'pending', seasonPlayers: new Set(), seasonExists: false };
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     const when = iso => iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
@@ -79,11 +82,23 @@
 
     async function load() {
       try {
-        const res = await fetch(`${API}?season=${encodeURIComponent(SEASON)}`);
-        if (!res.ok) throw new Error(res.status === 302 || res.status === 401 || res.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${res.status})`);
-        const d = await res.json();
+        const [regsRes, seasonsRes] = await Promise.all([
+          fetch(`${API}?season=${encodeURIComponent(SEASON)}`),
+          fetch(SEASONS_API),
+        ]);
+        if (!regsRes.ok) throw new Error(regsRes.status === 302 || regsRes.status === 401 || regsRes.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${regsRes.status})`);
+        const d = await regsRes.json();
         state.regs = Array.isArray(d.registrations) ? d.registrations : [];
         state.meta = d.meta || {};
+
+        // KV-backed seasons only (matches what add-player can actually write
+        // to) — static seasons like season-9 won't show up here, which is
+        // expected: those can't be edited this way.
+        const seasons = seasonsRes.ok ? await seasonsRes.json() : [];
+        const season = Array.isArray(seasons) ? seasons.find(s => s.id === SEASON) : null;
+        state.seasonExists  = !!season;
+        state.seasonPlayers = new Set((season?.players || []).map(p => p.toLowerCase()));
+
         $('season-label').textContent = (SEASON.replace('season-', 'Season '));
         render();
       } catch (e) {
@@ -134,6 +149,17 @@
              <button data-act="decline" data-id="${r.id}" class="px-4 py-1.5 rounded-lg border border-red-800/50 text-red-300 hover:bg-red-900/30 text-xs font-heading font-600 tracking-wider">Decline</button>`
           : `<button data-act="reset" data-id="${r.id}" class="px-3 py-1.5 rounded-lg border border-border text-gray-400 hover:text-gray-200 text-xs font-heading font-600 tracking-wider">↺ Reset to pending</button>`;
 
+        // Approving only saves profile info — it doesn't touch the master
+        // roster or the season's player list, so surface that gap here with
+        // a one-click fix instead of requiring a separate trip to
+        // admin/seasons.html for every approval.
+        const inSeason = state.seasonPlayers.has(r.username.toLowerCase());
+        const seasonAction = r.status !== 'approved' ? '' : !state.seasonExists
+          ? `<span class="badge bg-gray-700/40 text-gray-400" title="Create ${SEASON.replace('season-', 'Season ')} in admin/seasons.html first">Season not created</span>`
+          : inSeason
+            ? `<span class="badge bg-emerald-500/15 text-emerald-400">✓ In Season</span>`
+            : `<button data-act="add-to-season" data-id="${r.id}" class="px-3 py-1.5 rounded-lg bg-flame/80 hover:bg-flame text-white text-xs font-heading font-600 tracking-wider">+ Add to Season</button>`;
+
         return `<div class="card-shadow bg-card border border-border rounded-xl p-5">
           <div class="flex items-start justify-between gap-3 flex-wrap">
             <div class="min-w-0">
@@ -143,7 +169,7 @@
               </div>
               <div class="text-xs text-gray-500 mt-0.5">Submitted ${when(r.submittedAt)}${r.reviewedAt ? ` · reviewed ${when(r.reviewedAt)}` : ''}</div>
             </div>
-            <div class="flex items-center gap-2 shrink-0">${actions}</div>
+            <div class="flex items-center gap-2 shrink-0">${seasonAction}${actions}</div>
           </div>
 
           <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 mt-4 text-sm">
@@ -177,6 +203,30 @@
         if (reason === null) return;       // cancelled
       } else if (action === 'approve') {
         if (!confirm(`Approve ${rec?.username} for ${SEASON.replace('season-', 'Season ')}? Their info will be saved to the player record.`)) return;
+      } else if (action === 'add-to-season') {
+        // Two writes (master roster, then this season) — not one endpoint,
+        // so handle it separately from the generic registrations-API path below.
+        if (!confirm(`Add ${rec?.username} to the master roster and ${SEASON.replace('season-', 'Season ')}?`)) return;
+        try {
+          const r1 = await fetch(PLAYERS_WRITE, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', player: rec.username }),
+          });
+          if (!r1.ok) { const d = await r1.json().catch(() => ({})); throw new Error(d.error || `Roster add failed (${r1.status})`); }
+
+          const r2 = await fetch(SEASONS_WRITE, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add-player', seasonId: SEASON, player: rec.username }),
+          });
+          if (!r2.ok) { const d = await r2.json().catch(() => ({})); throw new Error(d.error || `Season add failed (${r2.status})`); }
+
+          state.seasonPlayers.add(rec.username.toLowerCase());
+          setStatus(`${rec.username}: added to roster and ${SEASON.replace('season-', 'Season ')}.`, 'success');
+          render();
+        } catch (e) {
+          setStatus(e.message, 'error');
+        }
+        return;
       }
       try {
         const res = await fetch(API, {
