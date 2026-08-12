@@ -80,6 +80,22 @@ export async function onRequestPost(context) {
     rec.declineReason = String(reason || '').trim();
     rec.reviewedAt = now;
     await kvPut(accountId, apiToken, key, JSON.stringify(list));
+
+    // Same channel as the new-registration ping — a searchable record of why
+    // someone was declined, for looking back later.
+    const webhook = env.DISCORD_REGISTER_WEBHOOK_URL;
+    if (webhook) {
+      try {
+        await fetch(webhook, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: `❌ Declined: **${rec.username}** for ${season.replace('season-', 'Season ')}${rec.declineReason ? ` — ${rec.declineReason}` : ' (no reason given)'}`,
+            allowed_mentions: { parse: [] },
+          }),
+        });
+      } catch { /* ping is best-effort */ }
+    }
+
     return Response.json({ ok: true, registration: rec }, { headers: CORS });
   }
 
