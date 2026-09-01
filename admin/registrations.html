@@ -145,7 +145,7 @@
         const emailE = eff(r.email, meta.email);
 
         const actions = r.status === 'pending'
-          ? `<button data-act="approve" data-id="${r.id}" class="px-4 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-heading font-600 tracking-wider">Approve</button>
+          ? `<button data-act="approve" data-id="${r.id}" class="px-4 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-heading font-600 tracking-wider">Approve &amp; Add</button>
              <button data-act="decline" data-id="${r.id}" class="px-4 py-1.5 rounded-lg border border-red-800/50 text-red-300 hover:bg-red-900/30 text-xs font-heading font-600 tracking-wider">Decline</button>`
           : `<button data-act="reset" data-id="${r.id}" class="px-3 py-1.5 rounded-lg border border-border text-gray-400 hover:text-gray-200 text-xs font-heading font-600 tracking-wider">↺ Reset to pending</button>`;
 
@@ -196,6 +196,25 @@
       });
     }
 
+    // Shared by the auto-chain on approve and the manual retry button —
+    // both writes are idempotent (dedup by lowercase name) so calling this
+    // again for someone already on the roster/season is harmless.
+    async function addToSeasonRoster(rec) {
+      const r1 = await fetch(PLAYERS_WRITE, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', player: rec.username }),
+      });
+      if (!r1.ok) { const d = await r1.json().catch(() => ({})); throw new Error(d.error || `Roster add failed (${r1.status})`); }
+
+      const r2 = await fetch(SEASONS_WRITE, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add-player', seasonId: SEASON, player: rec.username }),
+      });
+      if (!r2.ok) { const d = await r2.json().catch(() => ({})); throw new Error(d.error || `Season add failed (${r2.status})`); }
+
+      state.seasonPlayers.add(rec.username.toLowerCase());
+    }
+
     async function act(action, id) {
       const rec = state.regs.find(r => r.id === id);
       let reason;
@@ -203,25 +222,14 @@
         reason = prompt(`Decline ${rec?.username}? Optional reason (kept on record):`, '');
         if (reason === null) return;       // cancelled
       } else if (action === 'approve') {
-        if (!confirm(`Approve ${rec?.username} for ${SEASON.replace('season-', 'Season ')}? Their info will be saved to the player record.`)) return;
+        const addNote = state.seasonExists ? ` and added to ${SEASON.replace('season-', 'Season ')}'s roster` : '';
+        if (!confirm(`Approve ${rec?.username}? Their info will be saved to the player record${addNote}.`)) return;
       } else if (action === 'add-to-season') {
-        // Two writes (master roster, then this season) — not one endpoint,
-        // so handle it separately from the generic registrations-API path below.
+        // Manual fallback/retry path — covers registrations approved before
+        // this existed, or ones where the auto-add below failed.
         if (!confirm(`Add ${rec?.username} to the master roster and ${SEASON.replace('season-', 'Season ')}?`)) return;
         try {
-          const r1 = await fetch(PLAYERS_WRITE, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'add', player: rec.username }),
-          });
-          if (!r1.ok) { const d = await r1.json().catch(() => ({})); throw new Error(d.error || `Roster add failed (${r1.status})`); }
-
-          const r2 = await fetch(SEASONS_WRITE, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'add-player', seasonId: SEASON, player: rec.username }),
-          });
-          if (!r2.ok) { const d = await r2.json().catch(() => ({})); throw new Error(d.error || `Season add failed (${r2.status})`); }
-
-          state.seasonPlayers.add(rec.username.toLowerCase());
+          await addToSeasonRoster(rec);
           setStatus(`${rec.username}: added to roster and ${SEASON.replace('season-', 'Season ')}.`, 'success');
           render();
         } catch (e) {
@@ -242,6 +250,20 @@
         if (action === 'delete') state.regs = state.regs.filter(r => r.id !== id);
         else if (d.registration) Object.assign(rec, d.registration);
         if (d.meta) state.meta[rec.username.toLowerCase()] = d.meta;
+
+        // Approve now chains straight into the roster/season add (when the
+        // season exists) instead of requiring a separate manual click.
+        if (action === 'approve' && state.seasonExists && !state.seasonPlayers.has(rec.username.toLowerCase())) {
+          try {
+            await addToSeasonRoster(rec);
+            setStatus(`${rec.username}: approved and added to ${SEASON.replace('season-', 'Season ')}'s roster.`, 'success');
+          } catch (e) {
+            setStatus(`${rec.username}: approved, but roster add failed — ${e.message}. Use "+ Add to Season" to retry.`, 'error');
+          }
+          render();
+          return;
+        }
+
         setStatus(`${rec?.username}: ${action === 'approve' ? 'approved' : action === 'decline' ? 'declined' : 'updated'}.`, 'success');
         render();
       } catch (e) {
