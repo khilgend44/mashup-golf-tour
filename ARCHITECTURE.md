@@ -1,6 +1,6 @@
 # MashUp Golf Tour — Architecture Reference
 
-Last updated: June 26, 2026
+Last updated: September 1, 2026
 
 ---
 
@@ -39,6 +39,7 @@ SimulatorGolfTour API  (provides live scorecard data)
 - Pages:
   - `/admin/guide.html` — wiki-style operator's guide (TOC sidebar + scroll-spy): what each portal page does, the weekly workflow, the SGT admin "Game" functions (Reset Player, Delete Save Game, Update Player Resume, Create/Modify Scorecard), and Access/deploy notes. Linked as a card on the portal index. Static content — update it when admin workflows change.
   - `/admin/players.html` — manage player roster, view/refresh handicaps
+  - `/admin/registrations.html` — review Season N signups (see **10. Season 10 Registration** below)
   - `/admin/events.html` — create/manage seasons and events
     - SGT Event URL must be entered first — it unlocks the rest of the form and auto-populates event name, dates, rounds, and week number
     - Event name is locked after SGT scrape and does not change when format is changed
@@ -68,12 +69,15 @@ The API is split into **public reads** and **protected writes** so the public si
   - `/api/players` — roster + handicaps (GET)
   - `/api/player-rounds` — stored per-round MashCAP data; whole map or `?player=x` (GET)
   - `/api/event-public`, `/api/get-streams` — public event/team + stream data (GET)
-  - `/api/submit-stream` — **public write by design** (players submit their own YouTube links)
+  - `/api/submit-stream` — **public write by design** (players submit their own YouTube links); rate-limited (see **10. Season 10 Registration**)
+  - `/api/register` — **public write by design** (season signup form); rate-limited
+  - `/api/registration-check?username=x&season=y` — returns only `{returning, alreadyRegistered}` booleans, never stored data — lets the form recognize a returning player without a username-enumeration leak
 - **Protected writes — `functions/admin/api/*`** (route `/admin/api/*`, behind Cloudflare Access):
   - `/admin/api/events` — create/update/delete/activate/complete event, create/delete format, **`set-devils-draw`** (saves a Devil's Draw `devilsDraw`+`revealOrder` onto a KV event — called by the "Save Draw to Event" button in `event.html?...&reveal=true`)
   - `/admin/api/players` — onboard/add/remove player, refresh handicaps
   - `/admin/api/seasons` — create/update/archive season
   - `/admin/api/announce` — post event poster to Discord
+  - `/admin/api/registrations` — list/approve/decline/reset/delete season registrations; approve upserts `players:meta` (no email) and, if the season exists, chains straight into the roster + season adds (see **10. Season 10 Registration**)
 - Admin pages keep reads on `/api/*` constants (`API`, `PLAYERS_API`) and send writes to `/admin/api/*` constants (`API_WRITE`, `PLAYERS_WRITE`).
 
 **Three layers of protection on every write** (`functions/admin/api/_lib.js` → `requireAccess()`):
@@ -113,6 +117,9 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
   - `players:rounds` — raw per-round records used for MashCAP, keyed by lowercase player name → `[{ date, differential, tour }]`. Written by the refresh action; served publicly by `/api/player-rounds` for the counting-events detail page.
   - `players:discord` — player → Discord user ID map (lowercase name → numeric ID). Read via the **protected** `GET /admin/api/players` (kept out of the public `/api/players`); edited per-player on the admin Players page. Used to `<@id>`-tag winners in the Discord results post.
   - `players:last_refresh` — ISO timestamp of last handicap pull
+  - `players:meta` — persistent, cross-season player record keyed by lowercase username → `{ username, launchMonitor, region, discordName, email, updatedAt }`. Distinct from `players:roster` (just names) and `players:handicaps` (SGT/MashCAP numbers) — this is the profile info collected at registration. Upserted only when a registration is approved; email here is admin-only (never served publicly).
+  - `registrations:<season>` — array of that season's signups: `{ id, username, discordName, launchMonitor, region, email, agreements, returning, changed, status: 'pending'|'approved'|'declined', declineReason, submittedAt, reviewedAt }`. Written by the public `/api/register`; read/mutated only via the protected `/admin/api/registrations`.
+  - `ratelimit:register:<ip>` / `ratelimit:submit-stream:<ip>` — short-lived (60s TTL) request counters for the in-app rate limiter; self-expire, not meant to be read directly.
   - `{eventId}:{playerName}:{round}` — YouTube stream URLs submitted by players
   - `{eventId}:handicaps` — snapshot of `players:handicaps` taken at the moment an event is activated (used for historical accuracy)
 - Static/historical data lives in `data/` JSON files in the repo instead.
@@ -184,6 +191,14 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - **MashCAP drives team registration and scoring.** Both the Players and Teams pages use a `regCap(h)` accessor = MashCAP if present, else SGT `rawCap` (fallback only until a player has a MashCAP). The adjusted/relative handicap written to the SGT Loading File (`round(regCap − minRegCap)`) and the balanced-team tiers are all based on this.
 - Computed in `computeMashCap()` in `functions/admin/api/players.js`. (A temporary debug inspector at `functions/admin/api/inspect-rounds.js` was removed once MashCAP shipped — it had URL-driven KV seed params that were a data-corruption foot-gun.)
 - **Public pages:** `handicaps.html` (season-scoped MashCAP table, linked from the home nav with a "Why MashCAP vs COMBO" explainer; shows a last-updated timestamp from `players:last_refresh`) and `counting-events.html?player=X` (per-player breakdown of every round, sorted newest-first, with the best 40% marked). The latter reads `players:rounds` via the public `/api/player-rounds` endpoint. The refresh action persists those rounds to KV.
+
+### 10. Season 10 Registration
+- **Public form:** `registration.html` — SGT username lookup (via `/api/registration-check`) recognizes returning players and shows only what changed; new players fill launch monitor, region, email, Discord name; four required agreements (livestream, OpenAPI ban, handicap/MashCAP, $142 cost). Submits to `/api/register`, which stores a `pending` record in KV under `registrations:<season>` (season hardcoded to `season-10` in the page).
+- **No player cap.** Season 10 launched open-enrollment by choice; if it needs to close and a waitlist is added later, that logic goes in `register.js` (a roster-size check) plus new copy/UI in `registration.html`.
+- **Admin review:** `admin/registrations.html` — Pending/Approved/Declined/All tabs. **Approve & Add** does the whole thing in one click: saves the submitted info into `players:meta` *and*, if the season exists in KV, immediately adds the player to `players:roster` and the season's roster (both writes are idempotent, safe to repeat). A standalone **+ Add to Season** button still appears for approved-but-not-yet-added registrations (e.g. ones approved before this existed) as a manual retry path. **Decline** takes a reason and posts it to Discord.
+- **Discord pings:** both new-registration and decline-with-reason post to `DISCORD_REGISTER_WEBHOOK_URL` (optional — registrations still save if unset) with `allowed_mentions: { parse: [] }` to prevent mention injection from user-controlled fields.
+- **Rate limiting:** Cloudflare's WAF Rate Limiting Rules require a paid plan, so `/api/register` and `/api/submit-stream` are self-limited in-app instead — `functions/api/_ratelimit.js` counts requests per `CF-Connecting-IP` in the existing KV namespace (60s TTL) and rejects with 429 past **5 requests/minute/IP**. Read-then-increment, not perfectly atomic under a burst — an accepted tradeoff, same class as the KV race noted in `AUDIT.md` P1-6.
+- **Nav rollout:** all 6 pages with the hamburger nav (`index`, `about`, `requirements`, `rules`, `season`, `event`) list **Season 10** + **Register for Season 10** above a divider, then **Season 9 (Archive)** below it — the pattern to repeat when Season 11 eventually supersedes Season 10.
 
 ---
 
