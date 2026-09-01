@@ -312,7 +312,7 @@
         <h2 class="font-display text-2xl tracking-wider text-white">ALL EVENTS <span id="event-count" class="text-gray-600 text-lg"></span></h2>
         <div class="flex items-center gap-3">
           <label class="flex items-center gap-2 text-xs text-gray-500 font-body cursor-pointer">
-            <input type="checkbox" id="show-legacy" class="accent-[#f97316]" /> Show Season 9
+            <input type="checkbox" id="show-all-seasons" class="accent-[#f97316]" /> Show All Seasons
           </label>
         </div>
       </div>
@@ -412,7 +412,7 @@
       staticEvents: [],
       allFormats: {},
       allSeasons: [],
-      showLegacy: false,
+      showAllSeasons: false,
       lastHandicapRefresh: null,
       playerCount: null,
     };
@@ -527,12 +527,20 @@
     function renderTable() {
       const tbody = document.getElementById('events-tbody');
       const kvIds = new Set(state.kvEvents.map(e => e.id));
+      const activeSeason = state.allSeasons.find(s => s.status === 'active');
 
       let rows = [...state.kvEvents];
-      if (state.showLegacy) {
+      if (state.showAllSeasons) {
         for (const e of state.staticEvents) {
           if (!kvIds.has(e.id)) rows.push({ ...e, _legacy: true });
         }
+      } else if (activeSeason) {
+        // Default view: only the active season's events (Season 8, 9, and any
+        // other completed season stay out of the way until "Show All Seasons"
+        // is checked — all admin-created events live in the same KV bucket
+        // regardless of season, so without this filter every past season's
+        // events would show forever).
+        rows = rows.filter(e => e.season === activeSeason.id);
       }
 
       rows.sort((a, b) => {
@@ -545,7 +553,7 @@
 
       if (rows.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 font-body text-sm">
-          No events yet. ${state.showLegacy ? '' : 'Enable "Show Season 9" to see legacy events, or create a new one.'}
+          No events yet. ${state.showAllSeasons ? '' : 'Enable "Show All Seasons" to see archived events, or create a new one.'}
         </td></tr>`;
         return;
       }
@@ -1285,8 +1293,8 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
     });
     document.getElementById('create-event-btn').addEventListener('click', createEvent);
     document.getElementById('save-format-btn').addEventListener('click', saveCustomFormat);
-    document.getElementById('show-legacy').addEventListener('change', e => {
-      state.showLegacy = e.target.checked;
+    document.getElementById('show-all-seasons').addEventListener('change', e => {
+      state.showAllSeasons = e.target.checked;
       renderTable();
     });
 
