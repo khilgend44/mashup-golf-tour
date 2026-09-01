@@ -2,6 +2,7 @@
 // Stores a pending signup in registrations:<season>. Email is kept ONLY on this
 // season registration record (admin-only read) — never in players:meta, never
 // in any public response, never in the repo.
+import { checkRateLimit } from './_ratelimit.js';
 const KV_NAMESPACE_ID = 'a6cbb9bc3e784be88136dbffe9f9796f';
 
 // Restrict CORS to our own origins — registration is a same-origin write, so no
@@ -48,6 +49,9 @@ export async function onRequestPost(context) {
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken  = env.CLOUDFLARE_API_TOKEN;
   if (!accountId || !apiToken) return json({ error: 'Storage not configured' }, 500);
+
+  const allowed = await checkRateLimit(accountId, apiToken, request, { keyPrefix: 'ratelimit:register', limit: 5, windowSeconds: 60 });
+  if (!allowed) return json({ error: 'Too many attempts. Please wait a minute and try again.' }, 429);
 
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }

@@ -1,3 +1,4 @@
+import { checkRateLimit } from './_ratelimit.js';
 const KV_NAMESPACE_ID = 'a6cbb9bc3e784be88136dbffe9f9796f';
 
 async function kvGet(accountId, apiToken, key) {
@@ -61,6 +62,9 @@ export async function onRequestPost(context) {
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken  = env.CLOUDFLARE_API_TOKEN;
   if (!accountId || !apiToken) return new Response('Storage not configured', { status: 500 });
+
+  const withinLimit = await checkRateLimit(accountId, apiToken, request, { keyPrefix: 'ratelimit:submit-stream', limit: 5, windowSeconds: 60 });
+  if (!withinLimit) return new Response('Too many attempts. Please wait a minute and try again.', { status: 429 });
 
   // ── Validate the event and player names before writing anything ──────────
   // Stream keys are `${eventId}:${player}:${round}`. Without this, an anonymous
