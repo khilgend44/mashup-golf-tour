@@ -4,7 +4,8 @@
 // This data is NEVER returned by any public endpoint and never written to the repo.
 import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
 
-const FIELDS = ['username', 'name', 'discordName', 'email', 'launchMonitor', 'region', 'payService'];
+const FIELDS = ['username', 'name', 'discordName', 'email', 'launchMonitor', 'region', 'payService', 'creditBalance'];
+const NUMERIC_FIELDS = ['creditBalance'];
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -50,7 +51,7 @@ export async function onRequestPost(context) {
       for (const f of FIELDS) {
         if (f === 'username') continue;
         const v = p[f] != null ? String(p[f]).trim() : '';
-        if (v) next[f] = v;
+        if (v) next[f] = NUMERIC_FIELDS.includes(f) ? (Number(v) || 0) : v;
       }
       meta[key] = next;
       imported++;
@@ -66,7 +67,8 @@ export async function onRequestPost(context) {
     if (!FIELDS.includes(field) || field === 'username') return Response.json({ error: 'invalid field' }, { status: 400, headers: CORS });
     const key = username.toLowerCase();
     const prev = meta[key] || { username };
-    meta[key] = { ...prev, username: prev.username || username, [field]: String(body.value ?? '').trim(), updatedAt: now };
+    const value = NUMERIC_FIELDS.includes(field) ? (Number(body.value) || 0) : String(body.value ?? '').trim();
+    meta[key] = { ...prev, username: prev.username || username, [field]: value, updatedAt: now };
     await kvPut(accountId, apiToken, 'players:meta', JSON.stringify(meta));
     return Response.json({ ok: true, player: meta[key] }, { headers: CORS });
   }

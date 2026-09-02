@@ -80,6 +80,7 @@
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Launch Monitor</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Region</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Pay Service</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Credit Balance</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Paid</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Date Paid</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Paid Via</th>
@@ -87,7 +88,7 @@
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="11" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+            <tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -203,7 +204,7 @@
       const rows = Object.values(state.meta).sort((a, b) => String(a.username).toLowerCase().localeCompare(String(b.username).toLowerCase()));
       $('count').textContent = `${rows.length} players`;
       const tb = $('tbody');
-      if (!rows.length) { tb.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-gray-600 text-sm">No player data yet — import your list above.</td></tr>`; updateDuesSummary(); return; }
+      if (!rows.length) { tb.innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 text-sm">No player data yet — import your list above.</td></tr>`; updateDuesSummary(); return; }
       tb.innerHTML = rows.map(p => {
         const d = state.dues[String(p.username).toLowerCase()] || {};
         return `<tr class="border-b border-border/50">
@@ -217,6 +218,12 @@
           <select class="field pay-select" data-user="${esc(p.username)}">
             ${PAY_OPTIONS.map(o => `<option value="${o}"${(p.payService || '') === o ? ' selected' : ''}>${o || '—'}</option>`).join('')}
           </select>
+        </td>
+        <td class="px-4 py-2.5">
+          <div class="flex items-center gap-1">
+            <span class="text-gray-600 text-sm">$</span>
+            <input type="number" step="0.01" class="field credit-input ${Number(p.creditBalance) ? 'text-flame' : ''}" data-user="${esc(p.username)}" value="${p.creditBalance ? p.creditBalance : ''}" placeholder="0.00" style="width:6rem" title="Money rolled forward for this player — set at season end, applied and cleared when the new season's dues are collected" />
+          </div>
         </td>
         <td class="px-4 py-2.5 text-center"><input type="checkbox" class="paid-check accent-[#f97316]" data-user="${esc(p.username)}" ${d.paid ? 'checked' : ''} /></td>
         <td class="px-4 py-2.5"><input type="date" class="field date-paid-input" data-user="${esc(p.username)}" value="${esc(d.datePaid || '')}" style="width:9.5rem" /></td>
@@ -233,6 +240,12 @@
       });
       tb.querySelectorAll('.name-input').forEach(inp => {
         inp.addEventListener('change', () => setField(inp.dataset.user, 'name', inp.value.trim(), 'name'));
+      });
+      tb.querySelectorAll('.credit-input').forEach(inp => {
+        inp.addEventListener('change', () => {
+          setField(inp.dataset.user, 'creditBalance', inp.value, 'credit balance');
+          inp.classList.toggle('text-flame', Number(inp.value) > 0);
+        });
       });
       tb.querySelectorAll('.paid-check').forEach(cb => {
         cb.addEventListener('change', () => {
@@ -297,7 +310,7 @@
         await loadDues();
         render();
       } catch (e) {
-        $('tbody').innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
+        $('tbody').innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
       }
     }
 
