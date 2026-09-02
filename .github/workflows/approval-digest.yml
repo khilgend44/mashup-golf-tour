@@ -11,5 +11,12 @@ jobs:
     steps:
       - name: Trigger approval digest
         run: |
-          curl -sf -X POST "https://mashup-golf-tour.pages.dev/api/approval-digest" \
-            -H "X-Cron-Secret: ${{ secrets.DIGEST_CRON_SECRET }}"
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST "https://mashup-golf-tour.pages.dev/api/approval-digest" \
+            -H "X-Cron-Secret: ${{ secrets.DIGEST_CRON_SECRET }}")
+          echo "HTTP status: $HTTP_CODE"
+          echo "Response body:"
+          cat response.json
+          echo
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            exit 1
+          fi
