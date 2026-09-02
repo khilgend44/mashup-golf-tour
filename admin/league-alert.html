@@ -46,8 +46,9 @@
 
     <form id="alert-form" class="hidden mt-6 space-y-5">
       <div>
-        <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="season">Season</label>
-        <select id="season" class="field"></select>
+        <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5">Seasons</label>
+        <div id="seasons" class="card-shadow bg-card border border-border rounded-xl p-2 flex flex-wrap gap-x-4 gap-y-1"></div>
+        <div class="text-[11px] text-gray-600 mt-1">Check multiple seasons to combine their rosters into one recipient list below.</div>
       </div>
 
       <!-- Recipients -->
@@ -102,9 +103,27 @@
       return [...map.values()];
     }
 
+    function checkedSeasonIds() {
+      return [...$('seasons').querySelectorAll('input:checked')].map(c => c.value);
+    }
+
+    // Union of every checked season's roster, deduped case-insensitively
+    // (preserving the first-seen casing) so tagging e.g. Season 8 + Season 9
+    // together doesn't produce duplicate checkboxes for the same player.
     function currentRoster() {
-      const s = state.seasons.find(x => x.id === $('season').value);
-      return (s && Array.isArray(s.players)) ? s.players : [];
+      const ids = new Set(checkedSeasonIds());
+      const seen = new Set();
+      const out = [];
+      for (const s of state.seasons) {
+        if (!ids.has(s.id) || !Array.isArray(s.players)) continue;
+        for (const n of s.players) {
+          const lc = n.toLowerCase();
+          if (seen.has(lc)) continue;
+          seen.add(lc);
+          out.push(n);
+        }
+      }
+      return out;
     }
     function hasId(name) { return !!state.discord[name.toLowerCase()]; }
 
@@ -141,11 +160,12 @@
         if (!pRes.ok) throw new Error(pRes.status === 302 || pRes.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${pRes.status})`);
         state.discord = (await pRes.json()).discord || {};
         state.seasons = [...seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
-        const sel = $('season');
-        sel.innerHTML = state.seasons.map(s => `<option value="${s.id}">${esc(s.name || s.id)}</option>`).join('');
         const active = state.seasons.find(s => s.status === 'active') || state.seasons[0];
-        if (active) sel.value = active.id;
-        sel.addEventListener('change', renderRecipients);
+        $('seasons').innerHTML = state.seasons.map(s => `<label class="flex items-center gap-1.5 text-sm text-gray-200 cursor-pointer">
+          <input type="checkbox" value="${s.id}" ${active && s.id === active.id ? 'checked' : ''} class="accent-[#f97316]" />
+          ${esc(s.name || s.id)}
+        </label>`).join('');
+        $('seasons').querySelectorAll('input').forEach(c => c.addEventListener('change', renderRecipients));
         $('loading').classList.add('hidden');
         $('alert-form').classList.remove('hidden');
         renderRecipients();
