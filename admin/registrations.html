@@ -166,6 +166,7 @@
               <div class="flex items-center gap-2 flex-wrap">
                 <a href="../player.html?name=${encodeURIComponent(r.username)}" target="_blank" class="font-heading font-700 text-lg text-white hover:text-flame" style="transition:color .12s">${esc(r.username)}</a>
                 <a href="https://simulatorgolftour.com/profile/${encodeURIComponent(r.username)}" target="_blank" rel="noopener" class="text-xs text-gray-500 hover:text-flame font-heading font-600 tracking-wide" style="transition:color .12s" title="View on Simulator Golf Tour">↗ SGT Profile</a>
+                <button data-act="check-sgt" data-id="${r.id}" data-user="${esc(r.username)}" class="text-xs text-gray-500 hover:text-flame font-heading font-600 tracking-wide" style="transition:color .12s" title="Pull a live rawCap/comboCap/events snapshot from SGT">⛳ Check SGT</button>
                 ${statusBadge}${returning}
               </div>
               <div class="text-xs text-gray-500 mt-0.5">Submitted ${when(r.submittedAt)}${r.reviewedAt ? ` · reviewed ${when(r.reviewedAt)}` : ''}</div>
@@ -187,6 +188,8 @@
           </div>
 
           ${r.status === 'declined' && r.declineReason ? `<div class="mt-3 text-xs text-red-300/80 bg-red-900/10 border border-red-900/30 rounded-lg px-3 py-2">Declined: ${esc(r.declineReason)}</div>` : ''}
+
+          <div id="sgt-check-${r.id}" class="hidden mt-3 text-xs bg-surface border border-border rounded-lg px-3 py-2"></div>
         </div>`;
       }).join('');
 
@@ -227,6 +230,39 @@
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Discord ID save failed (${res.status})`); }
     }
 
+    // Live single-player SGT snapshot — a test run to see whether player-check
+    // is actually gated by the same 24h-per-key window as player-hcp-rounds,
+    // or can be called on demand. Watch the "checked at" timestamps across
+    // repeated clicks (same or different players) for a sense of that.
+    async function checkSgt(rec) {
+      const box = document.getElementById(`sgt-check-${rec.id}`);
+      if (!box) return;
+      box.classList.remove('hidden');
+      box.innerHTML = '<span class="text-gray-500">Checking SGT…</span>';
+      try {
+        const res = await fetch(PLAYERS_WRITE, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'check-one', player: rec.username }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || `Check failed (${res.status})`);
+        const when = d.checkedAt ? new Date(d.checkedAt).toLocaleTimeString() : '';
+        if (!d.found) {
+          box.innerHTML = `<span class="text-gray-500">No SGT record found for ${esc(rec.username)}${d.returnedCount != null ? ` (SGT returned ${d.returnedCount} players)` : ''} — checked ${when}</span>`;
+          return;
+        }
+        const p = d.player;
+        box.innerHTML = `<span class="text-gray-500">Checked ${when} —</span> ` +
+          `<span class="text-gray-300">rawCap</span> <span class="text-flame font-heading font-700">${p.rawCap ?? '—'}</span> · ` +
+          `<span class="text-gray-300">comboCap</span> <span class="text-flame font-heading font-700">${p.comboCap ?? '—'}</span> · ` +
+          `<span class="text-gray-300">events</span> <span class="text-gray-200">${p.numEvents ?? '—'}</span> · ` +
+          `<span class="text-gray-300">connector</span> <span class="text-gray-200">${esc(p.connector || '—')}</span> · ` +
+          `<span class="text-gray-300">combo rounds</span> <span class="text-gray-200">${p.comboRoundsCount ?? '—'}</span>`;
+      } catch (e) {
+        box.innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+      }
+    }
+
     async function act(action, id) {
       const rec = state.regs.find(r => r.id === id);
       let reason;
@@ -240,6 +276,9 @@
         const discordHint = rec?.discordName ? ` (they listed "${rec.discordName}" as their Discord name)` : '';
         const entered = prompt(`Discord numeric user ID for ${rec?.username}${discordHint}? Used to tag them in announcements — leave blank to skip.`, '');
         discordId = entered ? entered.trim() : '';
+      } else if (action === 'check-sgt') {
+        await checkSgt(rec);
+        return;
       } else if (action === 'add-to-season') {
         // Manual fallback/retry path — covers registrations approved before
         // this existed, or ones where the auto-add below failed.

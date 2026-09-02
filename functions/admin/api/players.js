@@ -122,6 +122,52 @@ async function handlePost(context) {
     return Response.json({ ok: true, roster: updated }, { headers: CORS });
   }
 
+  // Single-player SGT lookup — used by admin/registrations.html to pull a
+  // quick rawCap/comboCap/events snapshot for one registrant before
+  // approving, without touching player-hcp-rounds (which shares a 24h-per-key
+  // cache across the WHOLE roster and would risk starving the real refresh).
+  // player-check itself does not appear to share that cap — this endpoint is
+  // exactly how we're finding out for sure.
+  if (action === 'check-one') {
+    const { player } = body;
+    if (!player) return Response.json({ error: 'No player provided' }, { status: 400, headers: CORS });
+    if (!sgtKey) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
+
+    const trimmed = String(player).trim();
+    const url = `${SGT_API_BASE}?key=${sgtKey}&players=${encodeURIComponent(trimmed)}`;
+    let sgtRes;
+    try {
+      sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(30_000) });
+    } catch (e) {
+      const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
+      return Response.json({ error: timedOut ? 'SGT took too long to respond.' : `Could not reach SGT: ${e.message}` }, { status: 502, headers: CORS });
+    }
+    if (!sgtRes.ok) return Response.json({ error: `SGT API error: ${sgtRes.status}` }, { status: 502, headers: CORS });
+
+    let data;
+    try { data = await sgtRes.json(); } catch { data = null; }
+    if (!Array.isArray(data)) {
+      return Response.json({ error: 'SGT returned an unexpected (empty/non-JSON) response — the player_api_key may be invalid or expired.' }, { status: 502, headers: CORS });
+    }
+
+    const checkedAt = new Date().toISOString();
+    const found = data.find(p => p && p.user_name && p.user_name.toLowerCase() === trimmed.toLowerCase());
+    if (!found) return Response.json({ ok: true, found: false, checkedAt, returnedCount: data.length }, { headers: CORS });
+
+    return Response.json({
+      ok: true, found: true, checkedAt,
+      player: {
+        username: found.user_name,
+        rawCap: found.rawCap,
+        comboCap: found.comboCap,
+        numEvents: found.NumEvents,
+        connector: found.Connector_Used || '',
+        minComboCap: found.minComboCap,
+        comboRoundsCount: found.comboRoundsCount,
+      },
+    }, { headers: CORS });
+  }
+
   if (action === 'refresh') {
     if (!sgtKey) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
 
