@@ -247,7 +247,11 @@
           </select>
         </td>
         <td class="px-4 py-2.5"><input type="number" step="0.01" min="0" class="field amount-input" data-user="${esc(p.username)}" value="${d.amount != null ? d.amount : ''}" placeholder="0.00" style="width:6rem" ${duesDisabled} /></td>
-        <td class="px-4 py-2.5 text-gray-400" title="Permanent record of a credit balance applied during this season's dues — not editable">${d.carryOver ? '$' + Number(d.carryOver).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>
+        <td class="px-4 py-2.5 text-gray-400">
+          ${d.carryOver
+            ? `<span title="Permanent record of a credit balance applied during this season's dues">$${Number(d.carryOver).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <button type="button" class="carryover-clear text-gray-700 hover:text-red-400" data-user="${esc(p.username)}" title="Clear this record (only meant for fixing a mistake — it's supposed to stay forever)">×</button>`
+            : '—'}
+        </td>
       </tr>`;
       }).join('');
       tb.querySelectorAll('.pay-select').forEach(sel => {
@@ -294,6 +298,13 @@
               render();
             }
           }
+        });
+      });
+      tb.querySelectorAll('.carryover-clear').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(`Clear ${btn.dataset.user}'s carry-over record for ${state.season}? This is normally meant to stay forever — only do this to fix a mistake.`)) return;
+          await setDuesField(btn.dataset.user, 'carryOver', '');
+          render();
         });
       });
       updateDuesSummary();
