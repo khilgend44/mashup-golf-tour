@@ -67,7 +67,7 @@
     const PLAYERS_WRITE  = '/admin/api/players';    // Access-protected writes
     const params = new URLSearchParams(location.search);
     const SEASON = params.get('season') || 'season-10';
-    const state = { regs: [], meta: {}, tab: 'pending', seasonPlayers: new Set(), seasonExists: false };
+    const state = { regs: [], meta: {}, tab: 'pending', seasonPlayers: new Set(), seasonExists: false, discord: {} };
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     const when = iso => iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
@@ -82,14 +82,16 @@
 
     async function load() {
       try {
-        const [regsRes, seasonsRes] = await Promise.all([
+        const [regsRes, seasonsRes, playersRes] = await Promise.all([
           fetch(`${API}?season=${encodeURIComponent(SEASON)}`),
           fetch(SEASONS_API),
+          fetch(PLAYERS_WRITE),
         ]);
         if (!regsRes.ok) throw new Error(regsRes.status === 302 || regsRes.status === 401 || regsRes.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${regsRes.status})`);
         const d = await regsRes.json();
         state.regs = Array.isArray(d.registrations) ? d.registrations : [];
         state.meta = d.meta || {};
+        state.discord = playersRes.ok ? ((await playersRes.json()).discord || {}) : {};
 
         // KV-backed seasons only (matches what add-player can actually write
         // to) — static seasons like season-9 won't show up here, which is
@@ -275,9 +277,12 @@
       } else if (action === 'approve') {
         const addNote = state.seasonExists ? ` and added to ${SEASON.replace('season-', 'Season ')}'s roster` : '';
         if (!confirm(`Approve ${rec?.username}? Their info will be saved to the player record${addNote}.`)) return;
-        const discordHint = rec?.discordName ? ` (they listed "${rec.discordName}" as their Discord name)` : '';
-        const entered = prompt(`Discord numeric user ID for ${rec?.username}${discordHint}? Used to tag them in announcements — leave blank to skip.`, '');
-        discordId = entered ? entered.trim() : '';
+        // Only prompt if we don't already have this player's Discord ID on file.
+        if (!state.discord[rec?.username.toLowerCase()]) {
+          const discordHint = rec?.discordName ? ` (they listed "${rec.discordName}" as their Discord name)` : '';
+          const entered = prompt(`Discord numeric user ID for ${rec?.username}${discordHint}? Used to tag them in announcements — leave blank to skip.`, '');
+          discordId = entered ? entered.trim() : '';
+        }
       } else if (action === 'check-sgt') {
         await checkSgt(rec);
         return;
