@@ -3,9 +3,13 @@
 // POST → 'set' (one field on one player, for a given season).
 // Dues are season-scoped (a new $-amount is due each season) — separate from
 // players:meta's payService, which just records a player's usual payment app.
+// `carryOver` is a permanent record of a players:meta creditBalance that was
+// applied (and cleared) during this season's dues collection — written once,
+// meant to stay as a historical record and not be edited again.
 import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
 
-const FIELDS = ['paid', 'datePaid', 'service', 'amount'];
+const FIELDS = ['paid', 'datePaid', 'service', 'amount', 'carryOver'];
+const NUMERIC_FIELDS = ['amount', 'carryOver'];
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -53,7 +57,7 @@ export async function onRequestPost(context) {
 
   let value = body.value;
   if (field === 'paid') value = !!value;
-  else if (field === 'amount') value = value === '' || value == null ? null : Number(value);
+  else if (NUMERIC_FIELDS.includes(field)) value = value === '' || value == null ? null : Number(value);
   else value = value ? String(value).trim() : '';
 
   dues[lc] = { ...prev, username: prev.username || username, [field]: value, updatedAt: new Date().toISOString() };

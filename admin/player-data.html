@@ -85,10 +85,11 @@
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Date Paid</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Paid Via</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Amount</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Carry Over</th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+            <tr><td colspan="13" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -213,7 +214,7 @@
       const tb = $('tbody');
       if (!rows.length) {
         const msg = rosterSet ? `No approved players for ${esc(season.name)} yet.` : 'No player data yet — import your list above.';
-        tb.innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 text-sm">${msg}</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="13" class="px-6 py-12 text-center text-gray-600 text-sm">${msg}</td></tr>`;
         updateDuesSummary();
         return;
       }
@@ -246,6 +247,7 @@
           </select>
         </td>
         <td class="px-4 py-2.5"><input type="number" step="0.01" min="0" class="field amount-input" data-user="${esc(p.username)}" value="${d.amount != null ? d.amount : ''}" placeholder="0.00" style="width:6rem" ${duesDisabled} /></td>
+        <td class="px-4 py-2.5 text-gray-400" title="Permanent record of a credit balance applied during this season's dues — not editable">${d.carryOver ? '$' + Number(d.carryOver).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>
       </tr>`;
       }).join('');
       tb.querySelectorAll('.pay-select').forEach(sel => {
@@ -280,7 +282,19 @@
         sel.addEventListener('change', () => setDuesField(sel.dataset.user, 'service', sel.value));
       });
       tb.querySelectorAll('.amount-input').forEach(inp => {
-        inp.addEventListener('change', () => setDuesField(inp.dataset.user, 'amount', inp.value));
+        inp.addEventListener('change', async () => {
+          await setDuesField(inp.dataset.user, 'amount', inp.value);
+          const p = state.meta[inp.dataset.user.toLowerCase()];
+          const credit = Number(p?.creditBalance) || 0;
+          if (credit > 0 && Number(inp.value) > 0) {
+            const clear = confirm(`${inp.dataset.user} has a $${credit.toFixed(2)} credit balance from a previous season. Clear it now and record $${credit.toFixed(2)} as this season's carry-over?`);
+            if (clear) {
+              await setField(inp.dataset.user, 'creditBalance', 0, 'credit balance');
+              await setDuesField(inp.dataset.user, 'carryOver', credit, 'carry over');
+              render();
+            }
+          }
+        });
       });
       updateDuesSummary();
     }
@@ -326,7 +340,7 @@
         await loadDues();
         render();
       } catch (e) {
-        $('tbody').innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
+        $('tbody').innerHTML = `<tr><td colspan="13" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
       }
     }
 
