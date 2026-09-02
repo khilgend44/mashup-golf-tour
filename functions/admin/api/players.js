@@ -137,7 +137,7 @@ async function handlePost(context) {
     const url = `${SGT_API_BASE}?key=${sgtKey}&players=${encodeURIComponent(trimmed)}`;
     let sgtRes;
     try {
-      sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(30_000) });
+      sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(240_000) });
     } catch (e) {
       const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
       return Response.json({ error: timedOut ? 'SGT took too long to respond.' : `Could not reach SGT: ${e.message}` }, { status: 502, headers: CORS });
