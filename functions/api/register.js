@@ -84,14 +84,16 @@ export async function onRequestPost(context) {
 
   const key = `registrations:${season}`;
   const lc = username.toLowerCase();
-  const [metaRaw, rosterRaw, listRaw] = await Promise.all([
+  const [metaRaw, rosterRaw, listRaw, seasonsRes] = await Promise.all([
     kvGet(accountId, apiToken, 'players:meta'),
     kvGet(accountId, apiToken, 'players:roster'),
     kvGet(accountId, apiToken, key),
+    fetch(new URL('/api/seasons', request.url)).catch(() => null),
   ]);
-  const meta   = metaRaw   ? JSON.parse(metaRaw)   : {};
-  const roster = rosterRaw ? JSON.parse(rosterRaw) : [];
-  const list   = listRaw   ? JSON.parse(listRaw)   : [];
+  const meta    = metaRaw   ? JSON.parse(metaRaw)   : {};
+  const roster  = rosterRaw ? JSON.parse(rosterRaw) : [];
+  const list    = listRaw   ? JSON.parse(listRaw)   : [];
+  const seasons = seasonsRes && seasonsRes.ok ? await seasonsRes.json() : [];
 
   // Decide "returning" from what we actually have on file — NOT the client's
   // flag, which could be set true to skip the new-player required fields.
@@ -110,7 +112,12 @@ export async function onRequestPost(context) {
   }
 
   // One active registration per SGT username per season (declined can re-apply).
-  if (list.some(r => r.username.toLowerCase() === lc && r.status !== 'declined'))
+  // Also blocks re-registering if they're already on this season's roster —
+  // a registration record can be deleted (e.g. admin cleanup) while the
+  // player stays rostered, and that shouldn't reopen the door to reapplying.
+  const thisSeason = seasons.find(s => s.id === season);
+  const onSeasonRoster = !!thisSeason && (thisSeason.players || []).some(n => String(n).toLowerCase() === lc);
+  if (onSeasonRoster || list.some(r => r.username.toLowerCase() === lc && r.status !== 'declined'))
     return json({ error: 'already-registered', message: `${username} is already registered for this season.` }, 409);
 
   const record = {
