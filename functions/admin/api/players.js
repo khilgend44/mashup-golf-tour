@@ -125,16 +125,39 @@ async function handlePost(context) {
   // Single-player SGT lookup — used by admin/registrations.html to pull a
   // quick rawCap/comboCap/events snapshot for one registrant before
   // approving, without touching player-hcp-rounds (which shares a 24h-per-key
-  // cache across the WHOLE roster and would risk starving the real refresh).
-  // player-check itself does not appear to share that cap — this endpoint is
-  // exactly how we're finding out for sure.
+  // cache across the WHOLE roster). Confirmed empirically (2026-09) that
+  // player-check shares that same cache: a second single-player call within
+  // the window just replayed the FIRST call's result, ignoring the new
+  // players= entirely. Since only the first call of the day actually does
+  // anything, always ride along with the full Season 9 roster (the likeliest
+  // pool of Season 10 returners) plus whoever's being checked right now, so
+  // whichever call wins the day's cache covers as many plausible registrants
+  // as possible instead of just one.
   if (action === 'check-one') {
     const { player } = body;
     if (!player) return Response.json({ error: 'No player provided' }, { status: 400, headers: CORS });
     if (!sgtKey) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
 
     const trimmed = String(player).trim();
-    const url = `${SGT_API_BASE}?key=${sgtKey}&players=${encodeURIComponent(trimmed)}`;
+    const players = [trimmed];
+    try {
+      const seasonsRes = await fetch(new URL('/api/seasons', request.url));
+      if (seasonsRes.ok) {
+        const seasons = await seasonsRes.json();
+        const s9 = Array.isArray(seasons) ? seasons.find(s => s.id === 'season-9') : null;
+        if (s9 && Array.isArray(s9.players)) {
+          const seen = new Set([trimmed.toLowerCase()]);
+          for (const n of s9.players) {
+            const lc = String(n).toLowerCase();
+            if (seen.has(lc)) continue;
+            seen.add(lc);
+            players.push(n);
+          }
+        }
+      }
+    } catch { /* fall back to just the requested player if this fails */ }
+
+    const url = `${SGT_API_BASE}?key=${sgtKey}&players=${players.map(p => encodeURIComponent(p)).join(',')}`;
     let sgtRes;
     try {
       sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(240_000) });
