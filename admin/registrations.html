@@ -144,10 +144,13 @@
         const dscE = eff(r.discordName, meta.discordName);
         const emailE = eff(r.email, meta.email);
 
+        const checkSgtBtn = `<button data-act="check-sgt" data-id="${r.id}" data-user="${esc(r.username)}" class="px-3 py-1.5 rounded-lg border border-border text-gray-300 hover:text-white hover:border-flame/40 text-xs font-heading font-600 tracking-wider" title="Pull a live rawCap/comboCap/events snapshot from SGT">⛳ Check SGT</button>`;
         const actions = r.status === 'pending'
-          ? `<button data-act="approve" data-id="${r.id}" class="px-4 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-heading font-600 tracking-wider">Approve &amp; Add</button>
+          ? `${checkSgtBtn}
+             <button data-act="approve" data-id="${r.id}" class="px-4 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-heading font-600 tracking-wider">Approve &amp; Add</button>
              <button data-act="decline" data-id="${r.id}" class="px-4 py-1.5 rounded-lg border border-red-800/50 text-red-300 hover:bg-red-900/30 text-xs font-heading font-600 tracking-wider">Decline</button>`
-          : `<button data-act="reset" data-id="${r.id}" class="px-3 py-1.5 rounded-lg border border-border text-gray-400 hover:text-gray-200 text-xs font-heading font-600 tracking-wider">↺ Reset to pending</button>`;
+          : `${checkSgtBtn}
+             <button data-act="reset" data-id="${r.id}" class="px-3 py-1.5 rounded-lg border border-border text-gray-400 hover:text-gray-200 text-xs font-heading font-600 tracking-wider">↺ Reset to pending</button>`;
 
         // Approving only saves profile info — it doesn't touch the master
         // roster or the season's player list, so surface that gap here with
@@ -166,7 +169,6 @@
               <div class="flex items-center gap-2 flex-wrap">
                 <a href="../player.html?name=${encodeURIComponent(r.username)}" target="_blank" class="font-heading font-700 text-lg text-white hover:text-flame" style="transition:color .12s">${esc(r.username)}</a>
                 <a href="https://simulatorgolftour.com/profile/${encodeURIComponent(r.username)}" target="_blank" rel="noopener" class="text-xs text-gray-500 hover:text-flame font-heading font-600 tracking-wide" style="transition:color .12s" title="View on Simulator Golf Tour">↗ SGT Profile</a>
-                <button data-act="check-sgt" data-id="${r.id}" data-user="${esc(r.username)}" class="text-xs text-gray-500 hover:text-flame font-heading font-600 tracking-wide" style="transition:color .12s" title="Pull a live rawCap/comboCap/events snapshot from SGT">⛳ Check SGT</button>
                 ${statusBadge}${returning}
               </div>
               <div class="text-xs text-gray-500 mt-0.5">Submitted ${when(r.submittedAt)}${r.reviewedAt ? ` · reviewed ${when(r.reviewedAt)}` : ''}</div>
