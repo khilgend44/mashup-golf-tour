@@ -215,15 +215,31 @@
       state.seasonPlayers.add(rec.username.toLowerCase());
     }
 
+    // players:discord (numeric Discord user ID, used to @-mention players in
+    // announcements) is captured here at approval time — the admin usually
+    // has to look the player up in Discord anyway, so it's easiest to grab
+    // then rather than as a separate later step.
+    async function setDiscordId(username, discordId) {
+      const res = await fetch(PLAYERS_WRITE, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-discord', player: username, discordId }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Discord ID save failed (${res.status})`); }
+    }
+
     async function act(action, id) {
       const rec = state.regs.find(r => r.id === id);
       let reason;
+      let discordId = '';
       if (action === 'decline') {
         reason = prompt(`Decline ${rec?.username}? Optional reason (kept on record):`, '');
         if (reason === null) return;       // cancelled
       } else if (action === 'approve') {
         const addNote = state.seasonExists ? ` and added to ${SEASON.replace('season-', 'Season ')}'s roster` : '';
         if (!confirm(`Approve ${rec?.username}? Their info will be saved to the player record${addNote}.`)) return;
+        const discordHint = rec?.discordName ? ` (they listed "${rec.discordName}" as their Discord name)` : '';
+        const entered = prompt(`Discord numeric user ID for ${rec?.username}${discordHint}? Used to tag them in announcements — leave blank to skip.`, '');
+        discordId = entered ? entered.trim() : '';
       } else if (action === 'add-to-season') {
         // Manual fallback/retry path — covers registrations approved before
         // this existed, or ones where the auto-add below failed.
@@ -251,20 +267,26 @@
         else if (d.registration) Object.assign(rec, d.registration);
         if (d.meta) state.meta[rec.username.toLowerCase()] = d.meta;
 
-        // Approve now chains straight into the roster/season add (when the
-        // season exists) instead of requiring a separate manual click.
-        if (action === 'approve' && state.seasonExists && !state.seasonPlayers.has(rec.username.toLowerCase())) {
-          try {
-            await addToSeasonRoster(rec);
-            setStatus(`${rec.username}: approved and added to ${SEASON.replace('season-', 'Season ')}'s roster.`, 'success');
-          } catch (e) {
-            setStatus(`${rec.username}: approved, but roster add failed — ${e.message}. Use "+ Add to Season" to retry.`, 'error');
+        // Approve now chains straight into the Discord ID save and the
+        // roster/season add (when the season exists) instead of requiring
+        // separate manual steps — collect all outcomes into one status line.
+        if (action === 'approve') {
+          const notes = ['approved'];
+          let hadError = false;
+          if (discordId) {
+            try { await setDiscordId(rec.username, discordId); notes.push('Discord ID saved'); }
+            catch (e) { notes.push(`Discord ID save failed (${e.message})`); hadError = true; }
           }
+          if (state.seasonExists && !state.seasonPlayers.has(rec.username.toLowerCase())) {
+            try { await addToSeasonRoster(rec); notes.push(`added to ${SEASON.replace('season-', 'Season ')}'s roster`); }
+            catch (e) { notes.push(`roster add failed (${e.message}) — use "+ Add to Season" to retry`); hadError = true; }
+          }
+          setStatus(`${rec.username}: ${notes.join(', ')}.`, hadError ? 'error' : 'success');
           render();
           return;
         }
 
-        setStatus(`${rec?.username}: ${action === 'approve' ? 'approved' : action === 'decline' ? 'declined' : 'updated'}.`, 'success');
+        setStatus(`${rec?.username}: ${action === 'decline' ? 'declined' : 'updated'}.`, 'success');
         render();
       } catch (e) {
         setStatus(e.message, 'error');
