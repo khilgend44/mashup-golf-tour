@@ -40,6 +40,7 @@ SimulatorGolfTour API  (provides live scorecard data)
   - `/admin/guide.html` — wiki-style operator's guide (TOC sidebar + scroll-spy): what each portal page does, the weekly workflow, the SGT admin "Game" functions (Reset Player, Delete Save Game, Update Player Resume, Create/Modify Scorecard), and Access/deploy notes. Linked as a card on the portal index. Static content — update it when admin workflows change.
   - `/admin/players.html` — manage player roster, view/refresh handicaps
   - `/admin/registrations.html` — review Season N signups (see **10. Season 10 Registration** below)
+  - `/admin/player-data.html` — the persistent player record (name, Discord, email, launch monitor, region, usual pay service) plus a season-scoped **dues tracker**: per season, mark each player Paid, the date, which service they used, and the amount — with a live "X paid · $Y collected" summary. Season selector defaults to the active season. Distinct from the "Pay Service" column, which just records a player's usual payment app, not a specific season's payment status.
   - `/admin/events.html` — create/manage seasons and events
     - SGT Event URL must be entered first — it unlocks the rest of the form and auto-populates event name, dates, rounds, and week number
     - Event name is locked after SGT scrape and does not change when format is changed
@@ -78,6 +79,8 @@ The API is split into **public reads** and **protected writes** so the public si
   - `/admin/api/seasons` — create/update/archive season
   - `/admin/api/announce` — post event poster to Discord
   - `/admin/api/registrations` — list/approve/decline/reset/delete season registrations; approve upserts `players:meta` (no email) and, if the season exists, chains straight into the roster + season adds (see **10. Season 10 Registration**)
+  - `/admin/api/player-meta` — GET/set the persistent player record (`players:meta`); also handles bulk paste-and-import
+  - `/admin/api/dues` — GET/set one player's season dues (`dues:<season>`): paid, date paid, service, amount
 - Admin pages keep reads on `/api/*` constants (`API`, `PLAYERS_API`) and send writes to `/admin/api/*` constants (`API_WRITE`, `PLAYERS_WRITE`).
 
 **Three layers of protection on every write** (`functions/admin/api/_lib.js` → `requireAccess()`):
@@ -117,8 +120,9 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
   - `players:rounds` — raw per-round records used for MashCAP, keyed by lowercase player name → `[{ date, differential, tour }]`. Written by the refresh action; served publicly by `/api/player-rounds` for the counting-events detail page.
   - `players:discord` — player → Discord user ID map (lowercase name → numeric ID). Read via the **protected** `GET /admin/api/players` (kept out of the public `/api/players`); edited per-player on the admin Players page. Used to `<@id>`-tag winners in the Discord results post.
   - `players:last_refresh` — ISO timestamp of last handicap pull
-  - `players:meta` — persistent, cross-season player record keyed by lowercase username → `{ username, launchMonitor, region, discordName, email, updatedAt }`. Distinct from `players:roster` (just names) and `players:handicaps` (SGT/MashCAP numbers) — this is the profile info collected at registration. Upserted only when a registration is approved; email here is admin-only (never served publicly).
+  - `players:meta` — persistent, cross-season player record keyed by lowercase username → `{ username, name, launchMonitor, region, discordName, email, payService, updatedAt }`. Distinct from `players:roster` (just names) and `players:handicaps` (SGT/MashCAP numbers) — this is the profile info collected at registration, editable on `admin/player-data.html`. Upserted only when a registration is approved (or edited directly); email here is admin-only (never served publicly). `payService` is the player's *usual* payment app — not tied to any one season's payment (see `dues:<season>` below).
   - `registrations:<season>` — array of that season's signups: `{ id, username, discordName, launchMonitor, region, email, agreements, returning, changed, status: 'pending'|'approved'|'declined', declineReason, submittedAt, reviewedAt }`. Written by the public `/api/register`; read/mutated only via the protected `/admin/api/registrations`.
+  - `dues:<season>` — season dues tracker, keyed by lowercase username → `{ username, paid: bool, datePaid, service, amount, updatedAt }`. Edited per-player on `admin/player-data.html`'s season-scoped Dues columns; resets each season since the object lives under a season-specific key. Admin-only — never exposed publicly.
   - `ratelimit:register:<ip>` / `ratelimit:submit-stream:<ip>` — short-lived (60s TTL) request counters for the in-app rate limiter; self-expire, not meant to be read directly.
   - `{eventId}:{playerName}:{round}` — YouTube stream URLs submitted by players
   - `{eventId}:handicaps` — snapshot of `players:handicaps` taken at the moment an event is activated (used for historical accuracy)
