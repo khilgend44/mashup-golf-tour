@@ -129,33 +129,48 @@ async function handlePost(context) {
   // player-check shares that same cache: a second single-player call within
   // the window just replayed the FIRST call's result, ignoring the new
   // players= entirely. Since only the first call of the day actually does
-  // anything, always ride along with the full Season 9 roster (the likeliest
-  // pool of Season 10 returners) plus whoever's being checked right now, so
-  // whichever call wins the day's cache covers as many plausible registrants
-  // as possible instead of just one.
+  // anything, every call rides along with: the full Season 9 roster (the
+  // likeliest pool of Season 10 returners), anyone already approved for this
+  // season, and every other currently-pending registration for this season
+  // — so no matter which registration's "Check SGT" button happens to fire
+  // the day's one real request, every pending registrant that day still gets
+  // found in that same cached response, not just whichever was clicked first.
   if (action === 'check-one') {
     const { player } = body;
+    const season = String(body.season || 'season-10');
     if (!player) return Response.json({ error: 'No player provided' }, { status: 400, headers: CORS });
     if (!sgtKey) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
 
     const trimmed = String(player).trim();
     const players = [trimmed];
+    const seen = new Set([trimmed.toLowerCase()]);
+    const addAll = (list) => {
+      if (!Array.isArray(list)) return;
+      for (const n of list) {
+        const name = String(n).trim();
+        const lc = name.toLowerCase();
+        if (!name || seen.has(lc)) continue;
+        seen.add(lc);
+        players.push(name);
+      }
+    };
     try {
-      const seasonsRes = await fetch(new URL('/api/seasons', request.url));
+      const [seasonsRes, regsRaw] = await Promise.all([
+        fetch(new URL('/api/seasons', request.url)),
+        kvGet(accountId, apiToken, `registrations:${season}`),
+      ]);
       if (seasonsRes.ok) {
         const seasons = await seasonsRes.json();
-        const s9 = Array.isArray(seasons) ? seasons.find(s => s.id === 'season-9') : null;
-        if (s9 && Array.isArray(s9.players)) {
-          const seen = new Set([trimmed.toLowerCase()]);
-          for (const n of s9.players) {
-            const lc = String(n).toLowerCase();
-            if (seen.has(lc)) continue;
-            seen.add(lc);
-            players.push(n);
-          }
+        if (Array.isArray(seasons)) {
+          const s9 = seasons.find(s => s.id === 'season-9');
+          addAll(s9?.players);
+          const thisSeason = seasons.find(s => s.id === season);
+          addAll(thisSeason?.players);
         }
       }
-    } catch { /* fall back to just the requested player if this fails */ }
+      const regs = regsRaw ? JSON.parse(regsRaw) : [];
+      addAll(regs.filter(r => r.status === 'pending').map(r => r.username));
+    } catch { /* fall back to whatever was gathered before the failure */ }
 
     const url = `${SGT_API_BASE}?key=${sgtKey}&players=${players.map(p => encodeURIComponent(p)).join(',')}`;
     let sgtRes;

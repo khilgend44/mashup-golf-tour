@@ -244,7 +244,7 @@
       try {
         const res = await fetch(PLAYERS_WRITE, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'check-one', player: rec.username }),
+          body: JSON.stringify({ action: 'check-one', player: rec.username, season: SEASON }),
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error || `Check failed (${res.status})`);
