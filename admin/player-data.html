@@ -104,7 +104,7 @@
     const DUES_API = '/admin/api/dues';
     const SEASONS_API = '/api/seasons';
     const PAY_OPTIONS = ['', 'Venmo', 'PayPal', 'Other'];
-    const state = { meta: {}, parsed: [], dues: {}, season: '' };
+    const state = { meta: {}, parsed: [], dues: {}, season: '', allSeasons: [] };
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
@@ -177,9 +177,13 @@
     }
 
     function updateDuesSummary() {
+      const season = state.allSeasons.find(s => s.id === state.season);
+      const rosterSet = season ? new Set((season.players || []).map(n => String(n).toLowerCase())) : null;
       let paidCount = 0, total = 0;
       for (const p of Object.values(state.meta)) {
-        const d = state.dues[String(p.username).toLowerCase()];
+        const lc = String(p.username).toLowerCase();
+        if (rosterSet && !rosterSet.has(lc)) continue;
+        const d = state.dues[lc];
         if (d?.paid) { paidCount++; total += Number(d.amount) || 0; }
       }
       const el = $('dues-summary');
@@ -201,10 +205,19 @@
     }
 
     function render() {
-      const rows = Object.values(state.meta).sort((a, b) => String(a.username).toLowerCase().localeCompare(String(b.username).toLowerCase()));
-      $('count').textContent = `${rows.length} players`;
+      const season = state.allSeasons.find(s => s.id === state.season);
+      const rosterSet = season ? new Set((season.players || []).map(n => String(n).toLowerCase())) : null;
+      const allRows = Object.values(state.meta).sort((a, b) => String(a.username).toLowerCase().localeCompare(String(b.username).toLowerCase()));
+      const rows = rosterSet ? allRows.filter(p => rosterSet.has(String(p.username).toLowerCase())) : allRows;
+      $('count').textContent = rosterSet ? `${rows.length} players (${season.name})` : `${rows.length} players`;
       const tb = $('tbody');
-      if (!rows.length) { tb.innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 text-sm">No player data yet — import your list above.</td></tr>`; updateDuesSummary(); return; }
+      if (!rows.length) {
+        const msg = rosterSet ? `No approved players for ${esc(season.name)} yet.` : 'No player data yet — import your list above.';
+        tb.innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 text-sm">${msg}</td></tr>`;
+        updateDuesSummary();
+        return;
+      }
+      const duesDisabled = state.season ? '' : 'disabled title="Select a season above to edit dues"';
       tb.innerHTML = rows.map(p => {
         const d = state.dues[String(p.username).toLowerCase()] || {};
         return `<tr class="border-b border-border/50">
@@ -225,14 +238,14 @@
             <input type="number" step="0.01" class="field credit-input ${Number(p.creditBalance) ? 'text-flame' : ''}" data-user="${esc(p.username)}" value="${p.creditBalance ? p.creditBalance : ''}" placeholder="0.00" style="width:6rem" title="Money rolled forward for this player — set at season end, applied and cleared when the new season's dues are collected" />
           </div>
         </td>
-        <td class="px-4 py-2.5 text-center"><input type="checkbox" class="paid-check accent-[#f97316]" data-user="${esc(p.username)}" ${d.paid ? 'checked' : ''} /></td>
-        <td class="px-4 py-2.5"><input type="date" class="field date-paid-input" data-user="${esc(p.username)}" value="${esc(d.datePaid || '')}" style="width:9.5rem" /></td>
+        <td class="px-4 py-2.5 text-center"><input type="checkbox" class="paid-check accent-[#f97316]" data-user="${esc(p.username)}" ${d.paid ? 'checked' : ''} ${duesDisabled} /></td>
+        <td class="px-4 py-2.5"><input type="date" class="field date-paid-input" data-user="${esc(p.username)}" value="${esc(d.datePaid || '')}" style="width:9.5rem" ${duesDisabled} /></td>
         <td class="px-4 py-2.5">
-          <select class="field paidvia-select" data-user="${esc(p.username)}">
+          <select class="field paidvia-select" data-user="${esc(p.username)}" ${duesDisabled}>
             ${PAY_OPTIONS.map(o => `<option value="${o}"${(d.service || '') === o ? ' selected' : ''}>${o || '—'}</option>`).join('')}
           </select>
         </td>
-        <td class="px-4 py-2.5"><input type="number" step="0.01" min="0" class="field amount-input" data-user="${esc(p.username)}" value="${d.amount != null ? d.amount : ''}" placeholder="0.00" style="width:6rem" /></td>
+        <td class="px-4 py-2.5"><input type="number" step="0.01" min="0" class="field amount-input" data-user="${esc(p.username)}" value="${d.amount != null ? d.amount : ''}" placeholder="0.00" style="width:6rem" ${duesDisabled} /></td>
       </tr>`;
       }).join('');
       tb.querySelectorAll('.pay-select').forEach(sel => {
@@ -277,14 +290,17 @@
       try {
         const res = await fetch(SEASONS_API);
         const seasons = res.ok ? await res.json() : [];
-        sel.innerHTML = seasons.map(s => `<option value="${s.id}">${esc(s.name)}${s.status === 'active' ? ' ✦' : ''}</option>`).join('') || '<option value="">No seasons</option>';
+        state.allSeasons = seasons;
+        const opts = seasons.map(s => `<option value="${s.id}">${esc(s.name)}${s.status === 'active' ? ' ✦' : ''}</option>`).join('');
+        sel.innerHTML = `<option value="">All Players</option>` + opts;
         const params = new URLSearchParams(location.search);
         const wanted = params.get('season');
         const active = seasons.find(s => s.status === 'active');
-        state.season = (wanted && seasons.some(s => s.id === wanted)) ? wanted : (active ? active.id : (seasons[0]?.id || ''));
+        state.season = (wanted && seasons.some(s => s.id === wanted)) ? wanted : (active ? active.id : '');
         sel.value = state.season;
       } catch {
-        sel.innerHTML = '<option value="">No seasons</option>';
+        state.allSeasons = [];
+        sel.innerHTML = '<option value="">All Players</option>';
       }
       sel.addEventListener('change', async () => {
         state.season = sel.value;
