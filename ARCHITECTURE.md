@@ -147,11 +147,11 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - `event.teams` is an array of arrays of player names: `[['A','B','C'], ['D','E','F'], ...]` — saved by the admin teams page.
 - Applies to all team formats: Escalator, Devil's Draw (3-man & 4-man), Stableford, Best2/Worst2, Shamble, Lone Ranger.
 
-### 5. Cron Trigger — Cloudflare Worker
-- **Worker name:** `mashup-scorecard-trigger`
-- **Cloudflare dashboard:** Workers & Pages → mashup-scorecard-trigger
-- Fires every **20 minutes** and calls the GitHub API to trigger the scorecard workflow
-- Why not GitHub's built-in scheduler? GitHub's scheduler is unreliable for frequent intervals on public repos — it skips runs. Cloudflare's cron is precise.
+### 5. Cron Triggers — Cloudflare Workers
+- **`mashup-scorecard-trigger`** — Cloudflare dashboard → Workers & Pages → mashup-scorecard-trigger. Fires every **20 minutes** and calls the GitHub API to trigger the scorecard workflow.
+- **`mashup-approval-digest`** — Cloudflare dashboard → Workers & Pages → mashup-approval-digest. Fires **daily at 14:00 UTC** and calls `POST /api/approval-digest` directly (with the `X-Cron-Secret` header, from a `DIGEST_CRON_SECRET` secret set on this Worker). Also has a `fetch` handler running the same logic, so visiting the Worker's own URL triggers (and shows the result of) an on-demand run without waiting for the cron.
+- **Why not GitHub's built-in scheduler for either?** GitHub's `schedule` trigger has proven unreliable on this repo for *both* of these — the scorecard fetch needs to run every 20 minutes and GitHub's scheduler skips runs at that frequency, and the approval digest (added 2026-09, originally scheduled via GitHub Actions `cron: '0 14 * * *'`) skipped its scheduled run entirely rather than just running late, so it was moved to a Cloudflare Worker cron too. Cloudflare's cron has been precise for both. `.github/workflows/approval-digest.yml` still exists with a `workflow_dispatch` trigger only, kept as a manual fallback/testing button in the GitHub Actions UI — it is no longer the daily trigger.
+- Like `mashup-scorecard-trigger`, this Worker's source lives only in the Cloudflare dashboard, not in this repo.
 
 ### 6. YouTube Stream Submissions
 - Players submit their YouTube stream URLs via a form on the site
@@ -252,7 +252,7 @@ A set of read-only public pages built on a **shared stats engine, `js/stats.js`*
 | **SGT API Key (scorecards)** | GitHub → Repo Settings → Secrets → `SGT_API_KEY` | Unknown | Used by GitHub Actions to fetch scorecards |
 | **Access Team Domain** *(optional)* | Cloudflare Pages → Settings → Environment Variables → `CF_ACCESS_TEAM_DOMAIN` | Never | e.g. `https://yourteam.cloudflareaccess.com`. Enables cryptographic verification of admin writes. Found in Zero Trust → Settings → team domain. |
 | **Access AUD Tag** *(optional)* | Cloudflare Pages → Settings → Environment Variables → `CF_ACCESS_AUD` | Never | Application Audience tag for the admin Access app. Found in Zero Trust → Access → Applications → (admin app) → Overview. Set together with `CF_ACCESS_TEAM_DOMAIN`. |
-| **Digest Cron Secret** | **Both** Cloudflare Pages → Environment Variables → `DIGEST_CRON_SECRET` **and** GitHub → Repo Settings → Secrets → `DIGEST_CRON_SECRET` (same value in both) | Never (rotate if leaked) | Shared secret protecting `/api/approval-digest` — that endpoint is called by a scheduled GitHub Action, not a signed-in admin, so it can't sit behind Cloudflare Access like the rest of `/admin/api/*`. |
+| **Digest Cron Secret** | Set to the **same value** in three places: Cloudflare Pages → Environment Variables → `DIGEST_CRON_SECRET`; the `mashup-approval-digest` Worker → Settings → Variables and Secrets → `DIGEST_CRON_SECRET`; and (optional, manual-fallback only) GitHub → Repo Settings → Secrets → `DIGEST_CRON_SECRET` | Never (rotate if leaked) | Shared secret protecting `/api/approval-digest` — that endpoint is called by a Cloudflare Worker cron (or manually via GitHub Actions `workflow_dispatch`), not a signed-in admin, so it can't sit behind Cloudflare Access like the rest of `/admin/api/*`. |
 | **Dues Contact Mention** | Cloudflare Pages → Settings → Environment Variables → `DUES_CONTACT_MENTION` | Never | Text embedded verbatim in the daily approval digest's "DM ___ for payment instructions" line — set to `<@your-numeric-discord-id>` for a real ping, or a plain name if you don't want one. |
 
 ---

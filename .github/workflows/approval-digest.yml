@@ -1,9 +1,12 @@
 name: Daily Approval Digest
 
+# The daily trigger lives on a Cloudflare Worker cron now (mashup-approval-digest),
+# not GitHub's schedule trigger — it silently skipped runs entirely rather than
+# just running late, matching the same unreliability that's why the scorecard
+# fetch workflow is triggered by a Cloudflare Worker too (see ARCHITECTURE.md).
+# workflow_dispatch is kept as a manual fallback/testing trigger only.
 on:
-  schedule:
-    - cron: '0 14 * * *'  # once daily, ~9-10am US Eastern (adjust as needed)
-  workflow_dispatch:       # also allows manual run from GitHub UI
+  workflow_dispatch:
 
 jobs:
   digest:
