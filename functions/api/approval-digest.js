@@ -78,7 +78,7 @@ export async function onRequestPost(context) {
     return id ? `<@${id}>` : `**${r.username}**`;
   });
   const contact = env.DUES_CONTACT_MENTION || 'an admin';
-  const content = `✅ Approved for ${activeSeason.name}: ${names.join(', ')}\nDM ${contact} for payment instructions.`;
+  const content = `✅ Approved for ${activeSeason.name}: ${names.join(', ')}\nDM ${contact} for payment instructions. Note: Payment Account is the same as in seasons past.`;
 
   const dres = await fetch(webhookUrl, {
     method: 'POST',
