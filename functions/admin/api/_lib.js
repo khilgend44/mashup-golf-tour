@@ -47,6 +47,29 @@ export async function kvPut(accountId, apiToken, key, value) {
   if (!res.ok) throw new Error(`KV put failed: ${res.status}`);
 }
 
+export async function kvDelete(accountId, apiToken, key) {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
+  const res = await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${apiToken}` } });
+  if (!res.ok) throw new Error(`KV delete failed: ${res.status}`);
+}
+
+// Lists every key under a prefix (paginated — Cloudflare returns a cursor
+// once there are more than ~1000 keys, though this project is nowhere near
+// that for registrations).
+export async function kvList(accountId, apiToken, prefix) {
+  let cursor = '';
+  const keys = [];
+  do {
+    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/keys?prefix=${encodeURIComponent(prefix)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiToken}` } });
+    if (!res.ok) break;
+    const data = await res.json();
+    if (Array.isArray(data.result)) keys.push(...data.result);
+    cursor = data.result_info && data.result_info.cursor ? data.result_info.cursor : '';
+  } while (cursor);
+  return keys;
+}
+
 // ─── SGT course name → id resolution ─────────────────────────────────────
 // Powers the "scorecard" deep-link on event pages (see /api/course-scorecard).
 // SGT's courses/page-data endpoint has no per-course lookup — it returns

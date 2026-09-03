@@ -22,6 +22,14 @@ async function kvPut(accountId, apiToken, key, value) {
   if (!res.ok) throw new Error(`KV put failed: ${res.status}`);
 }
 
+async function kvListKeys(accountId, apiToken, prefix) {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/keys?prefix=${encodeURIComponent(prefix)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${apiToken}` } });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.result) ? data.result : [];
+}
+
 const stripSub = n => String(n).toLowerCase().replace(/\s*\(sub\)$/, '');
 
 export async function onRequestPost(context) {
@@ -52,9 +60,11 @@ export async function onRequestPost(context) {
   const cursorKey = `digest:${season}:lastRun`;
   const now = new Date().toISOString();
 
-  const [cursor, regsRaw, discordRaw] = await Promise.all([
+  const [cursor, regKeys, discordRaw] = await Promise.all([
     kvGet(accountId, apiToken, cursorKey),
-    kvGet(accountId, apiToken, `registrations:${season}`),
+    // Registrations live one-per-key (registrations:<season>:<user>:<id>),
+    // not a shared list — see functions/admin/api/registrations.js for why.
+    kvListKeys(accountId, apiToken, `registrations:${season}:`),
     kvGet(accountId, apiToken, 'players:discord'),
   ]);
 
@@ -65,7 +75,11 @@ export async function onRequestPost(context) {
     return Response.json({ ok: true, seeded: true });
   }
 
-  const regs    = regsRaw    ? JSON.parse(regsRaw)    : [];
+  const regValues = await Promise.all(regKeys.map(k => kvGet(accountId, apiToken, k.name)));
+  const regs = regValues
+    .filter(Boolean)
+    .map(v => { try { return JSON.parse(v); } catch { return null; } })
+    .filter(Boolean);
   const discord = discordRaw ? JSON.parse(discordRaw) : {};
   const newlyApproved = regs.filter(r => r.status === 'approved' && r.reviewedAt && r.reviewedAt > cursor);
 

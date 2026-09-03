@@ -302,7 +302,7 @@
       try {
         const res = await fetch(API, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, id, season: SEASON, reason }),
+          body: JSON.stringify({ action, id, season: SEASON, reason, username: rec?.username }),
         });
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));

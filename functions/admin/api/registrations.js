@@ -3,7 +3,43 @@
 // POST → approve / decline / reset / delete a registration.
 // On approve, non-email fields are upserted into players:meta (the persistent,
 // cross-season player record). Email stays only on the registration record.
-import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
+//
+// Storage: one KV key per registration — registrations:<season>:<lowercaseUsername>:<id>
+// — NOT one shared list key. The old shared-list design (one JSON array under
+// registrations:<season>) had a read-modify-write race: two registrations
+// landing close together could silently clobber each other — confirmed to
+// have actually happened in production (2026-09), losing a real registration.
+// Each registration now gets its own independent key, so concurrent writes
+// can never collide. GET auto-migrates any leftover data still sitting under
+// the old shared-list key the first time it's called for a season, then
+// deletes that old key — a one-time, self-healing migration, no manual step.
+import { CORS, kvGet, kvPut, kvList, kvDelete, requireAccess } from './_lib.js';
+
+function regKey(season, username, id) {
+  return `registrations:${season}:${String(username).toLowerCase()}:${id}`;
+}
+
+async function loadAllRegistrations(accountId, apiToken, season) {
+  const legacyKey = `registrations:${season}`;
+  const legacyRaw = await kvGet(accountId, apiToken, legacyKey);
+  if (legacyRaw) {
+    let legacyList = [];
+    try { legacyList = JSON.parse(legacyRaw); } catch { legacyList = []; }
+    if (Array.isArray(legacyList) && legacyList.length) {
+      await Promise.all(legacyList.map(r =>
+        kvPut(accountId, apiToken, regKey(season, r.username, r.id), JSON.stringify(r))
+      ));
+    }
+    await kvDelete(accountId, apiToken, legacyKey);
+  }
+
+  const keys = await kvList(accountId, apiToken, `registrations:${season}:`);
+  const values = await Promise.all(keys.map(k => kvGet(accountId, apiToken, k.name)));
+  return values
+    .filter(Boolean)
+    .map(v => { try { return JSON.parse(v); } catch { return null; } })
+    .filter(Boolean);
+}
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -18,13 +54,13 @@ export async function onRequestGet(context) {
   if (!accountId || !apiToken) return Response.json({ error: 'Missing credentials' }, { status: 500, headers: CORS });
 
   const season = String(new URL(request.url).searchParams.get('season') || 'season-10');
-  const [regRaw, metaRaw] = await Promise.all([
-    kvGet(accountId, apiToken, `registrations:${season}`),
+  const [registrations, metaRaw] = await Promise.all([
+    loadAllRegistrations(accountId, apiToken, season),
     kvGet(accountId, apiToken, 'players:meta'),
   ]);
   return Response.json({
     season,
-    registrations: regRaw ? JSON.parse(regRaw) : [],
+    registrations,
     meta: metaRaw ? JSON.parse(metaRaw) : {},
   }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
 }
@@ -40,14 +76,15 @@ export async function onRequestPost(context) {
   let body;
   try { body = await request.json(); } catch { return Response.json({ error: 'Invalid JSON' }, { status: 400, headers: CORS }); }
 
-  const { action, id, reason } = body;
+  const { action, id, reason, username } = body;
   const season = String(body.season || 'season-10');
-  const key = `registrations:${season}`;
+  if (!username) return Response.json({ error: 'username required' }, { status: 400, headers: CORS });
+  if (!id) return Response.json({ error: 'id required' }, { status: 400, headers: CORS });
+
+  const key = regKey(season, username, id);
   const raw = await kvGet(accountId, apiToken, key);
-  const list = raw ? JSON.parse(raw) : [];
-  const idx = list.findIndex(r => r.id === id);
-  if (idx === -1) return Response.json({ error: 'Registration not found' }, { status: 404, headers: CORS });
-  const rec = list[idx];
+  if (!raw) return Response.json({ error: 'Registration not found' }, { status: 404, headers: CORS });
+  const rec = JSON.parse(raw);
   const now = new Date().toISOString();
 
   if (action === 'approve') {
@@ -70,7 +107,7 @@ export async function onRequestPost(context) {
     };
     await Promise.all([
       kvPut(accountId, apiToken, 'players:meta', JSON.stringify(meta)),
-      kvPut(accountId, apiToken, key, JSON.stringify(list)),
+      kvPut(accountId, apiToken, key, JSON.stringify(rec)),
     ]);
     return Response.json({ ok: true, registration: rec, meta: meta[lc] }, { headers: CORS });
   }
@@ -79,7 +116,7 @@ export async function onRequestPost(context) {
     rec.status = 'declined';
     rec.declineReason = String(reason || '').trim();
     rec.reviewedAt = now;
-    await kvPut(accountId, apiToken, key, JSON.stringify(list));
+    await kvPut(accountId, apiToken, key, JSON.stringify(rec));
 
     // Same channel as the new-registration ping — a searchable record of why
     // someone was declined, for looking back later.
@@ -103,13 +140,12 @@ export async function onRequestPost(context) {
     rec.status = 'pending';
     rec.declineReason = '';
     rec.reviewedAt = null;
-    await kvPut(accountId, apiToken, key, JSON.stringify(list));
+    await kvPut(accountId, apiToken, key, JSON.stringify(rec));
     return Response.json({ ok: true, registration: rec }, { headers: CORS });
   }
 
   if (action === 'delete') {
-    list.splice(idx, 1);
-    await kvPut(accountId, apiToken, key, JSON.stringify(list));
+    await kvDelete(accountId, apiToken, key);
     return Response.json({ ok: true }, { headers: CORS });
   }
 

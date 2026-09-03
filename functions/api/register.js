@@ -1,5 +1,10 @@
 // Public registration submission. Route: POST /api/register
-// Stores a pending signup in registrations:<season>. Email is kept ONLY on this
+// Stores a pending signup as its own KV key — registrations:<season>:<lowercaseUsername>:<id>
+// — not a shared list. A shared list (one JSON array under registrations:<season>)
+// had a read-modify-write race: two registrations landing close together could
+// silently clobber each other — confirmed to have actually happened in
+// production (2026-09), losing a real registration. Independent per-registration
+// keys mean concurrent writes can never collide. Email is kept ONLY on this
 // season registration record (admin-only read) — never in players:meta, never
 // in any public response, never in the repo.
 import { checkRateLimit } from './_ratelimit.js';
@@ -37,6 +42,13 @@ async function kvPut(accountId, apiToken, key, value) {
     body: typeof value === 'string' ? value : JSON.stringify(value),
   });
   if (!res.ok) throw new Error(`KV put failed: ${res.status}`);
+}
+async function kvListKeys(accountId, apiToken, prefix) {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/keys?prefix=${encodeURIComponent(prefix)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${apiToken}` } });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.result) ? data.result : [];
 }
 
 export async function onRequestOptions(context) {
@@ -82,17 +94,19 @@ export async function onRequestPost(context) {
   if (launchMonitor.length > 80) return json({ error: 'Launch monitor is too long.' }, 400);
   if (email.length > 120)        return json({ error: 'Email is too long.' }, 400);
 
-  const key = `registrations:${season}`;
   const lc = username.toLowerCase();
-  const [metaRaw, rosterRaw, listRaw, seasonsRes] = await Promise.all([
+  const [metaRaw, rosterRaw, seasonsRes, existingKeys, legacyRaw] = await Promise.all([
     kvGet(accountId, apiToken, 'players:meta'),
     kvGet(accountId, apiToken, 'players:roster'),
-    kvGet(accountId, apiToken, key),
     fetch(new URL('/api/seasons', request.url)).catch(() => null),
+    kvListKeys(accountId, apiToken, `registrations:${season}:${lc}:`),
+    // Legacy shared-list key — read-only fallback in case this request lands
+    // in the brief window before admin/api/registrations.js's GET has done
+    // its one-time migration off the old shared-list design for this season.
+    kvGet(accountId, apiToken, `registrations:${season}`),
   ]);
   const meta    = metaRaw   ? JSON.parse(metaRaw)   : {};
   const roster  = rosterRaw ? JSON.parse(rosterRaw) : [];
-  const list    = listRaw   ? JSON.parse(listRaw)   : [];
   const seasons = seasonsRes && seasonsRes.ok ? await seasonsRes.json() : [];
 
   // Decide "returning" from what we actually have on file — NOT the client's
@@ -117,19 +131,31 @@ export async function onRequestPost(context) {
   // player stays rostered, and that shouldn't reopen the door to reapplying.
   const thisSeason = seasons.find(s => s.id === season);
   const onSeasonRoster = !!thisSeason && (thisSeason.players || []).some(n => String(n).toLowerCase() === lc);
-  if (onSeasonRoster || list.some(r => r.username.toLowerCase() === lc && r.status !== 'declined'))
-    return json({ error: 'already-registered', message: `${username} is already registered for this season.` }, 409);
 
+  let hasActive = onSeasonRoster;
+  if (!hasActive && existingKeys.length) {
+    const existingRecs = await Promise.all(existingKeys.map(k => kvGet(accountId, apiToken, k.name)));
+    hasActive = existingRecs.some(v => {
+      try { return v && JSON.parse(v).status !== 'declined'; } catch { return false; }
+    });
+  }
+  if (!hasActive && legacyRaw) {
+    try {
+      const legacyList = JSON.parse(legacyRaw);
+      hasActive = Array.isArray(legacyList) && legacyList.some(r => r.username.toLowerCase() === lc && r.status !== 'declined');
+    } catch { /* ignore malformed legacy data */ }
+  }
+  if (hasActive) return json({ error: 'already-registered', message: `${username} is already registered for this season.` }, 409);
+
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const record = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    username, discordName, launchMonitor, region, email,
+    id, username, discordName, launchMonitor, region, email,
     agreements: { livestream: true, openapi: true, handicap: true },
     returning, changed,
     status: 'pending', declineReason: '',
     submittedAt: new Date().toISOString(), reviewedAt: null,
   };
-  list.push(record);
-  await kvPut(accountId, apiToken, key, JSON.stringify(list));
+  await kvPut(accountId, apiToken, `registrations:${season}:${lc}:${id}`, JSON.stringify(record));
 
   // Optional Discord ping (no PII — username + region only).
   const webhook = env.DISCORD_REGISTER_WEBHOOK_URL;
