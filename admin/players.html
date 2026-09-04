@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -116,8 +117,15 @@
     <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
       <div class="px-6 py-4 border-b border-border flex items-center justify-between flex-wrap gap-3">
         <h2 class="font-display text-2xl tracking-wider text-white">ROSTER <span id="player-count" class="text-gray-600 text-lg"></span></h2>
-        <input id="search-input" type="text" placeholder="Search..."
-          class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 w-40" />
+        <div class="flex items-center gap-2">
+          <button id="export-btn"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border text-xs font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-flame/40"
+            style="transition:all 0.15s" title="Save the current view (sorted by MashCAP) as a PNG">
+            📤 Export Table
+          </button>
+          <input id="search-input" type="text" placeholder="Search..."
+            class="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-body text-gray-300 placeholder-gray-700 focus:outline-none focus:border-flame/50 w-40" />
+        </div>
       </div>
       <div class="overflow-auto" style="max-height: calc(100vh - 13rem)">
         <table class="w-full text-sm">
@@ -201,6 +209,42 @@
       return null;
     }
 
+    // Shared by the live table and the PNG export, so the export always
+    // matches exactly what's on screen: same MashCAP sort, same Adjusted
+    // offset (relative to the lowest MashCAP among the players passed in).
+    function computeRows(roster, handicaps) {
+      const capValues = roster
+        .map(p => regCap(handicaps[p.toLowerCase()]))
+        .filter(n => n !== null);
+      const minRaw = capValues.length ? Math.min(...capValues) : null;
+      const offset = minRaw !== null ? -minRaw : 0;
+
+      const sorted = [...roster].sort((a, b) => {
+        const ra = regCap(handicaps[a.toLowerCase()]);
+        const rb = regCap(handicaps[b.toLowerCase()]);
+        return (ra === null ? Infinity : ra) - (rb === null ? Infinity : rb);
+      });
+
+      return sorted.map(name => {
+        const hcp = handicaps[name.toLowerCase()] || null;
+        const cap = regCap(hcp);
+        const adjusted = cap !== null ? Math.round(cap + offset) : null;
+        const isBaseline = cap !== null && cap === minRaw;
+        const hasMash = hcp && hcp.mashCap !== undefined && hcp.mashCap !== null;
+        const fallback = !hasMash && hcp && hcp.rawCap !== undefined && hcp.rawCap !== null;
+        return { name, hcp, cap, adjusted, isBaseline, hasMash, fallback };
+      });
+    }
+
+    function mashCapCellHtml(r, nd) {
+      // flame when real; amber ⚠ + the Raw value being used when falling back.
+      return r.hasMash
+        ? `<td class="px-4 py-3 text-center font-body text-sm text-flame font-600" title="best ${r.hcp.mashCapCounting} of ${r.hcp.mashCapRounds} rounds">${hcpDisplay(r.hcp.mashCap)}</td>`
+        : r.fallback
+          ? `<td class="px-4 py-3 text-center font-body text-sm text-amber-400" title="No MashCAP yet — using SGT Raw (${hcpDisplay(r.hcp.rawCap)}) for registration &amp; scoring">⚠ ${hcpDisplay(r.hcp.rawCap)}</td>`
+          : `<td class="px-4 py-3 text-center font-body text-sm text-gray-600">${nd}</td>`;
+    }
+
     function renderTable(roster, handicaps, filter = '') {
       const tbody = document.getElementById('players-tbody');
       const filtered = filter
@@ -224,52 +268,27 @@
         return;
       }
 
-      // Adjusted handicap offset is relative to the lowest MashCAP among displayed players
-      const capValues = filtered
-        .map(p => regCap(handicaps[p.toLowerCase()]))
-        .filter(n => n !== null);
-      const minRaw = capValues.length ? Math.min(...capValues) : null;
-      const offset = minRaw !== null ? -minRaw : 0;
+      const nd = '—';
+      const rows = computeRows(filtered, handicaps);
 
-      const sorted = [...filtered].sort((a, b) => {
-        const ra = regCap(handicaps[a.toLowerCase()]);
-        const rb = regCap(handicaps[b.toLowerCase()]);
-        return (ra === null ? Infinity : ra) - (rb === null ? Infinity : rb);
-      });
-
-      tbody.innerHTML = sorted.map((name, i) => {
-        const hcp = handicaps[name.toLowerCase()] || null;
-        const nd = '—';
-        const cap = regCap(hcp);
-        const adjusted = cap !== null ? Math.round(cap + offset) : null;
-        const isBaseline = cap !== null && cap === minRaw;
-        const hasMash = hcp && hcp.mashCap !== undefined && hcp.mashCap !== null;
-        const fallback = !hasMash && hcp && hcp.rawCap !== undefined && hcp.rawCap !== null;
-        // MashCAP cell: flame when real; amber ⚠ + the Raw value being used when falling back.
-        const mashCapCell = hasMash
-          ? `<td class="px-4 py-3 text-center font-body text-sm text-flame font-600" title="best ${hcp.mashCapCounting} of ${hcp.mashCapRounds} rounds">${hcpDisplay(hcp.mashCap)}</td>`
-          : fallback
-            ? `<td class="px-4 py-3 text-center font-body text-sm text-amber-400" title="No MashCAP yet — using SGT Raw (${hcpDisplay(hcp.rawCap)}) for registration &amp; scoring">⚠ ${hcpDisplay(hcp.rawCap)}</td>`
-            : `<td class="px-4 py-3 text-center font-body text-sm text-gray-600">${nd}</td>`;
-        return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}" data-player="${name}">
+      tbody.innerHTML = rows.map((r, i) => `<tr class="border-b border-border/50 ${r.isBaseline ? 'baseline-row' : ''}" data-player="${r.name}">
           <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
-          ${mashCapCell}
-          <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${name}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-flame">${hcp ? hcpDisplay(hcp.comboCap) : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcpDisplay(hcp.rawCap) : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp && hcp.minComboCap !== undefined ? hcpDisplay(hcp.minComboCap) : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.comboRoundsCount : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${hcp ? hcp.numEvents : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-xs text-gray-400">${hcp ? (hcp.connector || nd) : nd}</td>
+          ${mashCapCellHtml(r, nd)}
+          <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${r.name}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-white">${r.adjusted !== null ? r.adjusted : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-flame">${r.hcp ? hcpDisplay(r.hcp.comboCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? hcpDisplay(r.hcp.rawCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp && r.hcp.minComboCap !== undefined ? hcpDisplay(r.hcp.minComboCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? r.hcp.comboRoundsCount : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? r.hcp.numEvents : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-xs text-gray-400">${r.hcp ? (r.hcp.connector || nd) : nd}</td>
           <td class="px-4 py-3 text-center">
-            <input type="text" inputmode="numeric" class="discord-input bg-surface border border-border rounded px-2 py-1 text-xs text-gray-200 w-36 focus:outline-none focus:border-flame" data-player="${name}" value="${(state.discord[name.toLowerCase()] || '').replace(/"/g, '&quot;')}" placeholder="—" />
+            <input type="text" inputmode="numeric" class="discord-input bg-surface border border-border rounded px-2 py-1 text-xs text-gray-200 w-36 focus:outline-none focus:border-flame" data-player="${r.name}" value="${(state.discord[r.name.toLowerCase()] || '').replace(/"/g, '&quot;')}" placeholder="—" />
           </td>
           <td class="px-4 py-3 text-right">
-            <button class="remove-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-player="${name}" style="transition:color 0.12s">Remove</button>
+            <button class="remove-btn text-gray-700 hover:text-red-400 text-xs font-heading font-600 tracking-wider" data-player="${r.name}" style="transition:color 0.12s">Remove</button>
           </td>
-        </tr>`;
-      }).join('');
+        </tr>`).join('');
 
       tbody.querySelectorAll('.remove-btn').forEach(btn => {
         btn.addEventListener('click', () => removePlayer(btn.dataset.player));
@@ -277,6 +296,76 @@
       tbody.querySelectorAll('.discord-input').forEach(inp => {
         inp.addEventListener('change', () => saveDiscord(inp.dataset.player, inp.value));
       });
+    }
+
+    // PNG export — same columns as the live table minus Connector and Discord
+    // ID (internal/admin-only fields), and minus the Remove-button column
+    // (not data). Reuses computeRows so the export always matches exactly
+    // what's currently on screen (season filter, search filter, MashCAP sort).
+    function buildExportMarkup(rows, title) {
+      const nd = '—';
+      const headers = ['#', 'MashCAP', 'Player', 'Adjusted', 'Combo', 'Raw', 'Low', 'Combo Events', 'Total Events'];
+      const theadHtml = headers.map((h, i) =>
+        `<th class="${i === 0 ? 'text-left px-6' : 'text-center px-4'} py-3 text-[10px] font-heading font-600 tracking-widest ${i === 1 ? 'text-flame' : 'text-gray-600'} uppercase">${h}</th>`
+      ).join('');
+      const bodyHtml = rows.map((r, i) => `<tr class="border-b border-border/50 ${r.isBaseline ? 'baseline-row' : ''}">
+          <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
+          ${mashCapCellHtml(r, nd)}
+          <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${r.name}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-white">${r.adjusted !== null ? r.adjusted : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-flame">${r.hcp ? hcpDisplay(r.hcp.comboCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? hcpDisplay(r.hcp.rawCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp && r.hcp.minComboCap !== undefined ? hcpDisplay(r.hcp.minComboCap) : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? r.hcp.comboRoundsCount : nd}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? r.hcp.numEvents : nd}</td>
+        </tr>`).join('');
+
+      return `<div style="background:#0c0c0c; padding:28px; display:inline-block;">
+        <div class="font-heading font-600 tracking-widest text-flame uppercase text-xs mb-1">MashUp Golf Tour</div>
+        <div class="font-display text-3xl tracking-wider text-white mb-4">${title}</div>
+        <table class="text-sm" style="border-collapse:collapse; background:#1e1e1e; border-radius:8px; overflow:hidden;">
+          <thead><tr class="border-b border-border">${theadHtml}</tr></thead>
+          <tbody>${bodyHtml}</tbody>
+        </table>
+      </div>`;
+    }
+
+    async function exportTable() {
+      const btn = document.getElementById('export-btn');
+      const orig = btn.textContent;
+      const filter = document.getElementById('search-input').value;
+      const roster = getSeasonRoster();
+      const filtered = filter ? roster.filter(p => p.toLowerCase().includes(filter.toLowerCase())) : roster;
+      if (!filtered.length) { showStatus('Nothing to export.', 'error'); return; }
+
+      btn.disabled = true; btn.textContent = 'Exporting…';
+      const wrapper = document.createElement('div');
+      try {
+        const rows = computeRows(filtered, state.handicaps);
+        const seasonLabel = state.selectedSeason
+          ? (state.seasons.find(s => s.id === state.selectedSeason)?.name || 'Roster')
+          : 'All Players';
+
+        wrapper.style.cssText = 'position:fixed; left:-9999px; top:0;';
+        wrapper.innerHTML = buildExportMarkup(rows, `${seasonLabel} — MashCAP Standings`);
+        document.body.appendChild(wrapper);
+
+        await document.fonts.ready;
+        const canvas = await html2canvas(wrapper.firstElementChild, {
+          scale: 2, useCORS: true, backgroundColor: '#0c0c0c', logging: false,
+        });
+
+        const link = document.createElement('a');
+        link.download = `mashup-roster-${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showStatus(`Exported ${rows.length} players.`, 'success');
+      } catch (e) {
+        showStatus('Export failed: ' + e.message, 'error');
+      } finally {
+        document.body.contains(wrapper) && document.body.removeChild(wrapper);
+        btn.disabled = false; btn.textContent = orig;
+      }
     }
 
     async function saveDiscord(name, discordId) {
@@ -469,6 +558,8 @@
         icon.classList.remove('spin');
       }
     });
+
+    document.getElementById('export-btn').addEventListener('click', exportTable);
 
     document.getElementById('debug-btn').addEventListener('click', async () => {
       const panel = document.getElementById('debug-panel');
