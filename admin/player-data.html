@@ -167,14 +167,34 @@
       } catch (e) { setStatus(e.message, 'error'); btn.textContent = orig; btn.disabled = false; }
     }
 
+    // Both players:meta and dues:<season> are still shared-per-player blobs
+    // read-modify-write server-side (one KV key holding several fields), so
+    // two saves for the SAME player landing close together — e.g. checking
+    // "Paid" also auto-fills Date Paid in the same click — can still race
+    // each other from a single browser tab. Queue writes per username so a
+    // second save for someone always waits for the first to fully land
+    // before reading-and-rewriting their record. (Doesn't protect against
+    // two different admins editing the same player in different tabs at the
+    // same instant — that's a much rarer case than the one actually seen.)
+    const writeQueues = new Map();
+    function queueWrite(username, task) {
+      const key = String(username).toLowerCase();
+      const prev = writeQueues.get(key) || Promise.resolve();
+      const next = prev.then(task, task);
+      writeQueues.set(key, next);
+      return next;
+    }
+
     async function setField(username, field, value, label) {
-      try {
-        const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set', username, field, value }) });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
-        const d = await res.json();
-        state.meta[username.toLowerCase()] = d.player;
-        setStatus(`${username}: ${label || field} updated.`, 'success');
-      } catch (e) { setStatus(e.message, 'error'); }
+      return queueWrite(username, async () => {
+        try {
+          const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set', username, field, value }) });
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+          const d = await res.json();
+          state.meta[username.toLowerCase()] = d.player;
+          setStatus(`${username}: ${label || field} updated.`, 'success');
+        } catch (e) { setStatus(e.message, 'error'); }
+      });
     }
 
     function updateDuesSummary() {
@@ -192,17 +212,19 @@
     }
 
     async function setDuesField(username, field, value) {
-      try {
-        const res = await fetch(DUES_API, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'set', season: state.season, username, field, value }),
-        });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
-        const d = await res.json();
-        state.dues[username.toLowerCase()] = d.player;
-        updateDuesSummary();
-        setStatus(`${username}: dues updated.`, 'success');
-      } catch (e) { setStatus(e.message, 'error'); }
+      return queueWrite(username, async () => {
+        try {
+          const res = await fetch(DUES_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set', season: state.season, username, field, value }),
+          });
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+          const d = await res.json();
+          state.dues[username.toLowerCase()] = d.player;
+          updateDuesSummary();
+          setStatus(`${username}: dues updated.`, 'success');
+        } catch (e) { setStatus(e.message, 'error'); }
+      });
     }
 
     function render() {
@@ -267,14 +289,14 @@
         });
       });
       tb.querySelectorAll('.paid-check').forEach(cb => {
-        cb.addEventListener('change', () => {
-          setDuesField(cb.dataset.user, 'paid', cb.checked);
+        cb.addEventListener('change', async () => {
+          await setDuesField(cb.dataset.user, 'paid', cb.checked);
           if (cb.checked) {
             const dateInput = cb.closest('tr').querySelector('.date-paid-input');
             if (dateInput && !dateInput.value) {
               const today = new Date().toISOString().slice(0, 10);
               dateInput.value = today;
-              setDuesField(cb.dataset.user, 'datePaid', today);
+              await setDuesField(cb.dataset.user, 'datePaid', today);
             }
           }
         });
