@@ -21,6 +21,8 @@
     tr:hover td { background: rgba(255,255,255,0.02); }
     .field { background: #141414; border: 1px solid #2c2c2c; border-radius: 0.4rem; padding: 0.3rem 0.5rem; color: #e5e7eb; font-size: 0.8rem; }
     .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
+    tr.unpaid-row { background: rgba(239,68,68,0.055); box-shadow: inset 3px 0 0 rgba(239,68,68,0.55); }
+    tr.unpaid-row:hover td { background: rgba(239,68,68,0.03); }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -47,6 +49,10 @@
     <div class="flex items-center gap-3 mb-4 flex-wrap">
       <label class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">Season Dues</label>
       <select id="season-select" class="field" style="width:auto"></select>
+      <label id="unpaid-only-label" class="flex items-center gap-1.5 text-xs font-heading font-600 tracking-widest text-gray-500 uppercase cursor-pointer select-none" title="Select a season above to filter">
+        <input type="checkbox" id="unpaid-only" class="accent-[#ef4444]" disabled />
+        Unpaid Only
+      </label>
       <span id="dues-summary" class="text-xs text-gray-500 font-body"></span>
     </div>
 
@@ -105,7 +111,7 @@
     const DUES_API = '/admin/api/dues';
     const SEASONS_API = '/api/seasons';
     const PAY_OPTIONS = ['', 'Venmo', 'PayPal', 'Other'];
-    const state = { meta: {}, parsed: [], dues: {}, season: '', allSeasons: [] };
+    const state = { meta: {}, parsed: [], dues: {}, season: '', allSeasons: [], unpaidOnly: false };
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
@@ -228,14 +234,24 @@
     }
 
     function render() {
+      const unpaidLabel = $('unpaid-only-label');
+      const unpaidCheckbox = $('unpaid-only');
+      unpaidCheckbox.disabled = !state.season;
+      unpaidLabel.title = state.season ? '' : 'Select a season above to filter';
+      unpaidLabel.classList.toggle('opacity-40', !state.season);
+      if (!state.season && state.unpaidOnly) { state.unpaidOnly = false; unpaidCheckbox.checked = false; }
+
       const season = state.allSeasons.find(s => s.id === state.season);
       const rosterSet = season ? new Set((season.players || []).map(n => String(n).toLowerCase())) : null;
       const allRows = Object.values(state.meta).sort((a, b) => String(a.username).toLowerCase().localeCompare(String(b.username).toLowerCase()));
-      const rows = rosterSet ? allRows.filter(p => rosterSet.has(String(p.username).toLowerCase())) : allRows;
-      $('count').textContent = rosterSet ? `${rows.length} players (${season.name})` : `${rows.length} players`;
+      let rows = rosterSet ? allRows.filter(p => rosterSet.has(String(p.username).toLowerCase())) : allRows;
+      const filteringUnpaid = state.season && state.unpaidOnly;
+      if (filteringUnpaid) rows = rows.filter(p => !state.dues[String(p.username).toLowerCase()]?.paid);
+      $('count').textContent = (rosterSet ? `${rows.length} players (${season.name})` : `${rows.length} players`) + (filteringUnpaid ? ' — unpaid only' : '');
       const tb = $('tbody');
       if (!rows.length) {
-        const msg = rosterSet ? `No approved players for ${esc(season.name)} yet.` : 'No player data yet — import your list above.';
+        const msg = filteringUnpaid ? `Everyone's paid for ${esc(season.name)}. 🎉`
+          : rosterSet ? `No approved players for ${esc(season.name)} yet.` : 'No player data yet — import your list above.';
         tb.innerHTML = `<tr><td colspan="13" class="px-6 py-12 text-center text-gray-600 text-sm">${msg}</td></tr>`;
         updateDuesSummary();
         return;
@@ -243,7 +259,8 @@
       const duesDisabled = state.season ? '' : 'disabled title="Select a season above to edit dues"';
       tb.innerHTML = rows.map(p => {
         const d = state.dues[String(p.username).toLowerCase()] || {};
-        return `<tr class="border-b border-border/50">
+        const unpaid = state.season && !d.paid;
+        return `<tr class="border-b border-border/50${unpaid ? ' unpaid-row' : ''}">
         <td class="px-4 py-2.5 font-heading font-600 tracking-wider text-white">${esc(p.username)}</td>
         <td class="px-4 py-2.5"><input class="field name-input" data-user="${esc(p.username)}" value="${esc(p.name || '')}" placeholder="—" style="width:10rem" /></td>
         <td class="px-4 py-2.5 text-gray-400">${esc(p.discordName || '—')}</td>
@@ -376,6 +393,8 @@
         $('tbody').innerHTML = `<tr><td colspan="13" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
       }
     }
+
+    $('unpaid-only').addEventListener('change', (e) => { state.unpaidOnly = e.target.checked; render(); });
 
     $('parse-btn').addEventListener('click', parsePaste);
     $('paste').addEventListener('input', () => { $('import-btn').disabled = true; });
