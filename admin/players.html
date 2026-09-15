@@ -472,7 +472,14 @@
     }
 
     async function removePlayer(name) {
-      if (!confirm(`Remove ${name} from roster?`)) return;
+      if (!confirm(
+        `Remove ${name} from the ALL-TIME master roster?\n\n` +
+        `This does NOT remove them from any single season (Season 10 included) — ` +
+        `it only drops their handicap/roster tracking here, everywhere, forever.\n\n` +
+        `To remove a player from just one season instead, go to Admin > Seasons, ` +
+        `click Edit on that season, uncheck them, and click Update Season.\n\n` +
+        `Continue removing ${name} from the master roster?`
+      )) return;
       try {
         const res = await fetch(API_WRITE, {
           method: 'POST',
