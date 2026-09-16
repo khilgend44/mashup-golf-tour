@@ -135,6 +135,19 @@
     "type": "invitational",
     "teamSize": 3
   },
+  "modified-bb-3man": {
+    "id": "modified-bb-3man",
+    "name": "3-Man Modified BB",
+    "shortName": "Mod BB",
+    "description": "3-player teams. Par 5s: 1 net best ball. Par 4s: 2 net best balls. Par 3s: all 3 net scores. Tiebreaker: team net aggregate.",
+    "scoringBasis": "net",
+    "type": "modified-bb-3man",
+    "lowScoreWins": true,
+    "teamSize": 3,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+    ]
+  },
   "best-ball-3man": {
     "id": "best-ball-3man",
     "name": "3-Man, 2 Best Ball",

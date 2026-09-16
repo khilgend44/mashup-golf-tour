@@ -1319,6 +1319,7 @@
       const isShamble     = format?.type === 'shamble-2man';
       const isNassau      = format?.type === 'nassau-2man';
       const isB2W2All3    = format?.type === 'best2-worst2-all3';
+      const isModifiedBB  = format?.type === 'modified-bb-3man';
       const isDevilsDraw   = format?.type === 'devils-draw' || format?.type === 'devils-draw-4man';
       const isStableford   = format?.type === 'stableford-3man';
 
@@ -1335,6 +1336,12 @@
           if (par === 5) return { label: 'B2',  cls: 'text-emerald-400' };
           if (par === 3) return { label: 'ALL', cls: 'text-flame' };
           return { label: 'W2', cls: 'text-red-400' };
+        }
+        if (isModifiedBB) {
+          const par = team.pars[h];
+          if (par === 5) return { label: '1BB', cls: 'text-blue-400' };
+          if (par === 4) return { label: '2BB', cls: 'text-amber-400' };
+          return { label: 'ALL', cls: 'text-flame' };
         }
         if (isDevilsDraw) {
           const count = team.holeCount?.[h + 1] ?? 1;
@@ -1468,6 +1475,11 @@
           ` : isB2W2All3 ? `
           <span class="text-emerald-400 font-heading font-600 text-[10px] tracking-widest">B2</span> <span>Par 5s: best 2 net scores</span>
           <span class="text-red-400 font-heading font-600 text-[10px] tracking-widest">W2</span> <span>Par 4s: worst 2 net scores</span>
+          <span class="text-flame font-heading font-600 text-[10px] tracking-widest">ALL</span> <span>Par 3s: all 3 net scores</span>
+          <span class="text-gray-700 w-full mt-0.5">Dimmed scores don't count toward team total</span>
+          ` : isModifiedBB ? `
+          <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span> <span>Par 5s: 1 net best ball</span>
+          <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span> <span>Par 4s: 2 net best balls</span>
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">ALL</span> <span>Par 3s: all 3 net scores</span>
           <span class="text-gray-700 w-full mt-0.5">Dimmed scores don't count toward team total</span>
           ` : isLoneRanger ? `
