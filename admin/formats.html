@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formats — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .format-card { transition: border-color 0.15s, transform 0.15s; }
+    .format-card:hover { border-color: rgba(249,115,22,0.35); transform: translateY(-2px); }
+    .badge { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; padding: 0.15rem 0.55rem; border-radius: 9999px; text-transform: uppercase; }
+    .badge-flame { background: rgba(249,115,22,0.12); color: #f97316; border: 1px solid rgba(249,115,22,0.3); }
+    .badge-gray  { background: rgba(255,255,255,0.05); color: #9ca3af; border: 1px solid rgba(255,255,255,0.08); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="https://mashupgolf.com/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Site</a>
+      <span class="text-border">/</span>
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Admin</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">Formats</span>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 w-full flex-1">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+      <div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Formats</h1>
+        <p class="text-gray-500 text-sm mt-2 max-w-xl">Every game format the league has on file — built-in and custom. Read-only reference; new scoring logic still needs to be built in code, not here.</p>
+      </div>
+      <span id="count" class="text-sm font-heading font-600 tracking-wider text-gray-500"></span>
+    </div>
+
+    <div id="grid" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div class="text-gray-600 text-sm px-2 py-8">Loading…</div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script>
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+    function teamSizeLabel(n) {
+      if (n === 1) return 'Individual';
+      if (n === 2) return '2-Man Team';
+      if (n === 3) return '3-Man Team';
+      if (n === 4) return '4-Man Team';
+      return n ? `${n}-Player Team` : '—';
+    }
+
+    function formatCard(f) {
+      const badges = [
+        f._custom ? `<span class="badge badge-flame">Custom</span>` : `<span class="badge badge-gray">Built-in</span>`,
+        `<span class="badge badge-gray">${esc(teamSizeLabel(f.teamSize))}</span>`,
+      ];
+      if (f.scoringBasis) badges.push(`<span class="badge badge-gray">${esc(f.scoringBasis)}</span>`);
+      if (f.lowScoreWins != null) badges.push(`<span class="badge badge-gray">${f.lowScoreWins ? 'Low score wins' : 'High score wins'}</span>`);
+
+      const segments = Array.isArray(f.segments) && f.segments.length
+        ? `<div class="mt-4">
+            <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1.5">Segments</div>
+            <ul class="space-y-1">
+              ${f.segments.map(s => `<li class="text-xs text-gray-400 font-body">Holes ${s.startHole}–${s.endHole}: <span class="text-gray-300">${esc(s.label)}</span></li>`).join('')}
+            </ul>
+          </div>`
+        : '';
+
+      const tiebreakers = Array.isArray(f.tiebreakers) && f.tiebreakers.length
+        ? `<div class="mt-4">
+            <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-1.5">Tiebreakers</div>
+            <ol class="space-y-1 list-decimal list-inside">
+              ${f.tiebreakers.map(t => `<li class="text-xs text-gray-400 font-body">${esc(t.label)}</li>`).join('')}
+            </ol>
+          </div>`
+        : '';
+
+      return `<div class="format-card card-shadow bg-card border border-border rounded-xl p-6">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <h2 class="font-display text-2xl tracking-wide text-white leading-tight">${esc(f.name || f.id)}</h2>
+        </div>
+        <div class="text-xs text-gray-600 font-body mb-3">${esc(f.shortName || '')} · <span class="font-mono">${esc(f.id)}</span></div>
+        <div class="flex flex-wrap gap-1.5 mb-4">${badges.join('')}</div>
+        <p class="text-sm text-gray-400 font-body leading-relaxed">${esc(f.description || 'No description on file.')}</p>
+        ${segments}
+        ${tiebreakers}
+      </div>`;
+    }
+
+    async function load() {
+      const grid = document.getElementById('grid');
+      try {
+        const [staticRes, kvRes] = await Promise.allSettled([
+          fetch('/data/formats.json'),
+          fetch('/api/events-admin?type=formats'),
+        ]);
+        const staticFormats = staticRes.status === 'fulfilled' && staticRes.value.ok ? await staticRes.value.json() : {};
+        const kvFormats = kvRes.status === 'fulfilled' && kvRes.value.ok ? await kvRes.value.json() : {};
+        const all = { ...staticFormats, ...kvFormats };
+        const formats = Object.values(all).sort((a, b) =>
+          (a.teamSize || 0) - (b.teamSize || 0) || String(a.name).localeCompare(String(b.name))
+        );
+
+        document.getElementById('count').textContent = `${formats.length} format${formats.length === 1 ? '' : 's'}`;
+        if (!formats.length) {
+          grid.innerHTML = `<div class="text-gray-600 text-sm px-2 py-8">No formats on file yet.</div>`;
+          return;
+        }
+        grid.innerHTML = formats.map(formatCard).join('');
+      } catch (e) {
+        grid.innerHTML = `<div class="text-red-400 text-sm px-2 py-8">Failed to load formats: ${esc(e.message)}</div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
