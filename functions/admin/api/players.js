@@ -1,6 +1,6 @@
 // Protected admin WRITE endpoint for the player roster + handicap refresh.
 // Route: /admin/api/players.  Reads remain public at /api/players.
-import { CORS, kvGet, kvPut, requireAccess } from './_lib.js';
+import { CORS, kvGet, kvPut, kvList, requireAccess } from './_lib.js';
 
 const SGT_API_BASE   = 'https://simulatorgolftour.com/sgt-api/mashup/player-check';
 const SGT_ROUNDS_API = 'https://simulatorgolftour.com/sgt-api/mashup/player-hcp-rounds';
@@ -155,9 +155,9 @@ async function handlePost(context) {
       }
     };
     try {
-      const [seasonsRes, regsRaw] = await Promise.all([
+      const [seasonsRes, regKeys] = await Promise.all([
         fetch(new URL('/api/seasons', request.url)),
-        kvGet(accountId, apiToken, `registrations:${season}`),
+        kvList(accountId, apiToken, `registrations:${season}:`),
       ]);
       if (seasonsRes.ok) {
         const seasons = await seasonsRes.json();
@@ -168,7 +168,13 @@ async function handlePost(context) {
           addAll(thisSeason?.players);
         }
       }
-      const regs = regsRaw ? JSON.parse(regsRaw) : [];
+      // Per-registration keys (registrations:<season>:<lowercaseUsername>:<id>) —
+      // the shared registrations:<season> blob this used to read from stopped
+      // being written to once registrations.js moved off it to fix a
+      // read-modify-write race, so reading it here went silently stale and
+      // dropped every registrant who signed up after that migration.
+      const regVals = await Promise.all(regKeys.map(k => kvGet(accountId, apiToken, k.name)));
+      const regs = regVals.filter(Boolean).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean);
       addAll(regs.filter(r => r.status === 'pending').map(r => r.username));
     } catch { /* fall back to whatever was gathered before the failure */ }
 
