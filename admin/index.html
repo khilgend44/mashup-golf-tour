@@ -59,6 +59,15 @@
     <p class="text-gray-500 text-sm font-body max-w-sm leading-relaxed">Manage player rosters, handicaps, and season events. Changes take effect immediately on the live site.</p>
   </div>
 
+  <!-- BACKUP REMINDER -->
+  <div class="max-w-4xl mx-auto px-4">
+    <a id="backup-banner" href="backup.html" class="hidden items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 mb-8 no-underline hover:bg-amber-500/15" style="transition:background 0.12s">
+      <span class="text-amber-400 text-lg leading-none">⚠</span>
+      <span id="backup-banner-text" class="text-sm text-amber-200 font-body flex-1"></span>
+      <span class="text-xs font-heading font-600 tracking-wider text-amber-400 uppercase whitespace-nowrap">Back Up Now →</span>
+    </a>
+  </div>
+
   <!-- PORTAL CARDS -->
   <div class="max-w-6xl mx-auto px-4 pb-20 flex-1 w-full">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
@@ -235,6 +244,29 @@
       <a href="https://mashupgolf.com/" class="hover:text-flame" style="transition:color 0.12s">← Back to Site</a>
     </div>
   </footer>
+
+  <script>
+    // Nags on the portal home if a KV backup hasn't been downloaded in a
+    // while — the KV database is the one thing here that isn't already
+    // safe in git (see /admin/backup.html), so it's worth reminding.
+    const BACKUP_REMINDER_DAYS = 14;
+    (async () => {
+      try {
+        const res = await fetch('/admin/api/backup?meta=1');
+        if (!res.ok) return; // not signed in yet, or a transient error — don't nag on a guess
+        const { lastExport } = await res.json();
+        const days = lastExport ? Math.floor((Date.now() - new Date(lastExport).getTime()) / 86400000) : null;
+        if (days === null || days >= BACKUP_REMINDER_DAYS) {
+          const banner = document.getElementById('backup-banner');
+          document.getElementById('backup-banner-text').textContent = lastExport
+            ? `It's been ${days} days since your last backup.`
+            : "You've never downloaded a backup yet.";
+          banner.classList.remove('hidden');
+          banner.classList.add('flex');
+        }
+      } catch { /* reminder is best-effort — never block the portal on this */ }
+    })();
+  </script>
 
 </body>
 </html>
