@@ -220,6 +220,11 @@
           <div id="rounds-section"></div>
         </div>
 
+        <!-- Overall budget (Payouts + CTPs + Side Pots combined) -->
+        <div class="mt-6 pt-6 border-t border-border/40">
+          <div id="overall-budget" class="rounded-lg border border-border/60 bg-surface px-4 py-3"></div>
+        </div>
+
         <!-- Payouts -->
         <div id="standard-payouts-section" class="mt-6 pt-6 border-t border-border/40">
           <div class="flex items-center justify-between mb-3">
@@ -393,6 +398,8 @@
         <p id="ep-sub" class="text-xs text-gray-500 font-body mt-1"></p>
       </div>
       <div class="overflow-y-auto px-6 py-5 space-y-6">
+
+        <div id="ep-overall-budget" class="rounded-lg border border-border/60 bg-surface px-4 py-3"></div>
 
         <div id="ep-standard-payouts">
           <div class="flex items-center justify-between mb-3">
@@ -1207,6 +1214,32 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       return `<span class="${cls} font-body">${label}: $${entered.toLocaleString()} of $${budget.toLocaleString()} budget${over ? ` — $${(entered - budget).toLocaleString()} over` : ''}</span>`;
     }
 
+    // Combined view across all three buckets: money is fungible between them
+    // week to week (e.g. skip side pots, put that $ into payouts instead), so
+    // a bucket running "over" isn't a real problem as long as another bucket
+    // is running under by the same amount — this is what actually answers
+    // "am I about to spend more than the week has."
+    function overallBudgetHtml(count, potLabel, potEntered, potBudget, ctpEntered, ctpBudget, flexEntered, flexBudget) {
+      if (!count) return '<span class="text-xs text-gray-700 font-body">Select a season to see this week\'s overall money budget.</span>';
+
+      const totalEntered = potEntered + ctpEntered + flexEntered;
+      const totalBudget  = potBudget + ctpBudget + flexBudget;
+      const diff = totalEntered - totalBudget;
+      const totalCls = diff > 0 ? 'text-red-400' : diff < 0 ? 'text-emerald-400' : 'text-gray-200';
+      const totalLine = `$${totalEntered.toLocaleString()} of $${totalBudget.toLocaleString()} total budget`
+        + (diff > 0 ? ` — $${diff.toLocaleString()} over` : diff < 0 ? ` — $${Math.abs(diff).toLocaleString()} unallocated` : ' — right on budget');
+
+      const parts = [[potLabel, potEntered - potBudget], ['CTPs', ctpEntered - ctpBudget], ['Side Pots', flexEntered - flexBudget]]
+        .map(([label, d]) => {
+          const cls = d > 0 ? 'text-red-400' : d < 0 ? 'text-emerald-400' : 'text-gray-600';
+          return `<span class="${cls}">${label} ${d === 0 ? 'on budget' : (d > 0 ? '+' : '−') + '$' + Math.abs(d).toLocaleString()}</span>`;
+        });
+
+      return `
+        <div class="text-sm font-heading font-600 tracking-wide ${totalCls}">${totalLine}</div>
+        <div class="text-xs text-gray-600 font-body mt-1.5 flex flex-wrap gap-x-3 gap-y-1">${parts.join('<span class="text-gray-800">·</span>')}</div>`;
+    }
+
     function findRecentSameFormatEvent(formatId, excludeId) {
       const candidates = state.kvEvents.filter(e =>
         e.format === formatId && e.id !== excludeId &&
@@ -1265,6 +1298,14 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
 
       const flexEl = document.getElementById('sidepots-budget');
       if (flexEl) flexEl.innerHTML = count ? budgetLineHtml(sidePotsTotal, count * WEEKLY_RATES.flex, `Side-pot budget ($${WEEKLY_RATES.flex} × ${count})`) : '';
+
+      const overallEl = document.getElementById('overall-budget');
+      if (overallEl) overallEl.innerHTML = overallBudgetHtml(
+        count, isNassau ? 'Pot prizes' : 'Payouts',
+        isNassau ? nassauTotal : payoutsTotal, count * WEEKLY_RATES.pot,
+        ctpTotal, count * WEEKLY_RATES.ctp,
+        sidePotsTotal, count * WEEKLY_RATES.flex,
+      );
     }
 
     function updatePayoutsVisibility() {
@@ -1890,6 +1931,14 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
 
       const flexEl = document.getElementById('ep-sidepots-budget');
       if (flexEl) flexEl.innerHTML = count ? budgetLineHtml(sideTotal, count * WEEKLY_RATES.flex, `Side-pot budget ($${WEEKLY_RATES.flex} × ${count})`) : '';
+
+      const overallEl = document.getElementById('ep-overall-budget');
+      if (overallEl) overallEl.innerHTML = overallBudgetHtml(
+        count, isNassau ? 'Pot prizes' : 'Payouts',
+        payoutsTotal, count * WEEKLY_RATES.pot,
+        ctpTotal, count * WEEKLY_RATES.ctp,
+        sideTotal, count * WEEKLY_RATES.flex,
+      );
     }
 
     async function saveEditPayouts() {
