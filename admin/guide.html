@@ -44,6 +44,10 @@
     .prose-body p { line-height: 1.7; }
     .tag { font-family:'Barlow Condensed',sans-serif; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.65rem; padding:0.15rem 0.5rem; border-radius:999px; }
     .callout { border-left: 3px solid; border-radius: 0 0.5rem 0.5rem 0; }
+    /* Training video badge — small YouTube-icon link attached to a workflow step. */
+    .video-badge { display:inline-flex; align-items:center; gap:0.3rem; margin-left:0.5rem; padding:0.15rem 0.55rem 0.15rem 0.4rem; border-radius:999px; background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.2); color:#f97316; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:0.68rem; letter-spacing:0.04em; text-transform:uppercase; text-decoration:none; transition:background 0.12s,border-color 0.12s; white-space:nowrap; }
+    .video-badge:hover { background:rgba(249,115,22,0.15); border-color:rgba(249,115,22,0.4); }
+    .video-badge svg { flex-shrink:0; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
@@ -115,7 +119,7 @@
         <p class="text-gray-400 text-sm mb-5">The typical order of operations to run a weekly event start to finish.</p>
         <ol class="space-y-4">
           <li class="flex gap-4"><span class="step-badge">1</span><div class="text-sm"><span class="text-white font-600">Create the tournament on SGT first.</span> Our MashUp site can't do anything until the event exists on SGT. Go to <a href="https://www.simulatorgolftour.com/admin" target="_blank" rel="noopener" class="text-flame hover:text-flame-dim">SGT /admin</a> → <span class="text-white">Tournaments → Create</span>. Field-by-field settings are in <a href="#sgt-create" class="text-flame hover:text-flame-dim">Create Tournament</a> below.</div></li>
-          <li class="flex gap-4"><span class="step-badge">2</span><div class="text-sm"><span class="text-white font-600">Create the event</span> on the <a href="#events" class="text-flame hover:text-flame-dim">Events</a> page — paste the SGT event URL first, then pick the format.</div></li>
+          <li class="flex gap-4"><span class="step-badge">2</span><div class="text-sm"><span class="text-white font-600">Create the event</span> on the <a href="#events" class="text-flame hover:text-flame-dim">Events</a> page — paste the SGT event URL first, then pick the format.<a href="https://youtu.be/F1AJt3f5SNI" target="_blank" rel="noopener" class="video-badge" title="Watch: Create the Event"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8l6 4-6 4V8z" fill="#fff"/></svg>Watch</a></div></li>
           <li class="flex gap-4"><span class="step-badge">3</span><div class="text-sm"><span class="text-white font-600">Refresh handicaps</span> on the <a href="#players" class="text-flame hover:text-flame-dim">Players</a> page so the draw uses current MashCAPs.</div></li>
           <li class="flex gap-4"><span class="step-badge">4</span><div class="text-sm"><span class="text-white font-600">Draw teams</span> on the <a href="#teams" class="text-flame hover:text-flame-dim">Teams</a> page (Steps 1–4), then download the SGT Loading File.</div></li>
           <li class="flex gap-4"><span class="step-badge">5</span><div class="text-sm"><span class="text-white font-600">Upload the loading file to SGT</span> to register the field for the tournament.</div></li>
