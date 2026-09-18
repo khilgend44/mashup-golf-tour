@@ -216,6 +216,7 @@ async function handlePost(context) {
     if (!sgtKey) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
 
     const scopedPlayers = Array.isArray(body.players) && body.players.length ? body.players : null;
+    const pendingSeason = String(body.season || '').trim();
 
     // A full refresh can take several minutes (two sequential SGT calls, each
     // with its own multi-minute timeout). Stream newline-delimited progress
@@ -249,13 +250,34 @@ async function handlePost(context) {
         await send({ status: 'Loading roster…' });
         const rosterRaw = await kvGet(accountId, apiToken, 'players:roster');
         const fullRoster = rosterRaw ? JSON.parse(rosterRaw) : [];
-        const playersToFetch = scopedPlayers || fullRoster;
+        let playersToFetch = scopedPlayers || fullRoster;
+
+        // Pending registrants aren't on players:roster or any season.players
+        // list yet (only approved players are), so they'd otherwise never get
+        // a handicap pulled until after someone approves them — fold in the
+        // given season's pending registrants too, same fix already applied to
+        // the single-player "Check SGT" lookup.
+        let pendingAdded = 0;
+        if (pendingSeason) {
+          try {
+            const regKeys = await kvList(accountId, apiToken, `registrations:${pendingSeason}:`);
+            const regVals = await Promise.all(regKeys.map(k => kvGet(accountId, apiToken, k.name)));
+            const pendingNames = regVals.filter(Boolean)
+              .map(v => { try { return JSON.parse(v); } catch { return null; } })
+              .filter(r => r && r.status === 'pending' && r.username)
+              .map(r => r.username);
+            const seen = new Set(playersToFetch.map(p => String(p).toLowerCase()));
+            const toAdd = pendingNames.filter(n => !seen.has(String(n).toLowerCase()));
+            if (toAdd.length) { playersToFetch = [...playersToFetch, ...toAdd]; pendingAdded = toAdd.length; }
+          } catch { /* pending-registrant merge is best-effort */ }
+        }
+
         if (playersToFetch.length === 0) {
           await send({ done: true, ok: false, error: 'No players to refresh' });
           return;
         }
 
-        await send({ status: `Fetching player summaries for ${playersToFetch.length} players…` });
+        await send({ status: `Fetching player summaries for ${playersToFetch.length} players${pendingAdded ? ` (incl. ${pendingAdded} pending registrant${pendingAdded === 1 ? '' : 's'})` : ''}…` });
         const url = `${SGT_API_BASE}?key=${sgtKey}&players=${playersToFetch.join(',')}`;
         // Sequential, not parallel: two concurrent requests on the same API key
         // may be competing for the same rate-limited backend on SGT's end, which

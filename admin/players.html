@@ -514,8 +514,15 @@
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 420_000);
       try {
+        // Tell the server which season's pending registrants to fold in —
+        // they're not on players:roster or any season.players list yet (only
+        // approved players are), so neither the full roster nor a season-
+        // scoped list would otherwise include them, and their handicap never
+        // gets pulled until after they're approved.
+        const pendingSeasonId = state.selectedSeason || state.seasons.find(s => s.status === 'active')?.id || '';
         const body = { action: 'refresh' };
         if (seasonRoster) body.players = seasonRoster;
+        if (pendingSeasonId) body.season = pendingSeasonId;
 
         const res = await fetch(API_WRITE, {
           method: 'POST',
