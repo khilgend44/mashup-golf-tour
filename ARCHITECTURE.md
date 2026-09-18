@@ -60,6 +60,8 @@ SimulatorGolfTour API  (provides live scorecard data)
     - Discord announcement text (format rules, course settings, prizes)
     - Posts to Discord via `/admin/api/announce`
     - After posting, prompts to activate the event (activation enables live scorecard fetching)
+  - `/admin/formats.html` — read-only tile grid of every game format on file (built-in from `data/formats.json` + any custom ones saved to KV): name, team size, scoring basis, description, segments, tiebreakers
+  - `/admin/backup.html` — one-click download of a full KV namespace export (see **12. Backup & Disaster Recovery** below)
 
 ### 2b. API Endpoints & Security Model
 The API is split into **public reads** and **protected writes** so the public site can load data freely while only an authenticated admin can change it.
@@ -212,6 +214,12 @@ Instead of DMing each newly-approved player individually, one digest message per
 - **Not Cloudflare Access-protected** — this endpoint is called by a scheduler, not a signed-in admin, so a browser session isn't available. Instead it's gated by a shared secret: the caller sends `X-Cron-Secret`, checked against the `DIGEST_CRON_SECRET` env var.
 - **Trigger:** the `mashup-approval-digest` Cloudflare Worker cron (see **5. Cron Triggers — Cloudflare Workers** above) — a GitHub Actions `schedule` cron was tried first but skipped its runs entirely, the same unreliability already known from the scorecard fetch, so this was moved to Cloudflare's cron like that one. All the actual logic lives in the Pages Function; the Worker just does one `fetch(..., {method:'POST', headers:{'X-Cron-Secret':...}})`.
 - **Setup required:** add `DIGEST_CRON_SECRET` as **both** a Cloudflare Pages env var and a secret on the `mashup-approval-digest` Worker (same value in both places), and `DUES_CONTACT_MENTION` as a Cloudflare Pages env var only.
+
+### 12. Backup & Disaster Recovery
+This repo (public on GitHub) already covers all code, static data, and scorecard history (`data/scorecards/*.json` is committed by the GitHub Actions fetch job, not KV-only) — that would survive a total loss of the Cloudflare account with zero data loss. The one thing that wouldn't: **Cloudflare KV**, which holds every piece of data the league has actually generated — `players:meta`/`players:discord` (admin-entered profiles), `registrations:*`, `dues:*`, `admin:events` (payouts/teams), stream-submission keys, and per-event handicap snapshots (`<eventId>:handicaps`). None of it has a source to regenerate from if lost.
+- **`/admin/backup.html` + `GET /admin/api/backup`** — Access-protected, downloads every KV key/value (minus `ratelimit:*` noise) as one timestamped JSON file. Also tracks `backup:last_export` (KV) so the page can show when it was last run.
+- **Deliberately not automated into this repo**: the repo is public, and the export contains player emails and payment records — committing it would leak PII into permanent public git history. It's a manual, on-demand download the admin saves somewhere private (OneDrive, Google Drive, etc.).
+- **Also not covered by any backup**: Cloudflare account-level config — env var/secrets (see **Credentials & Keys** below), the two Workers' source + Cron Trigger schedules (`mashup-approval-digest`, `mashup-scorecard-trigger` — not committed anywhere, dashboard-only), the Cloudflare Access/Google SSO policy, and DNS. Losing these breaks the site until manually reconfigured but isn't permanent data loss — reconstructable from this doc.
 
 ---
 
