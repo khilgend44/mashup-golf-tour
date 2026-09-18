@@ -60,6 +60,41 @@
     <div class="max-w-5xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
   </footer>
 
+  <!-- APPROVE MODAL — a real modal, not window.prompt()/confirm(): those get
+       silently dismissed by the browser if you switch tabs/windows to go
+       look up the player's Discord ID, which was losing the whole approval
+       mid-flow. -->
+  <div id="approve-modal" class="fixed inset-0 z-50 items-center justify-center" style="display:none;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-6 w-full max-w-md mx-4 card-shadow">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Confirm</div>
+      <h2 class="font-display text-2xl tracking-wider text-white mb-4">Approve Player</h2>
+      <p id="approve-body" class="text-gray-400 text-sm font-body leading-relaxed"></p>
+      <div id="approve-discord-field" class="hidden mt-4">
+        <label class="block text-xs font-heading font-600 tracking-widest text-gray-500 uppercase mb-1.5">Discord Numeric User ID</label>
+        <input id="approve-discord-input" type="text" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" placeholder="Leave blank to skip" />
+        <p id="approve-discord-hint" class="text-xs text-gray-600 mt-1.5"></p>
+      </div>
+      <div class="flex items-center justify-between mt-6 pt-4 border-t border-[#2c2c2c] gap-3">
+        <button data-modal-cancel class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
+        <button data-modal-confirm class="px-6 py-2.5 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim" style="transition:background 0.15s">Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DECLINE MODAL — same reasoning as above. -->
+  <div id="decline-modal" class="fixed inset-0 z-50 items-center justify-center" style="display:none;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl p-6 w-full max-w-md mx-4 card-shadow">
+      <div class="text-xs font-heading font-600 tracking-widest text-red-400 uppercase mb-1">Confirm</div>
+      <h2 id="decline-title" class="font-display text-2xl tracking-wider text-white mb-4">Decline Player</h2>
+      <label class="block text-xs font-heading font-600 tracking-widest text-gray-500 uppercase mb-1.5">Reason (optional, kept on record)</label>
+      <textarea id="decline-reason-input" rows="3" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" style="resize:vertical"></textarea>
+      <div class="flex items-center justify-between mt-6 pt-4 border-t border-[#2c2c2c] gap-3">
+        <button data-modal-cancel class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
+        <button data-modal-confirm class="px-6 py-2.5 rounded-lg bg-red-600 text-white text-sm font-heading font-600 tracking-wider hover:bg-red-700" style="transition:background 0.15s">Decline</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API           = '/admin/api/registrations';
     const SEASONS_API    = '/api/seasons';          // public read
@@ -267,22 +302,65 @@
       }
     }
 
+    // Generic promise-based modal opener: shows `modal`, wires cancel/confirm
+    // (plus Escape and backdrop-click as cancel), resolves with confirmBtn's
+    // return value or null if cancelled. Replaces window.prompt()/confirm(),
+    // which the browser can silently dismiss if you switch tabs/windows mid-
+    // dialog (e.g. to go look up a Discord ID) — losing the whole action.
+    function openModal(modal, { onConfirm }) {
+      return new Promise(resolve => {
+        const cancelBtn  = modal.querySelector('[data-modal-cancel]');
+        const confirmBtn = modal.querySelector('[data-modal-confirm]');
+        const cleanup = () => {
+          modal.style.display = 'none';
+          cancelBtn.removeEventListener('click', onCancel);
+          confirmBtn.removeEventListener('click', onConfirmClick);
+          modal.removeEventListener('click', onBackdrop);
+          document.removeEventListener('keydown', onKeydown);
+        };
+        const onCancel = () => { cleanup(); resolve(null); };
+        const onConfirmClick = () => { const v = onConfirm(); cleanup(); resolve(v); };
+        const onBackdrop = e => { if (e.target === modal) onCancel(); };
+        const onKeydown = e => { if (e.key === 'Escape') onCancel(); };
+        cancelBtn.addEventListener('click', onCancel);
+        confirmBtn.addEventListener('click', onConfirmClick);
+        modal.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKeydown);
+        modal.style.display = 'flex';
+      });
+    }
+
+    function showApproveModal(rec, needsDiscord) {
+      $('approve-body').textContent = `Approve ${rec.username}? Their info will be saved to the player record` +
+        (state.seasonExists ? ` and added to ${SEASON.replace('season-', 'Season ')}'s roster.` : '.');
+      const field = $('approve-discord-field');
+      const input = $('approve-discord-input');
+      input.value = '';
+      field.classList.toggle('hidden', !needsDiscord);
+      $('approve-discord-hint').textContent = needsDiscord && rec.discordName
+        ? `They listed "${rec.discordName}" as their Discord name.` : '';
+      return openModal($('approve-modal'), { onConfirm: () => ({ discordId: needsDiscord ? input.value.trim() : '' }) });
+    }
+
+    function showDeclineModal(rec) {
+      $('decline-title').textContent = `Decline ${rec.username}?`;
+      $('decline-reason-input').value = '';
+      return openModal($('decline-modal'), { onConfirm: () => $('decline-reason-input').value.trim() });
+    }
+
     async function act(action, id) {
       const rec = state.regs.find(r => r.id === id);
       let reason;
       let discordId = '';
       if (action === 'decline') {
-        reason = prompt(`Decline ${rec?.username}? Optional reason (kept on record):`, '');
+        reason = await showDeclineModal(rec);
         if (reason === null) return;       // cancelled
       } else if (action === 'approve') {
-        const addNote = state.seasonExists ? ` and added to ${SEASON.replace('season-', 'Season ')}'s roster` : '';
-        if (!confirm(`Approve ${rec?.username}? Their info will be saved to the player record${addNote}.`)) return;
         // Only prompt if we don't already have this player's Discord ID on file.
-        if (!state.discord[rec?.username.toLowerCase()]) {
-          const discordHint = rec?.discordName ? ` (they listed "${rec.discordName}" as their Discord name)` : '';
-          const entered = prompt(`Discord numeric user ID for ${rec?.username}${discordHint}? Used to tag them in announcements — leave blank to skip.`, '');
-          discordId = entered ? entered.trim() : '';
-        }
+        const needsDiscord = !state.discord[rec?.username.toLowerCase()];
+        const result = await showApproveModal(rec, needsDiscord);
+        if (result === null) return;       // cancelled
+        discordId = result.discordId;
       } else if (action === 'check-sgt') {
         await checkSgt(rec);
         return;
