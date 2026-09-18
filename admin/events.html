@@ -514,7 +514,6 @@
       allSeasons: [],
       showAllSeasons: false,
       lastHandicapRefresh: null,
-      playerCount: null,
     };
 
     // ── Utilities ──────────────────────────────────────────────
@@ -588,7 +587,6 @@
       if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
         const pdata = await playersRes.value.json();
         state.lastHandicapRefresh = pdata.lastRefresh || null;
-        state.playerCount = (pdata.roster || []).length || null;
       }
 
       const staticSeasons = staticSeasonsRes.status === 'fulfilled' && staticSeasonsRes.value.ok
@@ -1070,9 +1068,14 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       ['nassau-bb-prize','nassau-f9-prize','nassau-b9-prize'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
       });
+      // Default $ Per CTP to $1/approved player (so 4 CTPs × that = the full
+      // $4/player CTP budget) — was reading the all-time master roster count
+      // instead of the season's approved player count, so it prefilled a
+      // number well above what the season actually has.
       const ctpAmountEl = document.getElementById('f-ctp-amount');
-      if (ctpAmountEl && !ctpAmountEl.value && state.playerCount) {
-        ctpAmountEl.value = state.playerCount;
+      const ctpDefaultCount = seasonPlayerCount(document.getElementById('f-season')?.value);
+      if (ctpAmountEl && !ctpAmountEl.value && ctpDefaultCount) {
+        ctpAmountEl.value = ctpDefaultCount;
         updateCtpTotal();
       }
       updateCopyPayoutsButton();
