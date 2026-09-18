@@ -54,7 +54,10 @@
     .form-full  { grid-column: 1 / -1; }
     tr:hover td { background: rgba(255,255,255,0.02); }
     .panel { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-    .panel.open { max-height: 2000px; }
+    /* Generous cap, not a real content height — just needs to clear the
+       tallest the create form ever gets (2 rounds + payouts/CTP/side pots),
+       or the bottom of the form (including Create/Cancel) silently clips. */
+    .panel.open { max-height: 6000px; }
     .new-format-panel { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
     .new-format-panel.open { max-height: 800px; }
   </style>
