@@ -308,7 +308,7 @@
 
     // Waitlist alert — see the HTML comment above #waitlist-banner for how
     // to turn this on for real, and how to preview it without activating it.
-    const WAITLIST_BANNER_ENABLED = false;
+    const WAITLIST_BANNER_ENABLED = true;
     const previewWaitlistBanner = new URLSearchParams(location.search).has('previewWaitlistBanner');
     show($('waitlist-banner'), WAITLIST_BANNER_ENABLED || previewWaitlistBanner);
 
