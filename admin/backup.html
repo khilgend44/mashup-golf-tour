@@ -80,26 +80,47 @@
       } catch { /* meta is best-effort */ }
     }
 
+    const BATCH_SIZE = 40; // stays safely under Cloudflare's per-invocation subrequest cap
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
+      return body;
+    }
+
+    // Fetched in small client-driven batches, not one big server-side call —
+    // a full KV namespace export can exceed the Workers/Pages subrequest cap
+    // per invocation (hit this in practice on the Free plan), so the server
+    // only ever does one KV list + a bounded batch of gets per request; the
+    // full file is assembled here in the browser.
     async function downloadBackup() {
       const btn = $('download-btn');
       const orig = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Preparing backup…';
       setStatus('');
       try {
-        const res = await fetch(API);
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Backup failed (${res.status})`);
-        const blob = await res.blob();
-        const disposition = res.headers.get('Content-Disposition') || '';
-        const match = disposition.match(/filename="([^"]+)"/);
-        const filename = match ? match[1] : `mashup-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        btn.textContent = 'Listing keys…';
+        const { keys } = await fetchJson(`${API}?listKeys=1`);
 
+        const data = {};
+        for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+          const chunk = keys.slice(i, i + BATCH_SIZE);
+          btn.textContent = `Fetching data… (${Math.min(i + BATCH_SIZE, keys.length)}/${keys.length})`;
+          const { data: chunkData } = await fetchJson(`${API}?keys=${encodeURIComponent(chunk.join(','))}`);
+          Object.assign(data, chunkData);
+        }
+
+        const now = new Date().toISOString();
+        const filename = `mashup-backup-${now.slice(0, 10)}.json`;
+        const blob = new Blob([JSON.stringify({ exportedAt: now, keyCount: keys.length, data }, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
 
+        fetchJson(`${API}?markExported=1`).catch(() => {});
         setStatus(`Downloaded ${filename} — save it somewhere private now.`, 'success');
         loadMeta();
       } catch (e) {
