@@ -252,10 +252,19 @@
     const BACKUP_REMINDER_DAYS = 14;
     (async () => {
       try {
-        const res = await fetch('/admin/api/backup?meta=1');
-        if (!res.ok) return; // not signed in yet, or a transient error — don't nag on a guess
-        const { lastExport } = await res.json();
-        const days = lastExport ? Math.floor((Date.now() - new Date(lastExport).getTime()) / 86400000) : null;
+        // ?previewBackupBanner=19 forces the banner on with a fake day count,
+        // to preview it without touching the real backup:last_export record.
+        const preview = new URLSearchParams(location.search).get('previewBackupBanner');
+        let lastExport, days;
+        if (preview !== null) {
+          days = parseInt(preview, 10) || BACKUP_REMINDER_DAYS;
+          lastExport = 'preview';
+        } else {
+          const res = await fetch('/admin/api/backup?meta=1');
+          if (!res.ok) return; // not signed in yet, or a transient error — don't nag on a guess
+          ({ lastExport } = await res.json());
+          days = lastExport ? Math.floor((Date.now() - new Date(lastExport).getTime()) / 86400000) : null;
+        }
         if (days === null || days >= BACKUP_REMINDER_DAYS) {
           const banner = document.getElementById('backup-banner');
           document.getElementById('backup-banner-text').textContent = lastExport
