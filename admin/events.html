@@ -226,10 +226,16 @@
             <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase">Payouts</div>
             <span id="payout-team-note" class="text-xs text-gray-600 font-body"></span>
           </div>
-          <div id="payouts-list" class="mb-3"></div>
-          <button type="button" id="add-payout-btn"
-            class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
-            style="transition:color 0.12s">+ Add Place</button>
+          <div id="payouts-list" class="mb-2"></div>
+          <div id="payouts-budget" class="text-xs mb-3"></div>
+          <div class="flex items-center gap-4 flex-wrap">
+            <button type="button" id="add-payout-btn"
+              class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
+              style="transition:color 0.12s">+ Add Place</button>
+            <button type="button" id="copy-payouts-btn"
+              class="hidden text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
+              style="transition:color 0.12s"></button>
+          </div>
         </div>
 
         <!-- Nassau Pot Prizes (nassau-2man only) -->
@@ -258,6 +264,7 @@
               </div>
             </div>
           </div>
+          <div id="nassau-budget" class="text-xs mt-2"></div>
         </div>
 
         <!-- CTPs -->
@@ -274,6 +281,7 @@
             </div>
             <div id="ctp-total" class="text-xs text-gray-500 font-body self-end pb-2.5"></div>
           </div>
+          <div id="ctp-budget" class="text-xs mt-2"></div>
         </div>
 
         <!-- Side Pots -->
@@ -282,7 +290,8 @@
             <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase">Side Pots</div>
             <span class="text-xs text-gray-600 font-body">Individual payouts — no team split</span>
           </div>
-          <div id="side-pots-list" class="mb-3"></div>
+          <div id="side-pots-list" class="mb-2"></div>
+          <div id="sidepots-budget" class="text-xs mb-3"></div>
           <div class="flex items-center gap-5 flex-wrap">
             <button type="button" id="add-side-pot-btn"
               class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
@@ -371,6 +380,86 @@
       <div class="px-6 py-4 border-t border-[#2c2c2c] flex items-center justify-between gap-3">
         <button id="ctp-cancel" class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
         <button id="ctp-save" class="px-6 py-2.5 rounded-lg bg-[#f97316] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#c2530f]" style="transition:background 0.15s"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT PAYOUTS MODAL -->
+  <div id="edit-payouts-modal" class="fixed inset-0 z-50 items-center justify-center" style="display:none;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl w-full max-w-lg mx-4 card-shadow flex flex-col" style="max-height:90vh">
+      <div class="px-6 py-4 border-b border-[#2c2c2c]">
+        <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Edit Money</div>
+        <h2 id="ep-title" class="font-display text-2xl tracking-wider text-white"></h2>
+        <p id="ep-sub" class="text-xs text-gray-500 font-body mt-1"></p>
+      </div>
+      <div class="overflow-y-auto px-6 py-5 space-y-6">
+
+        <div id="ep-standard-payouts">
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase">Payouts</div>
+            <span id="ep-payout-note" class="text-xs text-gray-600 font-body"></span>
+          </div>
+          <div id="ep-payouts-list" class="mb-2"></div>
+          <div id="ep-payouts-budget" class="text-xs mb-2"></div>
+          <button type="button" id="ep-add-payout-btn"
+            class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
+            style="transition:color 0.12s">+ Add Place</button>
+        </div>
+
+        <div id="ep-nassau-prizes" class="hidden">
+          <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Pot Prizes</div>
+          <div class="space-y-1">
+            <div class="flex items-center gap-3 py-2 border-b border-border/30">
+              <span class="text-xs font-heading font-600 tracking-wider text-gray-500 w-20">18-Hole BB</span>
+              <div class="flex items-center gap-1.5"><span class="text-gray-600 text-sm font-body">$</span>
+                <input type="number" id="ep-nassau-bb" class="w-28 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50" min="0" step="5" placeholder="0" /></div>
+            </div>
+            <div class="flex items-center gap-3 py-2 border-b border-border/30">
+              <span class="text-xs font-heading font-600 tracking-wider text-gray-500 w-20">Front 9</span>
+              <div class="flex items-center gap-1.5"><span class="text-gray-600 text-sm font-body">$</span>
+                <input type="number" id="ep-nassau-f9" class="w-28 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50" min="0" step="5" placeholder="0" /></div>
+            </div>
+            <div class="flex items-center gap-3 py-2 border-b border-border/30">
+              <span class="text-xs font-heading font-600 tracking-wider text-gray-500 w-20">Back 9</span>
+              <div class="flex items-center gap-1.5"><span class="text-gray-600 text-sm font-body">$</span>
+                <input type="number" id="ep-nassau-b9" class="w-28 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50" min="0" step="5" placeholder="0" /></div>
+            </div>
+          </div>
+          <div id="ep-nassau-budget" class="text-xs mt-2"></div>
+        </div>
+
+        <div>
+          <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">CTPs</div>
+          <div class="flex items-center gap-5 flex-wrap">
+            <div>
+              <label>Number of CTPs</label>
+              <input type="number" id="ep-ctp-count" min="0" max="18" style="width:90px" />
+            </div>
+            <div>
+              <label>$ Per CTP</label>
+              <input type="number" id="ep-ctp-amount" min="0" step="1" placeholder="—" style="width:110px" />
+            </div>
+            <div id="ep-ctp-total" class="text-xs text-gray-500 font-body self-end pb-2.5"></div>
+          </div>
+          <div id="ep-ctp-budget" class="text-xs mt-2"></div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase">Side Pots</div>
+            <span class="text-xs text-gray-600 font-body">Individual payouts — no team split</span>
+          </div>
+          <div id="ep-sidepots-list" class="mb-2"></div>
+          <div id="ep-sidepots-budget" class="text-xs mb-3"></div>
+          <button type="button" id="ep-add-sidepot-btn"
+            class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider underline underline-offset-2"
+            style="transition:color 0.12s">+ Add Side Pot</button>
+        </div>
+
+      </div>
+      <div class="px-6 py-4 border-t border-[#2c2c2c] flex items-center justify-between gap-3">
+        <button id="ep-cancel" class="text-gray-600 hover:text-gray-400 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Cancel</button>
+        <button id="ep-save" class="px-6 py-2.5 rounded-lg bg-[#f97316] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#c2530f]" style="transition:background 0.15s">Save Changes</button>
       </div>
     </div>
   </div>
@@ -580,6 +669,7 @@
           <td class="px-4 py-3 text-right">
             <div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
 ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-white" data-id="${e.id}" style="transition:color 0.12s">Details</button>` : ''}
+              ${isKv && e.status !== 'completed' ? `<button class="edit-payouts-btn text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" data-id="${e.id}" style="transition:color 0.12s">$ Edit</button>` : ''}
               ${isKv ? `<button class="rename-btn text-xs font-heading font-600 tracking-wider text-gray-600 hover:text-gray-400" data-id="${e.id}" style="transition:color 0.12s">✎ Rename</button>` : ''}
               ${isKv && e.tournamentId ? `<button class="rescrape-btn text-xs font-heading font-600 tracking-wider text-gray-600 hover:text-gray-400" data-id="${e.id}" data-tid="${e.tournamentId}" style="transition:color 0.12s">↺ Sync</button>` : ''}
               ${isKv && e.status === 'upcoming' ? `<button class="activate-btn text-xs font-heading font-600 tracking-wider text-emerald-500 hover:text-emerald-300" data-id="${e.id}" data-name="${(e.name || e.id).replace(/"/g, '&quot;')}" style="transition:color 0.12s">Activate</button>` : ''}
@@ -612,6 +702,9 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       });
       tbody.querySelectorAll('.details-btn').forEach(btn => {
         btn.addEventListener('click', () => showDetailsModal(btn.dataset.id));
+      });
+      tbody.querySelectorAll('.edit-payouts-btn').forEach(btn => {
+        btn.addEventListener('click', () => openEditPayouts(btn.dataset.id));
       });
       tbody.querySelectorAll('.rescrape-btn').forEach(btn => {
         btn.addEventListener('click', () => rescrapeEvent(btn.dataset.id, btn.dataset.tid, btn));
@@ -972,6 +1065,8 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         ctpAmountEl.value = state.playerCount;
         updateCtpTotal();
       }
+      updateCopyPayoutsButton();
+      updateBudgetDisplays();
     }
 
     function closeForm() {
@@ -1092,6 +1187,86 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
     const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
     function ordinal(n) { return ORDINALS[n - 1] || `${n}th`; }
 
+    // ── Budget reference + copy-from-past-event ────────────────
+    // Per-player weekly allocations from rules.html's Cost & Entry Fee table:
+    // $9 that week's pot, $4 CTPs, $2 flexible payouts. "Approved" (not paid)
+    // player count is used deliberately — early in a season people register
+    // before they pay, and the admin wants the budget ceiling to reflect who's
+    // actually going to play, not who's settled up yet.
+    const WEEKLY_RATES = { pot: 9, ctp: 4, flex: 2 };
+
+    function seasonPlayerCount(seasonId) {
+      const s = state.allSeasons.find(s => s.id === seasonId);
+      return s?.players?.length || 0;
+    }
+
+    function budgetLineHtml(entered, budget, label) {
+      const over = entered > budget;
+      const atCap = entered === budget && entered > 0;
+      const cls = over ? 'text-red-400' : atCap ? 'text-emerald-400' : 'text-gray-500';
+      return `<span class="${cls} font-body">${label}: $${entered.toLocaleString()} of $${budget.toLocaleString()} budget${over ? ` — $${(entered - budget).toLocaleString()} over` : ''}</span>`;
+    }
+
+    function findRecentSameFormatEvent(formatId, excludeId) {
+      const candidates = state.kvEvents.filter(e =>
+        e.format === formatId && e.id !== excludeId &&
+        ((e.payouts && e.payouts.length) || e.ctps || (e.sidePots && e.sidePots.length) || e.nassauPrizes)
+      );
+      candidates.sort((a, b) => (b.startDate || b.date || '').localeCompare(a.startDate || a.date || ''));
+      return candidates[0] || null;
+    }
+
+    function applyPayoutsFromEvent(src) {
+      formPayouts  = (src.payouts  || []).map(p => ({ ...p }));
+      formSidePots = (src.sidePots || []).map(p => ({ ...p }));
+      const ctpCountEl  = document.getElementById('f-ctp-count');
+      const ctpAmountEl = document.getElementById('f-ctp-amount');
+      if (ctpCountEl)  ctpCountEl.value  = src.ctps?.count ?? ctpCountEl.value;
+      if (ctpAmountEl) ctpAmountEl.value = src.ctps?.amountEach ?? ctpAmountEl.value;
+      document.getElementById('nassau-bb-prize').value = src.nassauPrizes?.bb ?? '';
+      document.getElementById('nassau-f9-prize').value = src.nassauPrizes?.f9 ?? '';
+      document.getElementById('nassau-b9-prize').value = src.nassauPrizes?.b9 ?? '';
+      renderPayouts();
+      renderSidePots();
+      updateCtpTotal();
+      showStatus(`Copied payouts from "${src.name || src.id}".`, 'success');
+    }
+
+    function updateCopyPayoutsButton() {
+      const btn = document.getElementById('copy-payouts-btn');
+      if (!btn) return;
+      const fmtId = document.getElementById('f-format')?.value;
+      const match = fmtId && fmtId !== '__new__' ? findRecentSameFormatEvent(fmtId) : null;
+      if (!match) { btn.classList.add('hidden'); return; }
+      btn.textContent = `↺ Copy payouts from "${match.name || match.id}"`;
+      btn.classList.remove('hidden');
+      btn.onclick = () => applyPayoutsFromEvent(match);
+    }
+
+    function updateBudgetDisplays() {
+      const seasonId = document.getElementById('f-season')?.value;
+      const count = seasonPlayerCount(seasonId);
+      const isNassau = document.getElementById('f-format')?.value === 'nassau-2man';
+
+      const payoutsTotal = formPayouts.reduce((s, p) => s + (p.amount || 0), 0);
+      const nassauTotal = ['nassau-bb-prize', 'nassau-f9-prize', 'nassau-b9-prize']
+        .reduce((s, id) => s + (parseFloat(document.getElementById(id)?.value) || 0), 0);
+      const ctpTotal = (parseInt(document.getElementById('f-ctp-count')?.value) || 0)
+        * (parseFloat(document.getElementById('f-ctp-amount')?.value) || 0);
+      const sidePotsTotal = formSidePots.reduce((s, p) => s + (p.amount || 0), 0);
+
+      const potEl = document.getElementById(isNassau ? 'nassau-budget' : 'payouts-budget');
+      if (potEl) potEl.innerHTML = count
+        ? budgetLineHtml(isNassau ? nassauTotal : payoutsTotal, count * WEEKLY_RATES.pot, `${isNassau ? 'Pot prizes' : "Week's pot"} ($${WEEKLY_RATES.pot} × ${count} approved players)`)
+        : (seasonId ? '<span class="text-gray-700">No players approved for this season yet.</span>' : '');
+
+      const ctpEl = document.getElementById('ctp-budget');
+      if (ctpEl) ctpEl.innerHTML = count ? budgetLineHtml(ctpTotal, count * WEEKLY_RATES.ctp, `CTP budget ($${WEEKLY_RATES.ctp} × ${count})`) : '';
+
+      const flexEl = document.getElementById('sidepots-budget');
+      if (flexEl) flexEl.innerHTML = count ? budgetLineHtml(sidePotsTotal, count * WEEKLY_RATES.flex, `Side-pot budget ($${WEEKLY_RATES.flex} × ${count})`) : '';
+    }
+
     function updatePayoutsVisibility() {
       const isNassau = document.getElementById('f-format')?.value === 'nassau-2man';
       document.getElementById('standard-payouts-section')?.classList.toggle('hidden', isNassau);
@@ -1106,6 +1281,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       if (note) note.textContent = teamSize > 1 ? `Team size: ${teamSize} — per-player shown` : '';
       if (formPayouts.length === 0) {
         list.innerHTML = '<p class="text-xs text-gray-700 font-body py-1">No payouts added yet.</p>';
+        updateBudgetDisplays();
         return;
       }
       list.innerHTML = formPayouts.map((p, i) => `
@@ -1127,6 +1303,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
           const ts = getTeamSize();
           const perEl = list.querySelector(`.per-player[data-idx="${idx}"]`);
           if (perEl) perEl.textContent = (val && ts > 1) ? `$${(val / ts).toFixed(2)}/player` : (ts > 1 ? '—' : '');
+          updateBudgetDisplays();
         });
       });
       list.querySelectorAll('.remove-payout').forEach(btn => {
@@ -1136,6 +1313,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
           renderPayouts();
         });
       });
+      updateBudgetDisplays();
     }
 
     function updateCtpTotal() {
@@ -1143,6 +1321,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       const amount = parseFloat(document.getElementById('f-ctp-amount')?.value) || 0;
       const el = document.getElementById('ctp-total');
       if (el) el.textContent = (count > 0 && amount > 0) ? `${count} × $${amount} = $${count * amount} total` : '';
+      updateBudgetDisplays();
     }
 
     function renderSidePots() {
@@ -1150,6 +1329,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       if (!list) return;
       if (formSidePots.length === 0) {
         list.innerHTML = '<p class="text-xs text-gray-700 font-body py-1">No side pots added.</p>';
+        updateBudgetDisplays();
         return;
       }
       list.innerHTML = formSidePots.map((p, i) => `
@@ -1167,7 +1347,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         input.addEventListener('input', e => { formSidePots[parseInt(e.target.dataset.idx)].name = e.target.value; });
       });
       list.querySelectorAll('.side-pot-amount').forEach(input => {
-        input.addEventListener('input', e => { formSidePots[parseInt(e.target.dataset.idx)].amount = parseFloat(e.target.value) || 0; });
+        input.addEventListener('input', e => { formSidePots[parseInt(e.target.dataset.idx)].amount = parseFloat(e.target.value) || 0; updateBudgetDisplays(); });
       });
       list.querySelectorAll('.remove-side-pot').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1175,6 +1355,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
           renderSidePots();
         });
       });
+      updateBudgetDisplays();
     }
 
     // ── Auto-extract tournament ID from URL ───────────────────
@@ -1264,6 +1445,8 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         }
         renderPayouts();
         updatePayoutsVisibility();
+        updateCopyPayoutsButton();
+        updateBudgetDisplays();
       }
     });
     document.getElementById('f-description').addEventListener('input', e => {
@@ -1271,6 +1454,10 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
     });
     document.getElementById('f-name').addEventListener('input', e => {
       e.target.dataset.edited = e.target.value ? '1' : '';
+    });
+    document.getElementById('f-season').addEventListener('change', updateBudgetDisplays);
+    ['nassau-bb-prize', 'nassau-f9-prize', 'nassau-b9-prize'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', updateBudgetDisplays);
     });
 
     // ── Wire up buttons ───────────────────────────────────────
@@ -1553,6 +1740,212 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         btn.textContent = orig; btn.disabled = false;
       }
     }
+
+    // ── Edit Payouts (adjust money on an already-created event) ──
+    // Reuses the same update-event write path as rename/sync above — full
+    // event object back, not a patch. Kept as its own small modal + state
+    // rather than reopening the create form in "edit mode": the create form
+    // has a lot of non-money machinery (SGT scrape, format lock, rounds)
+    // that isn't safe to re-run against an existing event.
+    let epEventId   = null;
+    let epPayouts   = [];
+    let epSidePots  = [];
+
+    function epTeamSize() {
+      const ev = state.kvEvents.find(e => e.id === epEventId);
+      const fmt = ev ? state.allFormats[ev.format] : null;
+      return fmt?.teamSize ? parseInt(fmt.teamSize) : 1;
+    }
+
+    function openEditPayouts(eventId) {
+      const ev = state.kvEvents.find(e => e.id === eventId);
+      if (!ev) return;
+      epEventId  = eventId;
+      epPayouts  = (ev.payouts  || []).map(p => ({ ...p }));
+      epSidePots = (ev.sidePots || []).map(p => ({ ...p }));
+
+      document.getElementById('ep-title').textContent = ev.name || ev.id;
+      document.getElementById('ep-sub').textContent = `${ev.season || ''} · Week ${ev.week || '—'}`;
+
+      const isNassau = ev.format === 'nassau-2man';
+      document.getElementById('ep-standard-payouts').classList.toggle('hidden', isNassau);
+      document.getElementById('ep-nassau-prizes').classList.toggle('hidden', !isNassau);
+      document.getElementById('ep-nassau-bb').value = ev.nassauPrizes?.bb ?? '';
+      document.getElementById('ep-nassau-f9').value = ev.nassauPrizes?.f9 ?? '';
+      document.getElementById('ep-nassau-b9').value = ev.nassauPrizes?.b9 ?? '';
+
+      document.getElementById('ep-ctp-count').value  = ev.ctps?.count ?? 0;
+      document.getElementById('ep-ctp-amount').value = ev.ctps?.amountEach ?? '';
+
+      const fmt = state.allFormats[ev.format];
+      document.getElementById('ep-payout-note').textContent = fmt?.teamSize > 1 ? `Team size: ${fmt.teamSize} — per-player shown` : '';
+
+      renderEpPayouts();
+      renderEpSidePots();
+      updateEpCtpTotal();
+
+      document.getElementById('edit-payouts-modal').style.display = 'flex';
+    }
+
+    function closeEditPayouts() {
+      document.getElementById('edit-payouts-modal').style.display = 'none';
+      epEventId = null;
+    }
+
+    function renderEpPayouts() {
+      const list = document.getElementById('ep-payouts-list');
+      const teamSize = epTeamSize();
+      if (epPayouts.length === 0) {
+        list.innerHTML = '<p class="text-xs text-gray-700 font-body py-1">No payouts added yet.</p>';
+      } else {
+        list.innerHTML = epPayouts.map((p, i) => `
+          <div class="flex items-center gap-3 py-2 border-b border-border/30">
+            <span class="text-xs font-heading font-600 tracking-wider text-gray-500 w-8">${ordinal(p.place)}</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-gray-600 text-sm font-body">$</span>
+              <input type="number" class="ep-payout-amount w-28 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50"
+                min="0" step="5" value="${p.amount || ''}" data-idx="${i}" placeholder="0" />
+            </div>
+            ${teamSize > 1 ? `<span class="ep-per-player text-xs text-gray-600 font-body w-24" data-idx="${i}">${p.amount ? '$' + (p.amount / teamSize).toFixed(2) + '/player' : '—'}</span>` : ''}
+            <button type="button" class="ep-remove-payout text-gray-700 hover:text-red-400 ml-auto text-base leading-none" data-idx="${i}" style="transition:color 0.12s">×</button>
+          </div>`).join('');
+      }
+      list.querySelectorAll('.ep-payout-amount').forEach(input => {
+        input.addEventListener('input', e => {
+          const idx = parseInt(e.target.dataset.idx);
+          epPayouts[idx].amount = parseFloat(e.target.value) || 0;
+          const ts = epTeamSize();
+          const perEl = list.querySelector(`.ep-per-player[data-idx="${idx}"]`);
+          if (perEl) perEl.textContent = (epPayouts[idx].amount && ts > 1) ? `$${(epPayouts[idx].amount / ts).toFixed(2)}/player` : (ts > 1 ? '—' : '');
+          updateEpBudgets();
+        });
+      });
+      list.querySelectorAll('.ep-remove-payout').forEach(btn => {
+        btn.addEventListener('click', () => {
+          epPayouts.splice(parseInt(btn.dataset.idx), 1);
+          epPayouts = epPayouts.map((p, i) => ({ ...p, place: i + 1 }));
+          renderEpPayouts();
+          updateEpBudgets();
+        });
+      });
+      updateEpBudgets();
+    }
+
+    function renderEpSidePots() {
+      const list = document.getElementById('ep-sidepots-list');
+      if (epSidePots.length === 0) {
+        list.innerHTML = '<p class="text-xs text-gray-700 font-body py-1">No side pots added.</p>';
+      } else {
+        list.innerHTML = epSidePots.map((p, i) => `
+          <div class="flex items-center gap-3 py-2 border-b border-border/30">
+            <input type="text" class="ep-sidepot-name flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50"
+              value="${(p.name || '').replace(/"/g,'&quot;')}" data-idx="${i}" placeholder="Side pot name" />
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="text-gray-600 text-sm font-body">$</span>
+              <input type="number" class="ep-sidepot-amount w-24 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm font-body text-gray-300 focus:outline-none focus:border-flame/50"
+                min="0" step="5" value="${p.amount || ''}" data-idx="${i}" placeholder="0" />
+            </div>
+            <button type="button" class="ep-remove-sidepot text-gray-700 hover:text-red-400 text-base leading-none shrink-0" data-idx="${i}" style="transition:color 0.12s">×</button>
+          </div>`).join('');
+      }
+      list.querySelectorAll('.ep-sidepot-name').forEach(input => {
+        input.addEventListener('input', e => { epSidePots[parseInt(e.target.dataset.idx)].name = e.target.value; });
+      });
+      list.querySelectorAll('.ep-sidepot-amount').forEach(input => {
+        input.addEventListener('input', e => { epSidePots[parseInt(e.target.dataset.idx)].amount = parseFloat(e.target.value) || 0; updateEpBudgets(); });
+      });
+      list.querySelectorAll('.ep-remove-sidepot').forEach(btn => {
+        btn.addEventListener('click', () => { epSidePots.splice(parseInt(btn.dataset.idx), 1); renderEpSidePots(); updateEpBudgets(); });
+      });
+      updateEpBudgets();
+    }
+
+    function updateEpCtpTotal() {
+      const count  = parseInt(document.getElementById('ep-ctp-count')?.value)  || 0;
+      const amount = parseFloat(document.getElementById('ep-ctp-amount')?.value) || 0;
+      const el = document.getElementById('ep-ctp-total');
+      if (el) el.textContent = (count > 0 && amount > 0) ? `${count} × $${amount} = $${count * amount} total` : '';
+      updateEpBudgets();
+    }
+
+    function updateEpBudgets() {
+      const ev = state.kvEvents.find(e => e.id === epEventId);
+      if (!ev) return;
+      const count = seasonPlayerCount(ev.season);
+      const isNassau = ev.format === 'nassau-2man';
+
+      const payoutsTotal = isNassau
+        ? ['ep-nassau-bb', 'ep-nassau-f9', 'ep-nassau-b9'].reduce((s, id) => s + (parseFloat(document.getElementById(id)?.value) || 0), 0)
+        : epPayouts.reduce((s, p) => s + (p.amount || 0), 0);
+      const ctpTotal = (parseInt(document.getElementById('ep-ctp-count')?.value) || 0) * (parseFloat(document.getElementById('ep-ctp-amount')?.value) || 0);
+      const sideTotal = epSidePots.reduce((s, p) => s + (p.amount || 0), 0);
+
+      const potEl = document.getElementById(isNassau ? 'ep-nassau-budget' : 'ep-payouts-budget');
+      if (potEl) potEl.innerHTML = count
+        ? budgetLineHtml(payoutsTotal, count * WEEKLY_RATES.pot, `${isNassau ? 'Pot prizes' : "Week's pot"} ($${WEEKLY_RATES.pot} × ${count} approved players)`)
+        : '<span class="text-gray-700">No players approved for this season yet.</span>';
+
+      const ctpEl = document.getElementById('ep-ctp-budget');
+      if (ctpEl) ctpEl.innerHTML = count ? budgetLineHtml(ctpTotal, count * WEEKLY_RATES.ctp, `CTP budget ($${WEEKLY_RATES.ctp} × ${count})`) : '';
+
+      const flexEl = document.getElementById('ep-sidepots-budget');
+      if (flexEl) flexEl.innerHTML = count ? budgetLineHtml(sideTotal, count * WEEKLY_RATES.flex, `Side-pot budget ($${WEEKLY_RATES.flex} × ${count})`) : '';
+    }
+
+    async function saveEditPayouts() {
+      const ev = state.kvEvents.find(e => e.id === epEventId);
+      if (!ev) return;
+      const isNassau = ev.format === 'nassau-2man';
+      const btn = document.getElementById('ep-save');
+      const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const payouts   = isNassau ? [] : epPayouts.filter(p => p.amount > 0);
+        const ctpCount  = parseInt(document.getElementById('ep-ctp-count')?.value) || 0;
+        const ctpAmount = parseFloat(document.getElementById('ep-ctp-amount')?.value) || 0;
+        const sidePots  = epSidePots.filter(p => p.name?.trim());
+
+        let nassauPrizes = ev.nassauPrizes || null;
+        if (isNassau) {
+          const bb = parseFloat(document.getElementById('ep-nassau-bb')?.value) || 0;
+          const f9 = parseFloat(document.getElementById('ep-nassau-f9')?.value) || 0;
+          const b9 = parseFloat(document.getElementById('ep-nassau-b9')?.value) || 0;
+          nassauPrizes = (bb || f9 || b9) ? { bb: bb || null, f9: f9 || null, b9: b9 || null } : null;
+        }
+
+        const updated = { ...ev, payouts, ctps: ctpCount > 0 ? { count: ctpCount, amountEach: ctpAmount } : null, sidePots, nassauPrizes };
+        const res = await fetch(API_WRITE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-event', event: updated }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const idx = state.kvEvents.findIndex(e => e.id === epEventId);
+        if (idx !== -1) state.kvEvents[idx] = data.event;
+        closeEditPayouts();
+        showStatus(`Payouts updated for "${ev.name || ev.id}".`, 'success');
+      } catch (e) {
+        showStatus('Error saving payouts: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
+    document.getElementById('ep-cancel').addEventListener('click', closeEditPayouts);
+    document.getElementById('ep-save').addEventListener('click', saveEditPayouts);
+    document.getElementById('ep-add-payout-btn').addEventListener('click', () => {
+      epPayouts.push({ place: epPayouts.length + 1, amount: 0 });
+      renderEpPayouts();
+    });
+    document.getElementById('ep-add-sidepot-btn').addEventListener('click', () => {
+      epSidePots.push({ name: '', amount: 0 });
+      renderEpSidePots();
+    });
+    document.getElementById('ep-ctp-count').addEventListener('input', updateEpCtpTotal);
+    document.getElementById('ep-ctp-amount').addEventListener('input', updateEpCtpTotal);
+    ['ep-nassau-bb', 'ep-nassau-f9', 'ep-nassau-b9'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', updateEpBudgets);
+    });
 
     loadAll();
   </script>
