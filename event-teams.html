@@ -274,11 +274,14 @@
       const allowancePct = format?.allowance != null ? Math.round(format.allowance * 100) : null;
       const effLabel = allowancePct != null ? `Effective (${allowancePct}%)` : 'Effective';
 
-      // Build sorted player list to assign tiers
+      // Build sorted player list to assign tiers. Effective cap is rounded,
+      // so two players close together can land on the same integer (e.g.
+      // -8.1 and -8.3 raw can both round to the same effective value) —
+      // break ties on raw MashCAP so the better raw player still sorts first.
       const allPlayers = [...new Set(teams.flat())];
       const sorted = allPlayers
-        .map(n => ({ name: n, cap: adjCapFn(n) ?? 999 }))
-        .sort((a, b) => a.cap - b.cap);
+        .map(n => ({ name: n, cap: adjCapFn(n) ?? 999, raw: regCapFn(n) ?? 999 }))
+        .sort((a, b) => a.cap - b.cap || a.raw - b.raw);
       const tierMap = {};
       const tiers = assignTiers(sorted, teamSize);
       sorted.forEach((p, i) => { tierMap[p.name.toLowerCase()] = tiers[i]; });
@@ -337,10 +340,14 @@
       const allowancePct = format?.allowance != null ? Math.round(format.allowance * 100) : null;
       const effLabel = allowancePct != null ? `Effective Event MashCAP (${allowancePct}%)` : 'Effective Event MashCAP';
 
+      // Effective cap is rounded, so two players close together can land on
+      // the same integer (e.g. -8.1 and -8.3 raw can both round to the same
+      // effective value) — break ties on raw MashCAP so the better raw
+      // player still sorts first, instead of falling back to roster order.
       const sorted = players
         .map(name => ({ name, cap: adjCapFn(name), raw: regCapFn(name) }))
         .filter(p => p.cap !== null)
-        .sort((a, b) => a.cap - b.cap);
+        .sort((a, b) => a.cap - b.cap || (a.raw ?? 999) - (b.raw ?? 999));
 
       const rows = sorted.map((p, i) => `
         <div class="grid grid-cols-[auto,1fr,auto,auto] items-center gap-x-4 py-2.5 border-b border-border/50 last:border-0">

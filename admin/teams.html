@@ -1031,7 +1031,12 @@
       const rows = [];
 
       if (isSolo) {
-        const sorted = seasonPlayers.slice().sort((a, b) => (adjCap(a.name) ?? 0) - (adjCap(b.name) ?? 0));
+        // Effective cap is rounded, so two players close together can land
+        // on the same integer — break ties on raw cap so row order still
+        // reflects real skill instead of falling back to whatever order
+        // getSortedPlayers() returned them in.
+        const sorted = seasonPlayers.slice().sort((a, b) =>
+          ((adjCap(a.name) ?? 0) - (adjCap(b.name) ?? 0)) || ((a.rawCap ?? 999) - (b.rawCap ?? 999)));
         for (const { name } of sorted) {
           rows.push([name, adjCap(name) ?? 0, '', '', '', '', '', '', '', ''].join(','));
         }

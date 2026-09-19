@@ -517,8 +517,13 @@
       const isSolo = teamSize < 2;
       const teamsHTML = isSolo
         ? (() => {
-            // Solo event — season's approved roster, sorted by effective handicap
-            const sorted = [...seasonRoster].sort((a, b) => (adjCap(a) ?? Infinity) - (adjCap(b) ?? Infinity));
+            // Solo event — season's approved roster, sorted by effective handicap.
+            // Effective cap is rounded, so two players close together can land
+            // on the same integer — break ties on raw MashCAP so order still
+            // reflects real skill.
+            const sorted = [...seasonRoster].sort((a, b) =>
+              ((adjCap(a) ?? Infinity) - (adjCap(b) ?? Infinity)) ||
+              ((regCap(state.handicaps[a.toLowerCase()]) ?? Infinity) - (regCap(state.handicaps[b.toLowerCase()]) ?? Infinity)));
             return `<div class="tg" style="grid-template-columns:repeat(4,1fr)">
               ${sorted.map(name => {
                 const label = name.length > 14 ? name.slice(0, 13) + '…' : name;
