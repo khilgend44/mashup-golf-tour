@@ -142,14 +142,16 @@
     async function init() {
       if (!eventId) { showError('No event ID in URL.'); return; }
 
-      let data, staticFormats;
+      let data, staticFormats, staticSeasons, kvSeasons;
       try {
-        [data, staticFormats] = await Promise.all([
+        [data, staticFormats, staticSeasons, kvSeasons] = await Promise.all([
           fetch(`/api/event-public?id=${encodeURIComponent(eventId)}`).then(r => {
             if (!r.ok) return r.json().then(j => { throw new Error(j.error || r.statusText); });
             return r.json();
           }),
           fetch('/data/formats.json').then(r => r.ok ? r.json() : {}),
+          fetch('/data/seasons.json').then(r => r.ok ? r.json() : []).catch(() => []),
+          fetch('/api/seasons').then(r => r.ok ? r.json() : []).catch(() => []),
         ]);
       } catch (e) {
         showError(e.message === 'Event not found'
@@ -164,14 +166,41 @@
       const isSolo = (format.teamSize || 1) < 2;
       const teamSize = format.teamSize || 1;
 
-      // Compute adjusted handicaps
-      // handicaps is an object keyed by lowercase player name: { "playername": { rawCap, ... }, ... }
+      // Season-scoped roster — same population admin/teams.html's SGT
+      // Loading File uses — not the all-time master roster, so the
+      // "effective" numbers shown here match what actually got registered.
+      const seasonMap = new Map((staticSeasons || []).map(s => [s.id, s]));
+      for (const s of (kvSeasons || [])) seasonMap.set(s.id, s);
+      const season = seasonMap.get(event.season);
+      const allRosterNames = Array.isArray(roster) ? roster.map(p => typeof p === 'string' ? p : p.name).filter(Boolean) : [];
+      const seasonRosterNames = season?.players?.length
+        ? allRosterNames.filter(n => season.players.some(p => p.toLowerCase() === n.toLowerCase()))
+        : allRosterNames;
+
+      // handicaps is an object keyed by lowercase player name: { "playername": { rawCap, mashCap, ... }, ... }
       const hcpMap = (handicaps && typeof handicaps === 'object' && !Array.isArray(handicaps)) ? handicaps : {};
-      const allRaw = Object.values(hcpMap).map(h => parseFloat(h.rawCap)).filter(n => !isNaN(n));
-      const minRaw = allRaw.length ? Math.min(...allRaw) : 0;
-      function adjCap(name) {
+      // MashCAP if present, else SGT rawCap (fallback only until a player has a MashCAP).
+      function regCap(name) {
         const h = hcpMap[name.toLowerCase()];
-        return h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) - minRaw) : null;
+        if (!h) return null;
+        if (h.mashCap !== undefined && h.mashCap !== null) return parseFloat(h.mashCap);
+        if (h.rawCap  !== undefined && h.rawCap  !== null) return parseFloat(h.rawCap);
+        return null;
+      }
+      // Format's handicap allowance applied to each player's raw cap FIRST,
+      // then the field is offset so the best (lowest) resulting handicap
+      // plays to scratch — same order of operations, and must produce the
+      // same numbers, as admin/teams.html's SGT Loading File.
+      const allowance = format.allowance != null ? Number(format.allowance) : 1;
+      function allowedRaw(name) {
+        const rc = regCap(name);
+        return rc !== null ? rc * allowance : null;
+      }
+      const allowedValues = seasonRosterNames.map(allowedRaw).filter(v => v !== null);
+      const minAllowed = allowedValues.length ? Math.min(...allowedValues) : 0;
+      function adjCap(name) {
+        const ac = allowedRaw(name);
+        return ac !== null ? Math.round(ac - minAllowed) : null;
       }
 
       // Breadcrumb
@@ -209,9 +238,9 @@
       let html = '';
 
       if (isSolo) {
-        html += renderSoloPlayers(event, roster, adjCap, format);
+        html += renderSoloPlayers(event, seasonRosterNames, adjCap, regCap, format);
       } else {
-        html += renderTeams(event, teamSize, adjCap);
+        html += renderTeams(event, teamSize, adjCap, regCap);
       }
 
       html += renderPrizes(event);
@@ -237,7 +266,7 @@
       return tiers;
     }
 
-    function renderTeams(event, teamSize, adjCapFn) {
+    function renderTeams(event, teamSize, adjCapFn, regCapFn) {
       const teams = event.teams;
       if (!teams || teams.length === 0) {
         return `<div class="text-center py-16 text-gray-500 text-sm">No team draw has been set for this event yet.</div>`;
@@ -258,23 +287,28 @@
 
       const cards = teams.map((team, i) => {
         const rows = team.map(name => {
-          const cap = adjCapFn(name);
+          const raw = regCapFn(name);
+          const eff = adjCapFn(name);
           const ti = tierMap[name.toLowerCase()] ?? 0;
           return `
-            <div class="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+            <div class="grid grid-cols-[1fr,auto,auto] items-center gap-x-3 py-2 border-b border-border/50 last:border-0">
               <div class="flex items-center gap-2 min-w-0">
                 <span class="${tierClass(ti)} shrink-0 w-4 text-center">${tierLabel(ti)}</span>
                 <span class="font-heading font-600 text-sm text-white tracking-wide truncate">${name}</span>
               </div>
-              <span class="text-xs font-body text-white font-semibold ml-3 shrink-0">
-                ${cap !== null ? cap : '—'}
-              </span>
+              <span class="text-xs font-body text-gray-500 text-right w-12">${raw !== null ? raw.toFixed(1) : '—'}</span>
+              <span class="text-xs font-body text-white font-semibold text-right w-12">${eff !== null ? eff : '—'}</span>
             </div>`;
         }).join('');
 
         return `
           <div class="card-shadow bg-card border border-border rounded-lg p-4">
             <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Team ${i + 1}</div>
+            <div class="grid grid-cols-[1fr,auto,auto] gap-x-3 pb-1.5">
+              <span></span>
+              <span class="text-[9px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-12 leading-tight" title="Raw MashCAP">Raw MashCAP</span>
+              <span class="text-[9px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-12 leading-tight" title="Effective Event MashCAP">Effective</span>
+            </div>
             ${rows}
           </div>`;
       }).join('');
@@ -294,25 +328,22 @@
         </div>`;
     }
 
-    function renderSoloPlayers(event, roster, adjCapFn, format) {
-      // For solo, build from roster (names array) or handicap keys
-      let players = Array.isArray(roster) ? roster.map(p => typeof p === 'string' ? p : p.name).filter(Boolean) : [];
+    function renderSoloPlayers(event, players, adjCapFn, regCapFn, format) {
       if (players.length === 0) {
         return `<div class="text-center py-16 text-gray-500 text-sm">Player list not available.</div>`;
       }
 
       const sorted = players
-        .map(name => ({ name, cap: adjCapFn(name) }))
+        .map(name => ({ name, cap: adjCapFn(name), raw: regCapFn(name) }))
         .filter(p => p.cap !== null)
         .sort((a, b) => a.cap - b.cap);
 
       const rows = sorted.map((p, i) => `
-        <div class="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0">
-          <div class="flex items-center gap-3">
-            <span class="text-xs font-heading text-gray-600 w-6 text-right">${i + 1}</span>
-            <span class="font-heading font-600 text-sm text-white tracking-wide">${p.name}</span>
-          </div>
-          <span class="text-sm font-body font-semibold text-white">+${p.cap}</span>
+        <div class="grid grid-cols-[auto,1fr,auto,auto] items-center gap-x-4 py-2.5 border-b border-border/50 last:border-0">
+          <span class="text-xs font-heading text-gray-600 w-6 text-right">${i + 1}</span>
+          <span class="font-heading font-600 text-sm text-white tracking-wide truncate">${p.name}</span>
+          <span class="text-sm font-body text-gray-500 text-right w-16">${p.raw !== null ? p.raw.toFixed(1) : '—'}</span>
+          <span class="text-sm font-body font-semibold text-white text-right w-16">+${p.cap}</span>
         </div>`).join('');
 
       return `
@@ -322,6 +353,11 @@
             <span class="text-xs font-heading text-gray-600">${sorted.length} players</span>
           </div>
           <div class="card-shadow bg-card border border-border rounded-lg px-4 divide-y divide-border/30">
+            <div class="grid grid-cols-[auto,1fr,auto,auto] gap-x-4 pt-3 pb-1">
+              <span></span><span></span>
+              <span class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-16">Raw MashCAP</span>
+              <span class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-16">Effective Event MashCAP</span>
+            </div>
             ${rows}
           </div>
         </div>`;
