@@ -240,7 +240,7 @@
       if (isSolo) {
         html += renderSoloPlayers(event, seasonRosterNames, adjCap, regCap, format);
       } else {
-        html += renderTeams(event, teamSize, adjCap, regCap);
+        html += renderTeams(event, teamSize, adjCap, regCap, format);
       }
 
       html += renderPrizes(event);
@@ -266,11 +266,13 @@
       return tiers;
     }
 
-    function renderTeams(event, teamSize, adjCapFn, regCapFn) {
+    function renderTeams(event, teamSize, adjCapFn, regCapFn, format) {
       const teams = event.teams;
       if (!teams || teams.length === 0) {
         return `<div class="text-center py-16 text-gray-500 text-sm">No team draw has been set for this event yet.</div>`;
       }
+      const allowancePct = format?.allowance != null ? Math.round(format.allowance * 100) : null;
+      const effLabel = allowancePct != null ? `Effective (${allowancePct}%)` : 'Effective';
 
       // Build sorted player list to assign tiers
       const allPlayers = [...new Set(teams.flat())];
@@ -296,8 +298,8 @@
                 <span class="${tierClass(ti)} shrink-0 w-4 text-center">${tierLabel(ti)}</span>
                 <span class="font-heading font-600 text-sm text-white tracking-wide truncate">${name}</span>
               </div>
-              <span class="text-xs font-body text-gray-500 text-right w-12">${raw !== null ? raw.toFixed(1) : '—'}</span>
-              <span class="text-xs font-body text-white font-semibold text-right w-12">${eff !== null ? eff : '—'}</span>
+              <span class="text-xs font-body text-flame text-right w-12">${raw !== null ? raw.toFixed(1) : '—'}</span>
+              <span class="text-xs font-body text-emerald-400 font-semibold text-right w-12">${eff !== null ? eff : '—'}</span>
             </div>`;
         }).join('');
 
@@ -307,7 +309,7 @@
             <div class="grid grid-cols-[1fr,auto,auto] gap-x-3 pb-1.5">
               <span></span>
               <span class="text-[9px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-12 leading-tight" title="Raw MashCAP">Raw MashCAP</span>
-              <span class="text-[9px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-12 leading-tight" title="Effective Event MashCAP">Effective</span>
+              <span class="text-[9px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-12 leading-tight" title="Effective Event MashCAP (${allowancePct}%)">${effLabel}</span>
             </div>
             ${rows}
           </div>`;
@@ -332,6 +334,8 @@
       if (players.length === 0) {
         return `<div class="text-center py-16 text-gray-500 text-sm">Player list not available.</div>`;
       }
+      const allowancePct = format?.allowance != null ? Math.round(format.allowance * 100) : null;
+      const effLabel = allowancePct != null ? `Effective Event MashCAP (${allowancePct}%)` : 'Effective Event MashCAP';
 
       const sorted = players
         .map(name => ({ name, cap: adjCapFn(name), raw: regCapFn(name) }))
@@ -342,8 +346,8 @@
         <div class="grid grid-cols-[auto,1fr,auto,auto] items-center gap-x-4 py-2.5 border-b border-border/50 last:border-0">
           <span class="text-xs font-heading text-gray-600 w-6 text-right">${i + 1}</span>
           <span class="font-heading font-600 text-sm text-white tracking-wide truncate">${p.name}</span>
-          <span class="text-sm font-body text-gray-500 text-right w-16">${p.raw !== null ? p.raw.toFixed(1) : '—'}</span>
-          <span class="text-sm font-body font-semibold text-white text-right w-16">+${p.cap}</span>
+          <span class="text-sm font-body text-flame text-right w-16">${p.raw !== null ? p.raw.toFixed(1) : '—'}</span>
+          <span class="text-sm font-body font-semibold text-emerald-400 text-right w-16">+${p.cap}</span>
         </div>`).join('');
 
       return `
@@ -356,7 +360,7 @@
             <div class="grid grid-cols-[auto,1fr,auto,auto] gap-x-4 pt-3 pb-1">
               <span></span><span></span>
               <span class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-16">Raw MashCAP</span>
-              <span class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-16">Effective Event MashCAP</span>
+              <span class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase text-right w-16">${effLabel}</span>
             </div>
             ${rows}
           </div>
