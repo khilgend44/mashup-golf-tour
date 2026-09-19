@@ -341,7 +341,7 @@ Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/t
 - **Team events:** one row per team, sequential teamID starting at 10001
 - **Solo events** (teamSize < 2): one row per player, only first 2 columns filled, no teamID
 - **Handicap used:** `regCap` (MashCAP, falling back to SGT `rawCap` until a player has a MashCAP) run through the event's format **handicap allowance**, then offset so the field's best resulting handicap plays to scratch — see **Handicap Allowance (per format)** below for the exact order of operations. Must be refreshed within 24 hours before generating.
-- **Encoding:** UTF-8 BOM (`﻿`) required for SGT compatibility
+- **Encoding:** UTF-8 BOM (`﻿`) required for SGT compatibility. **Line endings: `\r\n` (CRLF), not `\n`** — matches RFC 4180 and what Excel/Sheets writes; the generator used LF-only until 2026-09, which a strict `\r\n`-splitting parser would read as one unbroken line instead of N rows (looks like a total import failure, not a few bad rows). File also ends with a trailing `\r\n`.
 
 ## Handicap Allowance (per format)
 
