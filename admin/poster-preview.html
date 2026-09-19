@@ -64,6 +64,8 @@
     .p-meta-i { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:15px;
                 color:#9ca3af; letter-spacing:0.06em; text-transform:uppercase; }
     .p-meta-i span { color:#e5e5e5; }
+    .p-desc   { font-family:'Inter',sans-serif; font-size:13px; font-style:italic; color:#6b7280;
+                line-height:1.5; margin-top:12px; max-width:640px; }
 
     /* section headers */
     .sh  { padding:18px 48px 10px; display:flex; align-items:center; gap:14px; }
@@ -84,10 +86,10 @@
     .tb2 { color:#facc15; }
     .tc2 { color:#f97316; }
     .tbd { color:#93c5fd; }
-    .th  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:15px; color:#ffffff;
+    .th  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:15px; color:#34d399;
            min-width:22px; text-align:right; line-height:1.5; }
     .tpr-caps { display:flex; align-items:center; gap:3px; }
-    .thr { font-family:'Inter',sans-serif; font-size:10px; color:#4b5563; line-height:1.5; }
+    .thr { font-family:'Inter',sans-serif; font-size:10px; color:#f97316; line-height:1.5; }
     .thr-arrow { font-size:9px; color:#374151; }
 
     /* prizes */
@@ -308,6 +310,16 @@
       for (const s of kvSeasons) seasonMap.set(s.id, s);
       state.allSeasons = [...seasonMap.values()];
       populateEventDropdown();
+
+      // Deep link from admin/events.html's "📣 Announce" row button —
+      // ?event=<id> auto-selects and renders that event's poster instead of
+      // landing on an empty dropdown.
+      const wantedEvent = new URLSearchParams(location.search).get('event');
+      const sel = document.getElementById('event-select');
+      if (wantedEvent && sel.querySelector(`option[value="${CSS.escape(wantedEvent)}"]`)) {
+        sel.value = wantedEvent;
+        sel.dispatchEvent(new Event('change'));
+      }
     }
 
     // Same scoping as admin/teams.html's getSortedPlayers() — the season's
@@ -614,6 +626,7 @@
             ${teamCount > 0 ? `<div class="p-meta-i">👥 <span>${playerCount} Players · ${teamCount} Teams</span></div>` : ''}
             ${allowancePct != null ? `<div class="p-meta-i">🎯 <span>${allowancePct}% Handicap Allowance</span></div>` : ''}
           </div>
+          ${fmt.description ? `<div class="p-desc">${fmt.description}</div>` : ''}
         </div>
 
         <!-- PLAYERS / TEAMS -->
