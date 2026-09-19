@@ -66,6 +66,10 @@
     .p-meta-i span { color:#e5e5e5; }
     .p-desc   { font-family:'Inter',sans-serif; font-size:13px; font-style:italic; color:#6b7280;
                 line-height:1.5; margin-top:12px; max-width:640px; }
+    .p-tiebreak { font-family:'Inter',sans-serif; font-size:12px; color:#6b7280; line-height:1.5;
+                  margin-top:8px; max-width:640px; }
+    .p-tiebreak-label { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
+                         letter-spacing:0.08em; text-transform:uppercase; color:#9ca3af; }
 
     /* section headers */
     .sh  { padding:18px 48px 10px; display:flex; align-items:center; gap:14px; }
@@ -431,6 +435,11 @@
         lines.push('');
       }
 
+      if (fmt.tiebreakers && fmt.tiebreakers.length) {
+        lines.push(`🔁 **Tiebreaker:** ${fmt.tiebreakers.map(t => t.label).join(' → ')}`);
+        lines.push('');
+      }
+
       if (settingParts.length) {
         lines.push(`⚙️ **Course:** ${settingParts.join(' · ')}`);
         const r2 = rounds[1];
@@ -627,6 +636,7 @@
             ${allowancePct != null ? `<div class="p-meta-i">🎯 <span>${allowancePct}% Handicap Allowance</span></div>` : ''}
           </div>
           ${fmt.description ? `<div class="p-desc">${fmt.description}</div>` : ''}
+          ${(fmt.tiebreakers && fmt.tiebreakers.length) ? `<div class="p-tiebreak"><span class="p-tiebreak-label">Tiebreaker:</span> ${fmt.tiebreakers.map(t => t.label).join(' → ')}</div>` : ''}
         </div>
 
         <!-- PLAYERS / TEAMS -->

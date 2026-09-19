@@ -560,6 +560,7 @@
             ) : ''}
             <p class="text-gray-500 text-sm mt-2">${dateStr} &nbsp;·&nbsp; ${totalPlayers} Players${teamsLabel}${event.buyIn ? ` &nbsp;·&nbsp; $${event.buyIn} Buy-in` : ''}</p>
             <p class="text-gray-600 text-xs mt-2 italic max-w-xl">${format.description}</p>
+            ${(format.tiebreakers && format.tiebreakers.length) ? `<p class="text-gray-600 text-xs mt-1.5 max-w-xl"><span class="text-gray-500 font-heading font-600 tracking-wide uppercase">Tiebreaker:</span> ${format.tiebreakers.map(t => t.label).join(' → ')}</p>` : ''}
             <div class="mt-4 flex flex-wrap items-center gap-2">
               <a href="event-teams.html?id=${event.id}"
                  class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
