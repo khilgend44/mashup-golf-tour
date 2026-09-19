@@ -1055,7 +1055,13 @@
         });
       }
 
-      return '﻿' + [header, ...rows].join('\n');
+      // CRLF, not just \n — RFC 4180's actual line terminator, and what any
+      // CSV made in Excel/Sheets (like a manually-built loading file) uses.
+      // A parser that splits strictly on \r\n would see an LF-only file as
+      // one unbroken line instead of N rows, which reads exactly like "the
+      // whole import just doesn't work" rather than a few bad rows.
+      // Trailing CRLF too, so the last row isn't the odd one out.
+      return '﻿' + [header, ...rows].join('\r\n') + '\r\n';
     }
 
     function downloadSgtCsv(event) {
