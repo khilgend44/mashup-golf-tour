@@ -197,6 +197,10 @@
                 <label>Team Size</label>
                 <input type="number" id="nf-team-size" min="1" max="4" value="1" />
               </div>
+              <div>
+                <label>Handicap Allowance % <span class="text-gray-700 font-body normal-case tracking-normal">(USGA-style — reduced for team best-ball formats)</span></label>
+                <input type="number" id="nf-allowance" min="1" max="100" step="1" value="100" />
+              </div>
               <div class="form-full">
                 <label>Description <span class="text-gray-700 font-body normal-case tracking-normal">(shown in leaderboard)</span></label>
                 <textarea id="nf-description" rows="2" placeholder="Describe the format rules..."></textarea>
@@ -1023,17 +1027,19 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
 
     // ── Save custom format ────────────────────────────────────
     async function saveCustomFormat() {
-      const name     = document.getElementById('nf-name').value.trim();
+      const name      = document.getElementById('nf-name').value.trim();
       const shortName = document.getElementById('nf-short').value.trim();
-      const type     = document.getElementById('nf-type').value;
-      const teamSize = parseInt(document.getElementById('nf-team-size').value) || 1;
-      const desc     = document.getElementById('nf-description').value.trim();
+      const type      = document.getElementById('nf-type').value;
+      const teamSize  = parseInt(document.getElementById('nf-team-size').value) || 1;
+      const allowancePct = parseFloat(document.getElementById('nf-allowance').value);
+      const desc      = document.getElementById('nf-description').value.trim();
 
       if (!name) { showStatus('Format name is required.', 'error'); return; }
 
       const id = slugify(name);
       const format = {
         id, name, shortName: shortName || name, type, teamSize,
+        allowance: (isFinite(allowancePct) && allowancePct > 0) ? allowancePct / 100 : 1,
         description: desc, scoringBasis: 'net', lowScoreWins: true,
         _custom: true,
       };

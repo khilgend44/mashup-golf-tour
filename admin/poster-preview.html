@@ -85,7 +85,10 @@
     .tc2 { color:#f97316; }
     .tbd { color:#93c5fd; }
     .th  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:15px; color:#ffffff;
-           min-width:34px; text-align:right; line-height:1.5; }
+           min-width:22px; text-align:right; line-height:1.5; }
+    .tpr-caps { display:flex; align-items:center; gap:3px; }
+    .thr { font-family:'Inter',sans-serif; font-size:10px; color:#4b5563; line-height:1.5; }
+    .thr-arrow { font-size:9px; color:#374151; }
 
     /* prizes */
     .pr { padding:4px 48px 18px; display:grid; grid-template-columns:1fr 1fr; gap:24px; }
@@ -210,7 +213,7 @@
     const FORMATS_STATIC_URL = '/data/formats.json';
     const SITE_URL           = 'mashup-golf-tour.pages.dev';
 
-    let state = { kvEvents: [], allFormats: {}, roster: [], handicaps: {} };
+    let state = { kvEvents: [], allFormats: {}, roster: [], handicaps: {}, allSeasons: [] };
     let currentEvent = null;
 
     // ── Utilities ──────────────────────────────────────────────
@@ -250,10 +253,39 @@
     const TIER_NAMES  = ['A','B','C','D'];
     const TIER_CLASSES = ['ta','tb2','tc2','tbd'];
 
+    // MashCAP if present, else SGT rawCap (fallback only until a player has
+    // a MashCAP) — same accessor as admin/players.html and admin/teams.html.
+    function regCap(h) {
+      if (!h) return null;
+      if (h.mashCap !== undefined && h.mashCap !== null) return parseFloat(h.mashCap);
+      if (h.rawCap  !== undefined && h.rawCap  !== null) return parseFloat(h.rawCap);
+      return null;
+    }
+
+    // A format's handicap allowance reduces each player's raw cap FIRST,
+    // then the field is offset so the best (lowest) resulting handicap
+    // plays to scratch — same order of operations, and must produce the
+    // exact same numbers, as admin/teams.html's SGT Loading File. Returns a
+    // lookup fn; players with no cap on file resolve to null.
+    function buildAllowedCapFn(names, allowance) {
+      const rate = allowance != null ? Number(allowance) : 1;
+      const allowedRaw = name => {
+        const rc = regCap(state.handicaps[name.toLowerCase()]);
+        return rc !== null ? rc * rate : null;
+      };
+      const values = names.map(allowedRaw).filter(v => v !== null);
+      const minAllowed = values.length ? Math.min(...values) : 0;
+      return name => {
+        const ac = allowedRaw(name);
+        return ac !== null ? Math.round(ac - minAllowed) : null;
+      };
+    }
+
     // ── Load data ─────────────────────────────────────────────
     async function loadAll() {
-      const [kvRes, staticFormatsRes, playersRes] = await Promise.allSettled([
+      const [kvRes, staticFormatsRes, playersRes, kvSeasonsRes, staticSeasonsRes] = await Promise.allSettled([
         fetch(API), fetch(FORMATS_STATIC_URL), fetch('/api/players'),
+        fetch('/api/seasons'), fetch('/data/seasons.json'),
       ]);
       if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
         const data = await kvRes.value.json();
@@ -268,7 +300,25 @@
         state.roster    = p.roster    || [];
         state.handicaps = p.handicaps || {};
       }
+      const staticSeasons = staticSeasonsRes.status === 'fulfilled' && staticSeasonsRes.value.ok
+        ? await staticSeasonsRes.value.json() : [];
+      const kvSeasons = kvSeasonsRes.status === 'fulfilled' && kvSeasonsRes.value.ok
+        ? await kvSeasonsRes.value.json() : [];
+      const seasonMap = new Map(staticSeasons.map(s => [s.id, s]));
+      for (const s of kvSeasons) seasonMap.set(s.id, s);
+      state.allSeasons = [...seasonMap.values()];
       populateEventDropdown();
+    }
+
+    // Same scoping as admin/teams.html's getSortedPlayers() — the season's
+    // approved roster, not the all-time master list, so the poster's field
+    // (and its scratch-offset baseline) match what the SGT Loading File
+    // actually uses.
+    function getSeasonRoster(seasonId) {
+      const season = seasonId ? state.allSeasons.find(s => s.id === seasonId) : null;
+      if (!season?.players?.length) return state.roster;
+      const inSeason = new Set(season.players.map(p => p.toLowerCase()));
+      return state.roster.filter(n => inSeason.has(n.toLowerCase()));
     }
 
     function populateEventDropdown() {
@@ -293,7 +343,7 @@
       if (teamSize < 2 || !teams.length) return {};
       const all = teams.flat().map(name => ({
         name,
-        cap: (() => { const h = state.handicaps[name.toLowerCase()]; return h?.rawCap !== undefined ? parseFloat(h.rawCap) : Infinity; })(),
+        cap: regCap(state.handicaps[name.toLowerCase()]) ?? Infinity,
       })).sort((a, b) => a.cap - b.cap);
       const n = teams.length;
       const tiers = {};
@@ -325,7 +375,7 @@
       const weekStr   = event.week ? `Week ${event.week}` : '';
       const labelStr  = [seasonStr, weekStr].filter(Boolean).join(' · ');
       const course    = r1.course || null;
-      const playerCount = teams.flat().length || state.roster.length;
+      const playerCount = teams.flat().length || getSeasonRoster(event.season).length;
       const teamCount   = teams.length;
 
       const payoutsTotal  = payouts.reduce((s, p) => s + (p.amount || 0), 0);
@@ -361,6 +411,11 @@
 
       if (fmt.description) {
         lines.push(`📋 **Format:** ${fmt.description}`);
+        lines.push('');
+      }
+
+      if (fmt.allowance != null) {
+        lines.push(`🎯 **Handicap Allowance:** ${Math.round(fmt.allowance * 100)}%`);
         lines.push('');
       }
 
@@ -427,15 +482,20 @@
       const weekStr   = event.week ? `Week ${event.week}` : '';
       const labelStr  = [seasonStr, weekStr].filter(Boolean).join(' · ');
       const course    = r1.course || '—';
-      const playerCount = teams.flat().length || state.roster.length;
+      const playerCount = teams.flat().length || getSeasonRoster(event.season).length;
       const teamCount   = teams.length;
 
       const tierMap = buildTierMap(teams, teamSize);
 
-      // Adjusted cap offset: same logic as players admin — shift so best player = 0
-      const rawValues = Object.values(state.handicaps).map(h => parseFloat(h.rawCap)).filter(n => !isNaN(n));
-      const minRaw    = rawValues.length ? Math.min(...rawValues) : 0;
-      const capOffset = -minRaw;
+      // The actual field for this event — season-scoped roster, same
+      // population admin/teams.html's SGT Loading File uses — so the
+      // allowance-adjusted numbers shown here are the real ones, not an
+      // approximation. adjCap applies the format's allowance to each raw
+      // MashCAP first, then offsets the field so the best player = scratch;
+      // same order of operations as the CSV, must produce the same numbers.
+      const seasonRoster = getSeasonRoster(event.season);
+      const adjCap = buildAllowedCapFn(seasonRoster, fmt.allowance);
+      const allowancePct = fmt.allowance != null ? Math.round(fmt.allowance * 100) : null;
 
       // Prize pool total
       const payoutsTotal  = payouts.reduce((s, p) => s + (p.amount || 0), 0);
@@ -443,25 +503,29 @@
       const sidePotsTotal = sidePots.reduce((s, p) => s + (p.amount || 0), 0);
       const prizeTotal    = payoutsTotal + ctpsTotal + sidePotsTotal;
 
+      // Each player's cap line: raw MashCAP (small, muted) → the allowance-
+      // adjusted number they actually play off this event (bold, white).
+      const capLineHtml = name => {
+        const raw = regCap(state.handicaps[name.toLowerCase()]);
+        const eff = adjCap(name);
+        const rawStr = raw !== null ? raw.toFixed(1) : '—';
+        const effStr = eff !== null ? eff : '—';
+        return `<span class="tpr-caps"><span class="thr" title="Raw MashCAP">${rawStr}</span><span class="thr-arrow">→</span><span class="th" title="Effective handicap for this event">${effStr}</span></span>`;
+      };
+
       // Teams / Players HTML
       const isSolo = teamSize < 2;
       const teamsHTML = isSolo
         ? (() => {
-            // Solo event — show full player roster sorted by adjusted handicap
-            const sorted = state.roster
-              .map(name => {
-                const h = state.handicaps[name.toLowerCase()];
-                return { name, cap: h?.rawCap !== undefined ? parseFloat(h.rawCap) : Infinity };
-              })
-              .sort((a, b) => a.cap - b.cap);
+            // Solo event — season's approved roster, sorted by effective handicap
+            const sorted = [...seasonRoster].sort((a, b) => (adjCap(a) ?? Infinity) - (adjCap(b) ?? Infinity));
             return `<div class="tg" style="grid-template-columns:repeat(4,1fr)">
-              ${sorted.map(({ name, cap }) => {
-                const adjCap = cap !== Infinity ? Math.round(cap + capOffset) : '—';
-                const label  = name.length > 14 ? name.slice(0, 13) + '…' : name;
+              ${sorted.map(name => {
+                const label = name.length > 14 ? name.slice(0, 13) + '…' : name;
                 return `<div class="tc">
                   <div class="tp">
                     <span class="tpn">${label}</span>
-                    <span class="tpr"><span class="th">${adjCap}</span></span>
+                    <span class="tpr">${capLineHtml(name)}</span>
                   </div>
                 </div>`;
               }).join('')}
@@ -476,15 +540,13 @@
                 return `<div class="tc">
                   <div class="tn">Team ${ti + 1}</div>
                   ${team.map(name => {
-                    const h    = state.handicaps[name.toLowerCase()];
-                    const cap  = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) + capOffset) : '—';
                     const ti2  = tierMap[name] !== undefined ? tierMap[name] : null;
                     const tierBadge = (teamSize > 1 && ti2 !== null)
                       ? `<span class="tb ${TIER_CLASSES[ti2] || 'tbd'}">${TIER_NAMES[ti2] || '?'}</span>` : '';
                     const label = name.length > 14 ? name.slice(0, 13) + '…' : name;
                     return `<div class="tp">
                       <span class="tpn">${label}</span>
-                      <span class="tpr">${tierBadge}<span class="th">${cap}</span></span>
+                      <span class="tpr">${tierBadge}${capLineHtml(name)}</span>
                     </div>`;
                   }).join('')}
                 </div>`;
@@ -545,6 +607,7 @@
             ${dateStr !== '—' ? `<div class="p-meta-i">📅 <span>${dateStr}</span></div>` : ''}
             ${course  !== '—' ? `<div class="p-meta-i">⛳ <span>${course}</span></div>` : ''}
             ${teamCount > 0 ? `<div class="p-meta-i">👥 <span>${playerCount} Players · ${teamCount} Teams</span></div>` : ''}
+            ${allowancePct != null ? `<div class="p-meta-i">🎯 <span>${allowancePct}% Handicap Allowance</span></div>` : ''}
           </div>
         </div>
 
