@@ -436,7 +436,7 @@
       }
 
       if (fmt.tiebreakers && fmt.tiebreakers.length) {
-        lines.push(`🔁 **Tiebreaker:** ${fmt.tiebreakers.map(t => t.label).join(' → ')}`);
+        lines.push(`🔁 **Tiebreaker:** ${fmt.tiebreakers.map((t, i) => `${i + 1}. ${t.label}`).join(' → ')}`);
         lines.push('');
       }
 
@@ -636,7 +636,7 @@
             ${allowancePct != null ? `<div class="p-meta-i">🎯 <span>${allowancePct}% Handicap Allowance</span></div>` : ''}
           </div>
           ${fmt.description ? `<div class="p-desc">${fmt.description}</div>` : ''}
-          ${(fmt.tiebreakers && fmt.tiebreakers.length) ? `<div class="p-tiebreak"><span class="p-tiebreak-label">Tiebreaker:</span> ${fmt.tiebreakers.map(t => t.label).join(' → ')}</div>` : ''}
+          ${(fmt.tiebreakers && fmt.tiebreakers.length) ? `<div class="p-tiebreak"><span class="p-tiebreak-label">Tiebreaker:</span> ${fmt.tiebreakers.map((t, i) => `${i + 1}. ${t.label}`).join(' → ')}</div>` : ''}
         </div>
 
         <!-- PLAYERS / TEAMS -->
