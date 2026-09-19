@@ -72,6 +72,9 @@
       ];
       if (f.scoringBasis) badges.push(`<span class="badge badge-gray">${esc(f.scoringBasis)}</span>`);
       if (f.lowScoreWins != null) badges.push(`<span class="badge badge-gray">${f.lowScoreWins ? 'Low score wins' : 'High score wins'}</span>`);
+      badges.push(f.allowance != null
+        ? `<span class="badge badge-flame">${Math.round(f.allowance * 100)}% handicap allowance</span>`
+        : `<span class="badge badge-gray">No handicap allowance</span>`);
 
       const segments = Array.isArray(f.segments) && f.segments.length
         ? `<div class="mt-4">

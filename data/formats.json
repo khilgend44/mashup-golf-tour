@@ -8,6 +8,7 @@
     "type": "ringer",
     "lowScoreWins": true,
     "teamSize": 1,
+    "allowance": 0.85,
     "tiebreakers": [
       { "type": "total-net-all-rounds", "label": "36-hole net total (both rounds combined)" },
       { "type": "index-countback",      "label": "Handicap index countback (index 1 first, then 2, etc.)" }
@@ -22,6 +23,7 @@
     "type": "escalator-doom",
     "lowScoreWins": true,
     "teamSize": 3,
+    "allowance": 0.80,
     "segments": [
       { "startHole": 1,  "endHole": 6,  "count": 1, "label": "1 Best Ball"  },
       { "startHole": 7,  "endHole": 12, "count": 2, "label": "2 Best Ball"  },
@@ -40,6 +42,7 @@
     "type": "devils-draw",
     "lowScoreWins": true,
     "teamSize": 3,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
     ]
@@ -53,6 +56,7 @@
     "type": "devils-draw-4man",
     "lowScoreWins": true,
     "teamSize": 4,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 4 players' net totals)" }
     ]
@@ -66,6 +70,7 @@
     "type": "stableford-3man",
     "lowScoreWins": false,
     "teamSize": 3,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Full 3-player aggregate stableford points (avoid conceding holes)" },
       { "type": "index-countback",    "label": "Scorecard countback on top-2 stableford points, starting from index #1" }
@@ -80,6 +85,7 @@
     "type": "best2-worst2-all3",
     "lowScoreWins": true,
     "teamSize": 3,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
     ]
@@ -93,6 +99,7 @@
     "type": "nassau-2man",
     "lowScoreWins": true,
     "teamSize": 2,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "18-hole BB: full team net aggregate (both players' net totals)" },
       { "type": "index-countback",    "label": "18-hole BB: scorecard countback from index hole 1" },
@@ -109,6 +116,7 @@
     "type": "shamble-2man",
     "lowScoreWins": true,
     "teamSize": 2,
+    "allowance": 0.70,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of both players' net totals)" },
       { "type": "index-countback",    "label": "Scorecard countback from index hole 1" }
@@ -123,6 +131,7 @@
     "type": "lone-ranger",
     "lowScoreWins": true,
     "teamSize": 3,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
     ]
@@ -144,6 +153,7 @@
     "type": "modified-bb-3man",
     "lowScoreWins": true,
     "teamSize": 3,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
     ]
@@ -157,6 +167,7 @@
     "type": "best-ball-3man",
     "lowScoreWins": true,
     "teamSize": 3,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Total team aggregate score — all three players over 18 holes" }
     ]

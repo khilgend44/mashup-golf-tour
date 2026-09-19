@@ -250,6 +250,27 @@
       return null;
     }
 
+    // A format's handicap allowance (data/formats.json's `allowance`, e.g.
+    // 0.80 for an 80% team best-ball format) reduces each player's raw cap
+    // FIRST — courseHandicap × allowance% — and only then is the field
+    // offset so the best (lowest) resulting handicap plays to scratch.
+    // Doing it in the other order would dilute the allowance instead of
+    // applying it to the number SGT actually uses to compute net scores.
+    // Returns a lookup fn; players with no cap on file resolve to null.
+    function buildAllowedCapFn(names, allowance) {
+      const rate = allowance != null ? Number(allowance) : 1;
+      const allowedRaw = name => {
+        const rc = regCap(state.handicaps[name.toLowerCase()]);
+        return rc !== null ? rc * rate : null;
+      };
+      const values = names.map(allowedRaw).filter(v => v !== null);
+      const minAllowed = values.length ? Math.min(...values) : 0;
+      return name => {
+        const ac = allowedRaw(name);
+        return ac !== null ? Math.round(ac - minAllowed) : null;
+      };
+    }
+
     function showStatus(msg, type = 'info') {
       const bar = document.getElementById('status-bar');
       bar.className = `rounded-lg px-4 py-3 text-sm font-body ${
@@ -592,16 +613,17 @@
       if (!el) return;
       el.classList.remove('hidden');
 
-      const hcaps  = state.handicaps;
       const rtEvent = state.kvEvents.find(e => e.id === rtEventId);
       const rtSeason = rtEvent ? state.allSeasons.find(s => s.id === rtEvent.season) : null;
       const rtInSeason = rtSeason?.players?.length
         ? new Set(rtSeason.players.map(p => p.toLowerCase())) : null;
-      const rawVals = (state.roster || [])
-        .filter(n => !rtInSeason || rtInSeason.has(n.toLowerCase()))
-        .map(n => regCap(hcaps[n.toLowerCase()]))
-        .filter(v => v !== null);
-      const minRaw = rawVals.length ? Math.min(...rawVals) : 0;
+      const rtFmt = rtEvent ? state.allFormats[rtEvent.format] : null;
+      const fieldNames = (state.roster || [])
+        .filter(n => !rtInSeason || rtInSeason.has(n.toLowerCase()));
+      // Same allowance-adjusted number the SGT CSV will actually use, so
+      // this preview never shows something different from what gets
+      // downloaded.
+      const adjCap = buildAllowedCapFn(fieldNames, rtFmt?.allowance);
       const hasPairs = teamSize > 1 && Object.keys(rtPartnerships).length > 0;
 
       const conflictBadge = !hasPairs
@@ -637,8 +659,7 @@
                     ${hasRepeat ? `<span class="text-[9px] text-yellow-600 font-body">repeat</span>` : ''}
                   </div>
                   ${team.map((name, pi) => {
-                    const rc   = regCap(hcaps[name.toLowerCase()]);
-                    const cap  = rc !== null ? Math.round(rc - minRaw) : '—';
+                    const cap  = adjCap(name) ?? '—';
                     const tier = teamSize > 1 ? TIER_NAMES[pi] : null;
                     const isConflict = conflictPlayers.has(name);
                     return `<div class="flex items-center justify-between py-0.5 gap-1">
@@ -1004,30 +1025,22 @@
       const isSolo   = teamSize < 2;
 
       const seasonPlayers = getSortedPlayers(event.season);
-      const minRaw    = seasonPlayers.reduce((min, p) => {
-        const raw = regCap(state.handicaps[p.name.toLowerCase()]);
-        return raw !== null ? Math.min(min, raw) : min;
-      }, Infinity);
-      const capOffset = isFinite(minRaw) ? -minRaw : 0;
-      const adjCap = name => {
-        const rc = regCap(state.handicaps[name.toLowerCase()]);
-        return rc !== null ? Math.round(rc + capOffset) : 0;
-      };
+      const adjCap = buildAllowedCapFn(seasonPlayers.map(p => p.name), fmt.allowance);
 
       const header = 'TeamPlayer1,Player1 HCP,TeamPlayer2,Player2 HCP,TeamPlayer3,Player3 HCP,TeamPlayer4,Player4 HCP,teamID,opponentID';
       const rows = [];
 
       if (isSolo) {
-        const sorted = seasonPlayers.slice().sort((a, b) => adjCap(a.name) - adjCap(b.name));
+        const sorted = seasonPlayers.slice().sort((a, b) => (adjCap(a.name) ?? 0) - (adjCap(b.name) ?? 0));
         for (const { name } of sorted) {
-          rows.push([name, adjCap(name), '', '', '', '', '', '', '', ''].join(','));
+          rows.push([name, adjCap(name) ?? 0, '', '', '', '', '', '', '', ''].join(','));
         }
       } else {
         (event.teams || []).forEach((team, i) => {
           const cols = [];
           for (let slot = 0; slot < 4; slot++) {
             if (slot < team.length) {
-              cols.push(team[slot], adjCap(team[slot]));
+              cols.push(team[slot], adjCap(team[slot]) ?? 0);
             } else {
               cols.push('', '');
             }

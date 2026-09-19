@@ -196,7 +196,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - **Combo-log window cap (48 rounds):** `player-hcp-rounds` returns up to **60** rounds, but SGT's COMBO handicap only counts a player's **most-recent `comboRoundsCount` rounds, which tops out at 48**. So `computeMashCap` sorts each player's rounds newest-first and **trims to their `comboRoundsCount`** (constant `ROUND_CAP_FALLBACK = 48` if that count is missing) *before* taking the best 40% — otherwise high-volume players would get best-40%-of-60 instead of best-40%-of-48, contradicting the public wording "best 40% of the rounds in their SGT Combo log." `roundCount`/`mashCapRounds` therefore reflect the **capped** window, and the trimmed rounds are what get stored to `players:rounds` (so the public table's "Total Events" and the counting-events detail page match exactly). On the roster as of June 2026 this trims 12 high-volume players (60→48, best 24→best 19) and leaves 36 unchanged.
 - **Thin-payload safety:** because `player-hcp-rounds` can return a sparse result inside its 24h cache window, the refresh **carries over each player's previously-computed MashCAP** when a pull doesn't cover them, and **always merges** (never replaces) `players:rounds`. A partial refresh can therefore never wipe good handicap data. Core caps (`rawCap`, `comboCap`, …) still come fresh from the reliable `player-check`.
 - Stored as `mashCap` (plus `mashCapRounds`, `mashCapCounting`) merged into each player's entry in `players:handicaps`; shown as the far-left **MashCAP** column on the admin Players table (which also sorts by it).
-- **MashCAP drives team registration and scoring.** Both the Players and Teams pages use a `regCap(h)` accessor = MashCAP if present, else SGT `rawCap` (fallback only until a player has a MashCAP). The adjusted/relative handicap written to the SGT Loading File (`round(regCap − minRegCap)`) and the balanced-team tiers are all based on this.
+- **MashCAP drives team registration and scoring.** Both the Players and Teams pages use a `regCap(h)` accessor = MashCAP if present, else SGT `rawCap` (fallback only until a player has a MashCAP). The relative handicap written to the SGT Loading File is based on this, run through that event's format handicap allowance first — see **Handicap Allowance (per format)** below. The balanced-team draw tiers use the unmodified `regCap` (raw skill), not the allowance-adjusted number.
 - Computed in `computeMashCap()` in `functions/admin/api/players.js`. (A temporary debug inspector at `functions/admin/api/inspect-rounds.js` was removed once MashCAP shipped — it had URL-driven KV seed params that were a data-corruption foot-gun.)
 - **Public pages:** `handicaps.html` (season-scoped MashCAP table, linked from the home nav with a "Why MashCAP vs COMBO" explainer; shows a last-updated timestamp from `players:last_refresh`) and `counting-events.html?player=X` (per-player breakdown of every round, sorted newest-first, with the best 40% marked). The latter reads `players:rounds` via the public `/api/player-rounds` endpoint. The refresh action persists those rounds to KV.
 
@@ -326,7 +326,7 @@ Admin-created events/formats for Season 10+ live in **Cloudflare KV**, not these
 New formats must be defined in Claude Code — **do not use the admin UI's "New Format" panel** for genuinely new scoring logic. The admin panel only creates named variations of an existing `type`. New scoring logic requires:
 1. New function in `js/scoring.js`
 2. New `case` in the `applyFormat()` switch statement
-3. New entry in `data/formats.json` (with `tiebreakers[]` array)
+3. New entry in `data/formats.json` (with `tiebreakers[]` array and an `allowance` — see **Handicap Allowance (per format)** below; omit it only for a format like `invitational` that has no per-hole scoring engine)
 4. New `<option>` in the admin events.html `nf-type` dropdown (the **`f-format`** event dropdown is dynamic via `loadFormats()` and auto-includes it; only `nf-type` is hardcoded)
 
 Most recent example: **`best-ball-3man`** ("3-Man, 2 Best Ball", `calcBestBall3Man`) — every hole sums the two lowest NET scores of the three teammates; tie → total team aggregate. Built by copying `calcBest2Worst2All3` (the same per-hole "best 2 of 3" logic), so the result shape plugs straight into payouts/CTP/side-pots.
@@ -339,8 +339,17 @@ Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/t
 - **Format:** 10 columns — `Player1, HCP1, Player2, HCP2, Player3, HCP3, Player4, HCP4, teamID, opponentID`
 - **Team events:** one row per team, sequential teamID starting at 10001
 - **Solo events** (teamSize < 2): one row per player, only first 2 columns filled, no teamID
-- **Handicap used:** adjusted MashCAP (`Math.round(regCap - minRegCap)`, where `regCap` = MashCAP, falling back to SGT `rawCap` until a player has a MashCAP) — must be refreshed within 24 hours before generating
+- **Handicap used:** `regCap` (MashCAP, falling back to SGT `rawCap` until a player has a MashCAP) run through the event's format **handicap allowance**, then offset so the field's best resulting handicap plays to scratch — see **Handicap Allowance (per format)** below for the exact order of operations. Must be refreshed within 24 hours before generating.
 - **Encoding:** UTF-8 BOM (`﻿`) required for SGT compatibility
+
+## Handicap Allowance (per format)
+
+Each format in `data/formats.json` carries an `allowance` (e.g. `0.80` = 80%) — how much of a player's full handicap actually applies for that format, per standard USGA guidance (individual stroke play closer to full, team best-ball formats reduced since fewer than all players' scores count toward the team total each hole). `invitational` has none — it has no per-hole scoring engine to apply it to.
+
+- **Current table:** Solo Ringer 85% · 2-Man Shamble 70% · every other scored format (Nassau, Escalator of Doom, Devil's Draw 3/4-man, Stableford, Best 2/Worst 2/All 3, Lone Ranger, Best-Ball 3-Man, Modified BB) 80%.
+- **Where it's applied:** only in `admin/teams.html`, via the shared `buildAllowedCapFn(names, allowance)` helper — used by both `generateSgtCsv()` (the actual file SGT gets) and `renderTeamResults()` (the team-draw preview, kept in sync so the admin never sees a different number there than ends up in the CSV). **Order matters**: each player's raw cap is multiplied by the allowance *first* (`regCap × allowance`), and only then is the field offset so the lowest resulting handicap plays to scratch. Doing the offset before the allowance would dilute the allowance instead of applying it to the number SGT actually computes net scores from.
+- **Deliberately not applied anywhere else** — `regCap` stays unmodified for the tiered-draw balancing logic and Lone Ranger slot ordering (both about raw skill, not what gets registered with SGT), and `js/scoring.js` never touches handicaps at all; it just consumes whatever `net` SGT already computed off the allowance-adjusted number sent in the loading file.
+- **Public copy:** rules.html and requirements.html's Handicapping section states the allowance range in prose (not a full per-format table) — update both if the table above changes.
 
 ---
 
