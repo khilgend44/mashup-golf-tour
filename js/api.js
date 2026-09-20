@@ -3,7 +3,14 @@
 
 export async function fetchScorecards(tournamentId) {
   try {
-    const res = await fetch(`data/scorecards/${tournamentId}.json`);
+    // Cloudflare serves this with `Cache-Control: max-age=0, must-revalidate`,
+    // which Chrome honors correctly (revalidates via ETag every time) but
+    // mobile Safari/WebKit has a long history of caching more aggressively
+    // than the header asks for — confirmed 2026-09, a score stayed missing
+    // on mobile Safari well after it showed up on desktop and mobile Chrome
+    // for the same URL. `cache: 'no-store'` plus a cache-busting query param
+    // sidesteps relying on Safari to interpret the header correctly at all.
+    const res = await fetch(`data/scorecards/${tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return [];
     const text = await res.text();
     if (!text.trim()) return [];
