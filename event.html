@@ -2310,6 +2310,14 @@
     }
 
     init().catch(err => showError(err.message));
+
+    // iOS Safari's back-forward cache can restore this whole page — already-
+    // executed JS state included — from a frozen snapshot without re-running
+    // init() or any fetch() at all, which no amount of fixing the fetch
+    // itself can help (it just never runs again). Force a real reload
+    // whenever the page comes back this way, so live scores can't get stuck
+    // showing whatever was on screen the moment the tab was left.
+    window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
   </script>
   <script>
     (function() {
