@@ -69,7 +69,7 @@ function applyManualOverrides(scorecards, event) {
 // a recorded net score — the real signal play has finished, which status
 // alone doesn't always reflect promptly. A genuinely in-progress round
 // (some holes still null) still correctly falls through and waits.
-function isCardComplete(card) {
+export function isCardComplete(card) {
   if (card.status === 'Completed') return true;
   if (card.status !== 'Pending') return false;
   for (let i = 1; i <= 18; i++) {
