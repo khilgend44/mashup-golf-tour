@@ -1,0 +1,16 @@
+# Cloudflare Pages' default static-asset caching (4h for .js, matched by
+# extension) meant a bug fix to js/scoring.js or js/api.js could sit
+# invisible for up to 4 hours in any browser that had already cached the old
+# copy — confirmed 2026-09: a scoring fix worked immediately in Safari
+# private mode (empty cache) but not normal mode (still serving a cached
+# pre-fix scoring.js, well within its 4h window, so it never even asked the
+# server for a fresh copy). Force revalidation on every load instead — still
+# cacheable, just never trusted without checking first.
+/js/*
+  Cache-Control: no-cache
+
+# Scorecards already got no-store at the fetch call itself (js/api.js), but
+# set it here too as defense-in-depth against any cache layer that ignores
+# fetch-level cache options.
+/data/scorecards/*
+  Cache-Control: no-cache
