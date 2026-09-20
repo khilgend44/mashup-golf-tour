@@ -334,6 +334,12 @@ Most recent example: **`best-ball-3man`** ("3-Man, 2 Best Ball", `calcBestBall3M
 
 **Manual / one-off scoring:** the `invitational` type has **no engine logic** — `event.html` detects it and renders final standings straight from the event's hand-entered `payouts`/`ctp` (the event has `tournamentId: null`, no scorecards). Use this pattern for tournaments scored outside the system (e.g. the multi-week elimination Invitational).
 
+### Round Completion (`isCardComplete()`)
+
+Every format function gates on a round "counting" — originally just `card.status === 'Completed'`. Confirmed 2026-09 (S10W1) that SGT can leave a fully-played round's `status` as **`"Pending"`** even once every hole is scored and the round shows as done on SGT's own site — likely because `status` tracks the player's overall multi-round tournament entry, not this specific round card.
+
+`isCardComplete(card)` in `js/scoring.js` handles this: `true` for `status === 'Completed'` as before, or `status === 'Pending'` **and** every `hole{1-18}_net` is present (the real signal play finished). A round still genuinely in progress (some holes null) still correctly waits regardless of status. All 14 `status === 'Completed'` / `status !== 'Completed'` checks across every format function go through this one helper — if a similar gap ever shows up for some other status string, fix it here once, not per-format.
+
 ## SGT Loading File (Team Registration CSV)
 
 Before each event, the admin generates a CSV for SimulatorGolfTour via `/admin/teams.html` Step 2:
