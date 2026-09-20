@@ -1,3 +1,5 @@
+// cache-bust: force a fresh Cloudflare response so the new no-cache header
+// (see _headers) attaches to a genuine 200, not a stale revalidated 304.
 export function applyFormat(scorecards, format, event = null) {
   const cards = applyManualOverrides(scorecards, event);
   switch (format.type) {

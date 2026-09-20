@@ -1,5 +1,7 @@
 // Scorecards are cached locally in data/scorecards/{id}.json at event creation time.
 // This avoids CORS issues and keeps the API key off the client.
+// cache-bust: force a fresh Cloudflare response so the new no-cache header
+// (see _headers) attaches to a genuine 200, not a stale revalidated 304.
 
 export async function fetchScorecards(tournamentId) {
   try {
