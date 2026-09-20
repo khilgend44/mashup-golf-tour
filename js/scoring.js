@@ -59,6 +59,23 @@ function applyManualOverrides(scorecards, event) {
   return cards;
 }
 
+// SGT sometimes leaves a fully-played round's status as "Pending" instead of
+// flipping it to "Completed" (confirmed 2026-09, S10W1 — a player's round
+// with all 18 holes scored, and confirmed showing as done on SGT's own site,
+// stayed "Pending" through several fetch cycles). Treat a round as complete
+// if it's explicitly Completed, OR marked Pending but every hole already has
+// a recorded net score — the real signal play has finished, which status
+// alone doesn't always reflect promptly. A genuinely in-progress round
+// (some holes still null) still correctly falls through and waits.
+function isCardComplete(card) {
+  if (card.status === 'Completed') return true;
+  if (card.status !== 'Pending') return false;
+  for (let i = 1; i <= 18; i++) {
+    if (card[`hole${i}_net`] == null) return false;
+  }
+  return true;
+}
+
 // Fallback team lookup from KV event.teams (used when SGT TeamPlayer fields are absent).
 // Returns map of lowercase player name → { key, displayMembers }, or null if no KV teams.
 function buildKvTeamMap(event) {
@@ -99,7 +116,7 @@ function calcRinger(scorecards, format) {
   const players = {};
 
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const name = card.player_name;
     if (!players[name]) {
       players[name] = {
@@ -186,7 +203,7 @@ function calcEscalatorDoom(scorecards, format, event) {
   // Build player card lookup
   const cardsByPlayer = {};
   for (const card of scorecards) {
-    if (card.status === 'Completed') cardsByPlayer[card.player_name.toLowerCase()] = card;
+    if (isCardComplete(card)) cardsByPlayer[card.player_name.toLowerCase()] = card;
   }
 
   const kvTeamMap = buildKvTeamMap(event);
@@ -194,7 +211,7 @@ function calcEscalatorDoom(scorecards, format, event) {
   // Group players by team using TeamPlayer fields (fallback: KV event.teams)
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -303,7 +320,7 @@ function calcDevilsDraw(scorecards, format, event) {
 
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -400,7 +417,7 @@ function calcStableford3Man(scorecards, format, event) {
   const kvTeamMap = buildKvTeamMap(event);
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -505,7 +522,7 @@ function calcDevilsDraw4Man(scorecards, format, event) {
 
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -592,7 +609,7 @@ function calcBest2Worst2All3(scorecards, format, event) {
   const kvTeamMap = buildKvTeamMap(event);
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -681,7 +698,7 @@ function calcModifiedBB3Man(scorecards, format, event) {
   const kvTeamMap = buildKvTeamMap(event);
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -762,7 +779,7 @@ function calcBestBall3Man(scorecards, format, event) {
   const kvTeamMap = buildKvTeamMap(event);
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -844,7 +861,7 @@ function calcShamble2Man(scorecards, format, event) {
   const kvTeamMap = buildKvTeamMap(event);
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -934,7 +951,7 @@ function calcNassau2Man(scorecards, format, event) {
   const teams = {};
 
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
@@ -1086,14 +1103,14 @@ function nassauCBB9(a, b) {
 function calcLoneRanger(scorecards, format, event) {
   const cardsByPlayer = {};
   for (const card of scorecards) {
-    if (card.status === 'Completed') cardsByPlayer[card.player_name.toLowerCase()] = card;
+    if (isCardComplete(card)) cardsByPlayer[card.player_name.toLowerCase()] = card;
   }
 
   const kvTeamMap = buildKvTeamMap(event);
 
   const teams = {};
   for (const card of scorecards) {
-    if (card.status !== 'Completed') continue;
+    if (!isCardComplete(card)) continue;
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     if (!teams[key]) {
       teams[key] = {
