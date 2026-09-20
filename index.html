@@ -158,7 +158,7 @@
   </footer>
 
   <script type="module">
-    import { loadSeasons, loadEvents } from './js/api.js';
+    import { loadSeasons, loadEvents } from './js/api.js?v=20260920';
 
     async function init() {
       const [seasons, events] = await Promise.all([loadSeasons(), loadEvents()]);

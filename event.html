@@ -280,8 +280,8 @@
   </footer>
 
   <script type="module">
-    import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js';
+    import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260920';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260920';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');

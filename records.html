@@ -57,7 +57,7 @@
   </footer>
 
   <script type="module">
-    import { loadSeasons, loadEvents, loadFormats } from './js/api.js';
+    import { loadSeasons, loadEvents, loadFormats } from './js/api.js?v=20260920';
     import { buildPlayerStats, scanScorecardRounds } from './js/stats.js';
 
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
