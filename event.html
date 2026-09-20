@@ -116,6 +116,12 @@
     .chip-done { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.25); color:#4ade80; }
     .chip-fmt  { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.32); color:#fb923c; }
     .chip-hcp  { background:rgba(148,163,184,.08); border:1px solid rgba(148,163,184,.25); color:#cbd5e1; }
+    /* Stream-submit disclosure — collapsed by default so it doesn't push the
+       leaderboard below the fold, especially on mobile. */
+    .stream-toggle { list-style:none; cursor:pointer; }
+    .stream-toggle::-webkit-details-marker { display:none; }
+    .stream-chevron { transition:transform 0.15s; }
+    details[open] .stream-chevron { transform:rotate(180deg); }
     .pulse-dot { width:7px; height:7px; border-radius:50%; background:#fbbf24; animation:pulse 2s infinite; }
     @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(251,191,36,.5)} 70%{box-shadow:0 0 0 7px rgba(251,191,36,0)} 100%{box-shadow:0 0 0 0 rgba(251,191,36,0)} }
     .meter { height:5px; border-radius:99px; background:rgba(255,255,255,.07); overflow:hidden; }
@@ -612,39 +618,42 @@
 
       if (isRinger) {
         container.innerHTML = `
-          <div class="card-shadow bg-card border border-border rounded-lg p-5 mb-2">
-            <div class="flex items-center gap-2 mb-4">
+          <details class="card-shadow bg-card border border-border rounded-lg mb-2">
+            <summary class="stream-toggle flex items-center gap-2 p-4">
               <span class="text-lg">🎥</span>
-              <div>
+              <div class="flex-1 min-w-0">
                 <div class="font-heading font-700 text-white tracking-wide">Submit Your Stream Links</div>
-                <div class="text-xs text-gray-500 mt-0.5">Solo Ringer — select your username and submit a link for each round you've completed.</div>
+                <div class="text-xs text-gray-500 mt-0.5 truncate">Solo Ringer — select your username and submit a link for each round you've completed.</div>
+              </div>
+              <span class="stream-chevron text-gray-500 text-xs shrink-0">▾</span>
+            </summary>
+            <div class="px-4 pb-4">
+              <div class="space-y-3 mb-4">
+                <select id="ringer-player" class="${selectCls}" style="transition:border-color 0.15s">
+                  <option value="">Select your username…</option>
+                  ${options}
+                </select>
+                <div>
+                  <input id="r1-url" type="url" placeholder="Round 1 — https://youtube.com/live/…" autocomplete="off"
+                    class="${inputCls}" style="transition:border-color 0.15s,box-shadow 0.15s" />
+                  <div id="r1-status" class="hidden mt-1 text-xs font-heading tracking-wide"></div>
+                </div>
+                <div>
+                  <input id="r2-url" type="url" placeholder="Round 2 — https://youtube.com/live/… (leave blank if not yet played)"
+                    autocomplete="off" class="${inputCls}" style="transition:border-color 0.15s,box-shadow 0.15s" />
+                  <div id="r2-status" class="hidden mt-1 text-xs font-heading tracking-wide"></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <button id="stream-submit-btn" type="button"
+                  class="flex items-center gap-2 bg-flame/10 border border-flame/40 hover:bg-flame/20 hover:border-flame/70 text-flame font-heading font-700 tracking-wider text-sm px-4 py-2 rounded"
+                  style="transition:all 0.15s">
+                  Submit Stream Links
+                </button>
+                <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
               </div>
             </div>
-            <div class="space-y-3 mb-4">
-              <select id="ringer-player" class="${selectCls}" style="transition:border-color 0.15s">
-                <option value="">Select your username…</option>
-                ${options}
-              </select>
-              <div>
-                <input id="r1-url" type="url" placeholder="Round 1 — https://youtube.com/live/…" autocomplete="off"
-                  class="${inputCls}" style="transition:border-color 0.15s,box-shadow 0.15s" />
-                <div id="r1-status" class="hidden mt-1 text-xs font-heading tracking-wide"></div>
-              </div>
-              <div>
-                <input id="r2-url" type="url" placeholder="Round 2 — https://youtube.com/live/… (leave blank if not yet played)"
-                  autocomplete="off" class="${inputCls}" style="transition:border-color 0.15s,box-shadow 0.15s" />
-                <div id="r2-status" class="hidden mt-1 text-xs font-heading tracking-wide"></div>
-              </div>
-            </div>
-            <div class="flex items-center gap-3">
-              <button id="stream-submit-btn" type="button"
-                class="flex items-center gap-2 bg-flame/10 border border-flame/40 hover:bg-flame/20 hover:border-flame/70 text-flame font-heading font-700 tracking-wider text-sm px-4 py-2 rounded"
-                style="transition:all 0.15s">
-                Submit Stream Links
-              </button>
-              <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
-            </div>
-          </div>`;
+          </details>`;
 
         // When a player is selected, reflect their already-submitted rounds
         document.getElementById('ringer-player').addEventListener('change', function () {
@@ -728,40 +737,43 @@
         // All other formats: multi-player, single URL
         let extraCount = 0;
         container.innerHTML = `
-          <div class="card-shadow bg-card border border-border rounded-lg p-5 mb-2">
-            <div class="flex items-center gap-2 mb-4">
+          <details class="card-shadow bg-card border border-border rounded-lg mb-2">
+            <summary class="stream-toggle flex items-center gap-2 p-4">
               <span class="text-lg">🎥</span>
-              <div>
+              <div class="flex-1 min-w-0">
                 <div class="font-heading font-700 text-white tracking-wide">Submit Your Stream Link</div>
-                <div class="text-xs text-gray-500 mt-0.5">Select all players in your stream, then paste your YouTube URL.</div>
+                <div class="text-xs text-gray-500 mt-0.5 truncate">Select all players in your stream, then paste your YouTube URL.</div>
+              </div>
+              <span class="stream-chevron text-gray-500 text-xs shrink-0">▾</span>
+            </summary>
+            <div class="px-4 pb-4">
+              <div class="space-y-3 mb-4">
+                <div id="player-selects" class="space-y-2">
+                  <select id="player-0" class="${selectCls}" style="transition:border-color 0.15s">
+                    <option value="">Select your username…</option>
+                    ${options}
+                  </select>
+                </div>
+                <button id="add-player-btn" type="button"
+                  class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame flex items-center gap-1"
+                  style="transition:color 0.15s">
+                  <span>+</span> Add another player
+                </button>
+              </div>
+              <div class="mb-4">
+                <input id="youtube-url" type="url" placeholder="https://youtube.com/live/…" autocomplete="off"
+                  class="${inputCls}" style="transition:border-color 0.15s" />
+              </div>
+              <div class="flex items-center gap-3">
+                <button id="stream-submit-btn" type="button"
+                  class="flex items-center gap-2 bg-flame/10 border border-flame/40 hover:bg-flame/20 hover:border-flame/70 text-flame font-heading font-700 tracking-wider text-sm px-4 py-2 rounded"
+                  style="transition:all 0.15s">
+                  Submit Stream Link
+                </button>
+                <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
               </div>
             </div>
-            <div class="space-y-3 mb-4">
-              <div id="player-selects" class="space-y-2">
-                <select id="player-0" class="${selectCls}" style="transition:border-color 0.15s">
-                  <option value="">Select your username…</option>
-                  ${options}
-                </select>
-              </div>
-              <button id="add-player-btn" type="button"
-                class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame flex items-center gap-1"
-                style="transition:color 0.15s">
-                <span>+</span> Add another player
-              </button>
-            </div>
-            <div class="mb-4">
-              <input id="youtube-url" type="url" placeholder="https://youtube.com/live/…" autocomplete="off"
-                class="${inputCls}" style="transition:border-color 0.15s" />
-            </div>
-            <div class="flex items-center gap-3">
-              <button id="stream-submit-btn" type="button"
-                class="flex items-center gap-2 bg-flame/10 border border-flame/40 hover:bg-flame/20 hover:border-flame/70 text-flame font-heading font-700 tracking-wider text-sm px-4 py-2 rounded"
-                style="transition:all 0.15s">
-                Submit Stream Link
-              </button>
-              <span id="stream-status" class="text-xs font-heading tracking-wide hidden"></span>
-            </div>
-          </div>`;
+          </details>`;
 
         document.getElementById('add-player-btn').addEventListener('click', () => {
           if (extraCount >= 3) return;
