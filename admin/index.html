@@ -36,6 +36,23 @@
     .portal-card { transition: border-color 0.15s, background 0.15s, transform 0.15s; }
     .portal-card:hover { border-color: rgba(249,115,22,0.4); background: #232323; transform: translateY(-2px); }
     .portal-card:active { transform: translateY(0); }
+
+    /* Weekly tracker */
+    .section-label { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:0.7rem; letter-spacing:0.12em; color:#666; text-transform:uppercase; }
+    .week-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:0.8rem; letter-spacing:0.03em; white-space:nowrap; }
+    .week-pill.done { background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.3); color:#4ade80; }
+    .week-pill.current { background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.35); color:#fb923c; }
+    .week-pill.future { background:rgba(255,255,255,0.03); border:1px solid #2c2c2c; color:#555; }
+    .checklist-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #262626; }
+    .checklist-row:last-child { border-bottom:none; }
+    .chk-dot { width:20px; height:20px; border-radius:6px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; line-height:1; }
+    .chk-dot.done { background:rgba(74,222,128,0.15); border:1px solid rgba(74,222,128,0.4); color:#4ade80; }
+    .chk-dot.pending { background:rgba(255,255,255,0.03); border:1px solid #333; }
+    .chk-dot.manual { cursor:pointer; }
+    .chk-dot.manual:hover { border-color:rgba(249,115,22,0.5); }
+    .chk-label.done { color:#ccc; }
+    .chk-label.pending { color:#777; }
+    .chk-auto-tag { font-size:9px; font-family:'Barlow Condensed',sans-serif; letter-spacing:0.08em; color:#555; text-transform:uppercase; border:1px solid #333; border-radius:4px; padding:1px 5px; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -68,27 +85,24 @@
     </a>
   </div>
 
+  <!-- WEEKLY TRACKER -->
+  <div id="tracker-wrap" class="max-w-4xl mx-auto px-4 mb-10 hidden">
+    <div class="flex items-center justify-between mb-3">
+      <div class="section-label">Season Progress</div>
+      <div id="tracker-season-name" class="text-xs text-gray-600 font-body"></div>
+    </div>
+    <div id="tracker-breadcrumb" class="flex flex-wrap items-center gap-2 mb-5"></div>
+    <div id="tracker-cards" class="flex flex-col gap-4"></div>
+  </div>
+
   <!-- PORTAL CARDS -->
   <div class="max-w-6xl mx-auto px-4 pb-20 flex-1 w-full">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
+    <div class="max-w-4xl mx-auto mb-3">
+      <div class="section-label">This Week's Workflow — in order</div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-4xl mx-auto mb-12">
 
-      <!-- Players -->
-      <a href="players.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
-        <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            <circle cx="9" cy="7" r="3.5" stroke="#f97316" stroke-width="1.5"/>
-            <path d="M2 19c0-3.866 3.134-7 7-7h2c3.866 0 7 3.134 7 7" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
-            <path d="M16 4a3 3 0 0 1 0 6M20 19c0-3-1.8-5.5-4-6.5" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="flex-1">
-          <h2 class="font-display text-3xl tracking-wider text-white mb-2">PLAYERS</h2>
-          <p class="text-gray-500 text-sm font-body leading-relaxed">Manage player handicap data from SimulatorGolfTour.</p>
-        </div>
-        <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Manage Players →</div>
-      </a>
-
-      <!-- Events -->
+      <!-- 1. Events -->
       <a href="events.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
         <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -100,13 +114,29 @@
           </svg>
         </div>
         <div class="flex-1">
-          <h2 class="font-display text-3xl tracking-wider text-white mb-2">EVENTS</h2>
-          <p class="text-gray-500 text-sm font-body leading-relaxed">Create and manage weekly events, game formats, tournament links, and season configuration.</p>
+          <h2 class="font-display text-3xl tracking-wider text-white mb-2">1. EVENTS</h2>
+          <p class="text-gray-500 text-sm font-body leading-relaxed">Create the weekly event first — paste the SGT tournament link, pick the format.</p>
         </div>
         <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Manage Events →</div>
       </a>
 
-      <!-- Teams -->
+      <!-- 2. Players -->
+      <a href="players.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
+        <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <circle cx="9" cy="7" r="3.5" stroke="#f97316" stroke-width="1.5"/>
+            <path d="M2 19c0-3.866 3.134-7 7-7h2c3.866 0 7 3.134 7 7" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M16 4a3 3 0 0 1 0 6M20 19c0-3-1.8-5.5-4-6.5" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h2 class="font-display text-3xl tracking-wider text-white mb-2">2. PLAYERS</h2>
+          <p class="text-gray-500 text-sm font-body leading-relaxed">Refresh handicaps so the draw uses current MashCAPs.</p>
+        </div>
+        <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Manage Players →</div>
+      </a>
+
+      <!-- 3. Teams -->
       <a href="teams.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
         <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -118,11 +148,34 @@
           </svg>
         </div>
         <div class="flex-1">
-          <h2 class="font-display text-3xl tracking-wider text-white mb-2">TEAMS</h2>
-          <p class="text-gray-500 text-sm font-body leading-relaxed">Configure team rosters, assign player roles for format-specific events like Lone Ranger, and manage team settings.</p>
+          <h2 class="font-display text-3xl tracking-wider text-white mb-2">3. TEAMS</h2>
+          <p class="text-gray-500 text-sm font-body leading-relaxed">Draw teams (or set the solo field), then download the SGT Loading File and upload it to SGT.</p>
         </div>
         <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Manage Teams →</div>
       </a>
+
+      <!-- 4. Poster -->
+      <a href="poster-preview.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
+        <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="3" y="3" width="16" height="16" rx="2" stroke="#f97316" stroke-width="1.5"/>
+            <path d="M6.5 14.5l3-4 2.5 3 2-2.5 2.5 3.5" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="8" cy="7.5" r="1.3" fill="#f97316"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h2 class="font-display text-3xl tracking-wider text-white mb-2">4. POSTER</h2>
+          <p class="text-gray-500 text-sm font-body leading-relaxed">Generate the poster and Discord text, post it, then activate the event to go live.</p>
+        </div>
+        <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Generate Poster →</div>
+      </a>
+
+    </div>
+
+    <div class="max-w-4xl mx-auto mb-3">
+      <div class="section-label">Season &amp; Reference</div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
 
       <!-- Seasons -->
       <a href="seasons.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
@@ -138,21 +191,6 @@
           <p class="text-gray-500 text-sm font-body leading-relaxed">Create and manage seasons, assign player rosters, and archive completed seasons.</p>
         </div>
         <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Manage Seasons →</div>
-      </a>
-
-      <!-- Guide -->
-      <a href="guide.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
-        <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            <path d="M11 5.5C9.5 4 7 3.5 4 4v12c3-.5 5.5 0 7 1.5 1.5-1.5 4-2 7-1.5V4c-3-.5-5.5 0-7 1.5Z" stroke="#f97316" stroke-width="1.5" stroke-linejoin="round"/>
-            <path d="M11 5.5v12" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="flex-1">
-          <h2 class="font-display text-3xl tracking-wider text-white mb-2">GUIDE</h2>
-          <p class="text-gray-500 text-sm font-body leading-relaxed">Wiki-style operator's guide: what every page does, the weekly workflow, and how to fix scorecards on the SGT admin page.</p>
-        </div>
-        <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Read the Guide →</div>
       </a>
 
       <!-- Registrations -->
@@ -218,22 +256,6 @@
         <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">View Formats →</div>
       </a>
 
-      <!-- Poster -->
-      <a href="poster-preview.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
-        <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            <rect x="3" y="3" width="16" height="16" rx="2" stroke="#f97316" stroke-width="1.5"/>
-            <path d="M6.5 14.5l3-4 2.5 3 2-2.5 2.5 3.5" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="8" cy="7.5" r="1.3" fill="#f97316"/>
-          </svg>
-        </div>
-        <div class="flex-1">
-          <h2 class="font-display text-3xl tracking-wider text-white mb-2">POSTER</h2>
-          <p class="text-gray-500 text-sm font-body leading-relaxed">Generate the weekly announcement poster and Discord text, then post and activate an event.</p>
-        </div>
-        <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Generate Poster →</div>
-      </a>
-
       <!-- Backup -->
       <a href="backup.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
         <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
@@ -248,6 +270,21 @@
           <p class="text-gray-500 text-sm font-body leading-relaxed">Download a full snapshot of the live database — player profiles, registrations, dues, and event data.</p>
         </div>
         <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Download Backup →</div>
+      </a>
+
+      <!-- Guide -->
+      <a href="guide.html" class="portal-card card-shadow bg-card border border-border rounded-xl p-8 flex flex-col gap-5 no-underline">
+        <div class="w-12 h-12 rounded-lg bg-flame/10 border border-flame/20 flex items-center justify-center shrink-0">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <path d="M11 5.5C9.5 4 7 3.5 4 4v12c3-.5 5.5 0 7 1.5 1.5-1.5 4-2 7-1.5V4c-3-.5-5.5 0-7 1.5Z" stroke="#f97316" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M11 5.5v12" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h2 class="font-display text-3xl tracking-wider text-white mb-2">GUIDE</h2>
+          <p class="text-gray-500 text-sm font-body leading-relaxed">Wiki-style operator's guide: what every page does, the weekly workflow, and how to fix scorecards on the SGT admin page.</p>
+        </div>
+        <div class="text-xs font-heading font-semibold tracking-wider text-flame uppercase">Read the Guide →</div>
       </a>
 
     </div>
@@ -281,6 +318,179 @@
           banner.classList.add('flex');
         }
       } catch { /* reminder is best-effort — never block the portal on this */ }
+    })();
+  </script>
+
+  <script>
+    // ── Weekly progress tracker ──────────────────────────────────────────
+    // Breadcrumb of the active season's weeks, each with a checklist
+    // mirroring the Guide's 7-step weekly workflow. Steps that happen
+    // entirely on SGT (tournament creation, loading-file upload) — plus
+    // handicap refresh, which has no per-event trace — are manual
+    // checkboxes; everything else is inferred from our own event data.
+    // Best-effort throughout: if anything can't load (not signed in, no
+    // active season, KV hiccup) the section just stays hidden.
+    let trackerState = null;
+
+    async function loadTracker() {
+      const [eventsRes, staticEventsRes, staticFormatsRes, seasonsRes, staticSeasonsRes, playersRes] = await Promise.allSettled([
+        fetch('/api/events-admin'),
+        fetch('/data/events.json'),
+        fetch('/data/formats.json'),
+        fetch('/api/seasons'),
+        fetch('/data/seasons.json'),
+        fetch('/api/players'),
+      ]);
+
+      let kvEvents = [], kvFormats = {};
+      if (eventsRes.status === 'fulfilled' && eventsRes.value.ok) {
+        const data = await eventsRes.value.json();
+        kvEvents = data.events || [];
+        kvFormats = data.formats || {};
+      }
+      const staticEvents  = staticEventsRes.status  === 'fulfilled' && staticEventsRes.value.ok  ? await staticEventsRes.value.json()  : [];
+      const staticFormats = staticFormatsRes.status === 'fulfilled' && staticFormatsRes.value.ok ? await staticFormatsRes.value.json() : {};
+      const formats = { ...staticFormats, ...kvFormats };
+
+      // KV events take precedence over static by id — same convention used
+      // throughout the rest of the admin.
+      const eventMap = new Map(staticEvents.map(e => [e.id, e]));
+      for (const e of kvEvents) eventMap.set(e.id, e);
+      const allEvents = [...eventMap.values()];
+
+      const staticSeasons = staticSeasonsRes.status === 'fulfilled' && staticSeasonsRes.value.ok ? await staticSeasonsRes.value.json() : [];
+      const kvSeasons     = seasonsRes.status       === 'fulfilled' && seasonsRes.value.ok       ? await seasonsRes.value.json()       : [];
+      const seasonMap = new Map(staticSeasons.map(s => [s.id, s]));
+      for (const s of kvSeasons) seasonMap.set(s.id, s);
+      const activeSeason = [...seasonMap.values()].find(s => s.status === 'active');
+      if (!activeSeason) return null;
+
+      let lastHandicapRefresh = null;
+      if (playersRes.status === 'fulfilled' && playersRes.value.ok) {
+        lastHandicapRefresh = (await playersRes.value.json()).lastRefresh || null;
+      }
+
+      const seasonEvents = allEvents
+        .filter(e => e.season === activeSeason.id && e.week)
+        .sort((a, b) => a.week - b.week);
+
+      // Build the week list: every real event, plus one synthetic "next
+      // week" placeholder once the latest real week has gone active (or
+      // further) — gives a running start on next week's checklist.
+      const weeks = seasonEvents.map(e => ({ week: e.week, event: e }));
+      const last = weeks[weeks.length - 1];
+      if (!last) {
+        weeks.push({ week: 1, event: null });
+      } else if (last.event.status === 'active' || last.event.status === 'completed') {
+        weeks.push({ week: last.week + 1, event: null });
+      }
+
+      return { season: activeSeason, weeks, formats, lastHandicapRefresh };
+    }
+
+    function relativeDays(iso) {
+      const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+      if (days <= 0) return 'refreshed today';
+      if (days === 1) return 'refreshed yesterday';
+      return `refreshed ${days}d ago`;
+    }
+
+    // Same 7 steps as the Guide's Weekly Workflow, in order. `auto` items
+    // are inferred from event data and can't be toggled; manual ones
+    // persist to event.weeklyChecklist via /admin/api/events.
+    function checklistFor(event, formats, lastHandicapRefresh) {
+      const format = event ? formats[event.format] : null;
+      const isTeamFormat = !!(format && format.teamSize > 1);
+      const cl = event?.weeklyChecklist || {};
+      return [
+        { key: 'sgtCreated',   label: 'Tournament created on SGT',        auto: true,  done: !!event },
+        { key: 'eventCreated', label: 'Event created on MashUp',          auto: true,  done: !!event },
+        { key: 'handicapsRefreshed', label: 'Handicaps refreshed',        auto: false, done: !!cl.handicapsRefreshed,
+          hint: lastHandicapRefresh ? relativeDays(lastHandicapRefresh) : null },
+        isTeamFormat
+          ? { key: 'teamsDrawn', label: 'Teams drawn',                    auto: true,  done: !!(event?.teams?.length) }
+          : { key: 'fieldSet',   label: 'Field set (roster ready)',       auto: false, done: !!cl.fieldSet },
+        { key: 'loadingFileUploaded', label: 'Loading file uploaded to SGT', auto: false, done: !!cl.loadingFileUploaded },
+        { key: 'announced',    label: 'Announced & activated',            auto: true,  done: !!event && event.status !== 'upcoming' },
+        { key: 'completed',    label: 'Event completed',                  auto: true,  done: !!event && event.status === 'completed' },
+      ];
+    }
+
+    function renderTracker() {
+      const { season, weeks, formats, lastHandicapRefresh } = trackerState;
+
+      document.getElementById('tracker-season-name').textContent = season.name || season.id;
+
+      const breadcrumb = document.getElementById('tracker-breadcrumb');
+      breadcrumb.innerHTML = weeks.map(w => {
+        const done = w.event?.status === 'completed';
+        const cls  = done ? 'done' : (w.event ? 'current' : 'future');
+        if (done) return `<span class="week-pill done">✓ Week ${w.week}</span>`;
+        if (!w.event) return `<span class="week-pill future">Week ${w.week} · Not started</span>`;
+        const items = checklistFor(w.event, formats, lastHandicapRefresh);
+        const n = items.filter(i => i.done).length;
+        return `<span class="week-pill current">Week ${w.week} · ${n}/${items.length}</span>`;
+      }).join('');
+
+      const cardsEl = document.getElementById('tracker-cards');
+      const openWeeks = weeks.filter(w => !w.event || w.event.status !== 'completed');
+      cardsEl.innerHTML = openWeeks.map(w => {
+        const items = checklistFor(w.event, formats, lastHandicapRefresh);
+        const isPlaceholder = !w.event;
+        const rows = items.map(item => {
+          const clickable = !item.auto && w.event; // manual items need a real event to attach to
+          return `
+            <div class="checklist-row">
+              <span class="chk-dot ${item.done ? 'done' : 'pending'} ${clickable ? 'manual' : ''}"
+                    ${clickable ? `data-toggle="${w.event.id}:${item.key}"` : ''}>${item.done ? '✓' : ''}</span>
+              <span class="chk-label ${item.done ? 'done' : 'pending'} text-sm font-body flex-1">${item.label}${item.hint ? ` <span class="text-gray-600 text-xs">(${item.hint})</span>` : ''}</span>
+              ${item.auto ? '<span class="chk-auto-tag">auto</span>' : ''}
+            </div>`;
+        }).join('');
+        return `
+          <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4${isPlaceholder ? ' opacity-60' : ''}">
+            <div class="flex items-center justify-between mb-1">
+              <div class="font-heading font-700 text-sm tracking-wider text-white uppercase">Week ${w.week}${w.event?.name ? ' — ' + w.event.name : ''}</div>
+              ${isPlaceholder ? `<a href="events.html" class="text-xs font-heading font-600 tracking-wider text-flame hover:text-flame-dim">Create it →</a>` : ''}
+            </div>
+            ${rows}
+          </div>`;
+      }).join('');
+
+      cardsEl.querySelectorAll('[data-toggle]').forEach(el => {
+        el.addEventListener('click', () => toggleChecklistItem(el.dataset.toggle));
+      });
+
+      document.getElementById('tracker-wrap').classList.remove('hidden');
+    }
+
+    async function toggleChecklistItem(spec) {
+      const [eventId, key] = spec.split(':');
+      const week = trackerState.weeks.find(w => w.event?.id === eventId);
+      if (!week) return;
+      const prevValue = !!(week.event.weeklyChecklist || {})[key];
+      // Optimistic update so the click feels instant; re-synced on the next load either way.
+      week.event.weeklyChecklist = { ...(week.event.weeklyChecklist || {}), [key]: !prevValue };
+      renderTracker();
+      try {
+        const res = await fetch('/admin/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-event', event: week.event }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'save failed');
+      } catch (e) {
+        week.event.weeklyChecklist[key] = prevValue; // roll back
+        renderTracker();
+        alert("Couldn't save that checkbox — " + e.message);
+      }
+    }
+
+    (async () => {
+      try {
+        trackerState = await loadTracker();
+        if (trackerState) renderTracker();
+      } catch { /* best-effort — the portal's tiles work fine without this */ }
     })();
   </script>
 
