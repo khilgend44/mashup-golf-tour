@@ -135,9 +135,11 @@ function calcRinger(scorecards, format) {
     players[name].roundsPlayed++;
     players[name].totalNetAllRounds += card.total_net;
     const scores = Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_${basis}`]);
+    const grossScores = Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]);
     players[name].rounds.push({
       round: card.round,
       net: scores,
+      gross: grossScores,
       total: card.total_net,
     });
     for (let i = 0; i < 18; i++) {

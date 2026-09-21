@@ -1584,17 +1584,36 @@
       const backIn   = p.ringerCard.slice(9).reduce((a,b)=>a+b,0);
       const toParCls = p.toPar < 0 ? 'under' : p.toPar > 0 ? 'over' : 'even';
 
+      // Ringer only needs its own summary row when 2 rounds actually get
+      // combined into one card — for a single round, that round's own NET
+      // row already is the scoring line, so a duplicate "RINGER" row below
+      // it would just repeat the same numbers.
       const showRounds = p.rounds && p.rounds.length > 1;
 
-      const roundRows = showRounds ? p.rounds.map(rnd => {
+      // GROSS + NET, paired per round — same shape as SGT's own scorecard
+      // view, so a player can see both at a glance instead of just NET.
+      const roundRows = (p.rounds || []).map(rnd => {
         const rOut = rnd.net.slice(0,9).reduce((a,b)=>a+b,0);
         const rIn  = rnd.net.slice(9).reduce((a,b)=>a+b,0);
         const rTot = rnd.total;
         const rToPar = rTot - p.totalPar;
         const rCls = rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
+        const gOut = rnd.gross.slice(0,9).reduce((a,b)=>a+b,0);
+        const gIn  = rnd.gross.slice(9).reduce((a,b)=>a+b,0);
+        const gTot = gOut + gIn;
+        const label = showRounds ? `R${rnd.round} ` : '';
         return `
-          <tr class="score-row" style="opacity:0.65">
-            <td class="name-cell" style="color:#888">RND ${rnd.round}</td>
+          <tr class="score-row" style="opacity:0.7">
+            <td class="name-cell" style="color:#777;font-size:11px">${label}GROSS</td>
+            ${front.map(i => scoreCell(rnd.gross[i], p.pars[i])).join('')}
+            <td class="sub-cell">${gOut}</td>
+            ${back.map(i => scoreCell(rnd.gross[i], p.pars[i])).join('')}
+            <td class="sub-cell">${gIn}</td>
+            <td class="total-cell">${gTot}</td>
+            <td class="topar-cell"></td>
+          </tr>
+          <tr class="score-row" style="${showRounds ? 'opacity:0.9' : ''}">
+            <td class="name-cell" style="${showRounds ? 'color:#aaa' : ''}">${label}NET</td>
             ${front.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
             <td class="sub-cell">${rOut}</td>
             ${back.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
@@ -1602,7 +1621,7 @@
             <td class="total-cell">${rTot}</td>
             <td class="topar-cell ${rCls}">${formatToPar(rToPar)}</td>
           </tr>`;
-      }).join('') : '';
+      }).join('');
 
       return `
         <div class="sc-wrap">
@@ -1638,15 +1657,16 @@
                 <td></td>
               </tr>
               ${roundRows}
-              <tr class="score-row">
-                <td class="name-cell" style="${showRounds ? 'color:#f97316' : ''}">${showRounds ? 'RINGER' : p.player_name}</td>
+              ${showRounds ? `
+              <tr class="score-row" style="border-top:2px solid rgba(249,115,22,0.25)">
+                <td class="name-cell" style="color:#f97316">RINGER</td>
                 ${front.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
                 <td class="sub-cell">${frontOut}</td>
                 ${back.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
                 <td class="sub-cell">${backIn}</td>
                 <td class="total-cell">${p.total}</td>
                 <td class="topar-cell ${toParCls}">${formatToPar(p.toPar)}</td>
-              </tr>
+              </tr>` : ''}
             </tbody>
           </table>
         </div>
