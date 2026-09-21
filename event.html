@@ -54,7 +54,7 @@
     .even  { color: #f5f5f5; }
 
     /* Scorecard */
-    .sc-wrap { overflow-x: auto; }
+    .sc-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; position: relative; }
     .sc-table { border-collapse: collapse; min-width: 700px; width: 100%; }
     .sc-table th, .sc-table td {
       text-align: center;
@@ -77,6 +77,38 @@
     .sc-table .total-cell { font-weight: 700; background: #141414 !important; }
     .sc-table .topar-cell { font-weight: 700; background: #141414 !important; }
     .sc-table .divider { border-left: 1px solid #2a2a2a; }
+    /* Pin the row-label column while the rest of the card scrolls horizontally —
+       on a phone the table is always wider than the screen (18 holes + OUT/IN/TOT),
+       so without this the row/hole context scrolls out of view along with the scores. */
+    .sc-table th:first-child, .sc-table td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      box-shadow: 1px 0 0 #2a2a2a;
+    }
+    .sc-table thead th:first-child { background: #111; z-index: 2; }
+    .sc-table .par-row td:first-child { background: #161616; }
+    .sc-table .idx-row td:first-child { background: #111; }
+    .sc-table .score-row td:first-child { background: #1a1a1a; }
+    /* Phones: the card is inherently wide (18 holes + OUT/IN/TOT) — tighten it up
+       and call out that it scrolls, rather than leaving it to look cut off. */
+    @media (max-width: 639px) {
+      .sc-wrap::before {
+        content: '\2194  swipe for all 18 holes';
+        display: block;
+        width: max-content;
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: #888;
+        padding-bottom: 4px;
+      }
+      .sc-table { min-width: 600px; }
+      .sc-table th, .sc-table td { padding: 4px 3px; font-size: 11px; }
+      .sc-table .name-cell { padding-left: 8px; font-size: 12px; min-width: 62px; }
+      .sc-score { width: 19px; height: 19px; font-size: 11px; }
+      .rnd-badge { font-size: 8px; }
+    }
 
     /* Hole score badges */
     .sc-score { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700; }
