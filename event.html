@@ -524,20 +524,17 @@
       bc.innerHTML = `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
     }
 
-    // Shows the full Start – End window when we have an end date that
-    // differs from the start (the usual case — SGT tournaments run about a
-    // week), falling back to a single date for events that only have one.
+    // SGT requires the end date to always be the Monday right after the
+    // event's Sunday start (a buffer in case play spills past midnight) —
+    // it's not a real "the event runs until then" date, so a Start–End
+    // range reads oddly. Instead, label the event by that Monday: "Week of
+    // September 28". Falls back to the single date for older events with
+    // no endDate on file.
     function formatEventDateRange(event) {
-      if (!event.date) return 'Date TBD';
-      const start = new Date(event.date + 'T12:00:00');
-      if (!event.endDate || event.endDate === event.date) {
-        return start.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
-      }
-      const end = new Date(event.endDate + 'T12:00:00');
-      const sameYear = start.getFullYear() === end.getFullYear();
-      const startFmt = start.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
-      const endFmt = end.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
-      return `${startFmt} – ${endFmt}`;
+      const monday = event.endDate || event.date;
+      if (!monday) return 'Date TBD';
+      const d = new Date(monday + 'T12:00:00');
+      return `Week of ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
     }
 
     function renderHeader(event, format, playerCount, scorecards = [], seasonPlayerCount = null) {
