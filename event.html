@@ -77,9 +77,10 @@
     .sc-table .total-cell { font-weight: 700; background: #141414 !important; }
     .sc-table .topar-cell { font-weight: 700; background: #141414 !important; }
     .sc-table .divider { border-left: 1px solid #2a2a2a; }
-    /* Pin the row-label column while the rest of the card scrolls horizontally —
-       on a phone the table is always wider than the screen (18 holes + OUT/IN/TOT),
-       so without this the row/hole context scrolls out of view along with the scores. */
+    /* Pin the row-label column while a card scrolls horizontally — still used
+       by the team/Devil's Draw scorecards on phones, and as a safety net for
+       the solo card's half-tables below if a very narrow device still needs
+       to scroll a sliver. */
     .sc-table th:first-child, .sc-table td:first-child {
       position: sticky;
       left: 0;
@@ -90,22 +91,26 @@
     .sc-table .par-row td:first-child { background: #161616; }
     .sc-table .idx-row td:first-child { background: #111; }
     .sc-table .score-row td:first-child { background: #1a1a1a; }
-    /* Phones: the card is inherently wide (18 holes + OUT/IN/TOT) — tighten it up
-       and call out that it scrolls, rather than leaving it to look cut off. */
+    /* Solo scorecard: swap the single 18-hole table for two stacked
+       front-9/back-9 tables on phones, so there's no horizontal scroll at
+       all — .sc-desktop/.sc-mobile toggle which markup is visible. */
+    .sc-mobile { display: none; }
     @media (max-width: 639px) {
-      .sc-wrap::before {
-        content: '\2194  swipe for all 18 holes';
-        display: block;
-        width: max-content;
-        font-family: 'Barlow Condensed', sans-serif;
-        font-size: 10px;
-        letter-spacing: 0.06em;
-        color: #888;
-        padding-bottom: 4px;
-      }
-      .sc-table { min-width: 600px; }
-      .sc-table th, .sc-table td { padding: 4px 3px; font-size: 11px; }
-      .sc-table .name-cell { padding-left: 8px; font-size: 12px; min-width: 62px; }
+      .sc-desktop { display: none; }
+      .sc-mobile { display: block; }
+      .sc-mobile .sc-wrap-half + .sc-wrap-half { margin-top: 10px; }
+      .sc-table-half { min-width: 0; width: 100%; table-layout: fixed; }
+      .sc-table-half th, .sc-table-half td { padding: 3px 1px; font-size: 10.5px; }
+      .sc-table-half .name-cell { padding-left: 6px; font-size: 11px; min-width: 0; width: 15%; }
+      .sc-table-half .sc-score { width: 18px; height: 18px; font-size: 10px; }
+      .sc-table-half .rnd-badge { font-size: 7px; }
+    }
+    /* Team / Devil's Draw scorecards still scroll on phones — tighten them
+       up the same way the solo card used to, so more fits before scrolling. */
+    @media (max-width: 639px) {
+      .sc-table:not(.sc-table-half) { min-width: 600px; }
+      .sc-table:not(.sc-table-half) th, .sc-table:not(.sc-table-half) td { padding: 4px 3px; font-size: 11px; }
+      .sc-table:not(.sc-table-half) .name-cell { padding-left: 8px; font-size: 12px; min-width: 62px; }
       .sc-score { width: 19px; height: 19px; font-size: 11px; }
       .rnd-badge { font-size: 8px; }
     }
@@ -164,10 +169,14 @@
     .medal-3 { background:linear-gradient(160deg,#d6a06a,#a16207); color:#1a1205; }
     .prize-pill { font-variant-numeric:tabular-nums; background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.28); color:#fb923c; font-weight:700; font-size:12px; padding:3px 9px; border-radius:7px; white-space:nowrap; }
     .lb-row.leader { background:linear-gradient(90deg, rgba(249,115,22,.10), rgba(249,115,22,0) 60%); }
-    /* Sticky leaderboard header — pins just below the 56px nav while rows scroll */
-    .lb-table thead th { position: sticky; top: 56px; z-index: 30; background:#171717; box-shadow: 0 1px 0 #2c2c2c; }
-    .lb-table thead th:first-child { border-top-left-radius: 0.75rem; }
-    .lb-table thead th:last-child  { border-top-right-radius: 0.75rem; }
+    /* Sticky leaderboard header — pins just below the 56px nav while rows scroll.
+       Child combinators (not descendant) so this only ever matches the
+       leaderboard table's own header — a plain descendant selector also
+       matches any scorecard table nested inside an expanded row's <td>,
+       which broke that table's row order/positioning entirely. */
+    .lb-table > thead > tr > th { position: sticky; top: 56px; z-index: 30; background:#171717; box-shadow: 0 1px 0 #2c2c2c; }
+    .lb-table > thead > tr > th:first-child { border-top-left-radius: 0.75rem; }
+    .lb-table > thead > tr > th:last-child  { border-top-right-radius: 0.75rem; }
     /* Phones: tighten leaderboard cell padding so tables fit without sideways scroll */
     @media (max-width: 639px) {
       .lb-table th, .lb-table td { padding-left: 0.5rem; padding-right: 0.5rem; }
@@ -1655,52 +1664,124 @@
           </tr>`;
       }).join('');
 
+      // Front-9/back-9 half table — used on mobile so the card stacks
+      // vertically instead of scrolling sideways. `isBack` decides whether
+      // this half carries the IN/TOT/+/- columns (back) or just OUT (front).
+      function buildHalf(holes, isBack) {
+        const label = isBack ? 'IN' : 'OUT';
+        const parSub = holes.reduce((s, i) => s + p.pars[i], 0);
+
+        const halfRoundRows = (p.rounds || []).map(rnd => {
+          const netSub   = holes.reduce((s, i) => s + rnd.net[i], 0);
+          const grossSub = holes.reduce((s, i) => s + rnd.gross[i], 0);
+          const rTot = rnd.total;
+          const rToPar = rTot - p.totalPar;
+          const rCls = rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
+          const rLabel = showRounds ? `R${rnd.round} ` : '';
+          return `
+            <tr class="score-row" style="opacity:0.7">
+              <td class="name-cell" style="color:#777;font-size:11px">${rLabel}GROSS</td>
+              ${holes.map(i => scoreCell(rnd.gross[i], p.pars[i])).join('')}
+              <td class="sub-cell">${grossSub}</td>
+              ${isBack ? `<td class="total-cell"></td><td class="topar-cell"></td>` : ''}
+            </tr>
+            <tr class="score-row" style="${showRounds ? 'opacity:0.9' : ''}">
+              <td class="name-cell" style="${showRounds ? 'color:#aaa' : ''}">${rLabel}NET</td>
+              ${holes.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
+              <td class="sub-cell">${netSub}</td>
+              ${isBack ? `<td class="total-cell">${rTot}</td><td class="topar-cell ${rCls}">${formatToPar(rToPar)}</td>` : ''}
+            </tr>`;
+        }).join('');
+
+        return `
+          <div class="sc-wrap sc-wrap-half">
+            <table class="sc-table sc-table-half">
+              <thead>
+                <tr class="hole-hdr">
+                  <th class="text-left pl-3">HOLE</th>
+                  ${holes.map(i => `<th>${i+1}</th>`).join('')}
+                  <th class="divider">${label}</th>
+                  ${isBack ? `<th class="divider">TOT</th><th>+/−</th>` : ''}
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="par-row">
+                  <td class="text-left pl-3">PAR</td>
+                  ${holes.map(i => `<td>${p.pars[i]}</td>`).join('')}
+                  <td class="sub-cell">${parSub}</td>
+                  ${isBack ? `<td class="sub-cell">${p.totalPar}</td><td></td>` : ''}
+                </tr>
+                <tr class="idx-row">
+                  <td class="text-left pl-3">IDX</td>
+                  ${holes.map(i => `<td>${p.indices[i]}</td>`).join('')}
+                  <td class="sub-cell"></td>
+                  ${isBack ? `<td class="sub-cell"></td><td></td>` : ''}
+                </tr>
+                ${halfRoundRows}
+                ${showRounds ? `
+                <tr class="score-row" style="border-top:2px solid rgba(249,115,22,0.25)">
+                  <td class="name-cell" style="color:#f97316">RINGER</td>
+                  ${holes.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
+                  <td class="sub-cell">${isBack ? backIn : frontOut}</td>
+                  ${isBack ? `<td class="total-cell">${p.total}</td><td class="topar-cell ${toParCls}">${formatToPar(p.toPar)}</td>` : ''}
+                </tr>` : ''}
+              </tbody>
+            </table>
+          </div>`;
+      }
+
       return `
-        <div class="sc-wrap">
-          <table class="sc-table">
-            <thead>
-              <tr class="hole-hdr">
-                <th class="text-left pl-3">HOLE</th>
-                ${front.map(i => `<th>${i+1}</th>`).join('')}
-                <th class="divider">OUT</th>
-                ${back.map(i => `<th>${i+1}</th>`).join('')}
-                <th class="divider">IN</th>
-                <th class="divider">TOT</th>
-                <th>+/−</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="par-row">
-                <td class="text-left pl-3">PAR</td>
-                ${front.map(i => `<td>${p.pars[i]}</td>`).join('')}
-                <td class="sub-cell">${p.outPar}</td>
-                ${back.map(i => `<td>${p.pars[i]}</td>`).join('')}
-                <td class="sub-cell">${p.inPar}</td>
-                <td class="sub-cell">${p.totalPar}</td>
-                <td></td>
-              </tr>
-              <tr class="idx-row">
-                <td class="text-left pl-3">IDX</td>
-                ${front.map(i => `<td>${p.indices[i]}</td>`).join('')}
-                <td class="sub-cell"></td>
-                ${back.map(i => `<td>${p.indices[i]}</td>`).join('')}
-                <td class="sub-cell"></td>
-                <td class="sub-cell"></td>
-                <td></td>
-              </tr>
-              ${roundRows}
-              ${showRounds ? `
-              <tr class="score-row" style="border-top:2px solid rgba(249,115,22,0.25)">
-                <td class="name-cell" style="color:#f97316">RINGER</td>
-                ${front.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
-                <td class="sub-cell">${frontOut}</td>
-                ${back.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
-                <td class="sub-cell">${backIn}</td>
-                <td class="total-cell">${p.total}</td>
-                <td class="topar-cell ${toParCls}">${formatToPar(p.toPar)}</td>
-              </tr>` : ''}
-            </tbody>
-          </table>
+        <div class="sc-desktop">
+          <div class="sc-wrap">
+            <table class="sc-table">
+              <thead>
+                <tr class="hole-hdr">
+                  <th class="text-left pl-3">HOLE</th>
+                  ${front.map(i => `<th>${i+1}</th>`).join('')}
+                  <th class="divider">OUT</th>
+                  ${back.map(i => `<th>${i+1}</th>`).join('')}
+                  <th class="divider">IN</th>
+                  <th class="divider">TOT</th>
+                  <th>+/−</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="par-row">
+                  <td class="text-left pl-3">PAR</td>
+                  ${front.map(i => `<td>${p.pars[i]}</td>`).join('')}
+                  <td class="sub-cell">${p.outPar}</td>
+                  ${back.map(i => `<td>${p.pars[i]}</td>`).join('')}
+                  <td class="sub-cell">${p.inPar}</td>
+                  <td class="sub-cell">${p.totalPar}</td>
+                  <td></td>
+                </tr>
+                <tr class="idx-row">
+                  <td class="text-left pl-3">IDX</td>
+                  ${front.map(i => `<td>${p.indices[i]}</td>`).join('')}
+                  <td class="sub-cell"></td>
+                  ${back.map(i => `<td>${p.indices[i]}</td>`).join('')}
+                  <td class="sub-cell"></td>
+                  <td class="sub-cell"></td>
+                  <td></td>
+                </tr>
+                ${roundRows}
+                ${showRounds ? `
+                <tr class="score-row" style="border-top:2px solid rgba(249,115,22,0.25)">
+                  <td class="name-cell" style="color:#f97316">RINGER</td>
+                  ${front.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
+                  <td class="sub-cell">${frontOut}</td>
+                  ${back.map(i => scoreCell(p.ringerCard[i], p.pars[i], `R${p.ringerRound[i]}`, ovKeys.has(`${p.ringerRound[i]}:${i+1}`))).join('')}
+                  <td class="sub-cell">${backIn}</td>
+                  <td class="total-cell">${p.total}</td>
+                  <td class="topar-cell ${toParCls}">${formatToPar(p.toPar)}</td>
+                </tr>` : ''}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="sc-mobile">
+          ${buildHalf(front, false)}
+          ${buildHalf(back, true)}
         </div>
         <div class="flex flex-wrap gap-4 mt-3 text-xs text-gray-600">
           <span><span class="sc-score eagle inline-flex" style="width:16px;height:16px;font-size:9px">◆</span> Eagle+</span>
