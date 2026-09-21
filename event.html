@@ -321,7 +321,7 @@
   </footer>
 
   <script type="module">
-    import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921';
+    import { fetchScorecards, fetchCtp, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
     import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260921';
 
     const params = new URLSearchParams(window.location.search);
@@ -505,9 +505,12 @@
         if (sr.ok) streams = await sr.json();
       } catch { /* stream icons just won't show */ }
 
+      // Live closest-to-pin standings — best-effort, see js/api.js fetchCtp
+      const ctpLive = await fetchCtp(event.tournamentId);
+
       const season = seasons.find(s => s.id === event.season);
       renderHeader(event, format, results.length, scorecards, season?.players?.length);
-      renderLeaderboard(results, event, format, streams);
+      renderLeaderboard(results, event, format, streams, ctpLive);
 
       if (event.status !== 'completed') {
         renderStreamForm(event, season?.players || [], format, streams);
@@ -924,12 +927,12 @@
       return set;
     }
 
-    function renderLeaderboard(results, event, format, streams = {}) {
-      if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams); return; }
-      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams); return; }
-      renderSoloLeaderboard(results, event, format, streams);
+    function renderLeaderboard(results, event, format, streams = {}, ctpLive = null) {
+      if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams, ctpLive); return; }
+      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams, ctpLive); return; }
+      renderSoloLeaderboard(results, event, format, streams, ctpLive);
     }
-    function renderSoloLeaderboard(results, event, format, streams = {}) {
+    function renderSoloLeaderboard(results, event, format, streams = {}, ctpLive = null) {
       const isRinger = format?.type === 'ringer';
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
@@ -964,6 +967,7 @@
             <tbody id="lb-body"></tbody>
           </table>
         </div>
+        <div id="ctp-live-section"></div>
         <div id="side-section"></div>
         <div id="ctp-section"></div>
       `;
@@ -1029,10 +1033,11 @@
       // Side pots + CTP
       if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
+      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
     }
 
     // ── Team event leaderboard ───────────────────────────────────────────────
-    function renderTeamLeaderboard(results, event, format, streams = {}) {
+    function renderTeamLeaderboard(results, event, format, streams = {}, ctpLive = null) {
       const isStableford = format?.type === 'stableford-3man';
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
@@ -1067,6 +1072,7 @@
             <tbody id="lb-body"></tbody>
           </table>
         </div>
+        <div id="ctp-live-section"></div>
         <div id="side-section"></div>
         <div id="ctp-section"></div>
       `;
@@ -1152,10 +1158,11 @@
         document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       }
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
+      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
     }
 
     // ── Nassau 2-Man leaderboard ─────────────────────────────────────────────
-    function renderNassauLeaderboard(results, event, format, streams = {}) {
+    function renderNassauLeaderboard(results, event, format, streams = {}, ctpLive = null) {
       const app = document.getElementById('app');
       const pots = results.nassauPots || {};
       const sidePot = results.nassauSidePot || [];
@@ -1233,6 +1240,7 @@
             <tbody id="lb-body"></tbody>
           </table>
         </div>
+        <div id="ctp-live-section"></div>
         ${sidePotHtml}
         <div id="ctp-section"></div>
       `;
@@ -1298,6 +1306,7 @@
       });
 
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
+      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
     }
 
     function buildTeamSidePotHtml(results, event) {
@@ -1556,6 +1565,61 @@
           <span class="ml-2 text-gray-700">Dimmed scores don't count toward team total</span>
           `}
           ${hasAdjust ? `<span class="text-flame w-full mt-0.5"><span class="adj" style="margin-right:8px"></span>manually adjusted score</span>` : ''}
+        </div>`;
+    }
+
+    // Live closest-to-pin standings, scraped from SGT's own CTP tab by the
+    // scorecard-fetch job (see .github/scripts/parse_ctp.py) — separate
+    // from `event.ctp` above, which is the admin-entered final CTP payout
+    // record added after the event wraps up.
+    function ctpFlagEmoji(flagClass) {
+      // flagClass looks like "fi-ca" — turn the ISO code into 🇨🇦 via
+      // regional indicator symbols, no icon library needed.
+      const code = flagClass?.split('-')[1];
+      if (!code || code.length !== 2) return '';
+      return String.fromCodePoint(...[...code.toUpperCase()].map(c => 127397 + c.charCodeAt(0)));
+    }
+
+    function buildCtpLiveHtml(ctpLive) {
+      const rounds = (ctpLive.rounds || []).filter(r => r.holes?.some(h => h.leaders?.length));
+      if (!rounds.length) return '';
+      const showRoundLabel = rounds.length > 1;
+
+      const roundsHtml = rounds.map(r => {
+        const holeCards = (r.holes || [])
+          .filter(h => h.leaders?.length)
+          .map(h => `
+            <div class="bg-card border border-border rounded-xl p-4 flex flex-col">
+              <div class="text-center mb-2">
+                <div class="font-display text-2xl text-flame leading-none">Hole ${h.hole}</div>
+                <div class="text-[11px] text-gray-500 uppercase tracking-widest mt-1">Avg ${h.avg_ft.toFixed(2)} ft</div>
+              </div>
+              <div class="flex flex-col gap-2 mt-1">
+                ${h.leaders.map(l => `
+                  <div class="flex items-center gap-2">
+                    <span class="text-base leading-none">${ctpFlagEmoji(l.flag)}</span>
+                    <span class="font-medium text-white text-sm truncate flex-1">${l.player}</span>
+                    <span class="text-xs text-gray-400 font-mono whitespace-nowrap">${l.distance_ft.toFixed(2)} ft</span>
+                  </div>`).join('')}
+              </div>
+            </div>`).join('');
+
+        return `
+          <div class="${showRoundLabel ? 'mb-5' : ''}">
+            ${showRoundLabel ? `<div class="text-xs font-heading tracking-widest text-gray-500 uppercase mb-2">Round ${r.round}</div>` : ''}
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              ${holeCards}
+            </div>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="mt-8">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">🎯 Closest to the Pin — Live</h2>
+            <span class="text-[11px] text-gray-600">via SGT</span>
+          </div>
+          ${roundsHtml}
         </div>`;
     }
 

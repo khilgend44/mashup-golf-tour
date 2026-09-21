@@ -68,14 +68,40 @@ jobs:
             echo "  → saved data/scorecards/${tid}.json"
           done
 
+          # Closest-to-pin (CTP). No official endpoint exists for this like
+          # the keyed scorecards API above — this scrapes the same internal
+          # AJAX endpoint SGT's own tournament page uses for its CTP tab.
+          # It needs a fresh session cookie plus AJAX-style headers, or it
+          # silently falls back to a generic HTML page instead of the data.
+          # See .github/scripts/parse_ctp.py for why this is accepted as a
+          # "fix it if it breaks" dependency rather than a stable API.
+          mkdir -p data/ctp
+          echo "$TOURNAMENT_IDS" | while read tid; do
+            echo "Fetching CTP for tournament $tid..."
+            cookiejar=$(mktemp)
+            curl -sf -c "$cookiejar" "https://simulatorgolftour.com/tournament/${tid}" -o /dev/null \
+              || { echo "  → couldn't get a session cookie for $tid, skipping CTP"; rm -f "$cookiejar"; continue; }
+
+            rawhtml=$(mktemp)
+            curl -sf -b "$cookiejar" \
+              -H "X-Requested-With: XMLHttpRequest" \
+              -H "Referer: https://simulatorgolftour.com/tournament/${tid}" \
+              "https://simulatorgolftour.com/sgt-api/leaderboard/${tid}/ctp" \
+              -o "$rawhtml" || { echo "  → CTP fetch failed for $tid, skipping"; rm -f "$cookiejar" "$rawhtml"; continue; }
+
+            python3 .github/scripts/parse_ctp.py "$rawhtml" > "data/ctp/${tid}.json"
+            rm -f "$cookiejar" "$rawhtml"
+            echo "  → saved data/ctp/${tid}.json"
+          done
+
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/scorecards/
+          git add data/scorecards/ data/ctp/
           if git diff --staged --quiet; then
             echo "No scorecard changes — skipping commit."
           else
-            git commit -m "chore: refresh live scorecards $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git commit -m "chore: refresh live scorecards + CTP $(date -u '+%Y-%m-%d %H:%M UTC')"
             git push
           fi

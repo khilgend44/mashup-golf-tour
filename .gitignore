@@ -15,3 +15,4 @@ secrets.sh
 
 # Temporary screenshots (local only)
 temporary screenshots/
+__pycache__/

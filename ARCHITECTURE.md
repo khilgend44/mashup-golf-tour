@@ -140,6 +140,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - Commits scorecard JSON files to `data/scorecards/{tournamentId}.json`
 - Merges both static `data/events.json` and KV-stored events so admin-created events are included
 - **Triggered by:** Cloudflare Worker (not GitHub's built-in scheduler — see below)
+- **Also fetches closest-to-pin (CTP) standings** in the same run, to `data/ctp/{tournamentId}.json`, read by `fetchCtp()` in `js/api.js` and rendered by `buildCtpLiveHtml()` in `event.html` (a `🎯 Closest to the Pin — Live` section on the event page — distinct from `event.ctp`, the admin-entered final CTP *payout* record added after the event closes). Unlike the scorecards fetch above, **there's no official SGT endpoint for this** — it scrapes the same internal AJAX endpoint (`/sgt-api/leaderboard/{tid}/ctp`) SGT's own tournament page uses for its CTP tab, which needs a fresh session cookie plus `X-Requested-With`/`Referer` headers or it silently returns a generic fallback page instead of data. The HTML response is parsed by `.github/scripts/parse_ctp.py`. Accepted tradeoff: if SGT changes that markup, this degrades to an empty `{"rounds": []}` (section just doesn't render) rather than failing the whole workflow — fix the parser then, no other safety net exists.
 
 ### Team Assignment in the Scoring Engine
 - All team formats (`js/scoring.js` → `resolveTeamKey`) group players into teams using **`event.teams` (the admin-defined draw, stored in KV) as the authoritative source** whenever it is present.
@@ -294,6 +295,7 @@ A set of read-only public pages built on a **shared stats engine, `js/stats.js`*
 | `data/events.json` | Historical/static events (Seasons 1–9) |
 | `data/formats.json` | Built-in game formats (merged with KV `admin:formats` at runtime) |
 | `data/scorecards/{id}.json` | Cached scorecard data per tournament |
+| `data/ctp/{id}.json` | Cached live closest-to-pin standings per tournament (scraped, see **4. Scorecard Automation**) |
 | `data/overrides.json` | Manual leaderboard overrides keyed by event id (see below) |
 
 ---

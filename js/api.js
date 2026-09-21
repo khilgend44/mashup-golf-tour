@@ -22,6 +22,24 @@ export async function fetchScorecards(tournamentId) {
   }
 }
 
+// Closest-to-pin (CTP) standings, refreshed by the same GitHub Action/cadence
+// as scorecards. No official SGT endpoint for this exists — the fetch job
+// scrapes SGT's own CTP tab and writes the parsed result here, so this can
+// come back empty (e.g. the format has no CTP holes, or SGT's markup
+// changed and broke the scraper) — always treat an empty/missing result as
+// "nothing to show" rather than an error.
+export async function fetchCtp(tournamentId) {
+  try {
+    const res = await fetch(`data/ctp/${tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return { rounds: [] };
+    const text = await res.text();
+    if (!text.trim()) return { rounds: [] };
+    return JSON.parse(text);
+  } catch {
+    return { rounds: [] };
+  }
+}
+
 export async function loadSeasons() {
   const [staticRes, kvRes] = await Promise.allSettled([
     fetch('data/seasons.json'),

@@ -82,7 +82,7 @@
 
   <script type="module">
     import { recentForm } from './js/stats.js';
-    import { loadSeasons } from './js/api.js?v=20260921';
+    import { loadSeasons } from './js/api.js?v=20260921b';
 
     const state = { handicaps: {}, rounds: {}, seasons: [], selected: '' };
     const hcp = v => v == null || isNaN(+v) ? '—' : (+v > 0 ? `+${(+v).toFixed(1)}` : (+v).toFixed(1));
