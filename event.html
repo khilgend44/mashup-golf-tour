@@ -321,8 +321,8 @@
   </footer>
 
   <script type="module">
-    import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260920';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260920';
+    import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260921';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1633,22 +1633,26 @@
 
       // GROSS + NET, paired per round — same shape as SGT's own scorecard
       // view, so a player can see both at a glance instead of just NET.
+      // Guard against `gross` being absent (e.g. a browser still on a
+      // cached pre-gross build of scoring.js) so a stale cache degrades to
+      // blank gross cells instead of throwing and blanking the whole page.
       const roundRows = (p.rounds || []).map(rnd => {
+        const gross = rnd.gross || rnd.net.map(() => null);
         const rOut = rnd.net.slice(0,9).reduce((a,b)=>a+b,0);
         const rIn  = rnd.net.slice(9).reduce((a,b)=>a+b,0);
         const rTot = rnd.total;
         const rToPar = rTot - p.totalPar;
         const rCls = rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
-        const gOut = rnd.gross.slice(0,9).reduce((a,b)=>a+b,0);
-        const gIn  = rnd.gross.slice(9).reduce((a,b)=>a+b,0);
+        const gOut = gross.slice(0,9).reduce((a,b)=>a+b,0);
+        const gIn  = gross.slice(9).reduce((a,b)=>a+b,0);
         const gTot = gOut + gIn;
         const label = showRounds ? `R${rnd.round} ` : '';
         return `
           <tr class="score-row" style="opacity:0.7">
             <td class="name-cell" style="color:#777;font-size:11px">${label}GROSS</td>
-            ${front.map(i => scoreCell(rnd.gross[i], p.pars[i])).join('')}
+            ${front.map(i => scoreCell(gross[i], p.pars[i])).join('')}
             <td class="sub-cell">${gOut}</td>
-            ${back.map(i => scoreCell(rnd.gross[i], p.pars[i])).join('')}
+            ${back.map(i => scoreCell(gross[i], p.pars[i])).join('')}
             <td class="sub-cell">${gIn}</td>
             <td class="total-cell">${gTot}</td>
             <td class="topar-cell"></td>
@@ -1672,8 +1676,9 @@
         const parSub = holes.reduce((s, i) => s + p.pars[i], 0);
 
         const halfRoundRows = (p.rounds || []).map(rnd => {
+          const gross = rnd.gross || rnd.net.map(() => null);
           const netSub   = holes.reduce((s, i) => s + rnd.net[i], 0);
-          const grossSub = holes.reduce((s, i) => s + rnd.gross[i], 0);
+          const grossSub = holes.reduce((s, i) => s + gross[i], 0);
           const rTot = rnd.total;
           const rToPar = rTot - p.totalPar;
           const rCls = rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
@@ -1681,7 +1686,7 @@
           return `
             <tr class="score-row" style="opacity:0.7">
               <td class="name-cell" style="color:#777;font-size:11px">${rLabel}GROSS</td>
-              ${holes.map(i => scoreCell(rnd.gross[i], p.pars[i])).join('')}
+              ${holes.map(i => scoreCell(gross[i], p.pars[i])).join('')}
               <td class="sub-cell">${grossSub}</td>
               ${isBack ? `<td class="total-cell"></td><td class="topar-cell"></td>` : ''}
             </tr>
