@@ -524,10 +524,24 @@
       bc.innerHTML = `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
     }
 
+    // Shows the full Start – End window when we have an end date that
+    // differs from the start (the usual case — SGT tournaments run about a
+    // week), falling back to a single date for events that only have one.
+    function formatEventDateRange(event) {
+      if (!event.date) return 'Date TBD';
+      const start = new Date(event.date + 'T12:00:00');
+      if (!event.endDate || event.endDate === event.date) {
+        return start.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
+      }
+      const end = new Date(event.endDate + 'T12:00:00');
+      const sameYear = start.getFullYear() === end.getFullYear();
+      const startFmt = start.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+      const endFmt = end.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
+      return `${startFmt} – ${endFmt}`;
+    }
+
     function renderHeader(event, format, playerCount, scorecards = [], seasonPlayerCount = null) {
-      const dateStr = event.date
-        ? new Date(event.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })
-        : 'Date TBD';
+      const dateStr = formatEventDateRange(event);
       const isDone = event.status === 'completed';
 
       // Prize pool — sum of all prize sources
