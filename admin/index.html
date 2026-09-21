@@ -43,16 +43,16 @@
     .week-pill.done { background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.3); color:#4ade80; }
     .week-pill.current { background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.35); color:#fb923c; }
     .week-pill.future { background:rgba(255,255,255,0.03); border:1px solid #2c2c2c; color:#555; }
-    .checklist-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #262626; }
-    .checklist-row:last-child { border-bottom:none; }
-    .chk-dot { width:20px; height:20px; border-radius:6px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; line-height:1; }
-    .chk-dot.done { background:rgba(74,222,128,0.15); border:1px solid rgba(74,222,128,0.4); color:#4ade80; }
-    .chk-dot.pending { background:rgba(255,255,255,0.03); border:1px solid #333; }
-    .chk-dot.manual { cursor:pointer; }
-    .chk-dot.manual:hover { border-color:rgba(249,115,22,0.5); }
-    .chk-label.done { color:#ccc; }
-    .chk-label.pending { color:#777; }
-    .chk-auto-tag { font-size:9px; font-family:'Barlow Condensed',sans-serif; letter-spacing:0.08em; color:#555; text-transform:uppercase; border:1px solid #333; border-radius:4px; padding:1px 5px; }
+    .week-row { display:flex; flex-wrap:wrap; align-items:baseline; column-gap:10px; row-gap:6px; padding:10px 0; border-bottom:1px solid #202020; }
+    .week-row:last-child { border-bottom:none; }
+    .week-row-label { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:0.85rem; color:#ddd; white-space:nowrap; flex-shrink:0; }
+    .step-flow { display:flex; flex-wrap:wrap; align-items:center; gap:3px; }
+    .step-chip { display:inline-flex; align-items:center; gap:3px; padding:3px 7px; border-radius:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:0.76rem; letter-spacing:0.02em; white-space:nowrap; }
+    .step-chip.done { background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.28); color:#4ade80; }
+    .step-chip.pending { background:rgba(255,255,255,0.02); border:1px solid #2a2a2a; color:#5a5a5a; }
+    .step-chip.manual.pending { border-style:dashed; cursor:pointer; }
+    .step-chip.manual.pending:hover { border-color:rgba(249,115,22,0.55); color:#999; }
+    .step-arrow { color:#3a3a3a; font-size:0.72rem; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -402,17 +402,17 @@
       const format = event ? formats[event.format] : null;
       const isTeamFormat = !!(format && format.teamSize > 1);
       const cl = event?.weeklyChecklist || {};
+      const hcHint = lastHandicapRefresh ? ` — ${relativeDays(lastHandicapRefresh)}` : '';
       return [
-        { key: 'sgtCreated',   label: 'Tournament created on SGT',        auto: true,  done: !!event },
-        { key: 'eventCreated', label: 'Event created on MashUp',          auto: true,  done: !!event },
-        { key: 'handicapsRefreshed', label: 'Handicaps refreshed',        auto: false, done: !!cl.handicapsRefreshed,
-          hint: lastHandicapRefresh ? relativeDays(lastHandicapRefresh) : null },
+        { key: 'sgtCreated',   short: 'SGT',    label: 'Tournament created on SGT',          auto: true,  done: !!event },
+        { key: 'eventCreated', short: 'Event',  label: 'Event created on MashUp',            auto: true,  done: !!event },
+        { key: 'handicapsRefreshed', short: 'HCaps', label: `Handicaps refreshed${hcHint}`,  auto: false, done: !!cl.handicapsRefreshed },
         isTeamFormat
-          ? { key: 'teamsDrawn', label: 'Teams drawn',                    auto: true,  done: !!(event?.teams?.length) }
-          : { key: 'fieldSet',   label: 'Field set (roster ready)',       auto: false, done: !!cl.fieldSet },
-        { key: 'loadingFileUploaded', label: 'Loading file uploaded to SGT', auto: false, done: !!cl.loadingFileUploaded },
-        { key: 'announced',    label: 'Announced & activated',            auto: true,  done: !!event && event.status !== 'upcoming' },
-        { key: 'completed',    label: 'Event completed',                  auto: true,  done: !!event && event.status === 'completed' },
+          ? { key: 'teamsDrawn', short: 'Teams', label: 'Teams drawn',                       auto: true,  done: !!(event?.teams?.length) }
+          : { key: 'fieldSet',   short: 'Field', label: 'Field set (roster ready)',           auto: false, done: !!cl.fieldSet },
+        { key: 'loadingFileUploaded', short: 'File', label: 'Loading file uploaded to SGT',  auto: false, done: !!cl.loadingFileUploaded },
+        { key: 'announced',    short: 'Live',   label: 'Announced & activated',              auto: true,  done: !!event && event.status !== 'upcoming' },
+        { key: 'completed',    short: 'Done',   label: 'Event completed',                    auto: true,  done: !!event && event.status === 'completed' },
       ];
     }
 
@@ -437,23 +437,20 @@
       cardsEl.innerHTML = openWeeks.map(w => {
         const items = checklistFor(w.event, formats, lastHandicapRefresh);
         const isPlaceholder = !w.event;
-        const rows = items.map(item => {
+        const chips = items.map((item, i) => {
           const clickable = !item.auto && w.event; // manual items need a real event to attach to
-          return `
-            <div class="checklist-row">
-              <span class="chk-dot ${item.done ? 'done' : 'pending'} ${clickable ? 'manual' : ''}"
-                    ${clickable ? `data-toggle="${w.event.id}:${item.key}"` : ''}>${item.done ? '✓' : ''}</span>
-              <span class="chk-label ${item.done ? 'done' : 'pending'} text-sm font-body flex-1">${item.label}${item.hint ? ` <span class="text-gray-600 text-xs">(${item.hint})</span>` : ''}</span>
-              ${item.auto ? '<span class="chk-auto-tag">auto</span>' : ''}
-            </div>`;
+          const chip = `<span class="step-chip ${item.done ? 'done' : 'pending'} ${clickable ? 'manual' : ''}"
+                title="${item.label}${item.auto ? ' (auto-detected)' : ''}"
+                ${clickable ? `data-toggle="${w.event.id}:${item.key}"` : ''}>${i + 1} ${item.short}</span>`;
+          const arrow = i < items.length - 1 ? `<span class="step-arrow">→</span>` : '';
+          return chip + arrow;
         }).join('');
         return `
-          <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4${isPlaceholder ? ' opacity-60' : ''}">
-            <div class="flex items-center justify-between mb-1">
-              <div class="font-heading font-700 text-sm tracking-wider text-white uppercase">Week ${w.week}${w.event?.name ? ' — ' + w.event.name : ''}</div>
-              ${isPlaceholder ? `<a href="events.html" class="text-xs font-heading font-600 tracking-wider text-flame hover:text-flame-dim">Create it →</a>` : ''}
-            </div>
-            ${rows}
+          <div class="week-row${isPlaceholder ? ' opacity-60' : ''}">
+            <div class="week-row-label">W${w.week}${isPlaceholder ? '' : ':'}</div>
+            ${isPlaceholder
+              ? `<a href="events.html" class="text-xs font-heading font-600 tracking-wider text-flame hover:text-flame-dim">Not started — Create it →</a>`
+              : `<div class="step-flow">${chips}</div>`}
           </div>`;
       }).join('');
 
