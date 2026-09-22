@@ -22,8 +22,13 @@ def parse(html):
     # SGT's own markup mislabels the profile href for every leader after the
     # first on a hole (all point at the first player's profile) — so we
     # don't trust `profile` for anything; the display name is reliable.
+    # Flag codes aren't always a plain 2-letter country (UK constituent
+    # countries render as compound codes like "fi-gb-nir", "fi-gb-sct") —
+    # confirmed 2026-09, a player with a Northern Ireland flag was silently
+    # dropped entirely because `fi-[a-z]+` doesn't match past the hyphen,
+    # so the whole leader match failed. Allow hyphens in the code.
     player_pattern = re.compile(
-        r"player-flag\s+fib\s+(fi-[a-z]+)\s+fis.*?"
+        r"player-flag\s+fib\s+(fi-[a-z-]+)\s+fis.*?"
         r"<a href='/profile/[^']+'[^>]*>([^<]+)</a>\s*"
         r"<div[^>]*>([\d.]+)\s*ft</div>",
         re.S)
