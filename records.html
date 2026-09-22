@@ -160,6 +160,14 @@
       ];
 
       // ── Hall of Fame ───────────────────────────────────────────────────
+      // Hole-in-One Club: hand-maintained, not data-driven — there's no
+      // per-hole ace field anywhere in the scorecard/event data to compute
+      // this from automatically. Add one entry here whenever a member
+      // cards a confirmed ace in a tour event.
+      const ACES = [
+        { name: 'Jonty', event: 'Season 10, Week 1', detail: 'Hole 17 · Round 2', video: 'https://www.youtube.com/live/CeQDy3ZRkv4?si=cjVmzyxXtVXJJhKr&t=1570' },
+      ];
+
       // Season champions: money-list leader of each season's completed events.
       const seasonList = [...seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
       const champRows = [];
@@ -209,11 +217,20 @@
 
             <div class="card-shadow bg-card border border-border rounded-xl p-5">
               <div class="text-[10px] font-heading font-700 tracking-widest text-flame uppercase mb-3">Hole-in-One Club</div>
-              <div class="flex flex-col items-center justify-center text-center py-8">
+              ${ACES.length ? `<div class="space-y-2">${ACES.map(a => `
+                <div class="flex items-center gap-3 py-1.5 border-b border-border/40 last:border-0">
+                  <div class="text-2xl leading-none shrink-0">🎯</div>
+                  <div class="min-w-0 flex-1">
+                    <div class="font-display text-xl tracking-wide text-white">${plink(a.name)}</div>
+                    <div class="text-xs text-gray-600">${esc(a.event)} <span class="text-gray-700">·</span> ${esc(a.detail)}</div>
+                  </div>
+                  ${a.video ? `<a href="${esc(a.video)}" target="_blank" rel="noopener" class="shrink-0 text-xs font-heading font-600 tracking-wider text-flame hover:text-flame-dim">▶ Watch</a>` : ''}
+                </div>`).join('')}</div>`
+              : `<div class="flex flex-col items-center justify-center text-center py-8">
                 <div class="text-4xl mb-2">🎯</div>
                 <div class="font-heading font-600 tracking-wide text-gray-300">Awaiting the first ace</div>
                 <p class="text-xs text-gray-600 mt-1 max-w-xs">The first member to card a hole-in-one takes the entire <a href="hole-in-one.html" class="text-flame hover:text-flame-dim">pot</a> and a permanent spot here.</p>
-              </div>
+              </div>`}
             </div>
           </div>
 
