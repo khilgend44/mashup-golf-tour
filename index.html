@@ -181,7 +181,8 @@
         });
 
       const completed = seasonEvents.filter(e => e.status === 'completed');
-      const upcoming = seasonEvents.filter(e => e.status !== 'completed');
+      const live      = seasonEvents.filter(e => e.status === 'active');
+      const upcoming  = seasonEvents.filter(e => e.status === 'upcoming');
 
       return `
         <!-- Season header -->
@@ -199,12 +200,22 @@
           </div>
 
           <!-- Stats -->
-          <div class="grid grid-cols-3 gap-3 mb-8">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
             ${statCard(seasonEvents.length, 'Events')}
+            ${statCard(live.length, 'Live')}
             ${statCard(completed.length, 'Completed')}
             ${statCard(upcoming.length, 'Upcoming')}
           </div>
         </section>
+
+        <!-- Live -->
+        ${live.length ? `
+        <section class="mb-10">
+          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Live</h3>
+          <div class="space-y-2">
+            ${live.map(e => eventRow(e, true)).join('')}
+          </div>
+        </section>` : ''}
 
         <!-- Upcoming -->
         ${upcoming.length ? `
@@ -245,8 +256,10 @@
     function eventRow(e, showLink) {
       const statusDot = e.status === 'completed'
         ? '<span class="status-dot bg-emerald-500"></span>'
-        : '<span class="status-dot bg-amber-500 animate-pulse"></span>';
-      const statusLabel = e.status === 'completed' ? 'Completed' : 'Open';
+        : e.status === 'active'
+          ? '<span class="status-dot bg-amber-500 animate-pulse"></span>'
+          : '<span class="status-dot bg-gray-500"></span>';
+      const statusLabel = e.status === 'completed' ? 'Completed' : e.status === 'active' ? 'Live' : 'Upcoming';
       const dateStr = e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
 
       const inner = `
