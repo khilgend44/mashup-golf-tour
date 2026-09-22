@@ -185,6 +185,23 @@
       const upcoming  = seasonEvents.filter(e => e.status === 'upcoming');
 
       return `
+        <!-- Live Now — deliberately first, above the season header, so it's
+             the first thing visible on mobile without scrolling past the
+             season blurb + stats to find it. -->
+        ${live.length ? `
+        <section class="mb-10">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+            </span>
+            <h2 class="font-heading font-700 text-sm tracking-widest text-amber-400 uppercase">Live Now</h2>
+          </div>
+          <div class="space-y-3">
+            ${live.map(e => liveEventCard(e)).join('')}
+          </div>
+        </section>` : ''}
+
         <!-- Season header -->
         <section id="seasons" class="mb-10">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
@@ -207,15 +224,6 @@
             ${statCard(upcoming.length, 'Upcoming')}
           </div>
         </section>
-
-        <!-- Live -->
-        ${live.length ? `
-        <section class="mb-10">
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Live</h3>
-          <div class="space-y-2">
-            ${live.map(e => eventRow(e, true)).join('')}
-          </div>
-        </section>` : ''}
 
         <!-- Upcoming -->
         ${upcoming.length ? `
@@ -282,6 +290,41 @@
       return showLink
         ? `<a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="block">${inner}</a>`
         : `<div>${inner}</div>`;
+    }
+
+    // Deliberately louder than eventRow() — a live event is the single most
+    // time-sensitive thing on the page, so it gets a glow, a radar-style
+    // pulsing dot, and its own CTA instead of blending in with the rest of
+    // the event list.
+    function liveEventCard(e) {
+      const dateStr = e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
+      const formatStr = e.format.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+      return `
+        <a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="group block no-underline rounded-xl px-5 py-5 sm:px-6 sm:py-6"
+           style="border:1px solid rgba(251,191,36,0.4); background:radial-gradient(ellipse 120% 100% at 0% 0%, rgba(251,191,36,0.14) 0%, transparent 60%), #1e1e1e; box-shadow:0 0 30px rgba(251,191,36,0.14), 0 8px 24px rgba(0,0,0,0.3); transition:box-shadow 0.15s">
+          <div class="flex items-center justify-between gap-4 flex-wrap">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                <span class="text-[10px] font-heading font-700 tracking-widest text-amber-400 uppercase">Live Now</span>
+              </div>
+              <div class="font-heading font-700 text-lg sm:text-xl text-white truncate">${e.name}</div>
+              <div class="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                <span>${dateStr}</span>
+                <span>·</span>
+                <span>${formatStr}</span>
+                ${e.buyIn ? `<span>·</span><span>$${e.buyIn} buy-in</span>` : ''}
+              </div>
+            </div>
+            <span class="shrink-0 inline-flex items-center gap-1.5 bg-amber-500 group-hover:bg-amber-400 text-black font-heading font-700 text-xs tracking-widest uppercase px-4 py-2.5 rounded-lg" style="transition:background 0.15s">
+              View Leaderboard →
+            </span>
+          </div>
+        </a>`;
     }
 
     function seasonCard(s) {
