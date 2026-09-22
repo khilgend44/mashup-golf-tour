@@ -322,7 +322,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260921c';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260921d';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -989,11 +989,13 @@
         // Actively mid-round, no complete round yet — a ringer total built
         // from a still-in-progress card would be garbage (unplayed holes
         // come back from SGT as 0, not blank), so there's nothing real to
-        // rank or total. Show an alert instead of numbers, unranked, with
-        // no expandable scorecard (nothing finished to show yet).
+        // rank or total. Show an alert instead of numbers, unranked — but
+        // still clickable, expanding into a partial scorecard of whatever
+        // holes they've actually played so far (buildScorecardHTML renders
+        // the rest blank rather than as fake strokes).
         if (player.inProgress) {
           const tr = document.createElement('tr');
-          tr.className = 'lb-row';
+          tr.className = 'lb-row cursor-pointer select-none';
           const spanCols = (hasPrizes ? 9 : 8) - 3;
           tr.innerHTML = `
             <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5"></td>
@@ -1003,7 +1005,34 @@
               <span class="chip chip-live"><span class="pulse-dot"></span>ROUND IN PROGRESS</span>
             </td>
           `;
+
+          const cardTr = document.createElement('tr');
+          cardTr.className = 'hidden';
+          cardTr.innerHTML = `
+            <td colspan="99" class="p-0 border-b border-border">
+              <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+                <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">In Progress — ${player.player_name}${player.holesPlayed != null ? ` (thru ${player.holesPlayed})` : ''}</div>
+                ${buildScorecardHTML(player, event)}
+                <div class="mt-4 pt-3 border-t border-border">
+                  <a href="https://simulatorgolftour.com/profile/${player.player_name}" target="_blank" rel="noopener"
+                     class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
+                     style="transition:color 0.15s">
+                    <img src="brand_assets/sgt_emblem.svg" class="h-3.5 w-auto opacity-50" />
+                    SGT Profile <span class="text-[#d03f25]">→</span>
+                  </a>
+                </div>
+              </div>
+            </td>
+          `;
+
+          tr.addEventListener('click', () => {
+            const open = !cardTr.classList.contains('hidden');
+            cardTr.classList.toggle('hidden');
+            tr.classList.toggle('expanded', !open);
+          });
+
           tbody.appendChild(tr);
+          tbody.appendChild(cardTr);
           return;
         }
 
@@ -1709,6 +1738,17 @@
       const ovKeys = overriddenHoleKeys(event, p.player_name);
 
       function scoreCell(score, par, extra = '', adjusted = false) {
+        // Not played yet (in-progress rounds carry null here, not a real
+        // stroke count) — show a blank dash rather than running it through
+        // holeScoreClass, which would read a null/0 as several strokes
+        // under par and paint it as an eagle.
+        if (score == null) {
+          return `<td style="padding:3px 4px">
+            <div style="display:flex;flex-direction:column;align-items:center">
+              <span class="sc-score" style="color:#3a3a3a">–</span>
+            </div>
+          </td>`;
+        }
         const cls = holeScoreClass(score, par);
         return `<td class="${cls}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
           <div style="display:flex;flex-direction:column;align-items:center">
@@ -1737,9 +1777,12 @@
         const gross = rnd.gross || rnd.net.map(() => null);
         const rOut = rnd.net.slice(0,9).reduce((a,b)=>a+b,0);
         const rIn  = rnd.net.slice(9).reduce((a,b)=>a+b,0);
+        // rnd.total is null for an in-progress round (nothing final to
+        // total yet) — leave the total/+- cells blank rather than letting
+        // `null - totalPar` produce a bogus (very negative) number.
         const rTot = rnd.total;
-        const rToPar = rTot - p.totalPar;
-        const rCls = rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
+        const rToPar = rTot != null ? rTot - p.totalPar : null;
+        const rCls = rToPar == null ? '' : rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
         const gOut = gross.slice(0,9).reduce((a,b)=>a+b,0);
         const gIn  = gross.slice(9).reduce((a,b)=>a+b,0);
         const gTot = gOut + gIn;
@@ -1760,8 +1803,8 @@
             <td class="sub-cell">${rOut}</td>
             ${back.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
             <td class="sub-cell">${rIn}</td>
-            <td class="total-cell">${rTot}</td>
-            <td class="topar-cell ${rCls}">${formatToPar(rToPar)}</td>
+            <td class="total-cell">${rTot ?? '–'}</td>
+            <td class="topar-cell ${rCls}">${rToPar != null ? formatToPar(rToPar) : ''}</td>
           </tr>`;
       }).join('');
 
@@ -1777,8 +1820,8 @@
           const netSub   = holes.reduce((s, i) => s + rnd.net[i], 0);
           const grossSub = holes.reduce((s, i) => s + gross[i], 0);
           const rTot = rnd.total;
-          const rToPar = rTot - p.totalPar;
-          const rCls = rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
+          const rToPar = rTot != null ? rTot - p.totalPar : null;
+          const rCls = rToPar == null ? '' : rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
           const rLabel = showRounds ? `R${rnd.round} ` : '';
           return `
             <tr class="score-row" style="opacity:0.7">
@@ -1791,7 +1834,7 @@
               <td class="name-cell" style="${showRounds ? 'color:#aaa' : ''}">${rLabel}NET</td>
               ${holes.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
               <td class="sub-cell">${netSub}</td>
-              ${isBack ? `<td class="total-cell">${rTot}</td><td class="topar-cell ${rCls}">${formatToPar(rToPar)}</td>` : ''}
+              ${isBack ? `<td class="total-cell">${rTot ?? '–'}</td><td class="topar-cell ${rCls}">${rToPar != null ? formatToPar(rToPar) : ''}</td>` : ''}
             </tr>`;
         }).join('');
 

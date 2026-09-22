@@ -217,8 +217,12 @@ function calcRinger(scorecards, format) {
   // Players actively mid-round with no complete round yet don't get a
   // ringer total at all (their only card was skipped above) — surface them
   // unranked instead of just silently dropping them off the leaderboard.
-  // A partial ringer card built from a still-in-progress round would be
-  // wildly wrong anyway (the unplayed holes are 0s, not blanks).
+  // A partial ringer total built from a still-in-progress round would be
+  // wildly wrong (the unplayed holes are 0s, not blanks) — but the holes
+  // they HAVE played are real, so a partial scorecard is still worth
+  // showing. `activeHole` (1-18) marks how far they've gotten; holes at or
+  // past it come back from SGT as a 0 placeholder, not a real score, so
+  // those are nulled out here rather than displayed as strokes.
   const completedNames = new Set(Object.keys(players).map(n => n.toLowerCase()));
   const seenInProgress = new Set();
   for (const card of scorecards) {
@@ -226,6 +230,15 @@ function calcRinger(scorecards, format) {
     const key = card.player_name.toLowerCase();
     if (completedNames.has(key) || seenInProgress.has(key)) continue;
     seenInProgress.add(key);
+    const pars = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
+    const indices = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]);
+    // Fall back to "any hole with a >0 net is played" if activeHole is ever
+    // missing — less precise (can't tell a real 0 from an unplayed hole),
+    // but keeps the scorecard from crashing rather than showing nothing.
+    const holesPlayed = card.activeHole != null ? Math.max(0, Math.min(18, card.activeHole - 1)) : null;
+    const isPlayed = i => holesPlayed != null ? i < holesPlayed : card[`hole${i + 1}_net`] > 0;
+    const net = Array.from({ length: 18 }, (_, i) => isPlayed(i) ? card[`hole${i + 1}_net`] : null);
+    const gross = Array.from({ length: 18 }, (_, i) => isPlayed(i) ? card[`hole${i + 1}_gross`] : null);
     results.push({
       isTeam: false,
       player_name: card.player_name,
@@ -235,6 +248,16 @@ function calcRinger(scorecards, format) {
       total: null,
       toPar: null,
       prize: null,
+      pars,
+      indices,
+      outPar: pars.slice(0, 9).reduce((a, b) => a + b, 0),
+      inPar: pars.slice(9).reduce((a, b) => a + b, 0),
+      totalPar: pars.reduce((a, b) => a + b, 0),
+      holesPlayed: holesPlayed ?? net.filter(n => n != null).length,
+      ringerCard: Array(18).fill(null),
+      ringerRound: Array(18).fill(null),
+      rounds: [{ round: card.round, net, gross, total: null }],
+      totalNetAllRounds: 0,
     });
   }
 
