@@ -255,9 +255,10 @@
           ${isCompleted ? '<span class="text-flame text-sm shrink-0">→</span>' : ''}
         </div>`;
 
-      return isCompleted
-        ? `<a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="block">${inner}</a>`
-        : `<div>${inner}</div>`;
+      // Every event links through, not just completed ones — a live/active
+      // event already has a real leaderboard worth seeing, and an upcoming
+      // one still has a header/format/prize-pool page to show.
+      return `<a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="block">${inner}</a>`;
     }
 
     // Season money standings. Handles two event shapes:
