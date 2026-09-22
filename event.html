@@ -10,6 +10,13 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Real flag images for the CTP tracker — Unicode has no emoji for
+       Northern Ireland (or Scotland/Wales/England's own flags), only
+       whole-country codes, so an emoji-only approach can't tell a
+       Northern Ireland player's flag apart from the rest of the UK. This
+       is the same flag-icons library SGT's own site uses (same "fi-xx"
+       class names), so the flag codes captured off SGT map straight in. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.2.3/css/flag-icons.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -1634,14 +1641,6 @@
     // scorecard-fetch job (see .github/scripts/parse_ctp.py) — separate
     // from `event.ctp` above, which is the admin-entered final CTP payout
     // record added after the event wraps up.
-    function ctpFlagEmoji(flagClass) {
-      // flagClass looks like "fi-ca" — turn the ISO code into 🇨🇦 via
-      // regional indicator symbols, no icon library needed.
-      const code = flagClass?.split('-')[1];
-      if (!code || code.length !== 2) return '';
-      return String.fromCodePoint(...[...code.toUpperCase()].map(c => 127397 + c.charCodeAt(0)));
-    }
-
     function buildCtpLiveHtml(ctpLive) {
       const rounds = (ctpLive.rounds || []).filter(r => r.holes?.some(h => h.leaders?.length));
       if (!rounds.length) return '';
@@ -1661,7 +1660,7 @@
               <div class="flex flex-col gap-2 mt-1">
                 ${h.leaders.map(l => `
                   <div class="flex items-center gap-2">
-                    <span class="text-base leading-none">${ctpFlagEmoji(l.flag)}</span>
+                    <span class="fi ${l.flag}" style="width:18px;height:13px;border-radius:2px;flex-shrink:0;box-shadow:0 0 0 1px rgba(255,255,255,0.08)"></span>
                     <span class="font-medium ${l.ace ? 'text-amber-400' : 'text-white'} text-sm truncate flex-1">${l.player}</span>
                     <span class="text-xs ${l.ace ? 'text-amber-400 font-700' : 'text-gray-400'} font-mono whitespace-nowrap">${l.ace ? 'ACE! 🎯' : l.distance_ft.toFixed(2) + ' ft'}</span>
                   </div>`).join('')}
