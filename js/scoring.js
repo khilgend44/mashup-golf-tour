@@ -197,22 +197,7 @@ function calcRinger(scorecards, format) {
     };
   });
 
-  results.sort((a, b) => {
-    if (a.total !== b.total) return a.total - b.total;
-    if (a.totalNetAllRounds !== b.totalNetAllRounds) return a.totalNetAllRounds - b.totalNetAllRounds;
-    return indexCountback(a, b);
-  });
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total &&
-        curr.totalNetAllRounds === prev.totalNetAllRounds &&
-        indexCountback(curr, prev) === 0;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
-  }
+  rankAndPosition(results);
 
   // Players actively mid-round with no complete round yet don't get a
   // ringer total at all (their only card was skipped above) — surface them
@@ -230,6 +215,7 @@ function calcRinger(scorecards, format) {
   // have a complete round on file.
   const resultsByName = new Map(results.map(r => [r.player_name.toLowerCase(), r]));
   const seenInProgress = new Set();
+  let ringerImproved = false;
   for (const card of scorecards) {
     if (card.status !== 'Pending' || isCardComplete(card) || !cardHasStarted(card)) continue;
     const key = card.player_name.toLowerCase();
@@ -251,12 +237,31 @@ function calcRinger(scorecards, format) {
     if (existing) {
       // Already ranked off a completed round — append the live round so the
       // scorecard shows it too, and flag it for a "LIVE" badge on the row.
-      // Ranking/ringerCard/roundsPlayed stay untouched: they reflect
-      // completed rounds only, on purpose, so the leaderboard position
-      // never shifts off of in-progress data.
       existing.rounds = [...existing.rounds, liveRound];
       existing.hasLiveRound = true;
       existing.liveHolesPlayed = liveHolesPlayed;
+
+      // A hole the live round has actually played is real, settled data —
+      // it isn't going to get worse later in the same round — so it's
+      // fair game for the ringer card immediately, same as any other
+      // round's hole would be. Confirmed 2026-09: a live round-2 hole beat
+      // the round-1 ringer score and the card wasn't picking it up until
+      // the round finished. Only update where net[i] is a real recorded
+      // stroke (never the 0-placeholder for a hole not yet reached).
+      for (let i = 0; i < 18; i++) {
+        const s = net[i];
+        if (s != null && s > 0 && s < existing.ringerCard[i]) {
+          existing.ringerCard[i] = s;
+          existing.ringerRound[i] = card.round;
+          ringerImproved = true;
+        }
+      }
+      if (ringerImproved) {
+        existing.out = existing.ringerCard.slice(0, 9).reduce((a, b) => a + b, 0);
+        existing.inn = existing.ringerCard.slice(9).reduce((a, b) => a + b, 0);
+        existing.total = existing.out + existing.inn;
+        existing.toPar = existing.total - existing.totalPar;
+      }
     } else {
       results.push({
         isTeam: false,
@@ -281,7 +286,40 @@ function calcRinger(scorecards, format) {
     }
   }
 
+  // A live round's hole may have just bumped someone's ringer total down —
+  // real settled data, so re-rank rather than leaving the position stale
+  // until the round finishes. In-progress-only entries (no complete round
+  // at all yet) have no total to rank by and stay unranked at the end.
+  if (ringerImproved) {
+    const ranked = results.filter(r => !r.inProgress);
+    const unranked = results.filter(r => r.inProgress);
+    rankAndPosition(ranked);
+    return [...ranked, ...unranked];
+  }
+
   return results;
+}
+
+// Sorts `list` by ringer total (then the 36-hole tiebreaker, then index
+// countback) and assigns `position`/`tied` in place. Shared by the initial
+// ranking and any later re-rank once a live round's hole improves someone's
+// ringer card.
+function rankAndPosition(list) {
+  list.sort((a, b) => {
+    if (a.total !== b.total) return a.total - b.total;
+    if (a.totalNetAllRounds !== b.totalNetAllRounds) return a.totalNetAllRounds - b.totalNetAllRounds;
+    return indexCountback(a, b);
+  });
+  list.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = list[i - 1];
+    const trulyTied = curr.total === prev.total &&
+      curr.totalNetAllRounds === prev.totalNetAllRounds &&
+      indexCountback(curr, prev) === 0;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
 }
 
 function indexCountback(a, b) {
