@@ -27,10 +27,13 @@ def parse(html):
     # confirmed 2026-09, a player with a Northern Ireland flag was silently
     # dropped entirely because `fi-[a-z]+` doesn't match past the hyphen,
     # so the whole leader match failed. Allow hyphens in the code.
+    # SGT shows "ACE" in place of a distance for a hole-in-one — confirmed
+    # 2026-09, this silently dropped that player's whole entry the same way
+    # the flag-code bug did, since [\d.]+\s*ft never matches the word ACE.
     player_pattern = re.compile(
         r"player-flag\s+fib\s+(fi-[a-z-]+)\s+fis.*?"
         r"<a href='/profile/[^']+'[^>]*>([^<]+)</a>\s*"
-        r"<div[^>]*>([\d.]+)\s*ft</div>",
+        r"<div[^>]*>(ACE|[\d.]+\s*ft)</div>",
         re.S)
 
     rounds = []
@@ -38,10 +41,15 @@ def parse(html):
         round_num = int(rmatch.group(1))
         holes = []
         for hmatch in hole_pattern.finditer(rmatch.group(2)):
-            leaders = [
-                {"player": name.strip(), "flag": flag, "distance_ft": float(dist)}
-                for flag, name, dist in player_pattern.findall(hmatch.group(3))
-            ]
+            leaders = []
+            for flag, name, dist_raw in player_pattern.findall(hmatch.group(3)):
+                is_ace = dist_raw.strip().upper() == 'ACE'
+                leaders.append({
+                    "player": name.strip(),
+                    "flag": flag,
+                    "distance_ft": 0.0 if is_ace else float(re.sub(r"[^\d.]", "", dist_raw)),
+                    "ace": is_ace,
+                })
             holes.append({
                 "hole": int(hmatch.group(1)),
                 "avg_ft": float(hmatch.group(2)),

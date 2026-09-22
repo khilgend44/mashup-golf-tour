@@ -1650,21 +1650,24 @@
       const roundsHtml = rounds.map(r => {
         const holeCards = (r.holes || [])
           .filter(h => h.leaders?.length)
-          .map(h => `
-            <div class="bg-card border border-border rounded-xl p-4 flex flex-col">
+          .map(h => {
+            const hasAce = h.leaders.some(l => l.ace);
+            return `
+            <div class="bg-card border ${hasAce ? 'border-amber-400/60' : 'border-border'} rounded-xl p-4 flex flex-col" ${hasAce ? 'style="box-shadow:0 0 20px rgba(251,191,36,0.18)"' : ''}>
               <div class="text-center mb-2">
-                <div class="font-display text-2xl text-flame leading-none">Hole ${h.hole}</div>
+                <div class="font-display text-2xl ${hasAce ? 'text-amber-400' : 'text-flame'} leading-none">Hole ${h.hole}${hasAce ? ' 🎯' : ''}</div>
                 <div class="text-[11px] text-gray-500 uppercase tracking-widest mt-1">Avg ${h.avg_ft.toFixed(2)} ft</div>
               </div>
               <div class="flex flex-col gap-2 mt-1">
                 ${h.leaders.map(l => `
                   <div class="flex items-center gap-2">
                     <span class="text-base leading-none">${ctpFlagEmoji(l.flag)}</span>
-                    <span class="font-medium text-white text-sm truncate flex-1">${l.player}</span>
-                    <span class="text-xs text-gray-400 font-mono whitespace-nowrap">${l.distance_ft.toFixed(2)} ft</span>
+                    <span class="font-medium ${l.ace ? 'text-amber-400' : 'text-white'} text-sm truncate flex-1">${l.player}</span>
+                    <span class="text-xs ${l.ace ? 'text-amber-400 font-700' : 'text-gray-400'} font-mono whitespace-nowrap">${l.ace ? 'ACE! 🎯' : l.distance_ft.toFixed(2) + ' ft'}</span>
                   </div>`).join('')}
               </div>
-            </div>`).join('');
+            </div>`;
+          }).join('');
 
         return `
           <div class="${showRoundLabel ? 'mb-5' : ''}">
