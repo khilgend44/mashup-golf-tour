@@ -66,16 +66,37 @@ function applyManualOverrides(scorecards, event) {
 // with all 18 holes scored, and confirmed showing as done on SGT's own site,
 // stayed "Pending" through several fetch cycles). Treat a round as complete
 // if it's explicitly Completed, OR marked Pending but every hole already has
-// a recorded net score — the real signal play has finished, which status
-// alone doesn't always reflect promptly. A genuinely in-progress round
-// (some holes still null) still correctly falls through and waits.
+// a recorded net score.
+//
+// That "every hole has a value" check alone isn't enough, though: while a
+// round is genuinely in progress, SGT fills holes not yet played with a
+// literal 0 (not null) — hole${i}_net is never actually missing, so the old
+// all-non-null check saw a false completion the moment ANY holes were
+// filled in, and treated the 0s as real (super-low) scores. Confirmed
+// 2026-09, S10W1 — two players mid-round-1 showed as -61/-54 on the
+// leaderboard. `activeHole` (1-18 while still playing, 19 once truly done)
+// is the reliable signal — check it first, and only fall back to the
+// all-holes-present heuristic when it's missing, to still catch the
+// separate stuck-on-Pending case above.
 export function isCardComplete(card) {
   if (card.status === 'Completed') return true;
   if (card.status !== 'Pending') return false;
+  if (card.activeHole != null && card.activeHole <= 18) return false;
   for (let i = 1; i <= 18; i++) {
     if (card[`hole${i}_net`] == null) return false;
   }
   return true;
+}
+
+// Has this player actually recorded a stroke yet, vs. a card that's all
+// zero-placeholder holes because they haven't teed off? Used to decide
+// whether an incomplete round is worth surfacing as "in progress" on the
+// leaderboard.
+function cardHasStarted(card) {
+  for (let i = 1; i <= 18; i++) {
+    if (card[`hole${i}_net`] > 0) return true;
+  }
+  return false;
 }
 
 // Fallback team lookup from KV event.teams (used when SGT TeamPlayer fields are absent).
@@ -192,6 +213,31 @@ function calcRinger(scorecards, format) {
       if (trulyTied) { curr.tied = true; prev.tied = true; }
     } else results[0].position = 1;
   }
+
+  // Players actively mid-round with no complete round yet don't get a
+  // ringer total at all (their only card was skipped above) — surface them
+  // unranked instead of just silently dropping them off the leaderboard.
+  // A partial ringer card built from a still-in-progress round would be
+  // wildly wrong anyway (the unplayed holes are 0s, not blanks).
+  const completedNames = new Set(Object.keys(players).map(n => n.toLowerCase()));
+  const seenInProgress = new Set();
+  for (const card of scorecards) {
+    if (card.status !== 'Pending' || isCardComplete(card) || !cardHasStarted(card)) continue;
+    const key = card.player_name.toLowerCase();
+    if (completedNames.has(key) || seenInProgress.has(key)) continue;
+    seenInProgress.add(key);
+    results.push({
+      isTeam: false,
+      player_name: card.player_name,
+      inProgress: true,
+      position: null,
+      roundsPlayed: 0,
+      total: null,
+      toPar: null,
+      prize: null,
+    });
+  }
+
   return results;
 }
 

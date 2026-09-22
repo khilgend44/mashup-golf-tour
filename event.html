@@ -322,7 +322,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260921';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260921c';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -986,6 +986,27 @@
 
       const tbody = document.getElementById('lb-body');
       results.forEach(player => {
+        // Actively mid-round, no complete round yet — a ringer total built
+        // from a still-in-progress card would be garbage (unplayed holes
+        // come back from SGT as 0, not blank), so there's nothing real to
+        // rank or total. Show an alert instead of numbers, unranked, with
+        // no expandable scorecard (nothing finished to show yet).
+        if (player.inProgress) {
+          const tr = document.createElement('tr');
+          tr.className = 'lb-row';
+          const spanCols = (hasPrizes ? 9 : 8) - 3;
+          tr.innerHTML = `
+            <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5"></td>
+            <td class="pos-col px-3 py-3.5 text-center text-gray-700">—</td>
+            <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
+            <td class="px-3 py-3.5 text-right" colspan="${spanCols}">
+              <span class="chip chip-live"><span class="pulse-dot"></span>ROUND IN PROGRESS</span>
+            </td>
+          `;
+          tbody.appendChild(tr);
+          return;
+        }
+
         const posStr = player.tied ? `T${player.position}` : player.position;
         const toParStr = formatToPar(player.toPar);
         const toParCls = player.toPar < 0 ? 'under' : player.toPar > 0 ? 'over' : 'even';
