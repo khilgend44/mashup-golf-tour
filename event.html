@@ -1016,8 +1016,9 @@
           const tr = document.createElement('tr');
           tr.className = 'lb-row cursor-pointer select-none';
           const spanCols = (hasPrizes ? 9 : 8) - 3;
+          const inProgressStreams = getPlayerStreams(streams, player.player_name);
           tr.innerHTML = `
-            <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5"></td>
+            <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5">${streamIconCell(inProgressStreams, isRinger)}</td>
             <td class="pos-col px-3 py-3.5 text-center text-gray-700">—</td>
             <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
             <td class="px-3 py-3.5 text-right" colspan="${spanCols}">
