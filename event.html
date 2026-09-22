@@ -341,7 +341,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260921d';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260922';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1073,7 +1073,7 @@
               ? `<span class="rank-medal medal-${player.position}">${posStr}</span>`
               : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
           </td>
-          <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
+          <td class="px-4 py-3.5 font-medium text-white">${player.player_name}${player.hasLiveRound ? `<span class="chip chip-live" style="padding:1px 6px;font-size:9px;margin-left:8px;vertical-align:1px"><span class="pulse-dot" style="width:5px;height:5px"></span>LIVE</span>` : ''}</td>
           <td class="px-3 py-3.5 text-center text-gray-500 text-xs num hidden sm:table-cell">${player.roundsPlayed}</td>
           <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${player.out}</td>
           <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${player.inn}</td>

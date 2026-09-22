@@ -223,12 +223,17 @@ function calcRinger(scorecards, format) {
   // showing. `activeHole` (1-18) marks how far they've gotten; holes at or
   // past it come back from SGT as a 0 placeholder, not a real score, so
   // those are nulled out here rather than displayed as strokes.
-  const completedNames = new Set(Object.keys(players).map(n => n.toLowerCase()));
+  // A player can also be *already ranked* (round 1 done) while a later
+  // round is mid-flight (round 2 started) — that in-progress round isn't
+  // just "no data yet" in that case, it needs to attach to their existing
+  // result so the scorecard shows it, not get skipped because they already
+  // have a complete round on file.
+  const resultsByName = new Map(results.map(r => [r.player_name.toLowerCase(), r]));
   const seenInProgress = new Set();
   for (const card of scorecards) {
     if (card.status !== 'Pending' || isCardComplete(card) || !cardHasStarted(card)) continue;
     const key = card.player_name.toLowerCase();
-    if (completedNames.has(key) || seenInProgress.has(key)) continue;
+    if (seenInProgress.has(key)) continue; // only one in-progress round shown per player
     seenInProgress.add(key);
     const pars = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
     const indices = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]);
@@ -239,26 +244,41 @@ function calcRinger(scorecards, format) {
     const isPlayed = i => holesPlayed != null ? i < holesPlayed : card[`hole${i + 1}_net`] > 0;
     const net = Array.from({ length: 18 }, (_, i) => isPlayed(i) ? card[`hole${i + 1}_net`] : null);
     const gross = Array.from({ length: 18 }, (_, i) => isPlayed(i) ? card[`hole${i + 1}_gross`] : null);
-    results.push({
-      isTeam: false,
-      player_name: card.player_name,
-      inProgress: true,
-      position: null,
-      roundsPlayed: 0,
-      total: null,
-      toPar: null,
-      prize: null,
-      pars,
-      indices,
-      outPar: pars.slice(0, 9).reduce((a, b) => a + b, 0),
-      inPar: pars.slice(9).reduce((a, b) => a + b, 0),
-      totalPar: pars.reduce((a, b) => a + b, 0),
-      holesPlayed: holesPlayed ?? net.filter(n => n != null).length,
-      ringerCard: Array(18).fill(null),
-      ringerRound: Array(18).fill(null),
-      rounds: [{ round: card.round, net, gross, total: null }],
-      totalNetAllRounds: 0,
-    });
+    const liveRound = { round: card.round, net, gross, total: null };
+    const liveHolesPlayed = holesPlayed ?? net.filter(n => n != null).length;
+
+    const existing = resultsByName.get(key);
+    if (existing) {
+      // Already ranked off a completed round — append the live round so the
+      // scorecard shows it too, and flag it for a "LIVE" badge on the row.
+      // Ranking/ringerCard/roundsPlayed stay untouched: they reflect
+      // completed rounds only, on purpose, so the leaderboard position
+      // never shifts off of in-progress data.
+      existing.rounds = [...existing.rounds, liveRound];
+      existing.hasLiveRound = true;
+      existing.liveHolesPlayed = liveHolesPlayed;
+    } else {
+      results.push({
+        isTeam: false,
+        player_name: card.player_name,
+        inProgress: true,
+        position: null,
+        roundsPlayed: 0,
+        total: null,
+        toPar: null,
+        prize: null,
+        pars,
+        indices,
+        outPar: pars.slice(0, 9).reduce((a, b) => a + b, 0),
+        inPar: pars.slice(9).reduce((a, b) => a + b, 0),
+        totalPar: pars.reduce((a, b) => a + b, 0),
+        holesPlayed: liveHolesPlayed,
+        ringerCard: Array(18).fill(null),
+        ringerRound: Array(18).fill(null),
+        rounds: [liveRound],
+        totalNetAllRounds: 0,
+      });
+    }
   }
 
   return results;
