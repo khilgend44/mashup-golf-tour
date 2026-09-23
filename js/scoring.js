@@ -428,6 +428,31 @@ function calcEscalatorDoom(scorecards, format, event) {
     if (completePlayers.length < teamSize || members.length < teamSize) {
       const hasActivity = members.some(m => m.status !== 'not-started');
       if (hasActivity) {
+        // Provisional to-par from whoever's actually finished so far —
+        // NOT the real ranked total (that still requires all `teamSize`
+        // complete, per the fix above), just "how the team stands right
+        // now." Reuses the same per-segment "best N of the field" idea as
+        // the real scoring, capped to however many are actually in:
+        // 1 player -> their own round IS the provisional total (countN=1
+        // everywhere, since you can't have more counters than players);
+        // 2 players -> best-of-2 on holes 1-6 (correctly matches the real
+        // 1BB rule already), both players summed on 7-18 (an approximation
+        // of 2BB/all-3 using what's available); par is scaled by that same
+        // countN each hole, not the segment's final required count, so
+        // the to-par comparison stays fair at every stage and converges
+        // exactly to the real total once the 3rd player completes.
+        let provisionalToPar = null;
+        if (completePlayers.length > 0 && team.pars) {
+          let provTotal = 0, provPar = 0;
+          for (let h = 0; h < 18; h++) {
+            const segmentCount = h < 6 ? 1 : h < 12 ? 2 : teamSize;
+            const countN = Math.min(segmentCount, completePlayers.length);
+            const sorted = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+            provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
+            provPar += team.pars[h] * countN;
+          }
+          provisionalToPar = provTotal - provPar;
+        }
         results.push({
           isTeam: true,
           inProgress: true,
@@ -436,7 +461,7 @@ function calcEscalatorDoom(scorecards, format, event) {
           members,
           teamSize,
           total: null,
-          toPar: null,
+          toPar: provisionalToPar,
           aggregate: null,
           prize: null,
         });
@@ -1435,6 +1460,7 @@ export function applyPayouts(results, payouts) {
     const map = {};
     for (const p of mainPayouts) if (p.player) map[p.player.toLowerCase()] = p.amount;
     for (const r of results) {
+      if (r.inProgress) continue; // no final placement yet — prize stays null
       if (r.isTeam) {
         const matched = r.players.filter(p => map[p.name.toLowerCase()] != null);
         const majority = Math.ceil(r.players.length / 2);
@@ -1448,6 +1474,7 @@ export function applyPayouts(results, payouts) {
     const amountMap = Object.fromEntries(mainPayouts.map(p => [p.place, p.amount]));
     const groups = {};
     for (const r of results) {
+      if (r.inProgress) continue; // no final placement yet — prize stays null
       if (!groups[r.position]) groups[r.position] = [];
       groups[r.position].push(r);
     }

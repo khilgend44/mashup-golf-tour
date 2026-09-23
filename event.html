@@ -341,7 +341,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260922c';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260923a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1163,9 +1163,13 @@
       results.forEach(team => {
         // Teammates can play hours apart — show each member's own status
         // rather than waiting for all of them (or hiding the team until
-        // someone finishes). No ranking/total here: the segment scoring
-        // (holes 13-18 = "all N score") isn't meaningful until everyone's
-        // actually in, so a partial team stays unranked on purpose.
+        // someone finishes). No real ranked total here — the segment
+        // scoring (holes 13-18 = "all N score") isn't meaningful until
+        // everyone's actually in, so a partial team stays unranked on
+        // purpose — but `toPar` does carry a *provisional* to-par (best-N-
+        // of-however-many-are-done each hole, same shape as the real
+        // scoring, just capped to who's actually finished), labeled as
+        // such so it never reads as a competitive number.
         if (team.inProgress) {
           const doneCount = team.members.filter(m => m.status === 'complete').length;
           const memberChips = team.members.map(m => {
@@ -1177,6 +1181,7 @@
             }
             return `<span class="inline-flex items-center gap-1 text-xs text-gray-600"><span class="text-gray-700">○</span>${m.name}</span>`;
           }).join('');
+          const provToParCls = team.toPar == null ? '' : team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
 
           const tr = document.createElement('tr');
           tr.className = 'lb-row';
@@ -1188,7 +1193,10 @@
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">${memberChips}</div>
             </td>
             <td class="px-3 py-3 text-right" colspan="${spanCols}">
-              <span class="chip chip-live"><span class="pulse-dot"></span>${doneCount}/${team.teamSize} IN</span>
+              <div class="flex items-center justify-end gap-3">
+                ${team.toPar != null ? `<span class="text-xs text-gray-500">Provisional <span class="font-mono font-600 ${provToParCls}">${formatToPar(team.toPar)}</span></span>` : ''}
+                <span class="chip chip-live"><span class="pulse-dot"></span>${doneCount}/${team.teamSize} IN</span>
+              </div>
             </td>
           `;
           tbody.appendChild(tr);
