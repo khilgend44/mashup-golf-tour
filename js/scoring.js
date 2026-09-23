@@ -330,23 +330,31 @@ function indexCountback(a, b) {
 
 // ─── Escalator of Doom ──────────────────────────────────────────────────────
 
-function calcEscalatorDoom(scorecards, format, event) {
-  // Build player card lookup
+// Shared roster/status builder for every live-tracked team format. Teammates
+// can each finish hours apart, so "who's on this team" can't only come from
+// whoever already has a card — seed the full roster from the admin-defined
+// draw (event.teams) first, so a member who hasn't teed off at all still
+// shows as "not started" rather than the team just looking short-handed or
+// not appearing at all. event.teams doesn't exist for every event (older
+// ones, or before the admin's entered this week's draw) — SGT's own
+// TeamPlayer1-N fields already name the whole team on every single card
+// (including teammates who haven't submitted their own yet), so those are
+// also seeded as "not started" per card, guarded so they never clobber a
+// real status already recorded.
+//
+// Returns { key -> { displayMembers, memberStatus: Map(lowerName -> {...}),
+// pars, indices } }. A `memberStatus` entry is one of:
+//   { name, status: 'not-started' }
+//   { name, status: 'live', holesPlayed }
+//   { name, status: 'complete', isSub, net: number[18], totalNet }
+function buildTeamRoster(scorecards, event, teamSize) {
   const cardsByPlayer = {};
   for (const card of scorecards) {
     if (isCardComplete(card)) cardsByPlayer[card.player_name.toLowerCase()] = card;
   }
 
   const kvTeamMap = buildKvTeamMap(event);
-
-  // Teammates can play hours apart, so "who's on this team" can't only
-  // come from whoever already has a card — seed the full roster from the
-  // admin-defined draw (event.teams) first, so a member who hasn't teed
-  // off at all still shows as "not started" rather than the team just
-  // looking short-handed or not appearing. Falls back to whatever SGT's
-  // TeamPlayer fields reveal when there's no KV draft (older/edge-case
-  // events), same as resolveTeamKey already does elsewhere.
-  const teams = {}; // key -> { displayMembers, memberStatus: Map(lowerName -> {...}), pars, indices }
+  const teams = {};
   function ensureTeam(key, displayMembers) {
     if (!teams[key]) {
       teams[key] = { displayMembers: [...displayMembers], memberStatus: new Map(), pars: null, indices: null };
@@ -365,13 +373,9 @@ function calcEscalatorDoom(scorecards, format, event) {
   }
 
   for (const card of scorecards) {
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
+    const sgtFields = Array.from({ length: teamSize }, (_, i) => card[`TeamPlayer${i + 1}`]);
+    const { key, displayMembers } = resolveTeamKey(card, sgtFields, kvTeamMap);
     const team = ensureTeam(key, displayMembers);
-    // SGT's own TeamPlayer1-3 fields already name the whole team on every
-    // card, including teammates who haven't submitted one of their own yet
-    // — seed those as "not started" now instead of waiting on event.teams
-    // (which may not exist for older events) or on that teammate's own card
-    // to show up.
     for (const name of displayMembers) {
       const dk = name.toLowerCase();
       if (!team.memberStatus.has(dk)) team.memberStatus.set(dk, { name, status: 'not-started' });
@@ -422,7 +426,12 @@ function calcEscalatorDoom(scorecards, format, event) {
     if (ri >= 0) team.displayMembers[ri] = sub.with + ' (sub)';
   }
 
+  return teams;
+}
+
+function calcEscalatorDoom(scorecards, format, event) {
   const teamSize = format.teamSize || 3;
+  const teams = buildTeamRoster(scorecards, event, teamSize);
   const results = [];
   for (const team of Object.values(teams)) {
     const members = [...team.memberStatus.values()];
@@ -653,39 +662,56 @@ function toStablefordPts(net, par) {
 }
 
 function calcStableford3Man(scorecards, format, event) {
-  const kvTeamMap = buildKvTeamMap(event);
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars:    Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
-    }
-    const pars = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
-    const net  = Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]);
-    const pts  = net.map((n, i) => toStablefordPts(n, pars[i]));
-    teams[key].players.push({
-      name: card.player_name,
-      net,
-      pts,
-      totalNet: card.total_net,
-      individualTotal: pts.reduce((a, b) => a + b, 0),
-    });
-  }
+  const teamSize = format.teamSize || 3;
+  const teams = buildTeamRoster(scorecards, event, teamSize);
 
-  const results = Object.values(teams).map(team => {
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    // buildTeamRoster's 'complete' entries only carry raw net scores — derive
+    // each hole's stableford points here now that we have this team's pars.
+    const completePlayers = members
+      .filter(m => m.status === 'complete')
+      .map(m => ({ ...m, pts: m.net.map((n, i) => toStablefordPts(n, team.pars[i])) }));
+    for (const p of completePlayers) p.individualTotal = p.pts.reduce((a, b) => a + b, 0);
+
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      // Points-based, not to-par — no par offset needed (points already
+      // account for par per hole). Provisional = top-min(2,N) points per
+      // hole among whoever's actually done, same shape as the real scoring.
+      let provisionalPts = null;
+      if (completePlayers.length > 0) {
+        let provTotal = 0;
+        for (let h = 0; h < 18; h++) {
+          const countN = Math.min(2, completePlayers.length);
+          const sorted = completePlayers.map(p => p.pts[h]).sort((a, b) => b - a);
+          provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
+        }
+        provisionalPts = provTotal;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        isStableford: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        teamSize,
+        total: null,
+        toPar: provisionalPts,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
+    }
+
     const countingPlayers = [];
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
       // Top 2 stableford points per hole
-      const ranked = team.players
+      const ranked = completePlayers
         .map((p, idx) => ({ idx, score: p.pts[h] }))
         .sort((a, b) => b.score - a.score);
-      const counting = new Array(team.players.length).fill(false);
+      const counting = new Array(completePlayers.length).fill(false);
       let total = 0;
       for (let i = 0; i < Math.min(2, ranked.length); i++) {
         counting[ranked[i].idx] = true;
@@ -698,12 +724,12 @@ function calcStableford3Man(scorecards, format, event) {
     const out      = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
     const inn      = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);
     const total    = out + inn;
-    const aggregate = team.players.reduce((s, p) => s + p.individualTotal, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.individualTotal, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       holeCount: Object.fromEntries(Array.from({ length: 18 }, (_, i) => [i + 1, 2])),
       teamHoleScores,
       countingPlayers,
@@ -718,11 +744,13 @@ function calcStableford3Man(scorecards, format, event) {
       toPar:    total,  // repurposed: holds team points total
       aggregate,
       prize: null,
-    };
-  });
+    });
+  }
 
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
   // High score wins: sort descending by total, then aggregate, then index countback (top-2 per hole)
-  results.sort((a, b) => {
+  ranked.sort((a, b) => {
     if (b.total !== a.total) return b.total - a.total;
     if (b.aggregate !== a.aggregate) return b.aggregate - a.aggregate;
     // Hole-by-hole countback from index #1 using top-2 stableford
@@ -733,16 +761,15 @@ function calcStableford3Man(scorecards, format, event) {
     }
     return 0;
   });
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
-  }
-  return results;
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
+  return [...ranked, ...unranked];
 }
 
 // ─── Devil's Draw (4-Man) ───────────────────────────────────────────────────
@@ -845,33 +872,51 @@ function calcDevilsDraw4Man(scorecards, format, event) {
 // ─── Best 2, Worst 2, All 3 ─────────────────────────────────────────────────
 
 function calcBest2Worst2All3(scorecards, format, event) {
-  const kvTeamMap = buildKvTeamMap(event);
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
-    }
-    teams[key].players.push({
-      name: card.player_name,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      totalNet: card.total_net,
-    });
-  }
+  const teamSize = format.teamSize || 3;
+  const teams = buildTeamRoster(scorecards, event, teamSize);
 
-  const results = Object.values(teams).map(team => {
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
+
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      let provisionalToPar = null;
+      if (completePlayers.length > 0 && team.pars) {
+        let provTotal = 0, provPar = 0;
+        for (let h = 0; h < 18; h++) {
+          const par = team.pars[h];
+          // par 3 → all; par 5 → best (lowest); par 4 → worst (highest) —
+          // same rule as the real scoring below, just capped to whoever's done.
+          const countN = Math.min(par === 3 ? 3 : 2, completePlayers.length);
+          const vals = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+          if (par === 4) vals.reverse();
+          provTotal += vals.slice(0, countN).reduce((a, b) => a + b, 0);
+          provPar += par * countN;
+        }
+        provisionalToPar = provTotal - provPar;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        teamSize,
+        total: null,
+        toPar: provisionalToPar,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
+    }
+
     const adjPars = team.pars.map(p => p === 3 ? p * 3 : p * 2);
 
     const countingPlayers = [];
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
       const par = team.pars[h];
-      const ranked = team.players
+      const ranked = completePlayers
         .map((p, idx) => ({ idx, score: p.net[h] }))
         .sort((a, b) => a.score - b.score);
 
@@ -879,7 +924,7 @@ function calcBest2Worst2All3(scorecards, format, event) {
       const countN = par === 3 ? 3 : 2;
       if (par === 4) ranked.reverse();
 
-      const counting = new Array(team.players.length).fill(false);
+      const counting = new Array(completePlayers.length).fill(false);
       let total = 0;
       for (let i = 0; i < countN; i++) {
         counting[ranked[i].idx] = true;
@@ -895,12 +940,12 @@ function calcBest2Worst2All3(scorecards, format, event) {
     const inPar = adjPars.slice(9).reduce((a, b) => a + b, 0);
     const total = out + inn;
     const totalPar = outPar + inPar;
-    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       teamHoleScores,
       countingPlayers,
       pars: team.pars,
@@ -910,20 +955,21 @@ function calcBest2Worst2All3(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate,
       prize: null,
-    };
-  });
-
-  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
+    });
   }
-  return results;
+
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
+  return [...ranked, ...unranked];
 }
 
 // ─── 3-Man Modified BB ──────────────────────────────────────────────────────
@@ -934,36 +980,50 @@ function countForPar(par) {
 }
 
 function calcModifiedBB3Man(scorecards, format, event) {
-  const kvTeamMap = buildKvTeamMap(event);
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
-    }
-    teams[key].players.push({
-      name: card.player_name,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      totalNet: card.total_net,
-    });
-  }
+  const teamSize = format.teamSize || 3;
+  const teams = buildTeamRoster(scorecards, event, teamSize);
 
-  const results = Object.values(teams).map(team => {
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
+
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      let provisionalToPar = null;
+      if (completePlayers.length > 0 && team.pars) {
+        let provTotal = 0, provPar = 0;
+        for (let h = 0; h < 18; h++) {
+          const countN = Math.min(countForPar(team.pars[h]), completePlayers.length);
+          const sorted = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+          provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
+          provPar += team.pars[h] * countN;
+        }
+        provisionalToPar = provTotal - provPar;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        teamSize,
+        total: null,
+        toPar: provisionalToPar,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
+    }
+
     const adjPars = team.pars.map(p => p * countForPar(p));
 
     const countingPlayers = [];
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
       const countN = countForPar(team.pars[h]);
-      const ranked = team.players
+      const ranked = completePlayers
         .map((p, idx) => ({ idx, score: p.net[h] }))
         .sort((a, b) => a.score - b.score);
-      const counting = new Array(team.players.length).fill(false);
+      const counting = new Array(completePlayers.length).fill(false);
       let total = 0;
       for (let i = 0; i < Math.min(countN, ranked.length); i++) {
         counting[ranked[i].idx] = true;
@@ -979,12 +1039,12 @@ function calcModifiedBB3Man(scorecards, format, event) {
     const inPar = adjPars.slice(9).reduce((a, b) => a + b, 0);
     const total = out + inn;
     const totalPar = outPar + inPar;
-    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       teamHoleScores,
       countingPlayers,
       pars: team.pars,
@@ -994,20 +1054,21 @@ function calcModifiedBB3Man(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate,
       prize: null,
-    };
-  });
-
-  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
+    });
   }
-  return results;
+
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
+  return [...ranked, ...unranked];
 }
 
 // ─── 3-Man, 2 Best Ball ─────────────────────────────────────────────────────
@@ -1015,41 +1076,53 @@ function calcModifiedBB3Man(scorecards, format, event) {
 // 18-hole team total wins. Tie → total team aggregate (all three players' net
 // over 18 holes).
 function calcBestBall3Man(scorecards, format, event) {
-  const kvTeamMap = buildKvTeamMap(event);
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
-    }
-    teams[key].players.push({
-      name: card.player_name,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      totalNet: card.total_net,
-    });
-  }
-
+  const teamSize = format.teamSize || 3;
+  const teams = buildTeamRoster(scorecards, event, teamSize);
   const COUNT_N = 2; // two best balls count on every hole
-  const results = Object.values(teams).map(team => {
+
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
+
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      let provisionalToPar = null;
+      if (completePlayers.length > 0 && team.pars) {
+        const countN = Math.min(COUNT_N, completePlayers.length);
+        let provTotal = 0, provPar = 0;
+        for (let h = 0; h < 18; h++) {
+          const sorted = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+          provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
+          provPar += team.pars[h] * countN;
+        }
+        provisionalToPar = provTotal - provPar;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        teamSize,
+        total: null,
+        toPar: provisionalToPar,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
+    }
+
     // Two balls count each hole → par doubles for the to-par display.
     const adjPars = team.pars.map(p => p * COUNT_N);
 
     const countingPlayers = [];
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
-      // Treat 0/null as a missing score so it can't be picked as a "best".
-      const ranked = team.players
-        .map((p, idx) => ({ idx, score: (p.net[h] === null || p.net[h] === 0) ? Infinity : p.net[h] }))
+      const ranked = completePlayers
+        .map((p, idx) => ({ idx, score: p.net[h] }))
         .sort((a, b) => a.score - b.score);
-      const counting = new Array(team.players.length).fill(false);
+      const counting = new Array(completePlayers.length).fill(false);
       let total = 0;
       for (let i = 0; i < Math.min(COUNT_N, ranked.length); i++) {
-        if (ranked[i].score === Infinity) continue;
         counting[ranked[i].idx] = true;
         total += ranked[i].score;
       }
@@ -1063,12 +1136,12 @@ function calcBestBall3Man(scorecards, format, event) {
     const inPar = adjPars.slice(9).reduce((a, b) => a + b, 0);
     const total = out + inn;
     const totalPar = outPar + inPar;
-    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       teamHoleScores,
       countingPlayers,
       pars: team.pars,
@@ -1078,20 +1151,21 @@ function calcBestBall3Man(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate,
       prize: null,
-    };
-  });
-
-  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
+    });
   }
-  return results;
+
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
+  return [...ranked, ...unranked];
 }
 
 // ─── 2-Man Shamble ──────────────────────────────────────────────────────────

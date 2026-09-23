@@ -341,7 +341,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260923c';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260923d';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1181,7 +1181,13 @@
             }
             return `<span class="inline-flex items-center gap-1 text-xs text-gray-600"><span class="text-gray-700">○</span>${m.name}</span>`;
           }).join('');
-          const provToParCls = team.toPar == null ? '' : team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
+          // Stableford's `toPar` is repurposed to hold raw points (higher is
+          // better, no par offset) — same as the ranked row below, show it
+          // as a plain point count instead of a +/- to-par diff.
+          const provLabel = team.toPar == null ? ''
+            : team.isStableford
+              ? `<span class="text-xs text-gray-500">Provisional <span class="font-mono font-600 text-gray-300">${team.toPar} pts</span></span>`
+              : `<span class="text-xs text-gray-500">Provisional <span class="font-mono font-600 ${team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even'}">${formatToPar(team.toPar)}</span></span>`;
 
           const tr = document.createElement('tr');
           tr.className = 'lb-row';
@@ -1194,7 +1200,7 @@
             </td>
             <td class="px-3 py-3 text-right" colspan="${spanCols}">
               <div class="flex items-center justify-end gap-3">
-                ${team.toPar != null ? `<span class="text-xs text-gray-500">Provisional <span class="font-mono font-600 ${provToParCls}">${formatToPar(team.toPar)}</span></span>` : ''}
+                ${provLabel}
                 <span class="chip chip-live"><span class="pulse-dot"></span>${doneCount}/${team.teamSize} IN</span>
               </div>
             </td>
@@ -1438,6 +1444,7 @@
         results.filter(t => t.prize != null).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
       );
       const eligible = results
+        .filter(team => !team.inProgress) // in-progress teams have no final `players` list yet
         .flatMap(team => team.players.map(p => ({ name: p.name, totalNet: p.totalNet, teamPos: team.position })))
         .filter(p => !winnerMembers.has(p.name.toLowerCase()))
         .sort((a, b) => a.totalNet - b.totalNet);
@@ -1473,6 +1480,7 @@
         results.filter(t => t.prize != null).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
       );
       const eligible = results
+        .filter(team => !team.inProgress) // in-progress teams have no final `players` list yet
         .flatMap(team => team.players.map(p => ({ name: p.name, pts: p.individualTotal, teamPos: team.position })))
         .filter(p => !topTeamMembers.has(p.name.toLowerCase()))
         .sort((a, b) => b.pts - a.pts);
