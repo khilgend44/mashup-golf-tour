@@ -339,36 +339,72 @@ function calcEscalatorDoom(scorecards, format, event) {
 
   const kvTeamMap = buildKvTeamMap(event);
 
-  // Group players by team using TeamPlayer fields (fallback: KV event.teams)
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
+  // Teammates can play hours apart, so "who's on this team" can't only
+  // come from whoever already has a card — seed the full roster from the
+  // admin-defined draw (event.teams) first, so a member who hasn't teed
+  // off at all still shows as "not started" rather than the team just
+  // looking short-handed or not appearing. Falls back to whatever SGT's
+  // TeamPlayer fields reveal when there's no KV draft (older/edge-case
+  // events), same as resolveTeamKey already does elsewhere.
+  const teams = {}; // key -> { displayMembers, memberStatus: Map(lowerName -> {...}), pars, indices }
+  function ensureTeam(key, displayMembers) {
     if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
+      teams[key] = { displayMembers: [...displayMembers], memberStatus: new Map(), pars: null, indices: null };
     }
-    teams[key].players.push({
-      name: card.player_name,
-      isSub: false,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      totalNet: card.total_net,
-    });
+    return teams[key];
   }
 
-  // Apply substitutions from event config
+  if (event?.teams?.length) {
+    for (const roster of event.teams) {
+      const key = roster.map(p => p.toLowerCase()).sort().join('|');
+      const team = ensureTeam(key, roster);
+      for (const name of roster) {
+        team.memberStatus.set(name.toLowerCase(), { name, status: 'not-started' });
+      }
+    }
+  }
+
+  for (const card of scorecards) {
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
+    const team = ensureTeam(key, displayMembers);
+    if (!team.pars) {
+      team.pars = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
+      team.indices = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]);
+    }
+    const nameKey = card.player_name.toLowerCase();
+    if (isCardComplete(card)) {
+      team.memberStatus.set(nameKey, {
+        name: card.player_name,
+        status: 'complete',
+        isSub: false,
+        net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+        totalNet: card.total_net,
+      });
+    } else if (card.status === 'Pending' && cardHasStarted(card)) {
+      const holesPlayed = card.activeHole != null ? Math.max(0, Math.min(18, card.activeHole - 1)) : null;
+      team.memberStatus.set(nameKey, {
+        name: card.player_name,
+        status: 'live',
+        holesPlayed: holesPlayed ?? 0,
+      });
+    } else if (!team.memberStatus.has(nameKey)) {
+      team.memberStatus.set(nameKey, { name: card.player_name, status: 'not-started' });
+    }
+  }
+
+  // Apply substitutions from event config — only meaningful once the sub
+  // actually has a completed card; a sub who hasn't played yet just shows
+  // up as "not started" under their own name via the loop above.
   for (const sub of (event?.substitutions ?? [])) {
     const origKey = sub.originalPlayers.map(p => p.toLowerCase()).sort().join('|');
     const team = teams[origKey];
     const subCard = cardsByPlayer[sub.with.toLowerCase()];
     if (!team || !subCard) continue;
 
-    team.players.push({
+    team.memberStatus.delete(sub.replace.toLowerCase());
+    team.memberStatus.set(sub.with.toLowerCase(), {
       name: sub.with,
+      status: 'complete',
       isSub: true,
       net: Array.from({ length: 18 }, (_, i) => subCard[`hole${i + 1}_net`]),
       totalNet: subCard.total_net,
@@ -377,17 +413,46 @@ function calcEscalatorDoom(scorecards, format, event) {
     if (ri >= 0) team.displayMembers[ri] = sub.with + ' (sub)';
   }
 
-  // Score each team
-  const results = Object.values(teams).map(team => {
+  const teamSize = format.teamSize || 3;
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
+
+    // Only score a team once every roster spot is a completed card — the
+    // back-6 "all N score" segment would otherwise silently use however
+    // many happen to be done instead of the real team size, understating
+    // the team's true total for as long as it's short-handed. Confirmed
+    // 2026-09: worth fixing alongside adding "in progress" support, not
+    // just cosmetic — a genuinely wrong number is worse than no number.
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      const hasActivity = members.some(m => m.status !== 'not-started');
+      if (hasActivity) {
+        results.push({
+          isTeam: true,
+          inProgress: true,
+          position: null,
+          displayMembers: team.displayMembers,
+          members,
+          teamSize,
+          total: null,
+          toPar: null,
+          aggregate: null,
+          prize: null,
+        });
+      }
+      continue;
+    }
+
     const adjPars = team.pars.map((p, i) => i < 6 ? p : i < 12 ? p * 2 : p * 3);
 
     const countingPlayers = [];   // countingPlayers[hole][playerIdx] = true/false
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
-      const ranked = team.players
+      const ranked = completePlayers
         .map((p, idx) => ({ idx, score: p.net[h] }))
         .sort((a, b) => a.score - b.score);
-      const countN = h < 6 ? 1 : h < 12 ? 2 : team.players.length;
-      const counting = new Array(team.players.length).fill(false);
+      const countN = h < 6 ? 1 : h < 12 ? 2 : completePlayers.length;
+      const counting = new Array(completePlayers.length).fill(false);
       let total = 0;
       for (let i = 0; i < Math.min(countN, ranked.length); i++) {
         counting[ranked[i].idx] = true;
@@ -403,12 +468,12 @@ function calcEscalatorDoom(scorecards, format, event) {
     const inPar  = adjPars.slice(9).reduce((a, b) => a + b, 0);
     const total  = out + inn;
     const totalPar = outPar + inPar;
-    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       teamHoleScores,
       countingPlayers,
       pars: team.pars,
@@ -418,21 +483,25 @@ function calcEscalatorDoom(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate,
       prize: null,
-    };
+    });
+  }
+
+  // Sort: team total → net aggregate tiebreaker. In-progress entries have
+  // no total to sort by and stay unranked at the end.
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
   });
 
-  // Sort: team total → net aggregate tiebreaker
-  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
-  }
-  return results;
+  return [...ranked, ...unranked];
 }
 
 // ─── Devil's Draw ───────────────────────────────────────────────────────────
