@@ -51,6 +51,12 @@ async function kvListKeys(accountId, apiToken, prefix) {
   return Array.isArray(data.result) ? data.result : [];
 }
 
+// Seasons closed to new registrations — keep in sync with REGISTRATION_CLOSED
+// in registration.html. That flag only hides the form; this is what actually
+// stops a submission, since someone could otherwise POST here directly and
+// bypass a client-only close.
+const CLOSED_SEASONS = new Set(['season-10']);
+
 export async function onRequestOptions(context) {
   return new Response(null, { status: 204, headers: corsFor(context.request) });
 }
@@ -72,6 +78,7 @@ export async function onRequestPost(context) {
   // `registrations:<anything>` keys (path traversal / KV pollution).
   const season = String(body.season || 'season-10');
   if (!/^season-\d{1,4}$/.test(season)) return json({ error: 'Invalid season.' }, 400);
+  if (CLOSED_SEASONS.has(season)) return json({ error: 'Registration for this season is closed.' }, 403);
 
   const username = String(body.username || '').trim();
   if (!username) return json({ error: 'SGT username is required' }, 400);

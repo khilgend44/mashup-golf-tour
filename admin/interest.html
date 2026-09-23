@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interest List — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="https://mashupgolf.com/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Site</a>
+      <span class="text-border">/</span>
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Admin</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">Interest List</span>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-4 py-12 w-full flex-1">
+    <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none mb-3">Interest List</h1>
+    <p class="text-gray-500 text-sm mb-8 leading-relaxed max-w-xl">
+      Names collected from the "notify me" form on registration.html while Season 10 registration is closed.
+      Not a real registration — no review/approve flow, just a heads-up list for when Season 11 opens.
+      Remove an entry once you've reached out.
+    </p>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-5"></div>
+
+    <div class="card-shadow bg-card border border-border rounded-xl overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-border bg-surface">
+            <th class="text-left px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Name</th>
+            <th class="text-left px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Email</th>
+            <th class="text-left px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Note</th>
+            <th class="text-left px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Submitted</th>
+            <th class="px-5 py-3"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="empty" class="hidden px-5 py-10 text-center text-gray-600 text-sm">No one's signed up for a heads-up yet.</div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-4xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script>
+    const API = '/admin/api/interest';
+    const BUCKET = 'season-11';
+    const $ = id => document.getElementById(id);
+
+    function setStatus(msg, kind) {
+      const el = $('status');
+      if (!msg) { el.classList.add('hidden'); return; }
+      el.textContent = msg;
+      el.className = `rounded-lg px-4 py-3 text-sm font-body mb-5 ${kind === 'error' ? 'bg-red-900/30 border border-red-800/40 text-red-300' : 'bg-emerald-900/30 border border-emerald-800/40 text-emerald-300'}`;
+      el.classList.remove('hidden');
+    }
+
+    async function load() {
+      setStatus('');
+      try {
+        const res = await fetch(`${API}?bucket=${encodeURIComponent(BUCKET)}`);
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Failed to load.');
+        render(d.entries || []);
+      } catch (e) {
+        setStatus(e.message, 'error');
+      }
+    }
+
+    function render(entries) {
+      $('empty').classList.toggle('hidden', entries.length > 0);
+      $('tbody').innerHTML = entries.map(e => `
+        <tr class="border-b border-border last:border-0">
+          <td class="px-5 py-3 text-white font-heading font-600">${escapeHtml(e.name)}</td>
+          <td class="px-5 py-3 text-gray-400">${escapeHtml(e.email)}</td>
+          <td class="px-5 py-3 text-gray-500 max-w-xs truncate" title="${escapeHtml(e.note || '')}">${escapeHtml(e.note || '—')}</td>
+          <td class="px-5 py-3 text-gray-600 text-xs">${e.submittedAt ? new Date(e.submittedAt).toLocaleDateString([], { dateStyle: 'medium' }) : '—'}</td>
+          <td class="px-5 py-3 text-right">
+            <button data-id="${e.id}" class="remove-btn text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-red-400" style="transition:color .12s">Remove</button>
+          </td>
+        </tr>
+      `).join('');
+      document.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => removeEntry(btn.dataset.id));
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    async function removeEntry(id) {
+      if (!confirm('Remove this entry from the interest list?')) return;
+      try {
+        const res = await fetch(API, {
+          method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bucket: BUCKET, id }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || 'Failed to remove.');
+        load();
+      } catch (e) {
+        setStatus(e.message, 'error');
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
