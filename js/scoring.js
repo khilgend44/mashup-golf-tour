@@ -367,6 +367,15 @@ function calcEscalatorDoom(scorecards, format, event) {
   for (const card of scorecards) {
     const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
     const team = ensureTeam(key, displayMembers);
+    // SGT's own TeamPlayer1-3 fields already name the whole team on every
+    // card, including teammates who haven't submitted one of their own yet
+    // — seed those as "not started" now instead of waiting on event.teams
+    // (which may not exist for older events) or on that teammate's own card
+    // to show up.
+    for (const name of displayMembers) {
+      const dk = name.toLowerCase();
+      if (!team.memberStatus.has(dk)) team.memberStatus.set(dk, { name, status: 'not-started' });
+    }
     if (!team.pars) {
       team.pars = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
       team.indices = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]);
