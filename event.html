@@ -1729,11 +1729,32 @@
       if (!rounds.length) return '';
       const showRoundLabel = rounds.length > 1;
 
+      // The CTP prize pays out the single closest shot to the pin on a hole
+      // across ALL rounds, not per round — SGT just happens to expose the
+      // data one round-card at a time, which reads like each round has its
+      // own separate CTP race. Work out who's actually leading each hole
+      // right now (an ace always wins outright; otherwise lowest distance)
+      // so that one entry can be marked, instead of leaving it to whoever's
+      // reading to compare numbers across cards themselves.
+      const holeLeader = new Map(); // hole number -> { round, player, ace, distance_ft }
+      for (const r of rounds) {
+        for (const h of (r.holes || [])) {
+          const top = h.leaders?.[0]; // each hole's leaders are already sorted closest-first
+          if (!top) continue;
+          const curr = holeLeader.get(h.hole);
+          const topBeats = !curr
+            || (top.ace && !curr.ace)
+            || (top.ace === curr.ace && top.distance_ft < curr.distance_ft);
+          if (topBeats) holeLeader.set(h.hole, { round: r.round, player: top.player, ace: top.ace, distance_ft: top.distance_ft });
+        }
+      }
+
       const roundsHtml = rounds.map(r => {
         const holeCards = (r.holes || [])
           .filter(h => h.leaders?.length)
           .map(h => {
             const hasAce = h.leaders.some(l => l.ace);
+            const winner = holeLeader.get(h.hole);
             return `
             <div class="bg-card border ${hasAce ? 'border-amber-400/60' : 'border-border'} rounded-xl p-4 flex flex-col" ${hasAce ? 'style="box-shadow:0 0 20px rgba(251,191,36,0.18)"' : ''}>
               <div class="text-center mb-2">
@@ -1741,12 +1762,15 @@
                 <div class="text-[11px] text-gray-500 uppercase tracking-widest mt-1">Avg ${h.avg_ft.toFixed(2)} ft</div>
               </div>
               <div class="flex flex-col gap-2 mt-1">
-                ${h.leaders.map(l => `
-                  <div class="flex items-center gap-2">
+                ${h.leaders.map((l, i) => {
+                  const isCurrentCtp = i === 0 && winner?.round === r.round && winner?.player === l.player;
+                  return `
+                  <div class="flex items-center gap-2 ${isCurrentCtp ? 'rounded-lg px-2 py-1 -mx-2' : ''}" ${isCurrentCtp ? 'style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.5)"' : ''}>
                     <span class="fi ${l.flag}" style="width:18px;height:13px;border-radius:2px;flex-shrink:0;box-shadow:0 0 0 1px rgba(255,255,255,0.08)"></span>
-                    <span class="font-medium ${l.ace ? 'text-amber-400' : 'text-white'} text-sm truncate flex-1">${l.player}</span>
-                    <span class="text-xs ${l.ace ? 'text-amber-400 font-700' : 'text-gray-400'} font-mono whitespace-nowrap">${l.ace ? 'ACE! 🎯' : l.distance_ft.toFixed(2) + ' ft'}</span>
-                  </div>`).join('')}
+                    <span class="font-medium ${l.ace ? 'text-amber-400' : isCurrentCtp ? 'text-amber-300' : 'text-white'} text-sm truncate flex-1">${l.player}${isCurrentCtp ? ' <span class="text-[9px] text-amber-400 font-700 tracking-wide align-middle">CTP</span>' : ''}</span>
+                    <span class="text-xs ${l.ace ? 'text-amber-400 font-700' : isCurrentCtp ? 'text-amber-300 font-700' : 'text-gray-400'} font-mono whitespace-nowrap">${l.ace ? 'ACE! 🎯' : l.distance_ft.toFixed(2) + ' ft'}</span>
+                  </div>`;
+                }).join('')}
               </div>
             </div>`;
           }).join('');
@@ -1764,7 +1788,7 @@
         <div class="mt-8">
           <div class="flex items-center justify-between mb-3">
             <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">🎯 Closest to the Pin — Live</h2>
-            <span class="text-[11px] text-gray-600">via SGT</span>
+            <span class="text-[11px] text-gray-600">via SGT${showRoundLabel ? ' · boxed = current leader across both rounds' : ''}</span>
           </div>
           ${roundsHtml}
         </div>`;
