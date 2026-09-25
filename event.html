@@ -338,7 +338,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260923d';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260925a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -511,7 +511,11 @@
         return;
       }
 
-      const results = applyFormat(scorecards, format, event);
+      // Season roster (used by solo formats to show not-yet-started players
+      // — see calcRinger's event.players handling — and by the stream form
+      // below), so this needs to be resolved before applyFormat runs.
+      const season = seasons.find(s => s.id === event.season);
+      const results = applyFormat(scorecards, format, { ...event, players: season?.players });
       applyPayouts(results, event.payouts);
 
       // Fetch stream links (non-fatal if unavailable)
@@ -524,7 +528,6 @@
       // Live closest-to-pin standings — best-effort, see js/api.js fetchCtp
       const ctpLive = await fetchCtp(event.tournamentId);
 
-      const season = seasons.find(s => s.id === event.season);
       renderHeader(event, format, results.length, scorecards, season?.players?.length);
       renderLeaderboard(results, event, format, streams, ctpLive);
 
@@ -1002,6 +1005,26 @@
 
       const tbody = document.getElementById('lb-body');
       results.forEach(player => {
+        // Known to be in the field (season roster) but hasn't touched a
+        // scorecard at all — no round to expand into, so this row is inert
+        // (no click handler, no stream icon) rather than pretending there's
+        // something to look at. Sits at the very bottom, below in-progress.
+        if (player.notStarted) {
+          const tr = document.createElement('tr');
+          tr.className = 'lb-row';
+          const spanCols = (hasPrizes ? 9 : 8) - 3;
+          tr.innerHTML = `
+            <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5"></td>
+            <td class="pos-col px-3 py-3.5 text-center text-gray-700">—</td>
+            <td class="px-4 py-3.5 font-medium text-gray-600">${player.player_name}</td>
+            <td class="px-3 py-3.5 text-right" colspan="${spanCols}">
+              <span class="chip" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#6b7280">NOT STARTED</span>
+            </td>
+          `;
+          tbody.appendChild(tr);
+          return;
+        }
+
         // Actively mid-round, no complete round yet — a ringer total built
         // from a still-in-progress card would be garbage (unplayed holes
         // come back from SGT as 0, not blank), so there's nothing real to

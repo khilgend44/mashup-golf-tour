@@ -3,7 +3,7 @@
 export function applyFormat(scorecards, format, event = null) {
   const cards = applyManualOverrides(scorecards, event);
   switch (format.type) {
-    case 'ringer':          return calcRinger(cards, format);
+    case 'ringer':          return calcRinger(cards, format, event);
     case 'escalator-doom':  return calcEscalatorDoom(cards, format, event);
     case 'lone-ranger':     return calcLoneRanger(cards, format, event);
     case 'shamble-2man':      return calcShamble2Man(cards, format, event);
@@ -134,7 +134,7 @@ function resolveTeamKey(card, sgtFields, kvTeamMap) {
 
 // ─── Solo Ringer ────────────────────────────────────────────────────────────
 
-function calcRinger(scorecards, format) {
+function calcRinger(scorecards, format, event) {
   const basis = format.scoringBasis;
   const players = {};
 
@@ -292,9 +292,36 @@ function calcRinger(scorecards, format) {
   // at all yet) have no total to rank by and stay unranked at the end.
   if (ringerImproved) {
     const ranked = results.filter(r => !r.inProgress);
-    const unranked = results.filter(r => r.inProgress);
     rankAndPosition(ranked);
-    return [...ranked, ...unranked];
+    const unranked = results.filter(r => r.inProgress);
+    results.length = 0;
+    results.push(...ranked, ...unranked);
+  }
+
+  // Anyone in the known field (event.players — the season roster, passed
+  // in from event.html) who hasn't touched a scorecard at all this event
+  // has no card in `scorecards`, so nothing above can surface them. Seed
+  // them here, fully unranked, sitting below everyone with real or
+  // in-progress data — same idea as showing a team's not-yet-started
+  // member, just for a solo format where there's no team roster to
+  // piggyback on.
+  if (event?.players?.length) {
+    const knownNames = new Set([...resultsByName.keys(), ...seenInProgress]);
+    for (const name of event.players) {
+      const key = name.toLowerCase();
+      if (knownNames.has(key)) continue;
+      knownNames.add(key);
+      results.push({
+        isTeam: false,
+        player_name: name,
+        notStarted: true,
+        position: null,
+        roundsPlayed: 0,
+        total: null,
+        toPar: null,
+        prize: null,
+      });
+    }
   }
 
   return results;
