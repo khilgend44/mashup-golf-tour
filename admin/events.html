@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -60,6 +61,40 @@
     .panel.open { max-height: 6000px; }
     .new-format-panel { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
     .new-format-panel.open { max-height: 800px; }
+
+    /* ─ RESULTS POSTER ─ same visual language as poster-preview.html's
+       announcement poster, condensed for a results/winners layout. */
+    #results-poster { width: 900px; background: #0a0a0a; font-family: 'Inter', sans-serif; position: relative; }
+    .rp-header { background: linear-gradient(135deg, #111 0%, #1a0f05 60%, #0d0d0d 100%);
+          padding: 30px 44px 24px; border-bottom: 3px solid #f97316; position: relative; }
+    .rp-label  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px;
+                letter-spacing:0.18em; text-transform:uppercase; color:#f97316; margin-bottom:4px; }
+    .rp-title  { font-family:'Bebas Neue',cursive; font-size:44px; line-height:1; color:#fff;
+                letter-spacing:0.02em; margin-bottom:6px; }
+    .rp-sub    { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:14px;
+                color:#9ca3af; letter-spacing:0.05em; }
+    .rp-sh     { padding:16px 44px 8px; display:flex; align-items:center; gap:14px; }
+    .rp-shl    { font-family:'Bebas Neue',cursive; font-size:24px; color:#f97316; letter-spacing:0.08em; }
+    .rp-shr    { flex:1; height:1px; background:#1e1e1e; }
+    .rp-prizes { padding:0 44px 6px; }
+    .rp-row    { display:flex; align-items:baseline; justify-content:space-between; padding:9px 0; border-bottom:1px solid #141414; }
+    .rp-place  { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:17px; letter-spacing:0.05em; color:#6b7280; }
+    .rp-place.gold   { color:#f59e0b; } .rp-place.silver { color:#9ca3af; } .rp-place.bronze { color:#cd7c44; }
+    .rp-names  { font-family:'Inter',sans-serif; font-size:15px; color:#e5e5e5; margin-left:10px; }
+    .rp-amt    { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:19px; color:#f97316; }
+    .rp-highlight { margin:14px 44px; padding:14px 18px; border-radius:10px;
+          background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.35); }
+    .rp-highlight-label { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px;
+          letter-spacing:0.12em; text-transform:uppercase; color:#fbbf24; margin-bottom:4px; }
+    .rp-highlight-text { font-family:'Inter',sans-serif; font-size:14px; color:#e5e5e5; }
+    .rp-ctp-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0; }
+    .rp-ctp-l   { font-family:'Inter',sans-serif; font-size:13px; color:#9ca3af; }
+    .rp-ctp-a   { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px; color:#d1d5db; }
+    .rp-footer { background:#111; border-top:1px solid #1e1e1e; padding:14px 44px;
+          display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+    .rp-url    { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:13px;
+          letter-spacing:0.1em; color:#374151; text-transform:uppercase; }
+    .rp-cta    { font-family:'Bebas Neue',cursive; font-size:22px; letter-spacing:0.06em; color:#f97316; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
@@ -480,18 +515,22 @@
 
   <!-- RESULTS → DISCORD MODAL -->
   <div id="results-modal" class="fixed inset-0 z-50 items-center justify-center" style="display:none;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)">
-    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl w-full max-w-xl mx-4 card-shadow flex flex-col" style="max-height:90vh">
+    <div class="bg-[#1e1e1e] border border-[#2c2c2c] rounded-xl w-full max-w-5xl mx-4 card-shadow flex flex-col" style="max-height:92vh">
       <div class="px-6 py-4 border-b border-[#2c2c2c]">
         <div class="text-xs font-heading font-600 tracking-widest text-[#5865F2] uppercase mb-1">Post Results to Discord</div>
         <h2 id="results-title" class="font-display text-2xl tracking-wider text-white"></h2>
-        <p class="text-xs text-gray-500 font-body mt-1">Edit the message below, then post it to the announcements channel.</p>
+        <p class="text-xs text-gray-500 font-body mt-1">Edit the message below — the poster image is generated automatically and posts alongside it.</p>
       </div>
       <div class="px-6 py-5 overflow-y-auto">
-        <textarea id="results-text" rows="16" class="w-full bg-surface border border-border rounded-lg px-3 py-3 text-sm text-gray-200 font-mono leading-relaxed focus:outline-none focus:border-flame" style="resize:vertical"></textarea>
+        <div id="results-poster-wrap" class="flex justify-center mb-5 overflow-x-auto"></div>
+        <textarea id="results-text" rows="14" class="w-full bg-surface border border-border rounded-lg px-3 py-3 text-sm text-gray-200 font-mono leading-relaxed focus:outline-none focus:border-flame" style="resize:vertical"></textarea>
       </div>
       <div class="px-6 py-4 border-t border-[#2c2c2c] flex items-center justify-between gap-3">
         <button id="results-skip" class="text-gray-500 hover:text-gray-300 text-sm font-heading font-600 tracking-wider" style="transition:color 0.12s">Do Not Post</button>
-        <button id="results-post" class="px-6 py-2.5 rounded-lg bg-[#5865F2] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#4752c4]" style="transition:background 0.15s">Post to Discord</button>
+        <div class="flex items-center gap-3">
+          <button id="results-download" class="px-5 py-2.5 rounded-lg border border-flame/30 text-flame text-sm font-heading font-600 tracking-wider hover:bg-flame/10" style="transition:background 0.15s">↓ Download PNG</button>
+          <button id="results-post" class="px-6 py-2.5 rounded-lg bg-[#5865F2] text-white text-sm font-heading font-600 tracking-wider hover:bg-[#4752c4]" style="transition:background 0.15s">Post to Discord</button>
+        </div>
       </div>
     </div>
   </div>
@@ -506,6 +545,7 @@
 
   <script type="module">
     import { applyFormat, applyPayouts, resolveSidePots } from '/js/scoring.js';
+    import { buildEventSummary } from '/js/event-summary.js';
     const API      = '/api/events-admin';   // public reads (list/scrape)
     const API_WRITE = '/admin/api/events';   // Access-protected writes
     const FORMATS_STATIC_URL = '/data/formats.json';
@@ -882,14 +922,34 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       } catch { return []; }
     }
 
-    async function generateResultsMessage(event, format) {
-      // Merge any manual overrides (usually none at completion time)
+    const fmtMoney = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const medal    = p => p === 1 ? '🥇' : p === 2 ? '🥈' : p === 3 ? '🥉' : '';
+    // Named ordinalSuffix (not ordinal) — a same-named function already
+    // exists further down for the payouts-editor UI (ORDINALS-array based,
+    // different call sites) and module-scope `const` can't shadow it.
+    const ordinalSuffix = p => { const s = ['th','st','nd','rd'], v = p % 100; return p + (s[(v - 20) % 10] || s[v] || s[0]); };
+    const placeLabel = r => r.tied ? `T${ordinalSuffix(r.position)}` : `${medal(r.position)} ${ordinalSuffix(r.position)}`.trim();
+
+    // Shared by the text message and the poster image so both are built from
+    // the exact same computed results — one fetch/score pass, not two.
+    async function computeEventResults(event, format) {
       let ev = event;
       try {
         const ov = await (await fetch('/data/overrides.json')).json();
         if (ov[event.id]) ev = { ...event, ...ov[event.id] };
       } catch { /* no overrides */ }
 
+      const scorecards = await fetchScorecardsLocal(ev.tournamentId);
+      let results = [];
+      try {
+        results = applyFormat(scorecards, format, ev);
+        applyPayouts(results, ev.payouts);
+      } catch { /* leave results empty */ }
+
+      return { ev, results, scorecards };
+    }
+
+    async function generateResultsMessage(ev, format, results) {
       // Player → Discord ID map (protected); tag players who have an ID
       let discord = {};
       try {
@@ -903,19 +963,8 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
 
       const teamSize = parseInt(format?.teamSize) || 1;
       const isTeam   = teamSize > 1;
-      const fmtMoney = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const medal    = p => p === 1 ? '🥇' : p === 2 ? '🥈' : p === 3 ? '🥉' : '';
-      const ordinal  = p => { const s = ['th','st','nd','rd'], v = p % 100; return p + (s[(v - 20) % 10] || s[v] || s[0]); };
-      const placeLabel = r => r.tied ? `T${ordinal(r.position)}` : `${medal(r.position)} ${ordinal(r.position)}`.trim();
 
       const lines = [`🏁 **${ev.name} — COMPLETE!**`, ''];
-
-      const scorecards = await fetchScorecardsLocal(ev.tournamentId);
-      let results = [];
-      try {
-        results = applyFormat(scorecards, format, ev);
-        applyPayouts(results, ev.payouts);
-      } catch { /* leave results empty */ }
 
       const paid = results.filter(r => r.prize != null).sort((a, b) => a.position - b.position);
       if (paid.length) {
@@ -953,6 +1002,73 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       return lines.join('\n');
     }
 
+    // One standout fact from the Event Summary engine to give the poster a
+    // second reason to be interesting beyond "here's who won" — prefers the
+    // longest birdie-or-better streak (net, since that's what formats
+    // actually score by), falling back to gross, then to the best net round
+    // if nobody strung together a real streak.
+    function buildHighlight(summary) {
+      const netStreak = summary?.playerStats?.net?.longestStreak;
+      if (netStreak && netStreak.length >= 2) {
+        return `${netStreak.player} carded a ${netStreak.length}-hole birdie-or-better streak (net) in Round ${netStreak.round}, holes ${netStreak.startHole}–${netStreak.endHole}.`;
+      }
+      const grossStreak = summary?.playerStats?.gross?.longestStreak;
+      if (grossStreak && grossStreak.length >= 2) {
+        return `${grossStreak.player} carded a ${grossStreak.length}-hole birdie-or-better streak (gross) in Round ${grossStreak.round}, holes ${grossStreak.startHole}–${grossStreak.endHole}.`;
+      }
+      const bestNet = summary?.playerStats?.net?.bestRound;
+      if (bestNet) {
+        return `${bestNet.player} posted the low round of the week — ${bestNet.total} net in Round ${bestNet.round}.`;
+      }
+      return null;
+    }
+
+    function buildResultsPoster(ev, format, results, highlight) {
+      const teamSize = parseInt(format?.teamSize) || 1;
+      const isTeam = teamSize > 1;
+      const seasonStr = ev.season ? ev.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase()) : '';
+      const weekStr = ev.week ? `Week ${ev.week}` : '';
+      const labelStr = [seasonStr, weekStr].filter(Boolean).join(' · ');
+
+      const paid = results.filter(r => r.prize != null).sort((a, b) => a.position - b.position);
+      const prizeRows = paid.map(r => {
+        const dec = r.position === 1 ? 'gold' : r.position === 2 ? 'silver' : r.position === 3 ? 'bronze' : '';
+        const names = isTeam ? r.displayMembers.join(' / ') : r.player_name;
+        const perEa = isTeam ? ` <span style="color:#6b7280;font-size:12px">($${fmtMoney(r.prize / teamSize).slice(1)}/ea)</span>` : '';
+        return `<div class="rp-row">
+          <span><span class="rp-place ${dec}">${placeLabel(r)}</span><span class="rp-names">${names}</span></span>
+          <span class="rp-amt">${fmtMoney(r.prize)}${perEa}</span>
+        </div>`;
+      }).join('');
+
+      const ctps = ev.ctp || [];
+      const ctpHtml = ctps.length ? `
+        <div class="rp-sh"><div class="rp-shl">Closest to the Pin</div><div class="rp-shr"></div></div>
+        <div class="rp-prizes">
+          ${ctps.map(c => `<div class="rp-ctp-row"><span class="rp-ctp-l">Hole ${c.hole} — ${c.player}${c.distance ? ` (${c.distance})` : ''}</span><span class="rp-ctp-a">${fmtMoney(c.amount)}</span></div>`).join('')}
+        </div>` : '';
+
+      return `<div>
+        <div class="rp-header">
+          <div class="rp-label">${labelStr}</div>
+          <div class="rp-title">${ev.name || 'Event'} — Final Results</div>
+          ${format?.name ? `<div class="rp-sub">${format.name}</div>` : ''}
+        </div>
+        <div class="rp-sh"><div class="rp-shl">Winners</div><div class="rp-shr"></div></div>
+        <div class="rp-prizes">${prizeRows || '<div style="padding:10px 0;color:#374151;font-family:Inter,sans-serif;font-size:13px">No payouts recorded for this event.</div>'}</div>
+        ${highlight ? `
+        <div class="rp-highlight">
+          <div class="rp-highlight-label">🔥 Highlight</div>
+          <div class="rp-highlight-text">${highlight}</div>
+        </div>` : ''}
+        ${ctpHtml}
+        <div class="rp-footer">
+          <div class="rp-url">mashupgolf.com</div>
+          <div class="rp-cta">Congrats, everyone! 🏆</div>
+        </div>
+      </div>`;
+    }
+
     async function showResultsModal(eventId) {
       const ev  = state.kvEvents.find(e => e.id === eventId);
       const fmt = state.allFormats[ev?.format];
@@ -961,12 +1077,30 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       document.getElementById('results-title').textContent = ev.name || ev.id;
       const ta = document.getElementById('results-text');
       ta.value = 'Generating results…';
+      const posterWrap = document.getElementById('results-poster-wrap');
+      posterWrap.innerHTML = '<p class="text-gray-600 text-sm font-body py-10">Building poster…</p>';
       modal.dataset.eventId = eventId;
       modal.style.display = 'flex';
+      if (!fmt) {
+        ta.value = `🏁 **${ev.name} — COMPLETE!**`;
+        posterWrap.innerHTML = '<p class="text-gray-600 text-sm font-body py-10">No format on file — can\'t build a poster for this event.</p>';
+        return;
+      }
       try {
-        ta.value = fmt ? await generateResultsMessage(ev, fmt) : `🏁 **${ev.name} — COMPLETE!**`;
+        const { ev: resolvedEv, results, scorecards } = await computeEventResults(ev, fmt);
+        ta.value = await generateResultsMessage(resolvedEv, fmt, results);
+
+        let highlight = null;
+        try { highlight = buildHighlight(buildEventSummary(scorecards, fmt)); } catch { /* highlight is a nice-to-have, not critical */ }
+
+        posterWrap.innerHTML = '';
+        const poster = document.createElement('div');
+        poster.id = 'results-poster';
+        poster.innerHTML = buildResultsPoster(resolvedEv, fmt, results, highlight);
+        posterWrap.appendChild(poster);
       } catch (e) {
         ta.value = `🏁 **${ev.name} — COMPLETE!**\n\n(Couldn't auto-build results: ${e.message} — edit as needed.)`;
+        posterWrap.innerHTML = `<p class="text-red-400/70 text-sm font-body py-10">Couldn't build poster: ${e.message}</p>`;
       }
     }
 
@@ -1663,14 +1797,51 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
     document.getElementById('ctp-cancel').addEventListener('click', () => { document.getElementById('ctp-modal').style.display = 'none'; });
     document.getElementById('ctp-save').addEventListener('click', saveCtp);
 
+    // Renders the poster to a canvas — shared by Download and Post to
+    // Discord so they can never produce different images.
+    async function renderPosterCanvas() {
+      const poster = document.getElementById('results-poster');
+      if (!poster) return null;
+      await document.fonts.ready;
+      return html2canvas(poster, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a', logging: false, windowWidth: 900, scrollX: 0, scrollY: -window.scrollY });
+    }
+
     document.getElementById('results-skip').addEventListener('click', () => { document.getElementById('results-modal').style.display = 'none'; });
+
+    document.getElementById('results-download').addEventListener('click', async () => {
+      const btn = document.getElementById('results-download');
+      const orig = btn.textContent;
+      btn.textContent = 'Generating…'; btn.disabled = true;
+      try {
+        const canvas = await renderPosterCanvas();
+        if (!canvas) throw new Error('No poster to download yet.');
+        canvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const eventId = document.getElementById('results-modal').dataset.eventId;
+          const ev = state.kvEvents.find(e => e.id === eventId);
+          const safe = (ev?.name || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+          link.href = url; link.download = `mashup-${safe}-results.png`;
+          link.click(); URL.revokeObjectURL(url);
+          btn.textContent = orig; btn.disabled = false;
+        }, 'image/png');
+      } catch (e) {
+        showStatus('Download failed: ' + e.message, 'error');
+        btn.textContent = orig; btn.disabled = false;
+      }
+    });
+
     document.getElementById('results-post').addEventListener('click', async () => {
       const btn = document.getElementById('results-post');
       const message = document.getElementById('results-text').value;
-      btn.disabled = true; btn.textContent = 'Posting…';
+      btn.disabled = true; btn.textContent = 'Generating image…';
       try {
+        const canvas = await renderPosterCanvas();
+        const imageBase64 = canvas ? canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '') : undefined;
+        btn.textContent = 'Posting…';
         const res = await fetch('/admin/api/announce', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(imageBase64 ? { message, imageBase64 } : { message }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
