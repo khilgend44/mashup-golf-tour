@@ -74,7 +74,7 @@
   <script type="module">
     import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
     import { formatToPar } from './js/scoring.js?v=20260925a';
-    import { buildEventSummary } from './js/event-summary.js?v=20260926b';
+    import { buildEventSummary } from './js/event-summary.js?v=20260926c';
 
     const $ = id => document.getElementById(id);
     const params = new URLSearchParams(window.location.search);
@@ -98,7 +98,7 @@
         <div class="stat-tile">
           <div class="lbl mb-1">${label}</div>
           ${h ? `
-            <div class="text-white font-heading font-600">Hole ${h.hole} <span class="text-gray-500 font-body font-400">(${fmtToPar(h.avgToPar)} avg)</span></div>
+            <div class="text-white font-heading font-600">Hole ${h.hole} <span class="text-gray-500 font-body font-400">(${h.par != null ? `Par ${h.par} · ` : ''}${fmtToPar(h.avgToPar)} avg)</span></div>
             <div class="text-[11px] text-gray-500 mt-1">${h.index != null ? `Index ${h.index}` : 'Index n/a'}</div>
           ` : `<div class="text-white font-heading font-600">—</div>`}
         </div>`;
