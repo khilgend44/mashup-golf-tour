@@ -127,10 +127,17 @@
       $('loading').classList.add('hidden');
       $('app').classList.remove('hidden');
 
-      // Best-effort, non-blocking — depends on an external API (YouTube) and
-      // on players having submitted streams at all, so a failure or empty
-      // result here just means the section stays hidden, never an error.
-      loadPaceOfPlay(event, season);
+      // Streams (and therefore Pace of Play) only exist from Season 10
+      // onward — S9 and earlier never captured YouTube links at all, so
+      // there's nothing to compute and the section shouldn't even try.
+      const seasonNum = parseInt(String(event.season || '').replace(/^season-/i, ''));
+      if (seasonNum >= 10) {
+        // Best-effort, non-blocking — depends on an external API (YouTube)
+        // and on players having submitted streams at all, so a failure or
+        // empty result here just means the section stays hidden, never an
+        // error shown to the visitor.
+        loadPaceOfPlay(event, season);
+      }
     }
 
     function fmtDuration(totalSeconds) {
@@ -141,28 +148,80 @@
       return `${m}m ${s % 60}s`;
     }
 
+    // Same URL shapes accepted by /api/submit-stream.js.
+    const YT_URL_PATTERN = /^https?:\/\/(www\.)?(?:youtube\.com\/watch\?v=([\w-]+)|youtu\.be\/([\w-]+)|youtube\.com\/live\/([\w-]+))/;
+    function extractVideoId(url) {
+      const m = String(url || '').match(YT_URL_PATTERN);
+      return m ? (m[2] || m[3] || m[4] || null) : null;
+    }
+
+    // The fan-out (one duration lookup per unique video) happens here in the
+    // browser, not in a single server call — a week's worth of streams (S10W1
+    // alone has 41) blew straight through Cloudflare's per-invocation
+    // subrequest limit when a first version tried to do it all server-side
+    // in one shot. Each /api/youtube-duration call below is its own small,
+    // independent Worker invocation instead.
     async function loadPaceOfPlay(event, season) {
       // KV stores stream submissions under the lowercased player name — map
       // back to real casing from the season roster for display.
       const properCase = name => (season?.players || []).find(p => p.toLowerCase() === name.toLowerCase()) || name;
 
-      let data;
+      let streams;
       try {
-        const res = await fetch(`/api/event-pace?eventId=${encodeURIComponent(event.id)}`);
-        data = await res.json();
-        if (!res.ok || !data.totalSeconds) return; // nothing submitted, or a soft failure — stay hidden
+        const res = await fetch(`/api/get-streams?eventId=${encodeURIComponent(event.id)}`);
+        streams = await res.json();
       } catch { return; }
 
-      const cards = [];
-      cards.push(spotCard('Total Time Played', fmtDuration(data.totalSeconds), 'Combined, all players', null, 'pace-accent'));
-      if (data.fastestRound) {
-        cards.push(spotCard('Fastest Round', fmtDuration(data.fastestRound.seconds), properCase(data.fastestRound.player), `Round ${data.fastestRound.round}`, 'pace-accent'));
+      // Flatten to (player, round, videoId) slots.
+      const slots = [];
+      for (const [player, rounds] of Object.entries(streams || {})) {
+        for (const [round, url] of Object.entries(rounds || {})) {
+          const videoId = extractVideoId(url);
+          if (videoId) slots.push({ player, round, videoId });
+        }
       }
-      const sameAsFastest = data.slowestRound && data.fastestRound
-        && data.slowestRound.player === data.fastestRound.player
-        && data.slowestRound.round === data.fastestRound.round;
-      if (data.slowestRound && !sameAsFastest) {
-        cards.push(spotCard('Slowest Round', fmtDuration(data.slowestRound.seconds), properCase(data.slowestRound.player), `Round ${data.slowestRound.round}`, 'pace-accent'));
+      if (!slots.length) return;
+
+      // One duration lookup per UNIQUE video, in parallel.
+      const uniqueIds = [...new Set(slots.map(s => s.videoId))];
+      const durationById = {};
+      await Promise.all(uniqueIds.map(async id => {
+        try {
+          const res = await fetch(`/api/youtube-duration?videoId=${encodeURIComponent(id)}`);
+          const d = await res.json();
+          if (res.ok) durationById[id] = d.durationSeconds;
+        } catch { /* one bad video shouldn't sink the whole stat */ }
+      }));
+
+      // Attribution rule: a video's duration is split evenly across however
+      // many (player, round) slots reference it — covers both a solo
+      // player's round1==round2 single recording (2 slots, same player) and
+      // a team's shared-camera stream for one round (N slots, same round,
+      // different players). Shares always sum back to the source video's
+      // own length, so the total below never double-counts a shared stream.
+      const slotsByVideo = {};
+      for (const s of slots) (slotsByVideo[s.videoId] ||= []).push(s);
+
+      const attributed = [];
+      for (const [videoId, group] of Object.entries(slotsByVideo)) {
+        const duration = durationById[videoId];
+        if (duration == null) continue;
+        const perSlot = duration / group.length;
+        for (const s of group) attributed.push({ player: s.player, round: s.round, seconds: perSlot });
+      }
+      if (!attributed.length) return;
+
+      const totalSeconds = uniqueIds.reduce((sum, id) => sum + (durationById[id] || 0), 0);
+      const fastestRound = attributed.reduce((a, b) => b.seconds < a.seconds ? b : a);
+      const slowestRound = attributed.reduce((a, b) => b.seconds > a.seconds ? b : a);
+      const sameRound = fastestRound.player === slowestRound.player && fastestRound.round === slowestRound.round;
+
+      const cards = [
+        spotCard('Total Time Played', fmtDuration(totalSeconds), 'Combined, all players', null, 'pace-accent'),
+        spotCard('Fastest Round', fmtDuration(fastestRound.seconds), properCase(fastestRound.player), `Round ${fastestRound.round}`, 'pace-accent'),
+      ];
+      if (!sameRound) {
+        cards.push(spotCard('Slowest Round', fmtDuration(slowestRound.seconds), properCase(slowestRound.player), `Round ${slowestRound.round}`, 'pace-accent'));
       }
 
       const section = $('pace-section');
