@@ -74,7 +74,7 @@
   <script type="module">
     import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
     import { formatToPar } from './js/scoring.js?v=20260925a';
-    import { buildEventSummary } from './js/event-summary.js?v=20260926a';
+    import { buildEventSummary } from './js/event-summary.js?v=20260926b';
 
     const $ = id => document.getElementById(id);
     const params = new URLSearchParams(window.location.search);
@@ -136,7 +136,11 @@
         </div>`;
     }
 
-    function basisEventCard(title, accentClass, stats) {
+    // Hardest/Easiest Hole only makes sense on the Gross side — net score
+    // bakes in each player's own handicap strokes per hole, so a "hardest
+    // hole by net average" mostly just reflects where strokes were
+    // allocated, not how the hole actually played.
+    function basisEventCard(title, accentClass, stats, showHoleDifficulty) {
       return `
         <div class="card-shadow bg-card border border-border rounded-xl p-5 ${accentClass}">
           <div class="section-head mb-4">${title}</div>
@@ -148,10 +152,11 @@
             ${statTile('Bogeys', stats.bogeys)}
             ${statTile('Double+', stats.doubleOrWorse)}
           </div>
+          ${showHoleDifficulty ? `
           <div class="grid grid-cols-2 gap-3 mt-3">
             ${holeDifficultyTile('Hardest Hole', stats.hardestHole)}
             ${holeDifficultyTile('Easiest Hole', stats.easiestHole)}
-          </div>
+          </div>` : ''}
         </div>`;
     }
 
@@ -210,8 +215,8 @@
 
         <h2 class="section-head mb-4">Event Metrics</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          ${basisEventCard('Gross', 'gross-accent', eventStats.gross)}
-          ${basisEventCard('Net', 'net-accent', eventStats.net)}
+          ${basisEventCard('Gross', 'gross-accent', eventStats.gross, true)}
+          ${basisEventCard('Net', 'net-accent', eventStats.net, false)}
         </div>
 
         <div class="mt-10">
