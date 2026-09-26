@@ -89,7 +89,20 @@
 
     function fmt1(n) { return n == null ? '—' : n.toFixed(1); }
     function fmtToPar(n) { return n == null ? '—' : formatToPar(Math.round(n * 10) / 10); }
-    function holeRef(h) { return h ? `Hole ${h.hole} (${fmtToPar(h.avgToPar)} avg)` : '—'; }
+    // Index is SGT's own stroke-allocation ranking for the hole (1 = hardest
+    // allocated, 18 = easiest) — shown alongside actual measured difficulty
+    // so it's easy to eyeball whether the index holds up against how the
+    // hole actually played, or whether it's off.
+    function holeDifficultyTile(label, h) {
+      return `
+        <div class="stat-tile">
+          <div class="lbl mb-1">${label}</div>
+          ${h ? `
+            <div class="text-white font-heading font-600">Hole ${h.hole} <span class="text-gray-500 font-body font-400">(${fmtToPar(h.avgToPar)} avg)</span></div>
+            <div class="text-[11px] text-gray-500 mt-1">${h.index != null ? `Index ${h.index}` : 'Index n/a'}</div>
+          ` : `<div class="text-white font-heading font-600">—</div>`}
+        </div>`;
+    }
 
     async function init() {
       if (!idParam) return showError('No event ID in URL. Use ?id=XXXXX');
@@ -136,14 +149,8 @@
             ${statTile('Double+', stats.doubleOrWorse)}
           </div>
           <div class="grid grid-cols-2 gap-3 mt-3">
-            <div class="stat-tile">
-              <div class="lbl mb-1">Hardest Hole</div>
-              <div class="text-white font-heading font-600">${holeRef(stats.hardestHole)}</div>
-            </div>
-            <div class="stat-tile">
-              <div class="lbl mb-1">Easiest Hole</div>
-              <div class="text-white font-heading font-600">${holeRef(stats.easiestHole)}</div>
-            </div>
+            ${holeDifficultyTile('Hardest Hole', stats.hardestHole)}
+            ${holeDifficultyTile('Easiest Hole', stats.easiestHole)}
           </div>
         </div>`;
     }
@@ -162,7 +169,7 @@
       const cards = [];
       if (p.bestRound) cards.push(spotCard(`Best ${basisLabel} Round`, p.bestRound.total, p.bestRound.player, `Round ${p.bestRound.round}${p.bestRound.toPar != null ? ` · ${fmtToPar(p.bestRound.toPar)}` : ''}`));
       if (p.mostBirdiesRound) cards.push(spotCard(`Most ${basisLabel} Birdies+ (Round)`, p.mostBirdiesRound.count, p.mostBirdiesRound.player, `Round ${p.mostBirdiesRound.round}`));
-      if (p.longestStreak) cards.push(spotCard(`Longest ${basisLabel} Streak`, `${p.longestStreak.length} holes`, p.longestStreak.player, `Round ${p.longestStreak.round} · Holes ${p.longestStreak.startHole}–${p.longestStreak.endHole}`));
+      if (p.longestStreak) cards.push(spotCard(`Longest ${basisLabel} Birdie+ Streak`, `${p.longestStreak.length} holes`, p.longestStreak.player, `Round ${p.longestStreak.round} · Holes ${p.longestStreak.startHole}–${p.longestStreak.endHole}`));
       if (p.lowestFront) cards.push(spotCard(`Lowest ${basisLabel} Front 9`, p.lowestFront.total, p.lowestFront.player, `Round ${p.lowestFront.round}`));
       if (p.lowestBack) cards.push(spotCard(`Lowest ${basisLabel} Back 9`, p.lowestBack.total, p.lowestBack.player, `Round ${p.lowestBack.round}`));
       return cards.join('');

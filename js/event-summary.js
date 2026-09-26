@@ -58,11 +58,13 @@ function buildBasisEventStats(cards, basis) {
   const buckets = { eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0 };
   let scoreSum = 0, scoreCount = 0;
   const holeTotals = Array.from({ length: 18 }, () => ({ sum: 0, count: 0 }));
+  const indexByHole = Array(18).fill(null); // SGT's stroke-index allocation, for comparing against actual difficulty
 
   for (const card of cards) {
     const diffs = holeDiffs(card, basis);
     for (let i = 0; i < 18; i++) {
       const d = diffs[i];
+      if (indexByHole[i] == null && card[`h${i + 1}_index`] != null) indexByHole[i] = card[`h${i + 1}_index`];
       if (d == null) continue;
       buckets[classify(d)]++;
       holeTotals[i].sum += d;
@@ -75,6 +77,7 @@ function buildBasisEventStats(cards, basis) {
   const holeAverages = holeTotals.map((h, i) => ({
     hole: i + 1,
     avgToPar: h.count ? h.sum / h.count : null,
+    index: indexByHole[i],
   })).filter(h => h.avgToPar != null);
 
   const hardestHole = holeAverages.length ? holeAverages.reduce((a, b) => b.avgToPar > a.avgToPar ? b : a) : null;
