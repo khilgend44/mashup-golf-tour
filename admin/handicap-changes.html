@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Handicap Changes — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .up   { color: #f87171; } /* handicap went UP = got worse (played easier / fewer good rounds) */
+    .down { color: #4ade80; } /* handicap went DOWN = improved */
+    .flat { color: #9ca3af; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    thead th { position: sticky; top: 0; background: #141414; z-index: 5; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="https://mashupgolf.com/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Site</a>
+      <span class="text-border">/</span>
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Admin</a>
+      <span class="text-border">/</span>
+      <a href="events.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Events</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">Handicap Changes</span>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-4 py-10 w-full flex-1">
+    <div id="loading" class="text-center py-16 text-gray-500 font-heading tracking-wider">Loading…</div>
+    <div id="error" class="hidden max-w-md mx-auto mt-10 bg-red-950/40 border border-red-800/50 rounded-xl p-6 text-center">
+      <div class="text-red-400 font-heading font-700 tracking-wide">Error</div>
+      <div id="error-msg" class="text-gray-400 text-sm mt-2"></div>
+    </div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-5xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get('eventId');
+
+    function showError(msg) {
+      $('loading').classList.add('hidden');
+      $('error-msg').textContent = msg;
+      $('error').classList.remove('hidden');
+    }
+
+    function fmtCap(n) { return n == null ? '—' : n.toFixed(1); }
+    function fmtDelta(n) {
+      if (n == null) return '<span class="flat">—</span>';
+      const cls = n > 0 ? 'up' : n < 0 ? 'down' : 'flat';
+      const sign = n > 0 ? '+' : '';
+      const arrow = n > 0 ? '▲' : n < 0 ? '▼' : '—';
+      return `<span class="${cls} font-mono font-600">${arrow} ${sign}${n.toFixed(1)}</span>`;
+    }
+
+    async function init() {
+      if (!eventId) return showError('No eventId in URL. Open this page from an event\'s row on events.html.');
+      let data;
+      try {
+        const res = await fetch(`/admin/api/handicap-changes?eventId=${encodeURIComponent(eventId)}`);
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load.');
+      } catch (e) {
+        return showError(e.message);
+      }
+      render(data);
+      $('loading').classList.add('hidden');
+      $('app').classList.remove('hidden');
+    }
+
+    function render(data) {
+      const { event, prevWeekEvent, week1Event, players } = data;
+
+      const noCompare = event.week === 1 || (!prevWeekEvent && !week1Event);
+      const noteHtml = noCompare
+        ? `<div class="bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mt-4 text-xs text-amber-400/80">This is Week 1 (or the first activated event of the season) — nothing to compare against yet. Current MashCAPs are still shown below for reference.</div>`
+        : [
+            prevWeekEvent && !prevWeekEvent.hasSnapshot ? `Week ${prevWeekEvent.week} (${prevWeekEvent.name}) was never activated, so it has no snapshot — "vs Last Week" will be blank.` : '',
+            week1Event && !week1Event.hasSnapshot ? `Week 1 (${week1Event.name}) was never activated, so it has no snapshot — "vs Week 1" will be blank.` : '',
+          ].filter(Boolean).map(t => `<div class="bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mt-4 text-xs text-amber-400/80">${t}</div>`).join('');
+
+      const rows = players.map(p => `
+        <tr class="border-b border-border/50">
+          <td class="px-5 py-3 font-heading font-600 text-white">${p.name}</td>
+          <td class="px-4 py-3 text-center font-mono">${fmtCap(p.current)}</td>
+          <td class="px-4 py-3 text-center font-mono">${fmtCap(p.prevWeek)}</td>
+          <td class="px-4 py-3 text-center">${fmtDelta(p.deltaPrevWeek)}</td>
+          <td class="px-4 py-3 text-center font-mono">${fmtCap(p.week1)}</td>
+          <td class="px-4 py-3 text-center">${fmtDelta(p.deltaWeek1)}</td>
+        </tr>`).join('');
+
+      $('app').innerHTML = `
+        <div class="mb-6">
+          <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">${event.season || ''} · Week ${event.week ?? '—'}</div>
+          <h1 class="font-display text-4xl tracking-wider text-white leading-none">${event.name}</h1>
+          <p class="text-gray-500 text-sm mt-2">
+            Comparing against ${prevWeekEvent ? `Week ${prevWeekEvent.week} (${prevWeekEvent.name})` : '—'}
+            and ${week1Event ? `Week ${week1Event.week} (${week1Event.name})` : '—'}.
+            <span class="text-gray-600">Higher MashCAP = worse; lower = better.</span>
+          </p>
+          ${noteHtml}
+        </div>
+
+        <div class="card-shadow bg-card border border-border rounded-xl overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-border">
+                <th class="text-left px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Player</th>
+                <th class="px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Current</th>
+                <th class="px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Last Week</th>
+                <th class="px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Δ vs Last Week</th>
+                <th class="px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Week 1</th>
+                <th class="px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Δ vs Week 1</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    init();
+  </script>
+</body>
+</html>
