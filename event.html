@@ -652,6 +652,10 @@
               <a href="event-teams.html?id=${event.id}"
                  class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
                  style="transition:all 0.15s">👥 View Caps/Teams</a>
+              ${isDone && format.type !== 'invitational' ? `
+              <a href="event-summary.html?id=${event.tournamentId}"
+                 class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
+                 style="transition:all 0.15s">📊 Event Summary</a>` : ''}
               ${settingsPanelHtml ? `
               <button id="settings-toggle" type="button"
                  class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"

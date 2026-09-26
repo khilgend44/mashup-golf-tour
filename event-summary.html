@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Summary — MashUp Golf Tour</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png" />
+  <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .under { color: #4ade80; }
+    .over  { color: #f87171; }
+    .even  { color: #f5f5f5; }
+    .section-head {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+      font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #9ca3af;
+    }
+    .stat-tile { background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 0.7rem; padding: 0.9rem 1rem; }
+    .stat-tile .num { font-family: 'Bebas Neue', cursive; font-size: 1.9rem; line-height: 1; letter-spacing: 0.01em; }
+    .stat-tile .lbl { font-family: 'Barlow Condensed', sans-serif; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-top: 4px; }
+    .spot-card {
+      background: linear-gradient(160deg, #1e1e1e 0%, #191919 100%);
+      border: 1px solid #2c2c2c; border-radius: 0.9rem; padding: 1.15rem 1.25rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 10px 26px rgba(0,0,0,0.32), 0 0 0 1px rgba(255,255,255,0.03);
+      border-top: 3px solid transparent;
+    }
+    .spot-card .tag { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #fb923c; }
+    .spot-card .val { font-family: 'Bebas Neue', cursive; font-size: 2rem; line-height: 1; color: #fff; margin-top: 0.35rem; }
+    .spot-card .who { font-size: 0.85rem; color: #d1d5db; margin-top: 0.3rem; }
+    .spot-card .ctx { font-size: 0.72rem; color: #6b7280; margin-top: 0.15rem; }
+    .gross-accent { border-top: 3px solid #38bdf8; }
+    .net-accent   { border-top: 3px solid #f97316; }
+    .team-accent  { border-top: 3px solid #a78bfa; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <header class="border-b border-border">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
+        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Event Summary</span>
+      </div>
+      <a id="back-link" href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Event</a>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
+    <div id="loading" class="text-center py-20 text-gray-500 font-heading tracking-wider">Loading…</div>
+    <div id="error" class="hidden max-w-md mx-auto mt-16 bg-red-950/40 border border-red-800/50 rounded-xl p-6 text-center">
+      <div class="text-red-400 font-heading font-700 tracking-wide">Error</div>
+      <div id="error-msg" class="text-gray-400 text-sm mt-2"></div>
+    </div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-5xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour</div>
+  </footer>
+
+  <script type="module">
+    import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
+    import { formatToPar } from './js/scoring.js?v=20260925a';
+    import { buildEventSummary } from './js/event-summary.js?v=20260926a';
+
+    const $ = id => document.getElementById(id);
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('id');
+    const numericId = parseInt(idParam);
+
+    function showError(msg) {
+      $('loading').classList.add('hidden');
+      $('error-msg').textContent = msg;
+      $('error').classList.remove('hidden');
+    }
+
+    function fmt1(n) { return n == null ? '—' : n.toFixed(1); }
+    function fmtToPar(n) { return n == null ? '—' : formatToPar(Math.round(n * 10) / 10); }
+    function holeRef(h) { return h ? `Hole ${h.hole} (${fmtToPar(h.avgToPar)} avg)` : '—'; }
+
+    async function init() {
+      if (!idParam) return showError('No event ID in URL. Use ?id=XXXXX');
+      const [events, formats, seasons] = await Promise.all([loadEvents(), loadFormats(), loadSeasons()]);
+      const event = events.find(e => (numericId && e.tournamentId === numericId) || e.id === idParam);
+      if (!event) return showError(`Event "${idParam}" not found in events.json.`);
+      const format = formats[event.format];
+      if (!format) return showError(`Format "${event.format}" not defined in formats.json.`);
+      if (format.type === 'invitational') return showError('Invitational events have no scorecards to summarize.');
+
+      $('back-link').href = `event.html?id=${event.tournamentId}`;
+
+      const scorecards = await fetchScorecards(event.tournamentId);
+      const summary = buildEventSummary(scorecards, format);
+
+      if (!summary.meta.roundsPlayed) return showError('No completed rounds yet — check back once the event wraps up.');
+
+      const season = seasons.find(s => s.id === event.season);
+      render(event, format, season, summary);
+
+      $('loading').classList.add('hidden');
+      $('app').classList.remove('hidden');
+    }
+
+    function statTile(label, value, sub) {
+      return `
+        <div class="stat-tile">
+          <div class="num text-white">${value}</div>
+          <div class="lbl">${label}</div>
+          ${sub ? `<div class="text-[11px] text-gray-500 mt-1">${sub}</div>` : ''}
+        </div>`;
+    }
+
+    function basisEventCard(title, accentClass, stats) {
+      return `
+        <div class="card-shadow bg-card border border-border rounded-xl p-5 ${accentClass}">
+          <div class="section-head mb-4">${title}</div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            ${statTile('Avg Score', fmt1(stats.avgScore), `${stats.roundsCounted} rounds`)}
+            ${statTile('Eagles+', stats.eagles)}
+            ${statTile('Birdies', stats.birdies)}
+            ${statTile('Pars', stats.pars)}
+            ${statTile('Bogeys', stats.bogeys)}
+            ${statTile('Double+', stats.doubleOrWorse)}
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <div class="stat-tile">
+              <div class="lbl mb-1">Hardest Hole</div>
+              <div class="text-white font-heading font-600">${holeRef(stats.hardestHole)}</div>
+            </div>
+            <div class="stat-tile">
+              <div class="lbl mb-1">Easiest Hole</div>
+              <div class="text-white font-heading font-600">${holeRef(stats.easiestHole)}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function spotCard(tag, value, who, ctx, accentClass) {
+      return `
+        <div class="spot-card ${accentClass || ''}">
+          <div class="tag">${tag}</div>
+          <div class="val">${value}</div>
+          <div class="who">${who}</div>
+          ${ctx ? `<div class="ctx">${ctx}</div>` : ''}
+        </div>`;
+    }
+
+    function playerSpotlights(basisLabel, p) {
+      const cards = [];
+      if (p.bestRound) cards.push(spotCard(`Best ${basisLabel} Round`, p.bestRound.total, p.bestRound.player, `Round ${p.bestRound.round}${p.bestRound.toPar != null ? ` · ${fmtToPar(p.bestRound.toPar)}` : ''}`));
+      if (p.mostBirdiesRound) cards.push(spotCard(`Most ${basisLabel} Birdies+ (Round)`, p.mostBirdiesRound.count, p.mostBirdiesRound.player, `Round ${p.mostBirdiesRound.round}`));
+      if (p.longestStreak) cards.push(spotCard(`Longest ${basisLabel} Streak`, `${p.longestStreak.length} holes`, p.longestStreak.player, `Round ${p.longestStreak.round} · Holes ${p.longestStreak.startHole}–${p.longestStreak.endHole}`));
+      if (p.lowestFront) cards.push(spotCard(`Lowest ${basisLabel} Front 9`, p.lowestFront.total, p.lowestFront.player, `Round ${p.lowestFront.round}`));
+      if (p.lowestBack) cards.push(spotCard(`Lowest ${basisLabel} Back 9`, p.lowestBack.total, p.lowestBack.player, `Round ${p.lowestBack.round}`));
+      return cards.join('');
+    }
+
+    function teamName(members) { return members.join(' / '); }
+
+    function render(event, format, season, summary) {
+      const { eventStats, playerStats, teamStats, meta } = summary;
+      const seasonWeekLabel = `${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}${event.week ? ` · Week ${event.week}` : ''}`;
+
+      const mostImprovedHtml = playerStats.mostImproved ? spotCard(
+        'Most Improved (R2 vs R1, Net)',
+        `−${playerStats.mostImproved.improvement}`,
+        playerStats.mostImproved.player,
+        `${playerStats.mostImproved.round1} → ${playerStats.mostImproved.round2}`
+      ) : '';
+
+      const teamHtml = teamStats ? `
+        <div class="mt-10">
+          <h2 class="section-head mb-4">Team Metrics</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${teamStats.bestGrossAgg ? spotCard('Best Team Gross Aggregate', teamStats.bestGrossAgg.total, teamName(teamStats.bestGrossAgg.team), null, 'team-accent') : ''}
+            ${teamStats.bestNetAgg ? spotCard('Best Team Net Aggregate', teamStats.bestNetAgg.total, teamName(teamStats.bestNetAgg.team), null, 'team-accent') : ''}
+            ${teamStats.mostBirdiesGross ? spotCard('Most Combined Gross Birdies+', teamStats.mostBirdiesGross.count, teamName(teamStats.mostBirdiesGross.team), null, 'team-accent') : ''}
+            ${teamStats.mostBirdiesNet ? spotCard('Most Combined Net Birdies+', teamStats.mostBirdiesNet.count, teamName(teamStats.mostBirdiesNet.team), null, 'team-accent') : ''}
+            ${teamStats.mostBalanced ? spotCard('Most Balanced Team', `±${teamStats.mostBalanced.spread}`, teamName(teamStats.mostBalanced.team), 'Smallest gap between best & worst net score', 'team-accent') : ''}
+            ${teamStats.mostCarried ? spotCard('Most Carried Team', `±${teamStats.mostCarried.spread}`, teamName(teamStats.mostCarried.team), `${teamStats.mostCarried.carrier} carried, ${teamStats.mostCarried.weakest} lagged`, 'team-accent') : ''}
+          </div>
+        </div>` : '';
+
+      $('app').innerHTML = `
+        <div class="mb-8">
+          <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">${seasonWeekLabel}</div>
+          <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">${event.name}</h1>
+          <p class="text-gray-500 text-sm mt-2">${meta.playersCompleted} players completed &nbsp;·&nbsp; ${meta.roundsPlayed} rounds played &nbsp;·&nbsp; ${meta.numRounds}-round format</p>
+        </div>
+
+        <h2 class="section-head mb-4">Event Metrics</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          ${basisEventCard('Gross', 'gross-accent', eventStats.gross)}
+          ${basisEventCard('Net', 'net-accent', eventStats.net)}
+        </div>
+
+        <div class="mt-10">
+          <h2 class="section-head mb-4">Player Spotlights — Gross</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${playerSpotlights('Gross', playerStats.gross)}
+          </div>
+        </div>
+
+        <div class="mt-10">
+          <h2 class="section-head mb-4">Player Spotlights — Net</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${playerSpotlights('Net', playerStats.net)}
+            ${mostImprovedHtml}
+          </div>
+        </div>
+
+        ${teamHtml}
+      `;
+    }
+
+    init().catch(err => showError(err.message));
+  </script>
+</body>
+</html>
