@@ -44,6 +44,7 @@
     .gross-accent { border-top: 3px solid #38bdf8; }
     .net-accent   { border-top: 3px solid #f97316; }
     .team-accent  { border-top: 3px solid #a78bfa; }
+    .pace-accent  { border-top: 3px solid #2dd4bf; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -125,6 +126,52 @@
 
       $('loading').classList.add('hidden');
       $('app').classList.remove('hidden');
+
+      // Best-effort, non-blocking — depends on an external API (YouTube) and
+      // on players having submitted streams at all, so a failure or empty
+      // result here just means the section stays hidden, never an error.
+      loadPaceOfPlay(event, season);
+    }
+
+    function fmtDuration(totalSeconds) {
+      const s = Math.round(totalSeconds);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m ${s % 60}s`;
+    }
+
+    async function loadPaceOfPlay(event, season) {
+      // KV stores stream submissions under the lowercased player name — map
+      // back to real casing from the season roster for display.
+      const properCase = name => (season?.players || []).find(p => p.toLowerCase() === name.toLowerCase()) || name;
+
+      let data;
+      try {
+        const res = await fetch(`/api/event-pace?eventId=${encodeURIComponent(event.id)}`);
+        data = await res.json();
+        if (!res.ok || !data.totalSeconds) return; // nothing submitted, or a soft failure — stay hidden
+      } catch { return; }
+
+      const cards = [];
+      cards.push(spotCard('Total Time Played', fmtDuration(data.totalSeconds), 'Combined, all players', null, 'pace-accent'));
+      if (data.fastestRound) {
+        cards.push(spotCard('Fastest Round', fmtDuration(data.fastestRound.seconds), properCase(data.fastestRound.player), `Round ${data.fastestRound.round}`, 'pace-accent'));
+      }
+      const sameAsFastest = data.slowestRound && data.fastestRound
+        && data.slowestRound.player === data.fastestRound.player
+        && data.slowestRound.round === data.fastestRound.round;
+      if (data.slowestRound && !sameAsFastest) {
+        cards.push(spotCard('Slowest Round', fmtDuration(data.slowestRound.seconds), properCase(data.slowestRound.player), `Round ${data.slowestRound.round}`, 'pace-accent'));
+      }
+
+      const section = $('pace-section');
+      section.innerHTML = `
+        <h2 class="section-head mb-4">Pace of Play</h2>
+        <p class="text-xs text-gray-600 mb-4 -mt-2">Estimated from submitted stream lengths — a shared team stream is split evenly across however many players are in it.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${cards.join('')}</div>
+      `;
+      section.classList.remove('hidden');
     }
 
     function statTile(label, value, sub) {
@@ -235,6 +282,8 @@
         </div>
 
         ${teamHtml}
+
+        <div id="pace-section" class="mt-10 hidden"></div>
       `;
     }
 
