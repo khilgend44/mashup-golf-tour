@@ -40,6 +40,31 @@ export async function fetchCtp(tournamentId) {
   }
 }
 
+// Resolves the single cross-round CTP leader per hole from raw fetchCtp()
+// data — the prize pays the closest shot to the pin across ALL rounds, not
+// per round, but SGT's own data comes back one round-card at a time. An ace
+// always wins outright; otherwise lowest distance. Shared by event.html's
+// live CTP display (which marks this entry on the card) and
+// admin/events.html's event-completion CTP form (which pre-fills suggested
+// winners from it) — one source of truth so they can never disagree about
+// who's actually leading a hole.
+export function resolveCtpLeaders(ctpLive) {
+  const rounds = (ctpLive?.rounds || []).filter(r => r.holes?.some(h => h.leaders?.length));
+  const holeLeader = new Map(); // hole number -> { hole, round, player, ace, distance_ft }
+  for (const r of rounds) {
+    for (const h of (r.holes || [])) {
+      const top = h.leaders?.[0]; // each hole's leaders are already sorted closest-first
+      if (!top) continue;
+      const curr = holeLeader.get(h.hole);
+      const topBeats = !curr
+        || (top.ace && !curr.ace)
+        || (top.ace === curr.ace && top.distance_ft < curr.distance_ft);
+      if (topBeats) holeLeader.set(h.hole, { hole: h.hole, round: r.round, player: top.player, ace: top.ace, distance_ft: top.distance_ft });
+    }
+  }
+  return [...holeLeader.values()].sort((a, b) => a.hole - b.hole);
+}
+
 export async function loadSeasons() {
   const [staticRes, kvRes] = await Promise.allSettled([
     fetch('data/seasons.json'),

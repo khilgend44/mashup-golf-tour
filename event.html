@@ -337,7 +337,7 @@
   </footer>
 
   <script type="module">
-    import { fetchScorecards, fetchCtp, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260921b';
+    import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260928a';
     import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260925a';
 
     const params = new URLSearchParams(window.location.search);
@@ -1736,22 +1736,10 @@
       // The CTP prize pays out the single closest shot to the pin on a hole
       // across ALL rounds, not per round — SGT just happens to expose the
       // data one round-card at a time, which reads like each round has its
-      // own separate CTP race. Work out who's actually leading each hole
-      // right now (an ace always wins outright; otherwise lowest distance)
-      // so that one entry can be marked, instead of leaving it to whoever's
-      // reading to compare numbers across cards themselves.
-      const holeLeader = new Map(); // hole number -> { round, player, ace, distance_ft }
-      for (const r of rounds) {
-        for (const h of (r.holes || [])) {
-          const top = h.leaders?.[0]; // each hole's leaders are already sorted closest-first
-          if (!top) continue;
-          const curr = holeLeader.get(h.hole);
-          const topBeats = !curr
-            || (top.ace && !curr.ace)
-            || (top.ace === curr.ace && top.distance_ft < curr.distance_ft);
-          if (topBeats) holeLeader.set(h.hole, { round: r.round, player: top.player, ace: top.ace, distance_ft: top.distance_ft });
-        }
-      }
+      // own separate CTP race. resolveCtpLeaders (js/api.js) works out who's
+      // actually leading each hole right now, shared with admin/events.html's
+      // CTP pre-fill so the two can never disagree.
+      const holeLeader = new Map(resolveCtpLeaders(ctpLive).map(l => [l.hole, l]));
 
       const roundsHtml = rounds.map(r => {
         const holeCards = (r.holes || [])

@@ -546,6 +546,7 @@
   <script type="module">
     import { applyFormat, applyPayouts, resolveSidePots } from '/js/scoring.js';
     import { buildEventSummary } from '/js/event-summary.js';
+    import { fetchCtp, resolveCtpLeaders } from '/js/api.js';
     const API      = '/api/events-admin';   // public reads (list/scrape)
     const API_WRITE = '/admin/api/events';   // Access-protected writes
     const FORMATS_STATIC_URL = '/data/formats.json';
@@ -1104,7 +1105,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       }
     }
 
-    function showCtpModal(eventId) {
+    async function showCtpModal(eventId) {
       const ev = state.kvEvents.find(e => e.id === eventId);
       if (!ev) return;
       const count      = parseInt(ev.ctps?.count) || 0;
@@ -1117,25 +1118,44 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       document.getElementById('ctp-sub').textContent = `${count} CTP${count !== 1 ? 's' : ''} · $${amountEach} each — enter the hole, winner, and how close`;
       document.getElementById('ctp-save').textContent = isCompleted ? 'Save CTPs' : 'Save & Complete';
 
+      // Suggest winners from the live CTP tracker (same cross-round-leader
+      // data as event.html's "Closest to the Pin — Live" cards) for any row
+      // that doesn't already have saved data — never overwrites something
+      // already entered or corrected. Best-effort: an older event, a format
+      // with no CTP holes, or the scraper never having run just leaves rows
+      // blank like before.
+      let suggestions = [];
+      if (ev.tournamentId) {
+        try { suggestions = resolveCtpLeaders(await fetchCtp(ev.tournamentId)); } catch { /* nice-to-have, not required */ }
+      }
+      const playerByLower = new Map(players.map(p => [p.toLowerCase(), p]));
+      const resolvePlayer = name => playerByLower.get(String(name || '').toLowerCase()) || name;
+      const fmtSuggested = s => s.ace ? 'ACE' : `${s.distance_ft.toFixed(2)} ft`;
+
       const optsFor = sel => ['<option value="">— select player —</option>',
-        ...players.map(p => `<option value="${p}"${p === sel ? ' selected' : ''}>${p}</option>`)].join('');
+        ...players.map(p => `<option value="${p}"${p.toLowerCase() === String(sel || '').toLowerCase() ? ' selected' : ''}>${p}</option>`)].join('');
 
       document.getElementById('ctp-rows').innerHTML = Array.from({ length: count }, (_, i) => {
         const ex = existing[i] || {};
+        const suggestion = (!ex.hole && !ex.player) ? suggestions[i] : null;
+        const hole     = ex.hole ?? suggestion?.hole ?? '';
+        const player   = ex.player ?? (suggestion ? resolvePlayer(suggestion.player) : '');
+        const distance = ex.distance ?? (suggestion ? fmtSuggested(suggestion) : '');
         return `
           <div class="grid grid-cols-12 gap-2 items-end" data-ctp-row="${i}">
             <div class="col-span-3">
               <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Hole</label>
-              <input type="number" min="1" max="18" class="ctp-hole w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${ex.hole ?? ''}" />
+              <input type="number" min="1" max="18" class="ctp-hole w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${hole}" />
             </div>
             <div class="col-span-5">
               <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Player</label>
-              <select class="ctp-player w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame">${optsFor(ex.player)}</select>
+              <select class="ctp-player w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame">${optsFor(player)}</select>
             </div>
             <div class="col-span-4">
               <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">How close</label>
-              <input type="text" placeholder="e.g. 3' 6&quot;" class="ctp-dist w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${(ex.distance ?? '').replace(/"/g, '&quot;')}" />
+              <input type="text" placeholder="e.g. 3' 6&quot;" class="ctp-dist w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${String(distance).replace(/"/g, '&quot;')}" />
             </div>
+            ${suggestion ? `<div class="col-span-12 -mt-1"><span class="text-[10px] text-emerald-500 font-heading tracking-wide uppercase">✓ Suggested from live CTP tracker — verify before saving</span></div>` : ''}
           </div>`;
       }).join('');
 
