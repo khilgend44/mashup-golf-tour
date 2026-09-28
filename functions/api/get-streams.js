@@ -16,11 +16,32 @@ async function kvList(accountId, apiToken, prefix) {
   return data.result ?? [];
 }
 
-async function kvGet(accountId, apiToken, key) {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
-  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${apiToken}` } });
-  if (!res.ok) throw new Error(`KV get failed for ${key}: ${res.status} ${await res.text()}`);
-  return res.text();
+// Confirmed root cause of the 2026-09 outage: this used to be one kvGet per
+// stream key (1 subrequest each) in the same invocation as the kvList above.
+// That's fine at a handful of entries but scales linearly with how many
+// players have submitted a stream for the event — S10W1 crossed Cloudflare's
+// per-invocation subrequest cap once enough players posted their links
+// through the day, and every visitor to the leaderboard started seeing zero
+// stream icons with no visible error (the outer catch swallowed it to {}).
+// The KV bulk-get endpoint fetches up to 100 keys in ONE subrequest, so this
+// endpoint's total cost is now flat (kvList + 1 bulk call) regardless of how
+// many streams exist, chunked defensively in case an event ever exceeds 100.
+async function kvBulkGet(accountId, apiToken, keys) {
+  const values = {};
+  for (let i = 0; i < keys.length; i += 100) {
+    const chunk = keys.slice(i, i + 100);
+    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${KV_NAMESPACE_ID}/bulk/get`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys: chunk }),
+    });
+    const body = await res.text();
+    if (!res.ok) throw new Error(`KV bulk get failed: ${res.status} ${body}`);
+    const data = JSON.parse(body);
+    Object.assign(values, data.result?.values ?? {});
+  }
+  return values;
 }
 
 export async function onRequestGet(context) {
@@ -41,6 +62,9 @@ export async function onRequestGet(context) {
 
   try {
     const keys = await kvList(accountId, apiToken, `${eventId}:`);
+    if (!keys.length) return Response.json({}, { headers: { 'Cache-Control': 'no-store' } });
+
+    const values = await kvBulkGet(accountId, apiToken, keys.map(k => k.name));
     const result = {};
     for (const keyObj of keys) {
       const rest = keyObj.name.replace(`${eventId}:`, '');
@@ -49,7 +73,7 @@ export async function onRequestGet(context) {
       const player = rest.slice(0, lastColon);
       const round  = rest.slice(lastColon + 1);
       if (!result[player]) result[player] = {};
-      result[player][round] = await kvGet(accountId, apiToken, keyObj.name);
+      result[player][round] = values[keyObj.name] ?? null;
     }
     return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
