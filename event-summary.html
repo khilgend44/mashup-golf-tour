@@ -45,6 +45,7 @@
     .net-accent   { border-top: 3px solid #f97316; }
     .team-accent  { border-top: 3px solid #a78bfa; }
     .pace-accent  { border-top: 3px solid #2dd4bf; }
+    .sgt-accent   { border-top: 3px solid #eab308; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -138,6 +139,11 @@
         // error shown to the visitor.
         loadPaceOfPlay(event, season);
       }
+
+      // SGT's own Stats/Long Drive tabs exist for any tournament on their
+      // platform, not just Season 10+ — unlike Pace of Play this isn't
+      // gated by season. Best-effort, non-blocking, same as above.
+      loadSgtHighlights(event, season);
     }
 
     function fmtDuration(totalSeconds) {
@@ -228,6 +234,111 @@
       section.innerHTML = `
         <h2 class="section-head mb-4">Pace of Play</h2>
         <p class="text-xs text-gray-600 mb-4 -mt-2">Estimated from submitted stream lengths — a shared team stream is split evenly across however many players are in it.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${cards.join('')}</div>
+      `;
+      section.classList.remove('hidden');
+    }
+
+    // SGT's tournament page exposes a Stats tab (full per-player tables,
+    // one AJAX fragment per stat category) and a Long Drive tab (per-hole
+    // longest-drive leaders, same shape as the CTP tracker) behind an
+    // internal session-cookie-gated endpoint — see functions/api/sgt-stats.js
+    // for the proxy/parser. Every category call is its own small Function
+    // invocation fanned out from the browser, same reasoning as Pace of
+    // Play above: one invocation doing the whole fan-out itself is what
+    // blew through Cloudflare's subrequest limit the first time.
+    // Skips Sand Save on purpose — a player who never misses a green into a
+    // bunker gets ranked on essentially zero attempts, which isn't a
+    // ball-striking signal at all, just an opportunity gap.
+    const BALL_STRIKER_SUBTYPES = ['drivingAccuracy', 'greenAccuracy', 'scrambling'];
+    // Skips the 5-30ft make-percentage bands on purpose — some players only
+    // attempt a handful of putts from a given band, so a single make/miss
+    // swings that % wildly. Round-level volume stats stay stable across the
+    // whole field instead.
+    const PUTTING_SUBTYPES = ['puttsPerRound', 'puttsPerGIR', 'feetPuttsMade'];
+
+    async function fetchSgtStat(tournamentId, subtype) {
+      try {
+        const res = await fetch(`/api/sgt-stats?tournamentId=${tournamentId}&subtype=${subtype}`);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch { return null; }
+    }
+
+    // Lower SGT position ("POS", ties as "T1" etc.) is better in every one
+    // of these categories, so summing raw position across categories and
+    // taking the lowest total crowns whoever's best across all of them at
+    // once — a composite SGT itself never computes, since it only ranks one
+    // category at a time.
+    function combineRanks(datasets) {
+      if (datasets.some(d => !d?.rows?.length)) return null;
+      const totals = {};
+      for (const d of datasets) {
+        for (const r of d.rows) totals[r.player] = (totals[r.player] || 0) + r.pos;
+      }
+      const entries = Object.entries(totals);
+      if (!entries.length) return null;
+      const lowest = Math.min(...entries.map(([, total]) => total));
+      const players = entries.filter(([, total]) => total === lowest).map(([player]) => player);
+      return { players, avgRank: lowest / datasets.length };
+    }
+
+    async function loadSgtHighlights(event, season) {
+      const properCase = name => (season?.players || []).find(p => p.toLowerCase() === name.toLowerCase()) || name;
+      const tid = event.tournamentId;
+
+      const [fir, gir, scrambling, puttsPerRound, puttsPerGIR, feetPuttsMade, ld] = await Promise.all([
+        ...BALL_STRIKER_SUBTYPES.map(s => fetchSgtStat(tid, s)),
+        ...PUTTING_SUBTYPES.map(s => fetchSgtStat(tid, s)),
+        fetchSgtStat(tid, 'ld'),
+      ]);
+
+      const cards = [];
+
+      const ballStriker = combineRanks([fir, gir, scrambling]);
+      if (ballStriker) {
+        const who = ballStriker.players.map(properCase).join(' & ');
+        cards.push(spotCard('Most Complete Ball-Striker', `Avg Rank ${ballStriker.avgRank.toFixed(1)}`, who, 'Combined FIR + GIR + Scrambling', 'sgt-accent'));
+      }
+
+      const puttingWizard = combineRanks([puttsPerRound, puttsPerGIR, feetPuttsMade]);
+      if (puttingWizard) {
+        const who = puttingWizard.players.map(properCase).join(' & ');
+        cards.push(spotCard('Putting Wizard', `Avg Rank ${puttingWizard.avgRank.toFixed(1)}`, who, 'Combined Putts/Round + Putts/GIR + Feet Made', 'sgt-accent'));
+      }
+
+      // Long Drive King: whoever tops the most individual long-drive holes
+      // across the whole event, not just the single longest drive of any
+      // one hole — a tally SGT's own per-hole cards never add up for you.
+      // Bomb of the Week: the single longest of those, for the flashiest
+      // number regardless of who racked up the most wins.
+      if (ld?.holes?.length) {
+        const wins = {};
+        let bomb = null;
+        for (const h of ld.holes) {
+          const top = h.leaders?.[0];
+          if (!top) continue;
+          const tiedTop = h.leaders.filter(l => l.distanceYds === top.distanceYds);
+          for (const w of tiedTop) wins[w.player] = (wins[w.player] || 0) + 1;
+          if (!bomb || top.distanceYds > bomb.distanceYds) bomb = { ...top, round: h.round, hole: h.hole };
+        }
+        const winEntries = Object.entries(wins);
+        if (winEntries.length) {
+          const mostWins = Math.max(...winEntries.map(([, count]) => count));
+          const kings = winEntries.filter(([, count]) => count === mostWins).map(([player]) => properCase(player)).join(' & ');
+          cards.push(spotCard('Long Drive King', `${mostWins} of ${ld.holes.length}`, kings, 'Long-drive holes topped', 'sgt-accent'));
+        }
+        if (bomb) {
+          cards.push(spotCard('Bomb of the Week', `${bomb.distanceYds.toFixed(2)} yds`, properCase(bomb.player), `Round ${bomb.round}, Hole ${bomb.hole}`, 'sgt-accent'));
+        }
+      }
+
+      if (!cards.length) return;
+
+      const section = $('sgt-section');
+      section.innerHTML = `
+        <h2 class="section-head mb-4">Event Highlights</h2>
+        <p class="text-xs text-gray-600 mb-4 -mt-2">Pulled live from SGT's own Stats and Long Drive tabs for this tournament.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${cards.join('')}</div>
       `;
       section.classList.remove('hidden');
@@ -343,6 +454,7 @@
         ${teamHtml}
 
         <div id="pace-section" class="mt-10 hidden"></div>
+        <div id="sgt-section" class="mt-10 hidden"></div>
       `;
     }
 
