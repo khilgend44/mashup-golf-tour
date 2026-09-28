@@ -996,6 +996,7 @@
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell">In</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Total</th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                ${isRinger ? `<th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden md:table-cell" title="36-hole net total — Ringer's 1st tiebreaker">Net Agg</th>` : ''}
                 ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
               </tr>
             </thead>
@@ -1016,7 +1017,7 @@
         if (player.notStarted) {
           const tr = document.createElement('tr');
           tr.className = 'lb-row';
-          const spanCols = (hasPrizes ? 9 : 8) - 3;
+          const spanCols = (hasPrizes ? 9 : 8) + (isRinger ? 1 : 0) - 3;
           tr.innerHTML = `
             <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5"></td>
             <td class="pos-col px-3 py-3.5 text-center text-gray-700">—</td>
@@ -1039,7 +1040,7 @@
         if (player.inProgress) {
           const tr = document.createElement('tr');
           tr.className = 'lb-row cursor-pointer select-none';
-          const spanCols = (hasPrizes ? 9 : 8) - 3;
+          const spanCols = (hasPrizes ? 9 : 8) + (isRinger ? 1 : 0) - 3;
           const inProgressStreams = getPlayerStreams(streams, player.player_name);
           tr.innerHTML = `
             <td class="${isRinger ? 'w-14' : 'w-8'} pl-3 py-3.5">${streamIconCell(inProgressStreams, isRinger)}</td>
@@ -1103,6 +1104,7 @@
           <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num hidden md:table-cell">${player.inn}</td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num hidden sm:table-cell">${player.total}</td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+          ${isRinger ? `<td class="px-3 py-3.5 text-center text-gray-400 font-mono text-xs num hidden md:table-cell">${player.totalNetAllRounds}</td>` : ''}
           ${hasPrizes ? `<td class="px-4 py-3.5 text-center whitespace-nowrap">${player.prize != null ? `<span class="prize-pill">$${fmtPrize(player.prize)}</span>` : '<span class="text-gray-700">—</span>'}</td>` : ''}
         `;
 
