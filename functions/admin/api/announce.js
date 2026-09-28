@@ -37,14 +37,19 @@ export async function onRequestPost(context) {
 
       const form = new FormData();
       form.append('file', new Blob([bytes], { type: 'image/png' }), 'mashup-announcement.png');
-      form.append('payload_json', JSON.stringify({ content: message || '' }));
+      // parse: ['users'] — ping real @mentions (e.g. the Results flow's
+      // <@discordId> tags for winners) but never @everyone/@here/roles, even
+      // if one ends up in the editable message textarea. Every other
+      // Discord-posting endpoint in this codebase already guards this way;
+      // this was the one that didn't.
+      form.append('payload_json', JSON.stringify({ content: message || '', allowed_mentions: { parse: ['users'] } }));
       res = await fetch(webhookUrl, { method: 'POST', body: form });
     } else {
-      // Text-only post (e.g. event results)
+      // Text-only post (e.g. event results) — same mention guard as above.
       res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message }),
+        body: JSON.stringify({ content: message, allowed_mentions: { parse: ['users'] } }),
       });
     }
 
