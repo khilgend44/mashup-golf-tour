@@ -12,7 +12,13 @@ export async function fetchScorecards(tournamentId) {
     // on mobile Safari well after it showed up on desktop and mobile Chrome
     // for the same URL. `cache: 'no-store'` plus a cache-busting query param
     // sidesteps relying on Safari to interpret the header correctly at all.
-    const res = await fetch(`data/scorecards/${tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
+    // Absolute path, not relative — this module is imported from pages at
+    // different depths (site root, but also /admin/*), and a relative
+    // `data/...` resolves against the *calling page's* URL, not the site
+    // root. Confirmed 2026-09: `/admin/events.html` importing this got
+    // `/admin/data/scorecards/...` (real path is `/data/scorecards/...`),
+    // 404ing silently every time.
+    const res = await fetch(`/data/scorecards/${tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return [];
     const text = await res.text();
     if (!text.trim()) return [];
@@ -30,7 +36,11 @@ export async function fetchScorecards(tournamentId) {
 // "nothing to show" rather than an error.
 export async function fetchCtp(tournamentId) {
   try {
-    const res = await fetch(`data/ctp/${tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
+    // Absolute path — see the same note on fetchScorecards above. This was
+    // the actual bug behind admin/events.html's CTP suggestions never
+    // showing up: fetchCtp silently 404'd from that page's directory, so
+    // resolveCtpLeaders always got an empty { rounds: [] } to work with.
+    const res = await fetch(`/data/ctp/${tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return { rounds: [] };
     const text = await res.text();
     if (!text.trim()) return { rounds: [] };
@@ -66,8 +76,12 @@ export function resolveCtpLeaders(ctpLive) {
 }
 
 export async function loadSeasons() {
+  // Absolute paths throughout this file — see the note on fetchScorecards
+  // above. Not yet imported from a nested page like /admin/*, but the next
+  // thing that does would hit the exact same silent-404 bug if these stayed
+  // relative.
   const [staticRes, kvRes] = await Promise.allSettled([
-    fetch('data/seasons.json'),
+    fetch('/data/seasons.json'),
     fetch('/api/seasons'),
   ]);
   const staticSeasons = staticRes.status === 'fulfilled' && staticRes.value.ok
@@ -81,9 +95,9 @@ export async function loadSeasons() {
 
 export async function loadEvents() {
   const [staticRes, kvRes, ovRes] = await Promise.allSettled([
-    fetch('data/events.json'),
+    fetch('/data/events.json'),
     fetch('/api/events-admin?type=events'),
-    fetch('data/overrides.json'),
+    fetch('/data/overrides.json'),
   ]);
   const staticEvents = staticRes.status === 'fulfilled' && staticRes.value.ok
     ? await staticRes.value.json() : [];
@@ -107,7 +121,7 @@ export async function loadEvents() {
 
 export async function loadFormats() {
   const [staticRes, customRes] = await Promise.allSettled([
-    fetch('data/formats.json'),
+    fetch('/data/formats.json'),
     fetch('/api/events-admin?type=formats'),
   ]);
   const staticFormats = staticRes.status === 'fulfilled' && staticRes.value.ok
