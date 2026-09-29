@@ -418,6 +418,7 @@ function buildTeamRoster(scorecards, event, teamSize) {
         status: 'complete',
         isSub: false,
         net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+        gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
         totalNet: card.total_net,
       });
     } else if (card.status === 'Pending' && cardHasStarted(card)) {
@@ -447,6 +448,7 @@ function buildTeamRoster(scorecards, event, teamSize) {
       status: 'complete',
       isSub: true,
       net: Array.from({ length: 18 }, (_, i) => subCard[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => subCard[`hole${i + 1}_gross`]),
       totalNet: subCard.total_net,
     });
     const ri = team.displayMembers.findIndex(p => p.toLowerCase() === sub.replace.toLowerCase());
@@ -511,6 +513,7 @@ function calcEscalatorDoom(scorecards, format, event) {
         displayMembers: team.displayMembers,
         members,
         teamSize,
+        pars: team.pars,
         total: null,
         toPar: provisionalToPar,
         aggregate: null,
@@ -724,6 +727,7 @@ function calcStableford3Man(scorecards, format, event) {
         displayMembers: team.displayMembers,
         members,
         teamSize,
+        pars: team.pars,
         total: null,
         toPar: provisionalPts,
         aggregate: null,
@@ -930,6 +934,7 @@ function calcBest2Worst2All3(scorecards, format, event) {
         displayMembers: team.displayMembers,
         members,
         teamSize,
+        pars: team.pars,
         total: null,
         toPar: provisionalToPar,
         aggregate: null,
@@ -1034,6 +1039,7 @@ function calcModifiedBB3Man(scorecards, format, event) {
         displayMembers: team.displayMembers,
         members,
         teamSize,
+        pars: team.pars,
         total: null,
         toPar: provisionalToPar,
         aggregate: null,
@@ -1131,6 +1137,7 @@ function calcBestBall3Man(scorecards, format, event) {
         displayMembers: team.displayMembers,
         members,
         teamSize,
+        pars: team.pars,
         total: null,
         toPar: provisionalToPar,
         aggregate: null,

@@ -338,7 +338,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260928a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260925a';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260928a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1199,13 +1199,15 @@
         if (team.inProgress) {
           const doneCount = team.members.filter(m => m.status === 'complete').length;
           const memberChips = team.members.map(m => {
+            const ps = getPlayerStreams(streams, m.name);
+            const icon = `<span onclick="event.stopPropagation()">${streamIconCell(ps, false)}</span>`;
             if (m.status === 'complete') {
-              return `<span class="inline-flex items-center gap-1 text-xs text-white"><span class="text-emerald-400">●</span>${m.name}</span>`;
+              return `<span class="inline-flex items-center gap-1 text-xs text-white">${icon}<span class="text-emerald-400">●</span>${m.name}</span>`;
             }
             if (m.status === 'live') {
-              return `<span class="inline-flex items-center gap-1 text-xs text-white"><span class="text-amber-400" style="animation:pulse 2s infinite">●</span>${m.name} <span class="text-gray-500">(thru ${m.holesPlayed})</span></span>`;
+              return `<span class="inline-flex items-center gap-1 text-xs text-white">${icon}<span class="text-amber-400" style="animation:pulse 2s infinite">●</span>${m.name} <span class="text-gray-500">(thru ${m.holesPlayed})</span></span>`;
             }
-            return `<span class="inline-flex items-center gap-1 text-xs text-gray-600"><span class="text-gray-700">○</span>${m.name}</span>`;
+            return `<span class="inline-flex items-center gap-1 text-xs text-gray-600">${icon}<span class="text-gray-700">○</span>${m.name}</span>`;
           }).join('');
           // Stableford's `toPar` is repurposed to hold raw points (higher is
           // better, no par offset) — same as the ranked row below, show it
@@ -1215,8 +1217,9 @@
               ? `<span class="text-xs text-gray-500">Provisional <span class="font-mono font-600 text-gray-300">${team.toPar} pts</span></span>`
               : `<span class="text-xs text-gray-500">Provisional <span class="font-mono font-600 ${team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even'}">${formatToPar(team.toPar)}</span></span>`;
 
+          const canExpand = doneCount > 0;
           const tr = document.createElement('tr');
-          tr.className = 'lb-row';
+          tr.className = `lb-row ${canExpand ? 'cursor-pointer select-none' : ''}`;
           const spanCols = (hasPrizes ? 9 : 8) - 3;
           tr.innerHTML = `
             <td class="w-8 pl-3 py-3"></td>
@@ -1232,6 +1235,41 @@
             </td>
           `;
           tbody.appendChild(tr);
+
+          // At least one teammate's own round is done and readable, even
+          // though the team as a whole isn't scoreable yet (best-ball
+          // segments need every roster spot filled) — let that much be
+          // seen instead of making the whole team invisible until the
+          // slowest member finishes. Not clickable at all if nobody's
+          // done yet (nothing real to show).
+          if (canExpand) {
+            const cardTr = document.createElement('tr');
+            cardTr.className = 'hidden';
+            cardTr.innerHTML = `
+              <td colspan="99" class="p-0 border-b border-border">
+                <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+                  <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">
+                    Team In Progress — ${team.displayMembers.join(' / ')}
+                  </div>
+                  ${buildTeamProgressScorecardHTML(team, event)}
+                  <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
+                    ${team.displayMembers.map(m => `
+                      <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
+                         class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
+                         style="transition:color 0.15s">
+                        <img src="brand_assets/sgt_emblem.svg" class="h-3.5 w-auto opacity-50" />
+                        ${m} <span class="text-[#d03f25]">→</span>
+                      </a>`).join('')}
+                  </div>
+                </div>
+              </td>
+            `;
+            tr.addEventListener('click', () => {
+              cardTr.classList.toggle('hidden');
+              tr.classList.toggle('expanded', cardTr.classList.contains('hidden') === false);
+            });
+            tbody.appendChild(cardTr);
+          }
           return;
         }
 
@@ -1537,6 +1575,88 @@
           <div class="text-xs text-gray-600 mb-4">Top individual stableford scorers not on 1st or 2nd place team</div>
           ${rows}
         </div>`;
+    }
+
+    // A team stuck in `inProgress` has no real team score yet (any
+    // best-ball-style segment needs every roster spot filled first — see
+    // `buildTeamRoster`/`calcEscalatorDoom` and friends), so this can't
+    // reuse `buildTeamScorecardHTML` below, which assumes a fully-scored
+    // team (`team.players`, `team.teamHoleScores`, etc.). This instead just
+    // shows each teammate's own individual round — net + gross, no team
+    // math — so a completed member's card isn't hidden behind however long
+    // the slowest teammate takes.
+    function buildTeamProgressScorecardHTML(team, event = null) {
+      const front = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+      const back  = [9, 10, 11, 12, 13, 14, 15, 16, 17];
+      const pars = team.pars || [];
+      const sum = (arr, idxs) => idxs.reduce((s, i) => s + (arr[i] || 0), 0);
+
+      function scoreCell(score, par) {
+        if (score == null) {
+          return `<td style="padding:3px 4px"><span class="sc-score" style="color:#3a3a3a">–</span></td>`;
+        }
+        const cls = holeScoreClass(score, par);
+        return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${score}</span></td>`;
+      }
+
+      const memberRows = team.members.map(m => {
+        if (m.status !== 'complete') {
+          const label = m.status === 'live' ? `LIVE — thru ${m.holesPlayed}` : 'Not started';
+          return `<tr class="score-row" style="opacity:0.45">
+            <td class="name-cell">${m.name}</td>
+            <td colspan="20" style="padding:3px 8px;font-size:11px;color:#6b7280">${label}</td>
+          </tr>`;
+        }
+        const gross = m.gross || m.net.map(() => null);
+        const gOut = sum(gross, front), gIn = sum(gross, back);
+        const nOut = sum(m.net, front), nIn = sum(m.net, back);
+        return `
+          <tr class="score-row" style="opacity:0.7">
+            <td class="name-cell" style="color:#777;font-size:11px">${m.name} GROSS</td>
+            ${front.map(i => scoreCell(gross[i], pars[i])).join('')}
+            <td class="sub-cell">${gOut}</td>
+            ${back.map(i => scoreCell(gross[i], pars[i])).join('')}
+            <td class="sub-cell">${gIn}</td>
+            <td class="total-cell">${gOut + gIn}</td>
+          </tr>
+          <tr class="score-row">
+            <td class="name-cell">${m.name} NET</td>
+            ${front.map(i => scoreCell(m.net[i], pars[i])).join('')}
+            <td class="sub-cell">${nOut}</td>
+            ${back.map(i => scoreCell(m.net[i], pars[i])).join('')}
+            <td class="sub-cell">${nIn}</td>
+            <td class="total-cell">${m.totalNet}</td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <div class="sc-wrap">
+          <table class="sc-table">
+            <thead>
+              <tr class="hole-hdr">
+                <th class="text-left pl-3">HOLE</th>
+                ${front.map(i => `<th>${i + 1}</th>`).join('')}
+                <th class="divider">OUT</th>
+                ${back.map(i => `<th>${i + 1}</th>`).join('')}
+                <th class="divider">IN</th>
+                <th class="divider">TOT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="par-row">
+                <td class="text-left pl-3">PAR</td>
+                ${front.map(i => `<td>${pars[i] ?? ''}</td>`).join('')}
+                <td class="sub-cell">${sum(pars, front)}</td>
+                ${back.map(i => `<td>${pars[i] ?? ''}</td>`).join('')}
+                <td class="sub-cell">${sum(pars, back)}</td>
+                <td class="sub-cell">${sum(pars, [...front, ...back])}</td>
+              </tr>
+              ${memberRows}
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs text-gray-600 mt-3">Full team scoring isn't available until all ${team.teamSize} teammates have a completed round — this just shows each player's own card so far.</p>
+      `;
     }
 
     function buildTeamScorecardHTML(team, format, event = null) {
