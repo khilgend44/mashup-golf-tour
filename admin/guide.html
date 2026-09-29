@@ -79,6 +79,7 @@
         <a href="#players"    class="toc-link block pl-3 py-1 text-gray-400">Players</a>
         <a href="#teams"      class="toc-link block pl-3 py-1 text-gray-400">Teams</a>
         <a href="#poster"     class="toc-link block pl-3 py-1 text-gray-400">Poster &amp; Announce</a>
+        <a href="#complete"   class="toc-link block pl-3 py-1 text-gray-400">Complete &amp; Results</a>
         <a href="#seasons"    class="toc-link block pl-3 py-1 text-gray-400">Seasons</a>
         <div class="pt-3 pb-1 pl-3 text-[10px] font-heading font-700 tracking-widest text-gray-600 uppercase">SimulatorGolfTour</div>
         <a href="#sgt-create" class="toc-link toc-sub block py-1 text-gray-400">Create Tournament</a>
@@ -125,6 +126,7 @@
           <li class="flex gap-4"><span class="step-badge">5</span><div class="text-sm"><span class="text-white font-600">Upload the loading file to SGT</span> to register the field for the tournament.</div></li>
           <li class="flex gap-4"><span class="step-badge">6</span><div class="text-sm"><span class="text-white font-600">Announce it</span> — click <span class="text-white">📣 Announce</span> on the event's row on the <a href="#events" class="text-flame hover:text-flame-dim">Events</a> page to jump straight to its <a href="#poster" class="text-flame hover:text-flame-dim">Poster</a>, post to Discord, then activate the event (activation turns on live scorecard fetching).</div></li>
           <li class="flex gap-4"><span class="step-badge">7</span><div class="text-sm"><span class="text-white font-600">During play</span>, fix any broken rounds on the <a href="#sgt-reset" class="text-flame hover:text-flame-dim">SGT admin page</a> as needed.</div></li>
+          <li class="flex gap-4"><span class="step-badge">8</span><div class="text-sm"><span class="text-white font-600">Once every round is in, complete the event</span> — see <a href="#complete" class="text-flame hover:text-flame-dim">Complete &amp; Results</a> below for the CTP and Discord-results steps that come with it.</div></li>
         </ol>
       </section>
 
@@ -218,6 +220,23 @@
           <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>One click posts the image and text to the Discord announcements channel.</div></li>
           <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>After posting it <span class="text-white">prompts you to activate the event</span> — say yes to turn on live scorecard fetching for the week.</div></li>
         </ul>
+      </section>
+
+      <!-- COMPLETE & RESULTS -->
+      <section id="complete" class="anchor mb-12">
+        <div class="flex items-center justify-between gap-3 mb-4 pb-2 border-b border-border flex-wrap">
+          <h2 class="font-display text-3xl tracking-wider text-white">Complete &amp; Results</h2>
+          <a href="events.html" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">Open Events →</a>
+        </div>
+        <p class="text-gray-400 text-sm mb-4">Once every round is in, this closes out the event and gets the results posted — both happen from the same <span class="text-white">Complete ✓</span> button on the event's row on the <a href="#events" class="text-flame hover:text-flame-dim">Events</a> page.</p>
+        <ul class="space-y-2.5 text-sm text-gray-300">
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>If the event has CTPs configured, <span class="text-white">Complete ✓</span> opens the <span class="text-white">CTP modal</span> first instead of completing right away. Any row without a manually-entered winner is <span class="text-white">pre-filled from the live CTP tracker</span> (hole, player, how close) — each suggested row is marked <span class="text-emerald-400">✓ Suggested from live CTP tracker</span>. Always verify a suggestion against SGT before saving; it's a starting point, not an auto-submit.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>No CTPs on the event? <span class="text-white">Complete ✓</span> just asks you to confirm, then completes it directly.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div><span class="text-white font-600">Completing the event automatically opens the Results modal</span> — it's one continuous flow, not two separate steps. The modal generates the Discord announcement text and a poster image from the final results; review/edit either before posting.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Need to re-post or fix a mistake later? The <span class="text-white">📣 Results</span> link reappears on the row for any completed event and reopens the same modal.</div></li>
+          <li class="flex gap-2.5"><span class="text-flame mt-0.5">•</span><div>Worth a look on the way out: <span class="text-white">📈 Handicaps</span> on the row shows week-over-week MashCAP moves, sorted biggest jump first.</div></li>
+        </ul>
+        <div class="callout border-flame/50 bg-flame/5 mt-5 px-4 py-3 text-sm text-gray-300"><span class="text-flame font-600">Completing stops live scorecard fetching</span> and locks the leaderboard as final — don't complete an event until every round is actually in.</div>
       </section>
 
       <!-- SEASONS -->
