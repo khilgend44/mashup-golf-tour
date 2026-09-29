@@ -1589,6 +1589,7 @@
       const front = [0, 1, 2, 3, 4, 5, 6, 7, 8];
       const back  = [9, 10, 11, 12, 13, 14, 15, 16, 17];
       const pars = team.pars || [];
+      const indices = team.indices || [];
       const sum = (arr, idxs) => idxs.reduce((s, i) => s + (arr[i] || 0), 0);
 
       function scoreCell(score, par) {
@@ -1650,6 +1651,14 @@
                 ${back.map(i => `<td>${pars[i] ?? ''}</td>`).join('')}
                 <td class="sub-cell">${sum(pars, back)}</td>
                 <td class="sub-cell">${sum(pars, [...front, ...back])}</td>
+              </tr>
+              <tr class="idx-row">
+                <td class="text-left pl-3">IDX</td>
+                ${front.map(i => `<td>${indices[i] ?? ''}</td>`).join('')}
+                <td class="sub-cell"></td>
+                ${back.map(i => `<td>${indices[i] ?? ''}</td>`).join('')}
+                <td class="sub-cell"></td>
+                <td class="sub-cell"></td>
               </tr>
               ${memberRows}
             </tbody>
