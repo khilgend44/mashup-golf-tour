@@ -1009,6 +1009,21 @@
         ? `<div class="text-xs font-body text-emerald-500 mt-2">🔒 Handicaps locked as of this event's first download — re-downloading reuses these same numbers, not today's live MashCAPs.</div>`
         : `<div class="text-xs font-body text-gray-600 mt-2">Not locked yet — downloading will freeze every player's handicap at today's values for this event.</div>`;
 
+      // Manual backfill — for an event whose CSV was already downloaded
+      // before locking existed (so it drifted for a while with no fix
+      // possible), or any other one-off case where the auto-captured lock
+      // needs correcting by hand. Paste format: {"name": {"raw": -7.8,
+      // "adjusted": 0}, ...} — one entry per player, case-insensitive names.
+      const manualLockHtml = `
+        <div class="mt-3">
+          <button id="sgt-manual-lock-btn" class="text-xs font-body text-gray-500 hover:text-flame underline">🔧 Manually set locked handicaps</button>
+          <div id="sgt-manual-lock-form" class="hidden mt-2 space-y-2">
+            <textarea id="sgt-manual-lock-json" rows="4" placeholder='{"playername": {"raw": -7.8, "adjusted": 0}, ...}'
+              class="w-full bg-[#0c0c0c] border border-border rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-flame"></textarea>
+            <button id="sgt-manual-lock-save" class="px-4 py-1.5 rounded-lg bg-flame text-white text-xs font-heading font-600 tracking-wider hover:bg-flame-dim" style="transition:background 0.15s">Save Locked Handicaps</button>
+          </div>
+        </div>`;
+
       panel.innerHTML = `
         <div class="flex flex-wrap items-center gap-4">
           <div class="text-sm font-body text-gray-400">${summary}</div>
@@ -1019,9 +1034,45 @@
         ${needsTeams ? `<div class="text-xs font-body text-yellow-600 mt-2">⚠ No teams drawn yet — draw and save teams first.</div>` : ''}
         ${fallbackNote}
         ${lockedNote}
-        <div class="text-xs font-body text-gray-700 mt-2">Handicaps refreshed ${formatRefreshAge(state.lastRefresh)}</div>`;
+        <div class="text-xs font-body text-gray-700 mt-2">Handicaps refreshed ${formatRefreshAge(state.lastRefresh)}</div>
+        ${manualLockHtml}`;
 
       document.getElementById('sgt-download-btn')?.addEventListener('click', () => downloadSgtCsv(event));
+      document.getElementById('sgt-manual-lock-btn')?.addEventListener('click', () => {
+        document.getElementById('sgt-manual-lock-form').classList.toggle('hidden');
+      });
+      document.getElementById('sgt-manual-lock-save')?.addEventListener('click', () => saveManualLock(event));
+    }
+
+    async function saveManualLock(event) {
+      const textarea = document.getElementById('sgt-manual-lock-json');
+      let parsed;
+      try {
+        parsed = JSON.parse(textarea.value);
+      } catch (e) {
+        showStatus('Invalid JSON: ' + e.message, 'error');
+        return;
+      }
+      const lockedHandicaps = {};
+      for (const [name, v] of Object.entries(parsed)) {
+        lockedHandicaps[name.toLowerCase()] = { raw: v.raw ?? null, adjusted: v.adjusted ?? null };
+      }
+      const updatedEvent = { ...event, lockedHandicaps };
+      try {
+        const res = await fetch(API_WRITE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-event', event: updatedEvent }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const idx = state.kvEvents.findIndex(e => e.id === event.id);
+        if (idx !== -1) state.kvEvents[idx] = data.event;
+        showStatus(`Locked handicaps saved for "${event.name || event.id}".`, 'success');
+        renderSgtPanel(event.id);
+      } catch (e) {
+        showStatus('Error saving locked handicaps: ' + e.message, 'error');
+      }
     }
 
     // Once an event's handicaps are locked (see downloadSgtCsv below), every
