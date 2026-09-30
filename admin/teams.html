@@ -1005,6 +1005,10 @@
           <span class="text-amber-200/90">${fallbackPlayers.join(', ')}</span>
         </div>`;
 
+      const lockedNote = event.lockedHandicaps
+        ? `<div class="text-xs font-body text-emerald-500 mt-2">🔒 Handicaps locked as of this event's first download — re-downloading reuses these same numbers, not today's live MashCAPs.</div>`
+        : `<div class="text-xs font-body text-gray-600 mt-2">Not locked yet — downloading will freeze every player's handicap at today's values for this event.</div>`;
+
       panel.innerHTML = `
         <div class="flex flex-wrap items-center gap-4">
           <div class="text-sm font-body text-gray-400">${summary}</div>
@@ -1014,9 +1018,36 @@
         </div>
         ${needsTeams ? `<div class="text-xs font-body text-yellow-600 mt-2">⚠ No teams drawn yet — draw and save teams first.</div>` : ''}
         ${fallbackNote}
+        ${lockedNote}
         <div class="text-xs font-body text-gray-700 mt-2">Handicaps refreshed ${formatRefreshAge(state.lastRefresh)}</div>`;
 
       document.getElementById('sgt-download-btn')?.addEventListener('click', () => downloadSgtCsv(event));
+    }
+
+    // Once an event's handicaps are locked (see downloadSgtCsv below), every
+    // consumer of "what handicap did this player register at" must read the
+    // frozen snapshot instead of recomputing live — a mid-week "Refresh
+    // Handicaps" must never retroactively change what an already-registered
+    // event shows, even though the live MashCAP table underneath it keeps
+    // moving. Falls back to live computation only when nothing's locked yet
+    // (still drafting/previewing before the CSV has ever been generated).
+    function eventCapFn(event, seasonPlayers, allowance) {
+      if (event.lockedHandicaps) {
+        const locked = event.lockedHandicaps;
+        return name => locked[name.toLowerCase()]?.adjusted ?? null;
+      }
+      return buildAllowedCapFn(seasonPlayers.map(p => p.name), allowance);
+    }
+
+    function buildHandicapSnapshot(seasonPlayers, adjCapFn) {
+      const snapshot = {};
+      for (const { name } of seasonPlayers) {
+        snapshot[name.toLowerCase()] = {
+          raw: regCap(state.handicaps[name.toLowerCase()]),
+          adjusted: adjCapFn(name),
+        };
+      }
+      return snapshot;
     }
 
     function generateSgtCsv(event) {
@@ -1025,7 +1056,7 @@
       const isSolo   = teamSize < 2;
 
       const seasonPlayers = getSortedPlayers(event.season);
-      const adjCap = buildAllowedCapFn(seasonPlayers.map(p => p.name), fmt.allowance);
+      const adjCap = eventCapFn(event, seasonPlayers, fmt.allowance);
 
       const header = 'TeamPlayer1,Player1 HCP,TeamPlayer2,Player2 HCP,TeamPlayer3,Player3 HCP,TeamPlayer4,Player4 HCP,teamID,opponentID';
       const rows = [];
@@ -1064,7 +1095,36 @@
       return '﻿' + [header, ...rows].join('\r\n') + '\r\n';
     }
 
-    function downloadSgtCsv(event) {
+    // First download for an event locks its handicaps — every subsequent
+    // download (even after a mid-week "Refresh Handicaps") reuses that same
+    // frozen snapshot, so re-downloading always reproduces the exact file
+    // already uploaded to SGT rather than silently drifting to whatever the
+    // live MashCAP table says today.
+    async function lockEventHandicaps(event) {
+      const fmt = state.allFormats[event.format] || {};
+      const seasonPlayers = getSortedPlayers(event.season);
+      const liveAdjCap = buildAllowedCapFn(seasonPlayers.map(p => p.name), fmt.allowance);
+      const lockedHandicaps = buildHandicapSnapshot(seasonPlayers, liveAdjCap);
+      const updatedEvent = { ...event, lockedHandicaps };
+      const res = await fetch(API_WRITE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update-event', event: updatedEvent }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const idx = state.kvEvents.findIndex(e => e.id === event.id);
+      if (idx !== -1) state.kvEvents[idx] = data.event;
+      Object.assign(event, data.event); // so the caller's own reference sees the lock too
+    }
+
+    async function downloadSgtCsv(event) {
+      try {
+        if (!event.lockedHandicaps) await lockEventHandicaps(event);
+      } catch (e) {
+        showStatus('Error locking handicaps: ' + e.message, 'error');
+        return;
+      }
       const csv  = generateSgtCsv(event);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url  = URL.createObjectURL(blob);

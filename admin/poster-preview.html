@@ -512,7 +512,18 @@
       // MashCAP first, then offsets the field so the best player = scratch;
       // same order of operations as the CSV, must produce the same numbers.
       const seasonRoster = getSeasonRoster(event.season);
-      const adjCap = buildAllowedCapFn(seasonRoster, fmt.allowance);
+      // Once this event's handicaps are locked (first CSV download on the
+      // Teams page), the poster must show those frozen numbers too — not
+      // recompute live, which would drift from what's actually registered
+      // on SGT after any later "Refresh Handicaps." See event-teams.html for
+      // the same fix and the real-world case that found this.
+      const locked = event.lockedHandicaps || null;
+      const adjCap = locked
+        ? (name => locked[name.toLowerCase()]?.adjusted ?? null)
+        : buildAllowedCapFn(seasonRoster, fmt.allowance);
+      const posterRegCap = locked
+        ? (name => locked[name.toLowerCase()]?.raw ?? null)
+        : (name => regCap(state.handicaps[name.toLowerCase()]));
       const allowancePct = fmt.allowance != null ? Math.round(fmt.allowance * 100) : null;
 
       // Prize pool total
@@ -524,7 +535,7 @@
       // Each player's cap line: raw MashCAP (small, muted) → the allowance-
       // adjusted number they actually play off this event (bold, white).
       const capLineHtml = name => {
-        const raw = regCap(state.handicaps[name.toLowerCase()]);
+        const raw = posterRegCap(name);
         const eff = adjCap(name);
         const rawStr = raw !== null ? raw.toFixed(1) : '—';
         const effStr = eff !== null ? eff : '—';

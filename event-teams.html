@@ -212,7 +212,7 @@
       // handicaps is an object keyed by lowercase player name: { "playername": { rawCap, mashCap, ... }, ... }
       const hcpMap = (handicaps && typeof handicaps === 'object' && !Array.isArray(handicaps)) ? handicaps : {};
       // MashCAP if present, else SGT rawCap (fallback only until a player has a MashCAP).
-      function regCap(name) {
+      function liveRegCap(name) {
         const h = hcpMap[name.toLowerCase()];
         if (!h) return null;
         if (h.mashCap !== undefined && h.mashCap !== null) return parseFloat(h.mashCap);
@@ -224,16 +224,27 @@
       // plays to scratch — same order of operations, and must produce the
       // same numbers, as admin/teams.html's SGT Loading File.
       const allowance = format.allowance != null ? Number(format.allowance) : 1;
-      function allowedRaw(name) {
-        const rc = regCap(name);
+      function liveAllowedRaw(name) {
+        const rc = liveRegCap(name);
         return rc !== null ? rc * allowance : null;
       }
-      const allowedValues = seasonRosterNames.map(allowedRaw).filter(v => v !== null);
+      const allowedValues = seasonRosterNames.map(liveAllowedRaw).filter(v => v !== null);
       const minAllowed = allowedValues.length ? Math.min(...allowedValues) : 0;
-      function adjCap(name) {
-        const ac = allowedRaw(name);
+      function liveAdjCap(name) {
+        const ac = liveAllowedRaw(name);
         return ac !== null ? Math.round(ac - minAllowed) : null;
       }
+
+      // Once handicaps are locked for this event (first CSV download on
+      // admin/teams.html), everyone must see that frozen snapshot instead of
+      // recomputing live — otherwise a mid-week "Refresh Handicaps" silently
+      // changes what this page shows for an event whose field is already
+      // registered on SGT at the old numbers. Confirmed 2026-09: a player
+      // who registered at an adjusted 0 showed as 1 here after a routine
+      // mid-week refresh, with nothing on screen explaining why it moved.
+      const locked = event.lockedHandicaps || null;
+      const regCap = locked ? (name => locked[name.toLowerCase()]?.raw ?? null) : liveRegCap;
+      const adjCap = locked ? (name => locked[name.toLowerCase()]?.adjusted ?? null) : liveAdjCap;
 
       // Breadcrumb
       const seasonLabel = event.season
@@ -268,6 +279,10 @@
       document.getElementById('app').classList.remove('hidden');
 
       let html = '';
+
+      html += locked
+        ? `<div class="text-xs text-emerald-500 mb-4">🔒 Handicaps shown are locked to what was registered for this event — they won't change even after a later handicap refresh.</div>`
+        : `<div class="text-xs text-gray-600 mb-4">Handicaps shown are today's live numbers — this event hasn't had its SGT loading file generated yet, so nothing's locked.</div>`;
 
       if (isSolo) {
         html += renderSoloPlayers(event, seasonRosterNames, adjCap, regCap, format);
