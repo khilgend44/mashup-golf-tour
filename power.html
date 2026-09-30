@@ -81,7 +81,7 @@
   </footer>
 
   <script type="module">
-    import { mashupForm } from './js/stats.js?v=20260930a';
+    import { mashupForm } from './js/stats.js?v=20260930b';
     import { loadSeasons } from './js/api.js?v=20260929a';
 
     const state = { handicaps: {}, rounds: {}, seasons: [], selected: '' };
@@ -123,9 +123,11 @@
         return { name, mc, form };
       });
 
-      // Ranked = has form with >= 3 recent rounds. Sorted hottest (most negative delta) first.
-      const ranked = rows.filter(r => r.form && r.form.count >= 3).sort((a, b) => a.form.delta - b.form.delta);
-      const unranked = rows.filter(r => !(r.form && r.form.count >= 3));
+      // Ranked = mashupForm() returned something — it's the single source of
+      // truth on whether a player has enough data (3+ MashUp rounds no
+      // longer required, just 1+; see js/stats.js). Sorted hottest first.
+      const ranked = rows.filter(r => r.form).sort((a, b) => a.form.delta - b.form.delta);
+      const unranked = rows.filter(r => !r.form);
       const maxAbs = Math.max(0.1, ...ranked.map(r => Math.abs(r.form.delta)));
 
       document.getElementById('ranked-count').textContent = `(${ranked.length})`;

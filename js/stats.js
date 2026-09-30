@@ -69,15 +69,18 @@ export function recentForm(rounds, n = 5) {
 // them). DIFF (differential) is the right equalizer for this comparison
 // since it's already adjusted for course rating/slope, so a MashUp round
 // and a round on a totally different course/tour are still comparable.
-// Requires at least 3 rounds on *each* side — a MashUp-only player has no
-// "elsewhere" to compare against and simply can't be ranked by this metric,
-// which is correct, not a bug.
+// Only the "elsewhere" side needs 3+ rounds to be a stable baseline — a
+// MashUp-only player has no "elsewhere" to compare against and simply can't
+// be ranked by this metric, which is correct, not a bug. The MashUp side
+// itself only needs 1: early in a season, or for a player who just joined,
+// a single round is still a real (if noisy) signal worth showing rather
+// than hiding until they've played three.
 export function mashupForm(rounds, n = 5) {
   if (!Array.isArray(rounds)) return null;
   const mean = arr => arr.reduce((s, r) => s + r.differential, 0) / arr.length;
   const mash = rounds.filter(r => r.tour === 'MSH').sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const other = rounds.filter(r => r.tour !== 'MSH');
-  if (mash.length < 3 || other.length < 3) return null;
+  if (mash.length < 1 || other.length < 3) return null;
   const recent = mash.slice(0, n);
   const recentAvg = mean(recent);
   const base = mean(other);
