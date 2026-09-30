@@ -42,7 +42,7 @@
     <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
       <div>
         <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Power Rankings</h1>
-        <p class="text-gray-500 text-sm mt-2 max-w-xl">Who's <span class="hot">heating up</span> and who's <span class="cold">cooling off</span> — ranked by how each player's <span class="text-gray-300">last 5 rounds</span> compare to their own season average. Left of the line = playing better than usual lately.</p>
+        <p class="text-gray-500 text-sm mt-2 max-w-xl">Who's <span class="hot">heating up</span> and who's <span class="cold">cooling off</span> — ranked by how each player's <span class="text-gray-300">last 5 MashUp rounds</span> compare to their rounds on other tours. Left of the line = playing MashUp better than their golf elsewhere.</p>
       </div>
       <select id="season-select" class="bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-lg tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer"></select>
     </div>
@@ -63,8 +63,8 @@
               <th class="text-center px-3 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">#</th>
               <th class="text-left  px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase w-2/5">Form</th>
-              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Last 5</th>
-              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Avg</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">MashUp</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Elsewhere</th>
               <th class="text-right px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Δ</th>
             </tr>
           </thead>
@@ -81,7 +81,7 @@
   </footer>
 
   <script type="module">
-    import { recentForm } from './js/stats.js';
+    import { mashupForm } from './js/stats.js?v=20260930a';
     import { loadSeasons } from './js/api.js?v=20260929a';
 
     const state = { handicaps: {}, rounds: {}, seasons: [], selected: '' };
@@ -119,7 +119,7 @@
         const h = state.handicaps[key] || {};
         const mc = h.mashCap != null ? +h.mashCap : null;
         const rounds = state.rounds[key] || [];
-        const form = recentForm(rounds, 5);
+        const form = mashupForm(rounds, 5);
         return { name, mc, form };
       });
 

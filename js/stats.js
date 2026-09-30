@@ -59,6 +59,33 @@ export function recentForm(rounds, n = 5) {
   return { count: recent.length, avg: Math.round(recentAvg * 100) / 100, base: Math.round(base * 100) / 100, delta, label };
 }
 
+// MashUp-specific form: the player's last `n` MashUp rounds (tour === 'MSH')
+// vs. their average on every OTHER tour — a different question from
+// recentForm above ("is their league golf trending vs their own history").
+// This asks "do they play MashUp better or worse than their golf elsewhere,"
+// on the theory that real money on the line changes how someone plays.
+// Negative delta = better in MashUp than elsewhere ("hot" — thriving under
+// the pressure); positive = worse in MashUp ("cold" — pressure getting to
+// them). DIFF (differential) is the right equalizer for this comparison
+// since it's already adjusted for course rating/slope, so a MashUp round
+// and a round on a totally different course/tour are still comparable.
+// Requires at least 3 rounds on *each* side — a MashUp-only player has no
+// "elsewhere" to compare against and simply can't be ranked by this metric,
+// which is correct, not a bug.
+export function mashupForm(rounds, n = 5) {
+  if (!Array.isArray(rounds)) return null;
+  const mean = arr => arr.reduce((s, r) => s + r.differential, 0) / arr.length;
+  const mash = rounds.filter(r => r.tour === 'MSH').sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const other = rounds.filter(r => r.tour !== 'MSH');
+  if (mash.length < 3 || other.length < 3) return null;
+  const recent = mash.slice(0, n);
+  const recentAvg = mean(recent);
+  const base = mean(other);
+  const delta = Math.round((recentAvg - base) * 100) / 100;
+  const label = delta <= -1 ? 'hot' : delta >= 1 ? 'cold' : 'steady';
+  return { count: recent.length, avg: Math.round(recentAvg * 100) / 100, base: Math.round(base * 100) / 100, delta, label };
+}
+
 // ── Per-player season/career money + finishes (scoring-engine derived) ────────
 // Mirrors season.html buildStandings, but keyed by player and capturing each
 // finish so profiles can show wins, podiums, and an event-by-event timeline.
