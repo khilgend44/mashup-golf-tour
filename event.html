@@ -123,7 +123,7 @@
     }
 
     /* Hole score badges */
-    .sc-score { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700; }
+    .sc-score { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700; }
     .eagle  .sc-score { background: #22c55e; color: #000; }
     .birdie .sc-score { background: #3b82f6; color: #fff; }
     .par-score .sc-score { color: #e0e0e0; }
@@ -136,6 +136,12 @@
     /* Manually-adjusted score marker */
     .adj { position: relative; }
     .adj::after { content: '✱'; position: absolute; top: -5px; right: -8px; color: #f97316; font-size: 10px; font-weight: 700; line-height: 1; }
+
+    /* Handicap stroke "pop" dots — like a paper scorecard, one dot per
+       stroke received on that hole (bottom-right, so it never collides
+       with the manual-adjustment star in the top-right). */
+    .stroke-dots { position: absolute; bottom: -3px; right: -3px; display: flex; gap: 1px; pointer-events: none; }
+    .stroke-dot { width: 5px; height: 5px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 0 1.5px #0c0c0c; }
 
     .format-badge {
       display: inline-flex; align-items: center; gap: 5px;
@@ -338,7 +344,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20260929a';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261002a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -947,6 +953,18 @@
     }
 
     function fmtPrize(v) { return v.toFixed(2); }
+
+    // Handicap "pop" dots — strokes received on a hole = gross minus net,
+    // same number SGT's own loading-file handicap already baked into net.
+    // No separate index/allowance lookup needed; this just visualizes a
+    // difference that's already being computed for us.
+    function strokeDotsHtml(gross, net) {
+      if (gross == null || net == null) return '';
+      const strokes = gross - net;
+      if (strokes <= 0) return '';
+      const dots = Array.from({ length: Math.min(strokes, 3) }, () => '<span class="stroke-dot"></span>').join('');
+      return `<span class="stroke-dots">${dots}</span>`;
+    }
 
     // Holes manually corrected for a player (see data/overrides.json). Returns a
     // Set with keys `${hole}` (any round) and `${round}:${hole}` (round-specific).
@@ -1592,12 +1610,12 @@
       const indices = team.indices || [];
       const sum = (arr, idxs) => idxs.reduce((s, i) => s + (arr[i] || 0), 0);
 
-      function scoreCell(score, par) {
+      function scoreCell(score, par, grossVal = null) {
         if (score == null) {
           return `<td style="padding:3px 4px"><span class="sc-score" style="color:#3a3a3a">–</span></td>`;
         }
         const cls = holeScoreClass(score, par);
-        return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${score}</span></td>`;
+        return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${score}${strokeDotsHtml(grossVal, score)}</span></td>`;
       }
 
       const memberRows = team.members.map(m => {
@@ -1622,9 +1640,9 @@
           </tr>
           <tr class="score-row">
             <td class="name-cell">${m.name} NET</td>
-            ${front.map(i => scoreCell(m.net[i], pars[i])).join('')}
+            ${front.map(i => scoreCell(m.net[i], pars[i], gross[i])).join('')}
             <td class="sub-cell">${nOut}</td>
-            ${back.map(i => scoreCell(m.net[i], pars[i])).join('')}
+            ${back.map(i => scoreCell(m.net[i], pars[i], gross[i])).join('')}
             <td class="sub-cell">${nIn}</td>
             <td class="total-cell">${m.totalNet}</td>
           </tr>`;
@@ -1734,11 +1752,12 @@
           return `<td class="${opacity} ${ptsCls}" style="padding:3px 4px;font-size:12px;font-weight:600;text-align:center">${pts}</td>`;
         }
         const score   = team.players[playerIdx].net[holeIdx];
+        const gross   = team.players[playerIdx].gross?.[holeIdx];
         const par     = team.pars[holeIdx];
         const scoreCls = holeScoreClass(score, par);
         const adjusted = ovByPlayer[playerIdx].has(`${holeIdx + 1}`);
-        return `<td class="${opacity}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
-          <span class="sc-score ${scoreCls}${adjusted ? ' adj' : ''}">${score}</span>
+        return `<td class="${opacity} ${scoreCls}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
+          <span class="sc-score${adjusted ? ' adj' : ''}">${score}${strokeDotsHtml(gross, score)}</span>
         </td>`;
       }
 
@@ -1969,7 +1988,7 @@
       const back  = [9,10,11,12,13,14,15,16,17];
       const ovKeys = overriddenHoleKeys(event, p.player_name);
 
-      function scoreCell(score, par, extra = '', adjusted = false) {
+      function scoreCell(score, par, extra = '', adjusted = false, grossVal = null) {
         // Not played yet (in-progress rounds carry null here, not a real
         // stroke count) — show a blank dash rather than running it through
         // holeScoreClass, which would read a null/0 as several strokes
@@ -1984,7 +2003,7 @@
         const cls = holeScoreClass(score, par);
         return `<td class="${cls}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
           <div style="display:flex;flex-direction:column;align-items:center">
-            <span class="sc-score${adjusted ? ' adj' : ''}">${score}</span>
+            <span class="sc-score${adjusted ? ' adj' : ''}">${score}${strokeDotsHtml(grossVal, score)}</span>
             ${extra ? `<span class="rnd-badge">${extra}</span>` : ''}
           </div>
         </td>`;
@@ -2031,9 +2050,9 @@
           </tr>
           <tr class="score-row" style="${showRounds ? 'opacity:0.9' : ''}">
             <td class="name-cell" style="${showRounds ? 'color:#aaa' : ''}">${label}NET</td>
-            ${front.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
+            ${front.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`), gross[i])).join('')}
             <td class="sub-cell">${rOut}</td>
-            ${back.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
+            ${back.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`), gross[i])).join('')}
             <td class="sub-cell">${rIn}</td>
             <td class="total-cell">${rTot ?? '–'}</td>
             <td class="topar-cell ${rCls}">${rToPar != null ? formatToPar(rToPar) : ''}</td>
@@ -2064,7 +2083,7 @@
             </tr>
             <tr class="score-row" style="${showRounds ? 'opacity:0.9' : ''}">
               <td class="name-cell" style="${showRounds ? 'color:#aaa' : ''}">${rLabel}NET</td>
-              ${holes.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`))).join('')}
+              ${holes.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`), gross[i])).join('')}
               <td class="sub-cell">${netSub}</td>
               ${isBack ? `<td class="total-cell">${rTot ?? '–'}</td><td class="topar-cell ${rCls}">${rToPar != null ? formatToPar(rToPar) : ''}</td>` : ''}
             </tr>`;
@@ -2258,11 +2277,11 @@
       const playerRows = team.players.map(p => {
         const fc = front.map(h => {
           const cls = holeScoreClass(p.net[h], team.pars[h]);
-          return `<td style="padding:3px 4px"><span class="sc-score ${cls}">${p.net[h]}</span></td>`;
+          return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${p.net[h]}</span></td>`;
         }).join('');
         const bc = back.map(h => {
           const cls = holeScoreClass(p.net[h], team.pars[h]);
-          return `<td style="padding:3px 4px"><span class="sc-score ${cls}">${p.net[h]}</span></td>`;
+          return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${p.net[h]}</span></td>`;
         }).join('');
         const fo = front.reduce((s, h) => s + p.net[h], 0);
         const bi = back.reduce((s, h) => s + p.net[h], 0);

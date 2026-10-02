@@ -612,6 +612,7 @@ function calcDevilsDraw(scorecards, format, event) {
     teams[key].players.push({
       name: card.player_name,
       net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
       totalNet: card.total_net,
     });
   }
@@ -834,6 +835,7 @@ function calcDevilsDraw4Man(scorecards, format, event) {
     teams[key].players.push({
       name: card.player_name,
       net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
       totalNet: card.total_net,
     });
   }
@@ -1226,6 +1228,7 @@ function calcShamble2Man(scorecards, format, event) {
     teams[key].players.push({
       name: card.player_name,
       net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
       totalNet: card.total_net,
     });
   }
@@ -1316,6 +1319,7 @@ function calcNassau2Man(scorecards, format, event) {
     teams[key].players.push({
       name: card.player_name,
       net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
       totalNet: card.total_net,
     });
   }
@@ -1476,6 +1480,7 @@ function calcLoneRanger(scorecards, format, event) {
       name: card.player_name,
       isSub: false,
       net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
       totalNet: card.total_net,
     });
   }
@@ -1489,6 +1494,7 @@ function calcLoneRanger(scorecards, format, event) {
       name: sub.with,
       isSub: true,
       net: Array.from({ length: 18 }, (_, i) => subCard[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => subCard[`hole${i + 1}_gross`]),
       totalNet: subCard.total_net,
     });
     const ri = team.displayMembers.findIndex(p => p.toLowerCase() === sub.replace.toLowerCase());
