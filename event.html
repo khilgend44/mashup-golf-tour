@@ -1627,19 +1627,10 @@
           </tr>`;
         }
         const gross = m.gross || m.net.map(() => null);
-        const gOut = sum(gross, front), gIn = sum(gross, back);
         const nOut = sum(m.net, front), nIn = sum(m.net, back);
         return `
-          <tr class="score-row" style="opacity:0.7">
-            <td class="name-cell" style="color:#777;font-size:11px">${m.name} GROSS</td>
-            ${front.map(i => scoreCell(gross[i], pars[i])).join('')}
-            <td class="sub-cell">${gOut}</td>
-            ${back.map(i => scoreCell(gross[i], pars[i])).join('')}
-            <td class="sub-cell">${gIn}</td>
-            <td class="total-cell">${gOut + gIn}</td>
-          </tr>
           <tr class="score-row">
-            <td class="name-cell">${m.name} NET</td>
+            <td class="name-cell">${m.name}</td>
             ${front.map(i => scoreCell(m.net[i], pars[i], gross[i])).join('')}
             <td class="sub-cell">${nOut}</td>
             ${back.map(i => scoreCell(m.net[i], pars[i], gross[i])).join('')}
@@ -2034,22 +2025,10 @@
         const rTot = rnd.total;
         const rToPar = rTot != null ? rTot - p.totalPar : null;
         const rCls = rToPar == null ? '' : rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
-        const gOut = gross.slice(0,9).reduce((a,b)=>a+b,0);
-        const gIn  = gross.slice(9).reduce((a,b)=>a+b,0);
-        const gTot = gOut + gIn;
-        const label = showRounds ? `R${rnd.round} ` : '';
+        const label = showRounds ? `R${rnd.round}` : 'NET';
         return `
-          <tr class="score-row" style="opacity:0.7">
-            <td class="name-cell" style="color:#777;font-size:11px">${label}GROSS</td>
-            ${front.map(i => scoreCell(gross[i], p.pars[i])).join('')}
-            <td class="sub-cell">${gOut}</td>
-            ${back.map(i => scoreCell(gross[i], p.pars[i])).join('')}
-            <td class="sub-cell">${gIn}</td>
-            <td class="total-cell">${gTot}</td>
-            <td class="topar-cell"></td>
-          </tr>
-          <tr class="score-row" style="${showRounds ? 'opacity:0.9' : ''}">
-            <td class="name-cell" style="${showRounds ? 'color:#aaa' : ''}">${label}NET</td>
+          <tr class="score-row">
+            <td class="name-cell">${label}</td>
             ${front.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`), gross[i])).join('')}
             <td class="sub-cell">${rOut}</td>
             ${back.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`), gross[i])).join('')}
@@ -2069,20 +2048,13 @@
         const halfRoundRows = (p.rounds || []).map(rnd => {
           const gross = rnd.gross || rnd.net.map(() => null);
           const netSub   = holes.reduce((s, i) => s + rnd.net[i], 0);
-          const grossSub = holes.reduce((s, i) => s + gross[i], 0);
           const rTot = rnd.total;
           const rToPar = rTot != null ? rTot - p.totalPar : null;
           const rCls = rToPar == null ? '' : rToPar < 0 ? 'under' : rToPar > 0 ? 'over' : 'even';
-          const rLabel = showRounds ? `R${rnd.round} ` : '';
+          const rLabel = showRounds ? `R${rnd.round}` : 'NET';
           return `
-            <tr class="score-row" style="opacity:0.7">
-              <td class="name-cell" style="color:#777;font-size:11px">${rLabel}GROSS</td>
-              ${holes.map(i => scoreCell(gross[i], p.pars[i])).join('')}
-              <td class="sub-cell">${grossSub}</td>
-              ${isBack ? `<td class="total-cell"></td><td class="topar-cell"></td>` : ''}
-            </tr>
-            <tr class="score-row" style="${showRounds ? 'opacity:0.9' : ''}">
-              <td class="name-cell" style="${showRounds ? 'color:#aaa' : ''}">${rLabel}NET</td>
+            <tr class="score-row">
+              <td class="name-cell">${rLabel}</td>
               ${holes.map(i => scoreCell(rnd.net[i], p.pars[i], '', ovKeys.has(`${rnd.round}:${i+1}`), gross[i])).join('')}
               <td class="sub-cell">${netSub}</td>
               ${isBack ? `<td class="total-cell">${rTot ?? '–'}</td><td class="topar-cell ${rCls}">${rToPar != null ? formatToPar(rToPar) : ''}</td>` : ''}
