@@ -355,6 +355,23 @@ function indexCountback(a, b) {
   return 0;
 }
 
+// Sorts in-progress team entries by their own provisional score, so a team
+// that's further along (or simply doing better so far) sits above a team
+// that's barely started — still entirely below the fully-scored `ranked`
+// list, never mixed into real positions. A team with zero complete players
+// yet has `toPar: null` (nothing to compute a provisional number from) and
+// sorts to the very bottom. Stableford repurposes `toPar` to hold raw
+// points (higher is better) instead of a to-par diff (lower is better) —
+// `isStableford` flips the comparison direction for those entries.
+function sortInProgress(unranked) {
+  return unranked.sort((a, b) => {
+    if (a.toPar == null && b.toPar == null) return 0;
+    if (a.toPar == null) return 1;
+    if (b.toPar == null) return -1;
+    return a.isStableford ? b.toPar - a.toPar : a.toPar - b.toPar;
+  });
+}
+
 // ─── Escalator of Doom ──────────────────────────────────────────────────────
 
 // Shared roster/status builder for every live-tracked team format. Teammates
@@ -580,7 +597,7 @@ function calcEscalatorDoom(scorecards, format, event) {
     if (trulyTied) prev.tied = true;
   });
 
-  return [...ranked, ...unranked];
+  return [...ranked, ...sortInProgress(unranked)];
 }
 
 // ─── Devil's Draw ───────────────────────────────────────────────────────────
@@ -803,7 +820,7 @@ function calcStableford3Man(scorecards, format, event) {
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
   });
-  return [...ranked, ...unranked];
+  return [...ranked, ...sortInProgress(unranked)];
 }
 
 // ─── Devil's Draw (4-Man) ───────────────────────────────────────────────────
@@ -1006,7 +1023,7 @@ function calcBest2Worst2All3(scorecards, format, event) {
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
   });
-  return [...ranked, ...unranked];
+  return [...ranked, ...sortInProgress(unranked)];
 }
 
 // ─── 3-Man Modified BB ──────────────────────────────────────────────────────
@@ -1107,7 +1124,7 @@ function calcModifiedBB3Man(scorecards, format, event) {
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
   });
-  return [...ranked, ...unranked];
+  return [...ranked, ...sortInProgress(unranked)];
 }
 
 // ─── 3-Man, 2 Best Ball ─────────────────────────────────────────────────────
@@ -1206,7 +1223,7 @@ function calcBestBall3Man(scorecards, format, event) {
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
   });
-  return [...ranked, ...unranked];
+  return [...ranked, ...sortInProgress(unranked)];
 }
 
 // ─── 2-Man Shamble ──────────────────────────────────────────────────────────
