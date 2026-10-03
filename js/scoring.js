@@ -366,6 +366,23 @@ function netIndexCountback(a, b) {
   return 0;
 }
 
+// Same countback idea (lowest score on the hardest-rated hole first,
+// stroke index #1 then #2 etc.), generalized to a TEAM's own per-hole
+// score (`teamHoleScores`, already computed by every team format's real
+// scoring — the best-N-of-the-field sum for that hole) instead of one
+// player's raw net. Both teams being compared played the same course in
+// the same event, so their teamHoleScores are directly comparable hole for
+// hole. `higherWins` flips the comparison for Stableford, where
+// `teamHoleScores` holds points (higher is better) instead of strokes.
+function teamIndexCountback(a, b, higherWins = false) {
+  const sorted = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.indices[x] - a.indices[y]);
+  for (const h of sorted) {
+    const d = a.teamHoleScores[h] - b.teamHoleScores[h];
+    if (d !== 0) return higherWins ? -d : d;
+  }
+  return 0;
+}
+
 const roundPts = n => Math.round(n * 10) / 10;
 
 // Groups `list` into consecutive runs of equal (rounded) `keyFn` value,
@@ -654,16 +671,20 @@ function calcEscalatorDoom(scorecards, format, event) {
     });
   }
 
-  // Sort: team total → net aggregate tiebreaker. In-progress entries have
-  // no total to sort by and stay unranked at the end.
+  // Sort: team total → net aggregate → index countback. In-progress
+  // entries have no total to sort by and stay unranked at the end.
   const ranked = results.filter(r => !r.inProgress);
   const unranked = results.filter(r => r.inProgress);
-  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+  ranked.sort((a, b) => {
+    if (a.total !== b.total) return a.total - b.total;
+    if (a.aggregate !== b.aggregate) return a.aggregate - b.aggregate;
+    return teamIndexCountback(a, b);
+  });
 
   ranked.forEach((curr, i) => {
     if (i === 0) { curr.position = 1; curr.tied = false; return; }
     const prev = ranked[i - 1];
-    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate && teamIndexCountback(curr, prev) === 0;
     curr.position = trulyTied ? prev.position : i + 1;
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
@@ -877,22 +898,23 @@ function calcStableford3Man(scorecards, format, event) {
 
   const ranked = results.filter(r => !r.inProgress);
   const unranked = results.filter(r => r.inProgress);
-  // High score wins: sort descending by total, then aggregate, then index countback (top-2 per hole)
+  // High score wins: sort descending by total, then aggregate, then index
+  // countback (top-2 per hole) — `higherWins: true` since teamHoleScores
+  // holds points here, not strokes. This used to hand-roll the countback
+  // inline, which worked for sort order but left `trulyTied` below not
+  // actually checking it — two teams decisively separated by countback
+  // could still get mislabeled "tied" in the UI. Shared `teamIndexCountback`
+  // fixes both by construction (same function drives the sort and the tie
+  // check, so they can't disagree).
   ranked.sort((a, b) => {
     if (b.total !== a.total) return b.total - a.total;
     if (b.aggregate !== a.aggregate) return b.aggregate - a.aggregate;
-    // Hole-by-hole countback from index #1 using top-2 stableford
-    const idxOrder = Array.from({ length: 18 }, (_, i) => i)
-      .sort((x, y) => (a.indices[x] || 99) - (a.indices[y] || 99));
-    for (const h of idxOrder) {
-      if (a.teamHoleScores[h] !== b.teamHoleScores[h]) return b.teamHoleScores[h] - a.teamHoleScores[h];
-    }
-    return 0;
+    return teamIndexCountback(a, b, true);
   });
   ranked.forEach((curr, i) => {
     if (i === 0) { curr.position = 1; curr.tied = false; return; }
     const prev = ranked[i - 1];
-    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate && teamIndexCountback(curr, prev, true) === 0;
     curr.position = trulyTied ? prev.position : i + 1;
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
@@ -1095,11 +1117,15 @@ function calcBest2Worst2All3(scorecards, format, event) {
 
   const ranked = results.filter(r => !r.inProgress);
   const unranked = results.filter(r => r.inProgress);
-  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+  ranked.sort((a, b) => {
+    if (a.total !== b.total) return a.total - b.total;
+    if (a.aggregate !== b.aggregate) return a.aggregate - b.aggregate;
+    return teamIndexCountback(a, b);
+  });
   ranked.forEach((curr, i) => {
     if (i === 0) { curr.position = 1; curr.tied = false; return; }
     const prev = ranked[i - 1];
-    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate && teamIndexCountback(curr, prev) === 0;
     curr.position = trulyTied ? prev.position : i + 1;
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
@@ -1201,11 +1227,15 @@ function calcModifiedBB3Man(scorecards, format, event) {
 
   const ranked = results.filter(r => !r.inProgress);
   const unranked = results.filter(r => r.inProgress);
-  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+  ranked.sort((a, b) => {
+    if (a.total !== b.total) return a.total - b.total;
+    if (a.aggregate !== b.aggregate) return a.aggregate - b.aggregate;
+    return teamIndexCountback(a, b);
+  });
   ranked.forEach((curr, i) => {
     if (i === 0) { curr.position = 1; curr.tied = false; return; }
     const prev = ranked[i - 1];
-    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate && teamIndexCountback(curr, prev) === 0;
     curr.position = trulyTied ? prev.position : i + 1;
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
@@ -1305,11 +1335,15 @@ function calcBestBall3Man(scorecards, format, event) {
 
   const ranked = results.filter(r => !r.inProgress);
   const unranked = results.filter(r => r.inProgress);
-  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+  ranked.sort((a, b) => {
+    if (a.total !== b.total) return a.total - b.total;
+    if (a.aggregate !== b.aggregate) return a.aggregate - b.aggregate;
+    return teamIndexCountback(a, b);
+  });
   ranked.forEach((curr, i) => {
     if (i === 0) { curr.position = 1; curr.tied = false; return; }
     const prev = ranked[i - 1];
-    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate && teamIndexCountback(curr, prev) === 0;
     curr.position = trulyTied ? prev.position : i + 1;
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;

@@ -34,7 +34,7 @@
     "id": "escalator-doom",
     "name": "Escalator of Doom",
     "shortName": "Escalator",
-    "description": "3-player teams. Holes 1–6: 1 net best ball. Holes 7–12: 2 net best ball (sum of 2 lowest). Holes 13–18: all 3 net scores. Team total vs. adjusted par. Tiebreaker: team net aggregate.",
+    "description": "3-player teams. Holes 1–6: 1 net best ball. Holes 7–12: 2 net best ball (sum of 2 lowest). Holes 13–18: all 3 net scores. Team total vs. adjusted par. Tiebreaker: team net aggregate, then index countback.",
     "scoringBasis": "net",
     "type": "escalator-doom",
     "lowScoreWins": true,
@@ -46,7 +46,8 @@
       { "startHole": 13, "endHole": 18, "count": 3, "label": "All 3 Scores" }
     ],
     "tiebreakers": [
-      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" },
+      { "type": "index-countback", "label": "Team hole-by-hole countback, starting from index #1" }
     ]
   },
   "devils-draw": {
@@ -96,14 +97,15 @@
     "id": "best2-worst2-all3",
     "name": "Best 2, Worst 2, All 3",
     "shortName": "B2/W2/All",
-    "description": "3-player teams. Par 5s: best 2 net scores. Par 4s: worst 2 net scores. Par 3s: all 3 net scores. Adjusted par is 2× on par 4s and 5s, 3× on par 3s. Tiebreaker: team net aggregate.",
+    "description": "3-player teams. Par 5s: best 2 net scores. Par 4s: worst 2 net scores. Par 3s: all 3 net scores. Adjusted par is 2× on par 4s and 5s, 3× on par 3s. Tiebreaker: team net aggregate, then index countback.",
     "scoringBasis": "net",
     "type": "best2-worst2-all3",
     "lowScoreWins": true,
     "teamSize": 3,
     "allowance": 0.80,
     "tiebreakers": [
-      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" },
+      { "type": "index-countback", "label": "Team hole-by-hole countback, starting from index #1" }
     ]
   },
   "nassau-2man": {
@@ -164,28 +166,30 @@
     "id": "modified-bb-3man",
     "name": "3-Man Modified BB",
     "shortName": "Mod BB",
-    "description": "3-player teams. Par 5s: 1 net best ball. Par 4s: 2 net best balls. Par 3s: all 3 net scores. Tiebreaker: team net aggregate.",
+    "description": "3-player teams. Par 5s: 1 net best ball. Par 4s: 2 net best balls. Par 3s: all 3 net scores. Tiebreaker: team net aggregate, then index countback.",
     "scoringBasis": "net",
     "type": "modified-bb-3man",
     "lowScoreWins": true,
     "teamSize": 3,
     "allowance": 0.80,
     "tiebreakers": [
-      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" }
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of all 3 players' net totals)" },
+      { "type": "index-countback", "label": "Team hole-by-hole countback, starting from index #1" }
     ]
   },
   "best-ball-3man": {
     "id": "best-ball-3man",
     "name": "3-Man, 2 Best Ball",
     "shortName": "3man, 2BB",
-    "description": "3-player teams. On every hole the two lowest NET scores among the three teammates count toward the team total. Lowest 18-hole team total wins.",
+    "description": "3-player teams. On every hole the two lowest NET scores among the three teammates count toward the team total. Lowest 18-hole team total wins. Tiebreaker: team net aggregate, then index countback.",
     "scoringBasis": "net",
     "type": "best-ball-3man",
     "lowScoreWins": true,
     "teamSize": 3,
     "allowance": 0.80,
     "tiebreakers": [
-      { "type": "team-net-aggregate", "label": "Total team aggregate score — all three players over 18 holes" }
+      { "type": "team-net-aggregate", "label": "Total team aggregate score — all three players over 18 holes" },
+      { "type": "index-countback", "label": "Team hole-by-hole countback, starting from index #1" }
     ]
   }
 }
