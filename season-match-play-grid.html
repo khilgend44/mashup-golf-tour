@@ -75,9 +75,13 @@
       <span>Unannounced / internal preview — not linked anywhere on the site. Every player's own net score each week, head-to-head against the whole field that week, accumulated across the season. Team boundaries don't matter here — a player's own hole-by-hole net score counts whether their format was solo or a team event.</span>
     </div>
 
-    <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none mb-2" id="season-title">SEASON MATCH PLAY GRID</h1>
+    <div class="flex items-center gap-3 mb-2 flex-wrap">
+      <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none" id="season-title">SEASON MATCH PLAY GRID</h1>
+      <span id="mode-chip" class="chip"></span>
+    </div>
     <p class="text-gray-500 text-sm mb-1" id="season-sub"></p>
-    <p class="text-gray-600 text-xs mb-6" id="weeks-included"></p>
+    <p class="text-gray-600 text-xs mb-1" id="weeks-included"></p>
+    <p class="text-xs mb-6" id="mode-toggle"></p>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
     <div id="loading" class="text-center py-20 text-gray-600 text-sm">Loading…</div>
@@ -104,6 +108,16 @@
       el.classList.remove('hidden');
     }
 
+    const showLive = params.get('live') === '1';
+
+    // Toggle URL preserves ?season= if present, just flips ?live=.
+    function toggleUrl(toLive) {
+      const p = new URLSearchParams(location.search);
+      if (toLive) p.set('live', '1'); else p.delete('live');
+      const qs = p.toString();
+      return location.pathname + (qs ? `?${qs}` : '');
+    }
+
     async function init() {
       try {
         const [seasons, events, formats] = await Promise.all([loadSeasons(), loadEvents(), loadFormats()]);
@@ -111,11 +125,27 @@
         if (!season) { showStatus('No season found' + (seasonParam ? ` for "${seasonParam}"` : ' (no active season)')); return; }
 
         document.getElementById('season-title').textContent = `${season.name || season.id} — Match Play Grid`;
-        document.getElementById('season-sub').textContent = 'Every player vs. every player, every week, net scores, accumulated all season.';
+        document.getElementById('season-sub').textContent = showLive
+          ? 'LIVE — includes in-progress weeks. Scores (and your standing) can still move as those rounds finish.'
+          : 'FINAL — completed weeks only. A week still being played doesn’t count until it wraps up.';
+        const modeChip = document.getElementById('mode-chip');
+        modeChip.className = `chip ${showLive ? 'chip-live' : 'chip-done'}`;
+        modeChip.innerHTML = showLive ? '<span class="pulse-dot"></span>LIVE' : 'FINAL';
+        document.getElementById('mode-toggle').innerHTML = showLive
+          ? `<a href="${toggleUrl(false)}" class="text-gray-500 hover:text-flame transition-colors">← Back to final standings (completed weeks only)</a>`
+          : `<a href="${toggleUrl(true)}" class="text-gray-500 hover:text-flame transition-colors">In Progress Leaderboard (include live weeks) →</a>`;
 
-        const seasonEvents = events
+        // Default view only counts weeks that have fully wrapped up — a
+        // week still being played doesn't factor into the standings at
+        // all until ?live=1 explicitly asks for it (see the toggle link
+        // below). This is the opposite of the per-event grid's own
+        // philosophy (which shows a growing provisional total) — the
+        // user explicitly wanted the SEASON view to default to final-only,
+        // with live/in-progress as an opt-in view instead of the default.
+        const allSeasonEvents = events
           .filter(e => e.season === season.id && e.tournamentId && formats[e.format] && formats[e.format].type !== 'invitational')
           .sort((a, b) => (a.week || 0) - (b.week || 0));
+        const seasonEvents = showLive ? allSeasonEvents : allSeasonEvents.filter(e => e.status === 'completed');
 
         const scorecardsPerEvent = await Promise.all(seasonEvents.map(e => fetchScorecards(e.tournamentId)));
 
@@ -128,9 +158,11 @@
           weekMeta.push({ week: event.week, name: event.name, formatName: format.name, posted: players.length, status: event.status });
         });
 
-        document.getElementById('weeks-included').innerHTML = 'Weeks included: ' + weekMeta.map(w =>
-          `W${w.week} ${esc(w.formatName)} (${w.posted} posted${w.status !== 'completed' ? ', in progress' : ''})`
-        ).join(' &nbsp;·&nbsp; ');
+        const excludedCount = allSeasonEvents.length - seasonEvents.length;
+        document.getElementById('weeks-included').textContent = 'Weeks included: ' + (weekMeta.length
+          ? weekMeta.map(w => `W${w.week} ${w.formatName} (${w.posted} posted${w.status !== 'completed' ? ', in progress' : ''})`).join(' · ')
+          : 'none yet') +
+          (!showLive && excludedCount ? ` — ${excludedCount} week${excludedCount > 1 ? 's' : ''} in progress not counted yet` : '');
 
         const results = computeSeasonGrid(weeks);
 
