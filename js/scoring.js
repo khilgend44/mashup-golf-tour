@@ -496,11 +496,24 @@ function buildTeamRoster(scorecards, event, teamSize) {
         totalNet: card.total_net,
       });
     } else if (card.status === 'Pending' && cardHasStarted(card)) {
+      // Same shape as calcRinger's live-round handling below: a played
+      // hole is real, settled data (null for everything at/after
+      // activeHole, never the SGT 0-placeholder) — this used to only
+      // capture `holesPlayed` as a count, which is all the roster-status
+      // dot/badge ever needed, but left the expanded scorecard with
+      // nothing to render per hole for a live teammate. Added 2026-10 so
+      // buildTeamProgressScorecardHTML can show real cells instead of a
+      // "LIVE — thru N" placeholder, and so a team's provisional score can
+      // use a live member's already-played holes instead of ignoring them
+      // entirely until their round fully wraps up.
       const holesPlayed = card.activeHole != null ? Math.max(0, Math.min(18, card.activeHole - 1)) : null;
+      const isPlayed = i => holesPlayed != null ? i < holesPlayed : card[`hole${i + 1}_net`] > 0;
       team.memberStatus.set(nameKey, {
         name: card.player_name,
         status: 'live',
         holesPlayed: holesPlayed ?? 0,
+        net: Array.from({ length: 18 }, (_, i) => isPlayed(i) ? card[`hole${i + 1}_net`] : null),
+        gross: Array.from({ length: 18 }, (_, i) => isPlayed(i) ? card[`hole${i + 1}_gross`] : null),
       });
     } else if (!team.memberStatus.has(nameKey)) {
       team.memberStatus.set(nameKey, { name: card.player_name, status: 'not-started' });
@@ -554,31 +567,33 @@ function calcEscalatorDoom(scorecards, format, event) {
       // member's card naming the whole team via TeamPlayer1-3), so this
       // never invents a roster from nothing.
       //
-      // Provisional to-par from whoever's actually finished so far — NOT
-      // the real ranked total (that still requires all `teamSize`
-      // complete, per the fix above), just "how the team stands right
-      // now." Reuses the same per-segment "best N of the field" idea as
-      // the real scoring, capped to however many are actually in:
-      // 1 player -> their own round IS the provisional total (countN=1
-      // everywhere, since you can't have more counters than players);
-      // 2 players -> best-of-2 on holes 1-6 (correctly matches the real
-      // 1BB rule already), both players summed on 7-18 (an approximation
-      // of 2BB/all-3 using what's available); par is scaled by that same
-      // countN each hole, not the segment's final required count, so
-      // the to-par comparison stays fair at every stage and converges
-      // exactly to the real total once the 3rd player completes. Stays
-      // null with zero completePlayers — nothing to compute yet.
+      // Provisional to-par from whoever's actually posted a real score on
+      // each hole so far — NOT the real ranked total (that still requires
+      // all `teamSize` complete, per the fix above), just "how the team
+      // stands right now." Reuses the same per-segment "best N of the
+      // field" idea as the real scoring, capped to however many have a
+      // real score on THIS hole: a live (in-progress) member's already-
+      // played holes count alongside completed members' — same "a played
+      // hole is settled data, it isn't going to get worse later" reasoning
+      // already used for Ringer's live rounds — so holes 1-6 might draw
+      // from 3 players' real data while holes 13-18 still only have 1,
+      // if that's genuinely how far people have gotten. Stays null with
+      // zero real data anywhere yet.
       let provisionalToPar = null;
-      if (completePlayers.length > 0 && team.pars) {
+      if (team.pars) {
         let provTotal = 0, provPar = 0;
         for (let h = 0; h < 18; h++) {
           const segmentCount = h < 6 ? 1 : h < 12 ? 2 : teamSize;
-          const countN = Math.min(segmentCount, completePlayers.length);
-          const sorted = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+          const available = members
+            .map(m => m.net?.[h])
+            .filter(n => n != null);
+          if (!available.length) continue;
+          const countN = Math.min(segmentCount, available.length);
+          const sorted = [...available].sort((a, b) => a - b);
           provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
           provPar += team.pars[h] * countN;
         }
-        provisionalToPar = provTotal - provPar;
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
       }
       results.push({
         isTeam: true,
@@ -784,17 +799,22 @@ function calcStableford3Man(scorecards, format, event) {
     if (completePlayers.length < teamSize || members.length < teamSize) {
       // Points-based, not to-par — no par offset needed (points already
       // account for par per hole). Provisional = top-min(2,N) points per
-      // hole among whoever's actually done, same shape as the real scoring.
+      // hole among whoever has a real score on THAT hole so far — a live
+      // member's already-played holes count alongside completed members',
+      // same settled-data reasoning as the escalator/to-par formats above.
       let provisionalPts = null;
-      if (completePlayers.length > 0) {
-        let provTotal = 0;
-        for (let h = 0; h < 18; h++) {
-          const countN = Math.min(2, completePlayers.length);
-          const sorted = completePlayers.map(p => p.pts[h]).sort((a, b) => b - a);
-          provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
-        }
-        provisionalPts = provTotal;
+      let provTotal = 0, anyData = false;
+      for (let h = 0; h < 18; h++) {
+        const available = members
+          .map(m => m.net?.[h] != null ? toStablefordPts(m.net[h], team.pars[h]) : null)
+          .filter(n => n != null);
+        if (!available.length) continue;
+        anyData = true;
+        const countN = Math.min(2, available.length);
+        const sorted = [...available].sort((a, b) => b - a);
+        provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
       }
+      if (anyData) provisionalPts = provTotal;
       results.push({
         isTeam: true,
         inProgress: true,
@@ -991,19 +1011,23 @@ function calcBest2Worst2All3(scorecards, format, event) {
 
     if (completePlayers.length < teamSize || members.length < teamSize) {
       let provisionalToPar = null;
-      if (completePlayers.length > 0 && team.pars) {
+      if (team.pars) {
         let provTotal = 0, provPar = 0;
         for (let h = 0; h < 18; h++) {
           const par = team.pars[h];
           // par 3 → all; par 5 → best (lowest); par 4 → worst (highest) —
-          // same rule as the real scoring below, just capped to whoever's done.
-          const countN = Math.min(par === 3 ? 3 : 2, completePlayers.length);
-          const vals = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+          // same rule as the real scoring below, just capped to whoever has
+          // a real score on THIS hole so far (a live member's already-
+          // played holes count alongside completed members' — settled data).
+          const available = members.map(m => m.net?.[h]).filter(n => n != null);
+          if (!available.length) continue;
+          const countN = Math.min(par === 3 ? 3 : 2, available.length);
+          const vals = [...available].sort((a, b) => a - b);
           if (par === 4) vals.reverse();
           provTotal += vals.slice(0, countN).reduce((a, b) => a + b, 0);
           provPar += par * countN;
         }
-        provisionalToPar = provTotal - provPar;
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
       }
       results.push({
         isTeam: true,
@@ -1101,15 +1125,20 @@ function calcModifiedBB3Man(scorecards, format, event) {
 
     if (completePlayers.length < teamSize || members.length < teamSize) {
       let provisionalToPar = null;
-      if (completePlayers.length > 0 && team.pars) {
+      if (team.pars) {
         let provTotal = 0, provPar = 0;
         for (let h = 0; h < 18; h++) {
-          const countN = Math.min(countForPar(team.pars[h]), completePlayers.length);
-          const sorted = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+          // Capped to whoever has a real score on THIS hole so far — a live
+          // member's already-played holes count alongside completed
+          // members' (settled data, same reasoning as the other formats).
+          const available = members.map(m => m.net?.[h]).filter(n => n != null);
+          if (!available.length) continue;
+          const countN = Math.min(countForPar(team.pars[h]), available.length);
+          const sorted = [...available].sort((a, b) => a - b);
           provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
           provPar += team.pars[h] * countN;
         }
-        provisionalToPar = provTotal - provPar;
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
       }
       results.push({
         isTeam: true,
@@ -1200,15 +1229,20 @@ function calcBestBall3Man(scorecards, format, event) {
 
     if (completePlayers.length < teamSize || members.length < teamSize) {
       let provisionalToPar = null;
-      if (completePlayers.length > 0 && team.pars) {
-        const countN = Math.min(COUNT_N, completePlayers.length);
+      if (team.pars) {
         let provTotal = 0, provPar = 0;
         for (let h = 0; h < 18; h++) {
-          const sorted = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+          // Capped to whoever has a real score on THIS hole so far — a live
+          // member's already-played holes count alongside completed
+          // members' (settled data, same reasoning as the other formats).
+          const available = members.map(m => m.net?.[h]).filter(n => n != null);
+          if (!available.length) continue;
+          const countN = Math.min(COUNT_N, available.length);
+          const sorted = [...available].sort((a, b) => a - b);
           provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
           provPar += team.pars[h] * countN;
         }
-        provisionalToPar = provTotal - provPar;
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
       }
       results.push({
         isTeam: true,

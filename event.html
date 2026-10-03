@@ -344,7 +344,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261003b';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261003c';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1469,7 +1469,11 @@
               ? `<span class="text-xs text-gray-500">Provisional <span class="font-mono font-600 text-gray-300">${team.toPar} pts</span></span>`
               : `<span class="text-xs text-gray-500">Provisional <span class="font-mono font-600 ${team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even'}">${formatToPar(team.toPar)}</span></span>`;
 
-          const canExpand = doneCount > 0;
+          // 'live' members now carry real per-hole data too (see
+          // buildTeamRoster), not just a holesPlayed count, so a team with
+          // nobody fully done yet but someone mid-round still has
+          // something real to expand into.
+          const canExpand = team.members.some(m => m.status === 'complete' || m.status === 'live');
           const tr = document.createElement('tr');
           tr.className = `lb-row ${canExpand ? 'cursor-pointer select-none' : ''}`;
           const spanCols = (hasPrizes ? 9 : 8) - 3;
@@ -1488,12 +1492,12 @@
           `;
           tbody.appendChild(tr);
 
-          // At least one teammate's own round is done and readable, even
+          // At least one teammate's own round is done or in progress, even
           // though the team as a whole isn't scoreable yet (best-ball
           // segments need every roster spot filled) — let that much be
           // seen instead of making the whole team invisible until the
           // slowest member finishes. Not clickable at all if nobody's
-          // done yet (nothing real to show).
+          // even teed off yet (nothing real to show).
           if (canExpand) {
             const cardTr = document.createElement('tr');
             cardTr.className = 'hidden';
@@ -1853,23 +1857,30 @@
       }
 
       const memberRows = team.members.map(m => {
-        if (m.status !== 'complete') {
-          const label = m.status === 'live' ? `LIVE — thru ${m.holesPlayed}` : 'Not started';
+        if (m.status === 'not-started') {
           return `<tr class="score-row" style="opacity:0.45">
             <td class="name-cell">${m.name}</td>
-            <td colspan="20" style="padding:3px 8px;font-size:11px;color:#6b7280">${label}</td>
+            <td colspan="20" style="padding:3px 8px;font-size:11px;color:#6b7280">Not started</td>
           </tr>`;
         }
+        // 'live' members now carry the same net/gross shape as 'complete'
+        // ones (null for any hole not yet reached, never the SGT
+        // 0-placeholder) — see buildTeamRoster — so this renders real,
+        // settled per-hole cells for a round in progress instead of a flat
+        // "LIVE — thru N" placeholder. Running OUT/IN naturally only sum
+        // the holes actually played (null treated as 0 by `sum`'s `|| 0`),
+        // same convention as the solo in-progress card.
+        const isLive = m.status === 'live';
         const gross = m.gross || m.net.map(() => null);
         const nOut = sum(m.net, front), nIn = sum(m.net, back);
         return `
-          <tr class="score-row">
-            <td class="name-cell">${m.name}</td>
+          <tr class="score-row" ${isLive ? 'style="opacity:0.85"' : ''}>
+            <td class="name-cell">${m.name}${isLive ? `<span class="chip chip-live" style="margin-left:6px;padding:1px 6px;font-size:9px;vertical-align:1px"><span class="pulse-dot" style="width:5px;height:5px"></span>THRU ${m.holesPlayed}</span>` : ''}</td>
             ${front.map(i => scoreCell(m.net[i], pars[i], gross[i])).join('')}
             <td class="sub-cell">${nOut}</td>
             ${back.map(i => scoreCell(m.net[i], pars[i], gross[i])).join('')}
             <td class="sub-cell">${nIn}</td>
-            <td class="total-cell">${m.totalNet}</td>
+            <td class="total-cell">${isLive ? nOut + nIn : m.totalNet}</td>
           </tr>`;
       }).join('');
 
