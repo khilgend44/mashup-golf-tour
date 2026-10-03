@@ -1989,11 +1989,20 @@ export function computeSeasonGrid(weeks) {
     const seasonPoints = Object.values(grid[key]).reduce((s, v) => s + v, 0);
     const vsOthers = {};
     for (const oppKey of Object.keys(grid[key])) vsOthers[displayName[oppKey]] = grid[key][oppKey];
+    // Total "net holes" (real match-play UP/DOWN, summed across every
+    // opponent faced) — each pairwise term is `my points vs them` minus
+    // `their points vs me`, same halved-holes-cancel-out identity as the
+    // per-matchup version, so this is always a whole number even though
+    // the points it's built from can be half-points. Zero-sum across the
+    // whole field by construction: every pairwise term appears once as
+    // +net for one player and -net for the other.
+    const netHoles = Object.keys(grid[key]).reduce((s, oppKey) => s + (grid[key][oppKey] - (grid[oppKey]?.[key] ?? 0)), 0);
     return {
       key,
       player_name: displayName[key],
       seasonPoints,
       vsOthers,
+      netHoles,
       weeksPlayed: weeksPlayed[key],
       toPar: toParTotal[key],
     };

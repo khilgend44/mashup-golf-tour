@@ -94,7 +94,7 @@
 
   <script type="module">
     import { loadSeasons, loadEvents, loadFormats, fetchScorecards } from '/js/api.js?v=20260929a';
-    import { extractWeeklyPlayerCards, computeSeasonGrid, formatToPar } from '/js/scoring.js?v=20261003d';
+    import { extractWeeklyPlayerCards, computeSeasonGrid, formatToPar } from '/js/scoring.js?v=20261003e';
 
     const params = new URLSearchParams(location.search);
     const seasonParam = params.get('season');
@@ -220,11 +220,12 @@
           <table class="lb-table w-full text-sm" style="table-layout:fixed">
             <thead>
               <tr class="bg-surface">
-                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:10%">Pos</th>
-                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:40%">Player</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:20%" title="Sum of hole-by-hole points earned across every opponent faced, every week">Season Pts</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:12%">Weeks</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:18%">To Par</th>
+                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:8%">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:28%">Player</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:15%" title="Sum of hole-by-hole points earned across every opponent faced, every week">Season Pts</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:15%" title="Total net holes won across every opponent faced — same points, read as real match-play UP/DOWN">Net Holes</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:10%">Weeks</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:24%">To Par</th>
               </tr>
             </thead>
             <tbody id="lb-body"></tbody>
@@ -250,6 +251,7 @@
           </td>
           <td class="px-4 py-3.5 font-medium text-white" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(player.player_name)}</td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num text-flame">${fmtPts(player.seasonPoints)}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num ${netHolesCls(player.netHoles)}">${netHolesLabel(player.netHoles)}</td>
           <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${player.weeksPlayed}</td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
         `;
@@ -289,6 +291,10 @@
     function netHolesLabel(net) {
       if (net === 0) return 'AS';
       return `${Math.abs(net)} ${net > 0 ? 'UP' : 'DN'}`;
+    }
+
+    function netHolesCls(net) {
+      return net === 0 ? 'even' : net > 0 ? 'under' : 'over';
     }
 
     function gridCell(row, col) {
