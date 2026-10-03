@@ -133,7 +133,7 @@
         modeChip.innerHTML = showLive ? '<span class="pulse-dot"></span>LIVE' : 'FINAL';
         document.getElementById('mode-toggle').innerHTML = showLive
           ? `<a href="${toggleUrl(false)}" class="text-gray-500 hover:text-flame transition-colors">← Back to final standings (completed weeks only)</a>`
-          : `<a href="${toggleUrl(true)}" class="text-gray-500 hover:text-flame transition-colors">In Progress Leaderboard (include live weeks) →</a>`;
+          : `<a href="${toggleUrl(true)}" class="text-flame font-heading font-600 tracking-wide hover:text-flame-dim transition-colors">In Progress Leaderboard (include live weeks) →</a>`;
 
         // Default view only counts weeks that have fully wrapped up — a
         // week still being played doesn't factor into the standings at
