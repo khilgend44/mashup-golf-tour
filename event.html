@@ -1163,7 +1163,7 @@
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
     }
 
-    // ── Individual Match Play Grid leaderboard ───────────────────────────────
+    // ── Solo Match Play Grid leaderboard ──────────────────────────────────────
     // Every player's score depends on every OTHER player's score on the same
     // hole, so unlike every other format, a already-finished player's point
     // total can still climb purely because someone else finishes later —
@@ -1234,7 +1234,6 @@
         ${complete.length ? `
         <div class="flex items-center gap-4 mb-3 text-xs">
           <a href="#grid-section" class="text-gray-500 hover:text-flame transition-colors">↓ Jump to The Grid</a>
-          <a href="#all-cards-section" class="text-gray-500 hover:text-flame transition-colors">↓ Jump to All Scorecards</a>
         </div>` : ''}
         <div class="card-shadow rounded-xl border border-border">
           <table class="lb-table w-full text-sm">
@@ -1256,7 +1255,6 @@
         <div id="side-section"></div>
         <div id="ctp-section"></div>
         <div id="grid-section" class="mt-10" style="scroll-margin-top:72px"></div>
-        <div id="all-cards-section" class="mt-10" style="scroll-margin-top:72px"></div>
       `;
 
       const tbody = document.getElementById('lb-body');
@@ -1396,31 +1394,6 @@
             </table>
           </div>`;
       }
-
-      // Every player's own scorecard, listed out in full (not hidden behind
-      // a click like the rows above) — requested separately from the
-      // standings/grid so nothing requires clicking through 30 rows.
-      const cardsHtml = results.map(player => {
-        if (player.notStarted) {
-          return `<div class="flex items-center gap-3 py-2 px-1 text-xs text-gray-600">
-            <span class="w-20 shrink-0">${player.player_name}</span><span>Not started</span>
-          </div>`;
-        }
-        const label = player.inProgress
-          ? `${player.player_name} — In Progress${player.holesPlayed != null ? ` (thru ${player.holesPlayed})` : ''}`
-          : `#${player.position}${player.tied ? ' (T)' : ''} — ${player.player_name}${player.gridTotal != null ? ` — ${fmtPts(player.gridTotal)} pts` : ''}`;
-        return `
-          <div class="card-shadow bg-card border border-border rounded-xl px-4 py-4 mb-4">
-            <div class="text-xs font-heading tracking-wider text-gray-400 mb-3 uppercase">${label}</div>
-            ${buildScorecardHTML(player, event)}
-          </div>`;
-      }).join('');
-
-      document.getElementById('all-cards-section').innerHTML = `
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">All Scorecards</h2>
-        </div>
-        ${cardsHtml}`;
     }
 
     // ── Team event leaderboard ───────────────────────────────────────────────

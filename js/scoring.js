@@ -1652,7 +1652,7 @@ function calcLoneRanger(scorecards, format, event) {
   return results;
 }
 
-// ─── Individual Match Play Grid ─────────────────────────────────────────────
+// ─── Solo Match Play Grid ───────────────────────────────────────────────────
 
 // Every player plays their own ball, 1 round, net scores (95% allowance,
 // set on the format itself like every other format). Instead of ranking by

@@ -16,7 +16,7 @@
   },
   "match-play-grid": {
     "id": "match-play-grid",
-    "name": "Individual Match Play Grid",
+    "name": "Solo Match Play Grid",
     "shortName": "Match Play Grid",
     "description": "Players play their own ball, 1 round, net scores. Every hole is scored hole-by-hole against every other player in the field: lowest net wins the hole (+1), a tie halves it (+0.5), higher loses it (0). Total points across every hole and every opponent decides the standings.",
     "scoringBasis": "net",
