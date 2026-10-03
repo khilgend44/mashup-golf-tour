@@ -274,28 +274,55 @@
         tbody.appendChild(cardTr);
       });
 
-      // Full grid matrix — same visual language as the per-event Match Play
-      // Grid's "The Grid" section.
-      const fmtCell = n => n == null ? '' : fmtPts(n);
+      renderGridSection(results);
+    }
+
+    // Two readings of the exact same underlying data, no new computation
+    // for the "net holes" one: a player's points earned vs. an opponent
+    // minus that opponent's points earned back is exactly the real
+    // match-play "UP/DOWN" record between them — the halved-hole terms
+    // cancel out algebraically, so it falls straight out of `vsOthers`.
+    // Confirmed against a real example (boiler_kh 10 pts / r3noble 8 pts
+    // through S10W1 -> boiler_kh is 2 UP, r3noble 2 DN) before building.
+    let gridMode = 'total';
+
+    function netHolesLabel(net) {
+      if (net === 0) return 'AS';
+      return `${Math.abs(net)} ${net > 0 ? 'UP' : 'DN'}`;
+    }
+
+    function gridCell(row, col) {
+      if (col === row) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
+      const rowPts = row.vsOthers[col.player_name];
+      const colPts = col.vsOthers[row.player_name];
+      if (rowPts == null || colPts == null) return `<td class="px-2 py-2 text-center text-gray-700">—</td>`;
+      if (gridMode === 'net') {
+        const net = rowPts - colPts;
+        const cls = net === 0 ? 'text-gray-400' : net > 0 ? 'text-emerald-400 font-700' : 'text-red-400/80 font-700';
+        return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${netHolesLabel(net)}</td>`;
+      }
+      const avgPossible = Math.min(row.weeksPlayed, col.weeksPlayed) * 9;
+      const cls = rowPts > avgPossible ? 'text-emerald-400' : rowPts < avgPossible ? 'text-red-400/80' : 'text-gray-400';
+      return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${fmtPts(rowPts)}</td>`;
+    }
+
+    function renderGridSection(results) {
       const headerCells = results.map(p => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap" style="min-width:52px">${esc(p.player_name)}</th>`).join('');
-      const bodyRows = results.map(row => {
-        const cells = results.map(col => {
-          if (col === row) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
-          const v = row.vsOthers[col.player_name];
-          const avgPossible = Math.min(row.weeksPlayed, col.weeksPlayed) * 9;
-          const cls = v == null ? 'text-gray-700' : v > avgPossible ? 'text-emerald-400' : v < avgPossible ? 'text-red-400/80' : 'text-gray-400';
-          return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${fmtCell(v)}</td>`;
-        }).join('');
-        return `<tr class="border-b border-border/40">
+      const bodyRows = results.map(row => `<tr class="border-b border-border/40">
           <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${esc(row.player_name)}</td>
-          ${cells}
-        </tr>`;
-      }).join('');
+          ${results.map(col => gridCell(row, col)).join('')}
+        </tr>`).join('');
+
+      const tabBtn = (mode, label) => `<button data-grid-mode="${mode}" class="px-3 py-1.5 rounded-md text-xs font-heading font-600 tracking-wide transition-colors ${gridMode === mode ? 'bg-flame text-black' : 'text-gray-400 hover:text-white'}">${label}</button>`;
 
       document.getElementById('grid-section').innerHTML = `
-        <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">The Grid</h2>
-          <span class="text-[11px] text-gray-600">row's cumulative points earned vs. column, all season &nbsp;·&nbsp; ${results.length} players</span>
+          <span class="text-[11px] text-gray-600">${gridMode === 'net' ? "row's net holes won vs. column" : "row's cumulative points earned vs. column, all season"} &nbsp;·&nbsp; ${results.length} players</span>
+        </div>
+        <div class="inline-flex items-center gap-1 bg-[#161616] border border-border rounded-lg p-1 mb-3">
+          ${tabBtn('total', 'Total Holes Won')}
+          ${tabBtn('net', 'Net Holes Won')}
         </div>
         <div class="card-shadow bg-card border border-border rounded-xl overflow-auto" style="max-height: 70vh">
           <table class="text-sm border-collapse">
@@ -308,6 +335,13 @@
             <tbody>${bodyRows}</tbody>
           </table>
         </div>`;
+
+      document.querySelectorAll('[data-grid-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          gridMode = btn.dataset.gridMode;
+          renderGridSection(results);
+        });
+      });
     }
 
     init();
