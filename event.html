@@ -1186,12 +1186,42 @@
 
       const fmtPts = n => n == null ? '—' : (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
+      // A player's own row of the grid — their result against every other
+      // opponent, sorted best to worst — shown inline when their standings
+      // row expands, so "how did I do against everyone" never requires
+      // scrolling down to hunt through the full 30×30 matrix for one row.
+      function buildMatchupsHtml(player) {
+        if (!player.vsOthers || !Object.keys(player.vsOthers).length) return '';
+        const entries = Object.entries(player.vsOthers).sort((a, b) => b[1] - a[1]);
+        const chips = entries.map(([name, pts]) => {
+          const cls = pts > 9 ? 'text-emerald-400 border-emerald-400/25 bg-emerald-400/5'
+                    : pts < 9 ? 'text-red-400/80 border-red-400/20 bg-red-400/5'
+                    : 'text-gray-400 border-gray-600/30 bg-white/[0.02]';
+          return `<div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border ${cls}">
+            <span class="text-[11px] text-gray-300 truncate">${name}</span>
+            <span class="font-mono text-xs font-semibold shrink-0">${fmtPts(pts)}</span>
+          </div>`;
+        }).join('');
+        return `
+          <div class="mb-4">
+            <div class="text-[10px] font-heading tracking-widest text-gray-500 uppercase mb-2">Your Matchups <span class="text-gray-700 normal-case tracking-normal">— sorted best to worst, out of 18 per match</span></div>
+            <div class="grid gap-1.5" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr))">
+              ${chips}
+            </div>
+          </div>`;
+      }
+
       app.innerHTML = `
         ${notesHtml}
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">${allDone ? 'Net Leaderboard' : 'Net Leaderboard — Provisional'}</h2>
           <span class="text-xs text-gray-600">${results.length} players &nbsp;·&nbsp; ${complete.length} finished &nbsp;·&nbsp; Click a row to expand scorecard</span>
         </div>
+        ${complete.length ? `
+        <div class="flex items-center gap-4 mb-3 text-xs">
+          <a href="#grid-section" class="text-gray-500 hover:text-flame transition-colors">↓ Jump to The Grid</a>
+          <a href="#all-cards-section" class="text-gray-500 hover:text-flame transition-colors">↓ Jump to All Scorecards</a>
+        </div>` : ''}
         <div class="card-shadow rounded-xl border border-border">
           <table class="lb-table w-full text-sm">
             <thead>
@@ -1211,8 +1241,8 @@
         <div id="ctp-live-section"></div>
         <div id="side-section"></div>
         <div id="ctp-section"></div>
-        <div id="grid-section" class="mt-10"></div>
-        <div id="all-cards-section" class="mt-10"></div>
+        <div id="grid-section" class="mt-10" style="scroll-margin-top:72px"></div>
+        <div id="all-cards-section" class="mt-10" style="scroll-margin-top:72px"></div>
       `;
 
       const tbody = document.getElementById('lb-body');
@@ -1294,6 +1324,7 @@
         cardTr.innerHTML = `
           <td colspan="99" class="p-0 border-b border-border">
             <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+              ${buildMatchupsHtml(player)}
               <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">Scorecard — ${player.player_name}</div>
               ${buildScorecardHTML(player, event)}
             </div>
