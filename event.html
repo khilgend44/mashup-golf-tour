@@ -1187,26 +1187,40 @@
       const fmtPts = n => n == null ? '—' : (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
       // A player's own row of the grid — their result against every other
-      // opponent, sorted best to worst — shown inline when their standings
-      // row expands, so "how did I do against everyone" never requires
-      // scrolling down to hunt through the full 30×30 matrix for one row.
+      // opponent, same column order and styling as the full matrix below —
+      // shown inline when their standings row expands, so "how did I do
+      // against everyone" never requires scrolling down to hunt through
+      // the full 30×30 matrix for one row. Deliberately NOT re-sorted
+      // best-to-worst like an early version of this did; keeping the same
+      // column order as "The Grid" is what makes this read as "a row
+      // pulled out of that table" instead of a different view of the data.
       function buildMatchupsHtml(player) {
-        if (!player.vsOthers || !Object.keys(player.vsOthers).length) return '';
-        const entries = Object.entries(player.vsOthers).sort((a, b) => b[1] - a[1]);
-        const chips = entries.map(([name, pts]) => {
-          const cls = pts > 9 ? 'text-emerald-400 border-emerald-400/25 bg-emerald-400/5'
-                    : pts < 9 ? 'text-red-400/80 border-red-400/20 bg-red-400/5'
-                    : 'text-gray-400 border-gray-600/30 bg-white/[0.02]';
-          return `<div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border ${cls}">
-            <span class="text-[11px] text-gray-300 truncate">${name}</span>
-            <span class="font-mono text-xs font-semibold shrink-0">${fmtPts(pts)}</span>
-          </div>`;
+        if (!player.vsOthers || !complete.length) return '';
+        const headerCells = complete.map(c => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap" style="min-width:52px">${c.player_name}</th>`).join('');
+        const cells = complete.map(c => {
+          if (c === player) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
+          const v = player.vsOthers[c.player_name];
+          const cls = v > 9 ? 'text-emerald-400' : v < 9 ? 'text-red-400/80' : 'text-gray-400';
+          return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${fmtPts(v)}</td>`;
         }).join('');
         return `
           <div class="mb-4">
-            <div class="text-[10px] font-heading tracking-widest text-gray-500 uppercase mb-2">Your Matchups <span class="text-gray-700 normal-case tracking-normal">— sorted best to worst, out of 18 per match</span></div>
-            <div class="grid gap-1.5" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr))">
-              ${chips}
+            <div class="text-[10px] font-heading tracking-widest text-gray-500 uppercase mb-2">Your Matchups <span class="text-gray-700 normal-case tracking-normal">— same grid as below, just your row</span></div>
+            <div class="card-shadow bg-card border border-border rounded-xl overflow-auto">
+              <table class="text-sm border-collapse">
+                <thead>
+                  <tr class="bg-surface">
+                    <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 bg-surface z-10">PLAYER</th>
+                    ${headerCells}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${player.player_name}</td>
+                    ${cells}
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>`;
       }
