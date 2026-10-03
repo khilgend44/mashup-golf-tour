@@ -18,6 +18,7 @@ jobs:
       - name: Fetch scorecards for active season events
         env:
           SGT_API_KEY: ${{ secrets.SGT_API_KEY }}
+          STREAM_IMPORT_SECRET: ${{ secrets.STREAM_IMPORT_SECRET }}
         run: |
           # Find the active season ID — merge static file + KV (KV takes precedence)
           STATIC_SEASONS=$(cat data/seasons.json)
@@ -90,8 +91,57 @@ jobs:
               -o "$rawhtml" || { echo "  → CTP fetch failed for $tid, skipping"; rm -f "$cookiejar" "$rawhtml"; continue; }
 
             python3 .github/scripts/parse_ctp.py "$rawhtml" > "data/ctp/${tid}.json"
-            rm -f "$cookiejar" "$rawhtml"
             echo "  → saved data/ctp/${tid}.json"
+
+            # Streams some players post directly on SGT's own tournament
+            # page instead of MashUp's submission form — same session
+            # cookie, same leaderboard family of endpoints, just the plain
+            # leaderboard view (not the /ctp subview) since that's where
+            # SGT renders each player's "stream-link" dropdown entries.
+            # See parse_streams.py / stream_gaps.py / import-sgt-stream.js
+            # for the parse → diff → write-if-absent pipeline.
+            EVENT_ID=$(echo "$ALL_EVENTS" | jq -r --argjson tid "$tid" '[.[] | select(.tournamentId == $tid)][0].id // empty')
+            EVENT_NAME=$(echo "$ALL_EVENTS" | jq -r --argjson tid "$tid" '[.[] | select(.tournamentId == $tid)][0].name // empty')
+            if [ -z "$EVENT_ID" ]; then
+              echo "  → no matching event id for tournament $tid, skipping stream check"
+              rm -f "$cookiejar" "$rawhtml"
+              continue
+            fi
+
+            lbhtml=$(mktemp)
+            if curl -sf -b "$cookiejar" \
+              -H "X-Requested-With: XMLHttpRequest" \
+              -H "Referer: https://simulatorgolftour.com/tournament/${tid}" \
+              "https://simulatorgolftour.com/sgt-api/leaderboard/${tid}" \
+              -o "$lbhtml"; then
+
+              sgt_streams=$(mktemp)
+              python3 .github/scripts/parse_streams.py "$lbhtml" > "$sgt_streams"
+
+              mashup_streams=$(mktemp)
+              curl -sf "https://mashup-golf-tour.pages.dev/api/get-streams?eventId=${EVENT_ID}" -o "$mashup_streams" || echo "{}" > "$mashup_streams"
+
+              gaps=$(python3 .github/scripts/stream_gaps.py "$sgt_streams" "$mashup_streams")
+              count=$(echo "$gaps" | jq 'length')
+
+              if [ "$count" != "0" ] && [ -n "$STREAM_IMPORT_SECRET" ]; then
+                echo "  → found $count stream(s) on SGT missing from MashUp, importing..."
+                payload=$(jq -n --arg eventId "$EVENT_ID" --arg eventName "$EVENT_NAME" --argjson items "$gaps" \
+                  '{eventId: $eventId, eventName: $eventName, items: $items}')
+                curl -sf -X POST "https://mashup-golf-tour.pages.dev/api/import-sgt-stream" \
+                  -H "Content-Type: application/json" \
+                  -H "X-Cron-Secret: ${STREAM_IMPORT_SECRET}" \
+                  -d "$payload" || echo "  → stream import request failed"
+              else
+                echo "  → no missing streams found for $EVENT_ID"
+              fi
+
+              rm -f "$sgt_streams" "$mashup_streams"
+            else
+              echo "  → leaderboard fetch failed for $tid, skipping stream check"
+            fi
+
+            rm -f "$cookiejar" "$rawhtml" "$lbhtml"
           done
 
       - name: Commit and push if changed
