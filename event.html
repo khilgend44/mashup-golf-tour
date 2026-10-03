@@ -344,7 +344,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261002b';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261003a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -982,6 +982,7 @@
 
     function renderLeaderboard(results, event, format, streams = {}, ctpLive = null) {
       if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams, ctpLive); return; }
+      if (format?.type === 'match-play-grid') { renderMatchPlayGridLeaderboard(results, event, format, streams, ctpLive); return; }
       if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams, ctpLive); return; }
       renderSoloLeaderboard(results, event, format, streams, ctpLive);
     }
@@ -1160,6 +1161,221 @@
       if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
+    }
+
+    // ── Individual Match Play Grid leaderboard ───────────────────────────────
+    // Every player's score depends on every OTHER player's score on the same
+    // hole, so unlike every other format, a already-finished player's point
+    // total can still climb purely because someone else finishes later —
+    // the standings are "Provisional" until the whole field is in, same
+    // labeling idea as an in-progress team's toPar elsewhere in this file.
+    // Three sections, top to bottom per the agreed design: standings, the
+    // full player × player grid, then every player's own scorecard listed
+    // out (not hidden behind a click, unlike every other format's rows).
+    function renderMatchPlayGridLeaderboard(results, event, format, streams = {}, ctpLive = null) {
+      const hasPrizes = results.some(r => r.prize);
+      const app = document.getElementById('app');
+      const complete = results.filter(r => r.gridTotal != null);
+      const allDone = complete.length === results.length;
+
+      const notesHtml = event.notes
+        ? `<div class="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mb-5 text-xs text-amber-400/80">
+             <span class="mt-0.5 shrink-0">⚠</span><span>${event.notes}</span>
+           </div>`
+        : '';
+
+      const fmtPts = n => n == null ? '—' : (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+      app.innerHTML = `
+        ${notesHtml}
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">${allDone ? 'Net Leaderboard' : 'Net Leaderboard — Provisional'}</h2>
+          <span class="text-xs text-gray-600">${results.length} players &nbsp;·&nbsp; ${complete.length} finished &nbsp;·&nbsp; Click a row to expand scorecard</span>
+        </div>
+        <div class="card-shadow rounded-xl border border-border">
+          <table class="lb-table w-full text-sm">
+            <thead>
+              <tr class="bg-surface">
+                <th class="w-8 pl-3 py-3"></th>
+                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" title="Sum of hole-by-hole points earned across every opponent faced so far">Grid Pts</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Net</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">+/−</th>
+                ${hasPrizes ? `<th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">${event.status === 'completed' ? 'Prize' : 'Projected'}</th>` : ''}
+              </tr>
+            </thead>
+            <tbody id="lb-body"></tbody>
+          </table>
+        </div>
+        <div id="ctp-live-section"></div>
+        <div id="side-section"></div>
+        <div id="ctp-section"></div>
+        <div id="grid-section" class="mt-10"></div>
+        <div id="all-cards-section" class="mt-10"></div>
+      `;
+
+      const tbody = document.getElementById('lb-body');
+      results.forEach(player => {
+        if (player.notStarted) {
+          const tr = document.createElement('tr');
+          tr.className = 'lb-row';
+          tr.innerHTML = `
+            <td class="w-8 pl-3 py-3.5"></td>
+            <td class="pos-col px-3 py-3.5 text-center text-gray-700">—</td>
+            <td class="px-4 py-3.5 font-medium text-gray-600">${player.player_name}</td>
+            <td class="px-3 py-3.5 text-right" colspan="${hasPrizes ? 4 : 3}">
+              <span class="chip" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#6b7280">NOT STARTED</span>
+            </td>
+          `;
+          tbody.appendChild(tr);
+          return;
+        }
+
+        if (player.inProgress) {
+          const tr = document.createElement('tr');
+          tr.className = 'lb-row cursor-pointer select-none';
+          const inProgressStreams = getPlayerStreams(streams, player.player_name);
+          tr.innerHTML = `
+            <td class="w-8 pl-3 py-3.5">${streamIconCell(inProgressStreams, false)}</td>
+            <td class="pos-col px-3 py-3.5 text-center text-gray-700">—</td>
+            <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
+            <td class="px-3 py-3.5 text-right" colspan="${hasPrizes ? 4 : 3}">
+              <span class="chip chip-live"><span class="pulse-dot"></span>ROUND IN PROGRESS</span>
+            </td>
+          `;
+
+          const cardTr = document.createElement('tr');
+          cardTr.className = 'hidden';
+          cardTr.innerHTML = `
+            <td colspan="99" class="p-0 border-b border-border">
+              <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+                <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">In Progress — ${player.player_name}${player.holesPlayed != null ? ` (thru ${player.holesPlayed})` : ''}</div>
+                ${buildScorecardHTML(player, event)}
+              </div>
+            </td>
+          `;
+
+          tr.addEventListener('click', () => {
+            const open = !cardTr.classList.contains('hidden');
+            cardTr.classList.toggle('hidden');
+            tr.classList.toggle('expanded', !open);
+          });
+
+          tbody.appendChild(tr);
+          tbody.appendChild(cardTr);
+          return;
+        }
+
+        const posStr = player.tied ? `T${player.position}` : player.position;
+        const toParStr = formatToPar(player.toPar);
+        const toParCls = player.toPar < 0 ? 'under' : player.toPar > 0 ? 'over' : 'even';
+        const isLeader = player.position === 1;
+
+        const tr = document.createElement('tr');
+        tr.className = `lb-row cursor-pointer select-none ${isLeader ? 'leader' : ''}`;
+        const playerStreams = getPlayerStreams(streams, player.player_name);
+        tr.innerHTML = `
+          <td class="w-8 pl-3 py-3.5">${streamIconCell(playerStreams, false)}</td>
+          <td class="pos-col px-3 py-3.5 text-center">
+            ${player.position <= 3
+              ? `<span class="rank-medal medal-${player.position}">${posStr}</span>`
+              : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
+          </td>
+          <td class="px-4 py-3.5 font-medium text-white">${player.player_name}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num text-flame">${fmtPts(player.gridTotal)}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${player.totalNet}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+          ${hasPrizes ? `<td class="px-4 py-3.5 text-center whitespace-nowrap">${player.prize != null ? `<span class="prize-pill">$${fmtPrize(player.prize)}</span>` : '<span class="text-gray-700">—</span>'}</td>` : ''}
+        `;
+
+        const cardTr = document.createElement('tr');
+        cardTr.className = 'hidden';
+        cardTr.innerHTML = `
+          <td colspan="99" class="p-0 border-b border-border">
+            <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+              <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">Scorecard — ${player.player_name}</div>
+              ${buildScorecardHTML(player, event)}
+            </div>
+          </td>
+        `;
+
+        tr.addEventListener('click', () => {
+          const open = !cardTr.classList.contains('hidden');
+          cardTr.classList.toggle('hidden');
+          tr.classList.toggle('expanded', !open);
+        });
+
+        tbody.appendChild(tr);
+        tbody.appendChild(cardTr);
+      });
+
+      // Side pots + CTP
+      if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
+      if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
+      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
+
+      // Grid matrix — player × player, sorted same as the standings above.
+      // Cell = row player's points earned in their direct 18-hole match vs
+      // the column player (0-18, 0.5 steps); diagonal is blank (no self-match).
+      if (complete.length) {
+        const fmtCell = n => n == null ? '' : fmtPts(n);
+        const headerCells = complete.map(p => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap" style="min-width:52px">${p.player_name}</th>`).join('');
+        const bodyRows = complete.map(row => {
+          const cells = complete.map(col => {
+            if (col === row) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
+            const v = row.vsOthers[col.player_name];
+            const cls = v > 9 ? 'text-emerald-400' : v < 9 ? 'text-red-400/80' : 'text-gray-400';
+            return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${fmtCell(v)}</td>`;
+          }).join('');
+          return `<tr class="border-b border-border/40">
+            <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${row.player_name}</td>
+            ${cells}
+          </tr>`;
+        }).join('');
+
+        document.getElementById('grid-section').innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">The Grid</h2>
+            <span class="text-[11px] text-gray-600">row's points earned vs. column, out of 18 per match &nbsp;·&nbsp; ${complete.length} of ${results.length} posted</span>
+          </div>
+          <div class="card-shadow bg-card border border-border rounded-xl overflow-auto" style="max-height: 70vh">
+            <table class="text-sm border-collapse">
+              <thead>
+                <tr class="bg-surface">
+                  <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 bg-surface z-10">PLAYER</th>
+                  ${headerCells}
+                </tr>
+              </thead>
+              <tbody>${bodyRows}</tbody>
+            </table>
+          </div>`;
+      }
+
+      // Every player's own scorecard, listed out in full (not hidden behind
+      // a click like the rows above) — requested separately from the
+      // standings/grid so nothing requires clicking through 30 rows.
+      const cardsHtml = results.map(player => {
+        if (player.notStarted) {
+          return `<div class="flex items-center gap-3 py-2 px-1 text-xs text-gray-600">
+            <span class="w-20 shrink-0">${player.player_name}</span><span>Not started</span>
+          </div>`;
+        }
+        const label = player.inProgress
+          ? `${player.player_name} — In Progress${player.holesPlayed != null ? ` (thru ${player.holesPlayed})` : ''}`
+          : `#${player.position}${player.tied ? ' (T)' : ''} — ${player.player_name}${player.gridTotal != null ? ` — ${fmtPts(player.gridTotal)} pts` : ''}`;
+        return `
+          <div class="card-shadow bg-card border border-border rounded-xl px-4 py-4 mb-4">
+            <div class="text-xs font-heading tracking-wider text-gray-400 mb-3 uppercase">${label}</div>
+            ${buildScorecardHTML(player, event)}
+          </div>`;
+      }).join('');
+
+      document.getElementById('all-cards-section').innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">All Scorecards</h2>
+        </div>
+        ${cardsHtml}`;
     }
 
     // ── Team event leaderboard ───────────────────────────────────────────────

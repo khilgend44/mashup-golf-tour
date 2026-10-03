@@ -14,6 +14,7 @@ export function applyFormat(scorecards, format, event = null) {
     case 'devils-draw':           return calcDevilsDraw(cards, format, event);
     case 'stableford-3man':       return calcStableford3Man(cards, format, event);
     case 'devils-draw-4man':  return calcDevilsDraw4Man(cards, format, event);
+    case 'match-play-grid':   return calcMatchPlayGrid(cards, format, event);
     default: throw new Error(`Unknown format: ${format.type}`);
   }
 }
@@ -353,6 +354,62 @@ function indexCountback(a, b) {
   const sorted = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.indices[x] - a.indices[y]);
   for (const h of sorted) { const d = a.ringerCard[h] - b.ringerCard[h]; if (d !== 0) return d; }
   return 0;
+}
+
+// Same idea as indexCountback above (lowest score on the hardest-rated hole
+// first), generalized to any object with `.net`/`.indices` instead of
+// assuming Ringer's `.ringerCard` field name — used by Match Play Grid's
+// single-round card.
+function netIndexCountback(a, b) {
+  const sorted = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.indices[x] - a.indices[y]);
+  for (const h of sorted) { const d = a.net[h] - b.net[h]; if (d !== 0) return d; }
+  return 0;
+}
+
+const roundPts = n => Math.round(n * 10) / 10;
+
+// Groups `list` into consecutive runs of equal (rounded) `keyFn` value,
+// sorted desc or asc by that value. Internal order within a group is
+// whatever `Array.sort` leaves it in — callers that care about order
+// within a tied group sort it themselves (see resolveGridTieGroup).
+function groupByValue(list, keyFn, direction = 'desc') {
+  const sorted = [...list].sort((a, b) => direction === 'desc' ? keyFn(b) - keyFn(a) : keyFn(a) - keyFn(b));
+  const groups = [];
+  for (const item of sorted) {
+    const k = roundPts(keyFn(item));
+    const last = groups[groups.length - 1];
+    if (last && roundPts(keyFn(last[0])) === k) last.push(item);
+    else groups.push([item]);
+  }
+  return groups;
+}
+
+// Resolves a group of players tied on Match Play Grid's overall point total
+// into a final order, per the format's 3-level tiebreak:
+//   1. Mini round-robin — re-sum grid points earned ONLY against the other
+//      players in THIS exact tied group (the full-field total mixes in
+//      results against non-tied players, which doesn't belong in a
+//      head-to-head resolution). For an exact 2-way tie this is just their
+//      direct match result, matching the simple case exactly.
+//   2. Still tied after that? Aggregate 18-hole net stroke total, lower wins.
+//   3. Still tied? Index countback starting from stroke index #1.
+// Recurses at each level — a 3+ way tie that splits into "1 clear winner +
+// 2 still tied" only re-resolves the remaining 2, not the whole original
+// group. A group still identical after all three stays tied together (same
+// as every other format here — never invents a 4th arbitrary tiebreaker).
+function resolveGridTieGroup(group, grid) {
+  if (group.length <= 1) return group;
+  const miniGroups = groupByValue(group, p => group.reduce((s, q) => q === p ? s : s + grid[p.key][q.key], 0), 'desc');
+  const out = [];
+  for (const mg of miniGroups) {
+    if (mg.length <= 1) { out.push(...mg); continue; }
+    const netGroups = groupByValue(mg, p => p.totalNet, 'asc');
+    for (const ng of netGroups) {
+      if (ng.length <= 1) { out.push(...ng); continue; }
+      out.push(...[...ng].sort(netIndexCountback));
+    }
+  }
+  return out;
 }
 
 // Sorts in-progress team entries by their own provisional score, so a team
@@ -1593,6 +1650,184 @@ function calcLoneRanger(scorecards, format, event) {
     } else results[0].position = 1;
   }
   return results;
+}
+
+// ─── Individual Match Play Grid ─────────────────────────────────────────────
+
+// Every player plays their own ball, 1 round, net scores (95% allowance,
+// set on the format itself like every other format). Instead of ranking by
+// total strokes, every player's card is pairwise-compared hole-by-hole
+// against every OTHER player in the field: lower net on a hole = 1 point,
+// a tie = 0.5, higher = 0. A player's grid total is the sum of all of
+// those points across every hole and every opponent — in a 30-player
+// field, a perfect round nets 29 points on a hole (beat everyone); more
+// realistically you split the field (beat some, tie some, lose to some).
+//
+// Only fully-completed rounds are compared against each other — a hole a
+// still-live player hasn't reached yet has nothing real to compare, and
+// mixing partial live data into the grid would make an already-finished
+// player's total silently change based on someone else's still-in-progress
+// round. This means every player's grid total only grows (never shifts
+// down) as more of the field finishes, converging to the real number once
+// everyone's in — the "provisional" leaderboard above should be labeled as
+// such for exactly that reason, same as the in-progress team formats.
+function calcMatchPlayGrid(scorecards, format, event) {
+  const players = {};
+  for (const card of scorecards) {
+    if (!isCardComplete(card)) continue;
+    const key = card.player_name.toLowerCase();
+    if (players[key]) continue; // 1 round only — ignore any duplicate complete card
+    players[key] = {
+      player_name: card.player_name,
+      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
+      pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
+      indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
+      totalNet: card.total_net,
+      round: card.round,
+    };
+  }
+
+  const keys = Object.keys(players);
+
+  // Pairwise grid: grid[a][b] = a's points earned in their direct 18-hole
+  // match vs b (0-18, in 0.5 steps). A player's overall total is just the
+  // sum of their own row — summing every opponent's hole-by-hole result is
+  // mathematically the same as summing per-hole field-wide points, so there
+  // is only one computation to keep consistent between the leaderboard
+  // total and the grid UI's cells.
+  const grid = {};
+  for (const a of keys) grid[a] = {};
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = i + 1; j < keys.length; j++) {
+      const a = keys[i], b = keys[j];
+      let aPts = 0, bPts = 0;
+      for (let h = 0; h < 18; h++) {
+        const an = players[a].net[h], bn = players[b].net[h];
+        if (an < bn) aPts += 1;
+        else if (an > bn) bPts += 1;
+        else { aPts += 0.5; bPts += 0.5; }
+      }
+      grid[a][b] = aPts;
+      grid[b][a] = bPts;
+    }
+  }
+
+  const results = keys.map(key => {
+    const p = players[key];
+    const gridTotal = Object.values(grid[key]).reduce((s, v) => s + v, 0);
+    const vsOthers = {};
+    for (const oppKey of keys) {
+      if (oppKey === key) continue;
+      vsOthers[players[oppKey].player_name] = grid[key][oppKey];
+    }
+    const out = p.net.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inn = p.net.slice(9).reduce((a, b) => a + b, 0);
+    const outPar = p.pars.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inPar = p.pars.slice(9).reduce((a, b) => a + b, 0);
+    const total = out + inn;
+    const totalPar = outPar + inPar;
+    return {
+      isTeam: false,
+      player_name: p.player_name,
+      key,
+      // Shaped so buildScorecardHTML (event.html) can render this player's
+      // card unmodified — ringerCard/rounds are Ringer-specific field names
+      // but the function only ever reads them, never assumes 2 rounds.
+      net: p.net,
+      ringerCard: p.net,
+      ringerRound: p.net.map(() => p.round),
+      rounds: [{ round: p.round, net: p.net, gross: p.gross, total: p.totalNet }],
+      pars: p.pars,
+      indices: p.indices,
+      roundsPlayed: 1,
+      totalNetAllRounds: p.totalNet,
+      totalNet: p.totalNet,
+      out, inn, outPar, inPar, total, totalPar,
+      toPar: total - totalPar,
+      gridTotal,
+      vsOthers,
+      opponentCount: keys.length - 1,
+      prize: null,
+    };
+  });
+
+  const byTotal = groupByValue(results, r => r.gridTotal, 'desc');
+  const ordered = [];
+  for (const group of byTotal) ordered.push(...resolveGridTieGroup(group, grid));
+
+  ordered.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ordered[i - 1];
+    const trulyTied = roundPts(curr.gridTotal) === roundPts(prev.gridTotal) &&
+      curr.totalNet === prev.totalNet &&
+      netIndexCountback(curr, prev) === 0;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
+
+  // In-progress / not-started — same roster-visibility recipe as Ringer
+  // (identical field shapes, so renderSoloLeaderboard's existing
+  // `inProgress`/`notStarted` branches render these with no changes
+  // needed there). No partial-grid contribution for a live round, per the
+  // note above — it only ever shows up here as "round in progress."
+  const resultsByKey = new Map(ordered.map(r => [r.key, r]));
+  const seenInProgress = new Set();
+  for (const card of scorecards) {
+    if (card.status !== 'Pending' || isCardComplete(card) || !cardHasStarted(card)) continue;
+    const key = card.player_name.toLowerCase();
+    if (resultsByKey.has(key) || seenInProgress.has(key)) continue;
+    seenInProgress.add(key);
+    const pars = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
+    const indices = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]);
+    const holesPlayed = card.activeHole != null ? Math.max(0, Math.min(18, card.activeHole - 1)) : null;
+    const isPlayed = i => holesPlayed != null ? i < holesPlayed : card[`hole${i + 1}_net`] > 0;
+    const net = Array.from({ length: 18 }, (_, i) => isPlayed(i) ? card[`hole${i + 1}_net`] : null);
+    const gross = Array.from({ length: 18 }, (_, i) => isPlayed(i) ? card[`hole${i + 1}_gross`] : null);
+    ordered.push({
+      isTeam: false,
+      player_name: card.player_name,
+      inProgress: true,
+      position: null,
+      roundsPlayed: 0,
+      total: null,
+      toPar: null,
+      prize: null,
+      pars,
+      indices,
+      outPar: pars.slice(0, 9).reduce((a, b) => a + b, 0),
+      inPar: pars.slice(9).reduce((a, b) => a + b, 0),
+      totalPar: pars.reduce((a, b) => a + b, 0),
+      holesPlayed: holesPlayed ?? net.filter(v => v != null).length,
+      ringerCard: net,
+      ringerRound: net.map(() => card.round),
+      rounds: [{ round: card.round, net, gross, total: null }],
+      totalNetAllRounds: 0,
+      gridTotal: null,
+    });
+  }
+
+  if (event?.players?.length) {
+    const known = new Set([...resultsByKey.keys(), ...seenInProgress]);
+    for (const name of event.players) {
+      const key = name.toLowerCase();
+      if (known.has(key)) continue;
+      known.add(key);
+      ordered.push({
+        isTeam: false,
+        player_name: name,
+        notStarted: true,
+        position: null,
+        roundsPlayed: 0,
+        total: null,
+        toPar: null,
+        prize: null,
+      });
+    }
+  }
+
+  return ordered;
 }
 
 // ─── Payouts ────────────────────────────────────────────────────────────────
