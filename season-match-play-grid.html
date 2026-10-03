@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Season Match Play Grid — MashUp Golf</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png" />
+  <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .lb-row { transition: background 0.12s; cursor: pointer; user-select: none; }
+    .lb-row:hover { background: rgba(255,255,255,0.04); }
+    .lb-row.expanded { background: rgba(249,115,22,0.06); }
+    .lb-row td { border-bottom: 1px solid #1f1f1f; }
+    .lb-row.leader { background: linear-gradient(90deg, rgba(249,115,22,.10), rgba(249,115,22,0) 60%); }
+    .pos-col { min-width: 3rem; }
+    .num { font-variant-numeric: tabular-nums; }
+    .under { color: #4ade80; }
+    .over  { color: #f87171; }
+    .even  { color: #f5f5f5; }
+    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; letter-spacing:.09em; padding:3px 10px; border-radius:6px; }
+    .chip-live { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.3); color:#fbbf24; }
+    .chip-done { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.25); color:#4ade80; }
+    .chip-fmt  { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.32); color:#fb923c; }
+    .pulse-dot { width:7px; height:7px; border-radius:50%; background:#fbbf24; animation:pulse 2s infinite; }
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(251,191,36,.5)} 70%{box-shadow:0 0 0 7px rgba(251,191,36,0)} 100%{box-shadow:0 0 0 0 rgba(251,191,36,0)} }
+    .rank-medal { min-width:28px; height:28px; padding:0 6px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px; }
+    .medal-1 { background:linear-gradient(160deg,#fde68a,#f59e0b); color:#1a1205; box-shadow:0 4px 12px rgba(245,158,11,.35); }
+    .medal-2 { background:linear-gradient(160deg,#e5e7eb,#9ca3af); color:#1a1a1a; }
+    .medal-3 { background:linear-gradient(160deg,#d6a06a,#a16207); color:#1a1205; }
+    .lb-table > thead > tr > th { position: sticky; top: 56px; z-index: 30; background:#171717; box-shadow: 0 1px 0 #2c2c2c; }
+    .lb-table > thead > tr > th:first-child { border-top-left-radius: 0.75rem; }
+    .lb-table > thead > tr > th:last-child  { border-top-right-radius: 0.75rem; }
+    @media (max-width: 639px) {
+      .lb-table th, .lb-table td { padding-left: 0.5rem; padding-right: 0.5rem; }
+      .rank-medal { min-width: 24px; height: 24px; font-size: 13px; padding: 0 4px; }
+    }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <header class="border-b border-border">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
+        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Season Match Play Grid</span>
+      </div>
+      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mb-6 text-xs text-amber-400/80">
+      <span class="mt-0.5 shrink-0">⚠</span>
+      <span>Unannounced / internal preview — not linked anywhere on the site. Every player's own net score each week, head-to-head against the whole field that week, accumulated across the season. Team boundaries don't matter here — a player's own hole-by-hole net score counts whether their format was solo or a team event.</span>
+    </div>
+
+    <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none mb-2" id="season-title">SEASON MATCH PLAY GRID</h1>
+    <p class="text-gray-500 text-sm mb-1" id="season-sub"></p>
+    <p class="text-gray-600 text-xs mb-6" id="weeks-included"></p>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+    <div id="loading" class="text-center py-20 text-gray-600 text-sm">Loading…</div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour</div>
+  </footer>
+
+  <script type="module">
+    import { loadSeasons, loadEvents, loadFormats, fetchScorecards } from '/js/api.js?v=20260929a';
+    import { extractWeeklyPlayerCards, computeSeasonGrid, formatToPar } from '/js/scoring.js?v=20261003b';
+
+    const params = new URLSearchParams(location.search);
+    const seasonParam = params.get('season');
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const fmtPts = n => n == null ? '—' : (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+    function showStatus(msg) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'rounded-lg px-4 py-3 text-sm font-body mb-4 bg-red-900/30 border border-red-800/40 text-red-300';
+      el.classList.remove('hidden');
+    }
+
+    async function init() {
+      try {
+        const [seasons, events, formats] = await Promise.all([loadSeasons(), loadEvents(), loadFormats()]);
+        const season = seasonParam ? seasons.find(s => s.id === seasonParam) : seasons.find(s => s.status === 'active');
+        if (!season) { showStatus('No season found' + (seasonParam ? ` for "${seasonParam}"` : ' (no active season)')); return; }
+
+        document.getElementById('season-title').textContent = `${season.name || season.id} — Match Play Grid`;
+        document.getElementById('season-sub').textContent = 'Every player vs. every player, every week, net scores, accumulated all season.';
+
+        const seasonEvents = events
+          .filter(e => e.season === season.id && e.tournamentId && formats[e.format] && formats[e.format].type !== 'invitational')
+          .sort((a, b) => (a.week || 0) - (b.week || 0));
+
+        const scorecardsPerEvent = await Promise.all(seasonEvents.map(e => fetchScorecards(e.tournamentId)));
+
+        const weeks = [];
+        const weekMeta = [];
+        seasonEvents.forEach((event, i) => {
+          const format = formats[event.format];
+          const players = extractWeeklyPlayerCards(scorecardsPerEvent[i], event);
+          weeks.push({ label: event.name, players });
+          weekMeta.push({ week: event.week, name: event.name, formatName: format.name, posted: players.length, status: event.status });
+        });
+
+        document.getElementById('weeks-included').innerHTML = 'Weeks included: ' + weekMeta.map(w =>
+          `W${w.week} ${esc(w.formatName)} (${w.posted} posted${w.status !== 'completed' ? ', in progress' : ''})`
+        ).join(' &nbsp;·&nbsp; ');
+
+        const results = computeSeasonGrid(weeks);
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        render(results);
+      } catch (e) {
+        document.getElementById('loading').classList.add('hidden');
+        showStatus('Could not load season grid: ' + e.message);
+      }
+    }
+
+    function buildMatchupsHtml(player, complete) {
+      const headerCells = complete.map(c => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap" style="min-width:52px">${esc(c.player_name)}</th>`).join('');
+      const cells = complete.map(c => {
+        if (c === player) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
+        const v = player.vsOthers[c.player_name];
+        const cls = v > (player.weeksPlayed * 9) ? 'text-emerald-400' : v < (player.weeksPlayed * 9) ? 'text-red-400/80' : 'text-gray-400';
+        return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${fmtPts(v)}</td>`;
+      }).join('');
+      return `
+        <div class="mb-4">
+          <div class="text-[10px] font-heading tracking-widest text-gray-500 uppercase mb-2">Your Matchups <span class="text-gray-700 normal-case tracking-normal">— season total vs. each opponent, out of 18 pts per week faced</span></div>
+          <div class="card-shadow bg-card border border-border rounded-xl overflow-auto">
+            <table class="text-sm border-collapse">
+              <thead>
+                <tr class="bg-surface">
+                  <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 bg-surface z-10">PLAYER</th>
+                  ${headerCells}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${esc(player.player_name)}</td>
+                  ${cells}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    function render(results) {
+      const app = document.getElementById('app');
+
+      app.innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Season Standings</h2>
+          <span class="text-xs text-gray-600">${results.length} players &nbsp;·&nbsp; Click a row to expand matchups</span>
+        </div>
+        <div class="flex items-center gap-4 mb-3 text-xs">
+          <a href="#grid-section" class="text-gray-500 hover:text-flame transition-colors">↓ Jump to The Grid</a>
+        </div>
+        <div class="card-shadow rounded-xl border border-border">
+          <table class="lb-table w-full text-sm" style="table-layout:fixed">
+            <thead>
+              <tr class="bg-surface">
+                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:10%">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:40%">Player</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:20%" title="Sum of hole-by-hole points earned across every opponent faced, every week">Season Pts</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:12%">Weeks</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:18%">To Par</th>
+              </tr>
+            </thead>
+            <tbody id="lb-body"></tbody>
+          </table>
+        </div>
+        <div id="grid-section" class="mt-10" style="scroll-margin-top:72px"></div>
+      `;
+
+      const tbody = document.getElementById('lb-body');
+      results.forEach(player => {
+        const posStr = player.tied ? `T${player.position}` : player.position;
+        const toParStr = formatToPar(player.toPar);
+        const toParCls = player.toPar < 0 ? 'under' : player.toPar > 0 ? 'over' : 'even';
+        const isLeader = player.position === 1;
+
+        const tr = document.createElement('tr');
+        tr.className = `lb-row ${isLeader ? 'leader' : ''}`;
+        tr.innerHTML = `
+          <td class="pos-col px-3 py-3.5 text-center">
+            ${player.position <= 3
+              ? `<span class="rank-medal medal-${player.position}">${posStr}</span>`
+              : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
+          </td>
+          <td class="px-4 py-3.5 font-medium text-white" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(player.player_name)}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num text-flame">${fmtPts(player.seasonPoints)}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${player.weeksPlayed}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+        `;
+
+        const cardTr = document.createElement('tr');
+        cardTr.className = 'hidden';
+        cardTr.innerHTML = `
+          <td colspan="99" class="p-0 border-b border-border">
+            <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+              ${buildMatchupsHtml(player, results)}
+            </div>
+          </td>
+        `;
+
+        tr.addEventListener('click', () => {
+          const open = !cardTr.classList.contains('hidden');
+          cardTr.classList.toggle('hidden');
+          tr.classList.toggle('expanded', !open);
+        });
+
+        tbody.appendChild(tr);
+        tbody.appendChild(cardTr);
+      });
+
+      // Full grid matrix — same visual language as the per-event Match Play
+      // Grid's "The Grid" section.
+      const fmtCell = n => n == null ? '' : fmtPts(n);
+      const headerCells = results.map(p => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap" style="min-width:52px">${esc(p.player_name)}</th>`).join('');
+      const bodyRows = results.map(row => {
+        const cells = results.map(col => {
+          if (col === row) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
+          const v = row.vsOthers[col.player_name];
+          const avgPossible = Math.min(row.weeksPlayed, col.weeksPlayed) * 9;
+          const cls = v == null ? 'text-gray-700' : v > avgPossible ? 'text-emerald-400' : v < avgPossible ? 'text-red-400/80' : 'text-gray-400';
+          return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${fmtCell(v)}</td>`;
+        }).join('');
+        return `<tr class="border-b border-border/40">
+          <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${esc(row.player_name)}</td>
+          ${cells}
+        </tr>`;
+      }).join('');
+
+      document.getElementById('grid-section').innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">The Grid</h2>
+          <span class="text-[11px] text-gray-600">row's cumulative points earned vs. column, all season &nbsp;·&nbsp; ${results.length} players</span>
+        </div>
+        <div class="card-shadow bg-card border border-border rounded-xl overflow-auto" style="max-height: 70vh">
+          <table class="text-sm border-collapse">
+            <thead>
+              <tr class="bg-surface">
+                <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 bg-surface z-10">PLAYER</th>
+                ${headerCells}
+              </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1830,6 +1830,139 @@ function calcMatchPlayGrid(scorecards, format, event) {
   return ordered;
 }
 
+// ─── Season Long Match Play Grid ────────────────────────────────────────────
+// Unannounced/unlinked feature (season-match-play-grid.html) — extends the
+// per-event Match Play Grid concept across every week of a season. See
+// ARCHITECTURE.md for the full design history and the decisions behind the
+// choices below.
+
+// Normalizes ANY event's scorecards into one net-per-hole card per player
+// for that week, regardless of format — this is the one piece of format-
+// specific knowledge the season grid needs, and it turns out to need none:
+// every format already stores a real net stroke count per hole per player
+// on the raw card (team selection rules like "best ball" only decide which
+// holes count toward the TEAM's total — they never erase the individual's
+// own number). So team boundaries are irrelevant here by design (confirmed
+// with the user): a player's own net score is compared against the whole
+// field, team or no team, exactly like a solo week. The one format-specific
+// wrinkle is Ringer's 2 rounds — taking the best (lowest) net per hole
+// across however many rounds a player has completed this week reproduces
+// the Ringer card exactly, and degenerates to "that single round" for
+// every other (1-round) format for free, with no format-type branch needed.
+export function extractWeeklyPlayerCards(scorecards, event) {
+  const cards = applyManualOverrides(scorecards, event);
+  const byPlayer = {};
+  for (const card of cards) {
+    if (!isCardComplete(card)) continue;
+    const name = card.player_name;
+    if (!byPlayer[name]) {
+      byPlayer[name] = {
+        player_name: name,
+        net: Array(18).fill(null),
+        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
+        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
+      };
+    }
+    for (let i = 0; i < 18; i++) {
+      const n = card[`hole${i + 1}_net`];
+      if (n > 0 && (byPlayer[name].net[i] === null || n < byPlayer[name].net[i])) {
+        byPlayer[name].net[i] = n;
+      }
+    }
+  }
+  return Object.values(byPlayer);
+}
+
+// Accumulates pairwise grid points across every week — each week's own
+// `extractWeeklyPlayerCards` output is a self-contained field (own pars/
+// indices, since every week can be a different course), only the running
+// per-pair point totals persist across weeks. A week still in progress
+// simply contributes whichever players have a complete card so far (callers
+// re-fetch and re-run this on every page load, so a provisional season
+// standing grows the same way the per-event grid's provisional standings
+// already do — no separate "provisional" bookkeeping needed here).
+export function computeSeasonGrid(weeks) {
+  const grid = {};          // grid[a][b] = cumulative points a has earned vs b, all season
+  const displayName = {};
+  const toParTotal = {};    // cumulative (net - par) across every week played — the
+                             // season-long stand-in for "18-hole net stroke total",
+                             // since raw net isn't comparable across different courses
+  const weeksPlayed = {};
+
+  for (const week of weeks) {
+    const players = week.players;
+    const keys = players.map(p => p.player_name.toLowerCase());
+    players.forEach((p, i) => {
+      const key = keys[i];
+      displayName[key] = displayName[key] || p.player_name;
+      grid[key] = grid[key] || {};
+      const parTotal = p.pars.reduce((a, b) => a + b, 0);
+      const netTotal = p.net.reduce((a, b) => a + b, 0);
+      toParTotal[key] = (toParTotal[key] || 0) + (netTotal - parTotal);
+      weeksPlayed[key] = (weeksPlayed[key] || 0) + 1;
+    });
+    for (let i = 0; i < players.length; i++) {
+      for (let j = i + 1; j < players.length; j++) {
+        const a = players[i], b = players[j];
+        const ak = keys[i], bk = keys[j];
+        let aPts = 0, bPts = 0;
+        for (let h = 0; h < 18; h++) {
+          if (a.net[h] < b.net[h]) aPts += 1;
+          else if (a.net[h] > b.net[h]) bPts += 1;
+          else { aPts += 0.5; bPts += 0.5; }
+        }
+        grid[ak][bk] = (grid[ak][bk] || 0) + aPts;
+        grid[bk][ak] = (grid[bk][ak] || 0) + bPts;
+      }
+    }
+  }
+
+  const results = Object.keys(grid).map(key => {
+    const seasonPoints = Object.values(grid[key]).reduce((s, v) => s + v, 0);
+    const vsOthers = {};
+    for (const oppKey of Object.keys(grid[key])) vsOthers[displayName[oppKey]] = grid[key][oppKey];
+    return {
+      key,
+      player_name: displayName[key],
+      seasonPoints,
+      vsOthers,
+      weeksPlayed: weeksPlayed[key],
+      toPar: toParTotal[key],
+    };
+  });
+
+  const byTotal = groupByValue(results, r => r.seasonPoints, 'desc');
+  const ordered = [];
+  for (const group of byTotal) ordered.push(...resolveSeasonTieGroup(group, grid));
+
+  ordered.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ordered[i - 1];
+    const trulyTied = roundPts(curr.seasonPoints) === roundPts(prev.seasonPoints) && curr.toPar === prev.toPar;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
+
+  return ordered;
+}
+
+// Same 2 of the 3 tiebreak levels as the per-event grid (mini round-robin,
+// then stroke total) — the 3rd level (index countback) doesn't generalize
+// across a season of different courses with different stroke-index layouts,
+// so a tie survives here as a genuine tie rather than forcing an arbitrary
+// 3rd-level answer.
+function resolveSeasonTieGroup(group, grid) {
+  if (group.length <= 1) return group;
+  const miniGroups = groupByValue(group, p => group.reduce((s, q) => q === p ? s : s + grid[p.key][q.key], 0), 'desc');
+  const out = [];
+  for (const mg of miniGroups) {
+    if (mg.length <= 1) { out.push(...mg); continue; }
+    out.push(...[...mg].sort((a, b) => a.toPar - b.toPar));
+  }
+  return out;
+}
+
 // ─── Payouts ────────────────────────────────────────────────────────────────
 
 // Manual payouts: { place, player, amount } — matched case-insensitively.
