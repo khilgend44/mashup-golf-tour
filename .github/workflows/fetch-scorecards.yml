@@ -18,7 +18,7 @@ jobs:
       - name: Fetch scorecards for active season events
         env:
           SGT_API_KEY: ${{ secrets.SGT_API_KEY }}
-          DIGEST_CRON_SECRET: ${{ secrets.DIGEST_CRON_SECRET }}
+          STREAM_IMPORT_SECRET: ${{ secrets.STREAM_IMPORT_SECRET }}
         run: |
           # Find the active season ID — merge static file + KV (KV takes precedence)
           STATIC_SEASONS=$(cat data/seasons.json)
@@ -124,13 +124,13 @@ jobs:
               gaps=$(python3 .github/scripts/stream_gaps.py "$sgt_streams" "$mashup_streams")
               count=$(echo "$gaps" | jq 'length')
 
-              if [ "$count" != "0" ] && [ -n "$DIGEST_CRON_SECRET" ]; then
+              if [ "$count" != "0" ] && [ -n "$STREAM_IMPORT_SECRET" ]; then
                 echo "  → found $count stream(s) on SGT missing from MashUp, importing..."
                 payload=$(jq -n --arg eventId "$EVENT_ID" --arg eventName "$EVENT_NAME" --argjson items "$gaps" \
                   '{eventId: $eventId, eventName: $eventName, items: $items}')
                 curl -sf -X POST "https://mashup-golf-tour.pages.dev/api/import-sgt-stream" \
                   -H "Content-Type: application/json" \
-                  -H "X-Cron-Secret: ${DIGEST_CRON_SECRET}" \
+                  -H "X-Cron-Secret: ${STREAM_IMPORT_SECRET}" \
                   -d "$payload" || echo "  → stream import request failed"
               else
                 echo "  → no missing streams found for $EVENT_ID"
