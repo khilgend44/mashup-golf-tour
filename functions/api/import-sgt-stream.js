@@ -35,7 +35,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   const secret = request.headers.get('X-Cron-Secret') || '';
-  if (!env.STREAM_IMPORT_SECRET || secret !== env.STREAM_IMPORT_SECRET) {
+  if (!env.DIGEST_CRON_SECRET || secret !== env.DIGEST_CRON_SECRET) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
