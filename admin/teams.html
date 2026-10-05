@@ -281,6 +281,16 @@
       bar.textContent = msg;
       bar.classList.remove('hidden');
       if (type !== 'error') setTimeout(() => bar.classList.add('hidden'), 4000);
+      // This bar sits right under the page header, but most of the actions
+      // that call showStatus (Save Teams, SGT CSV generation, handicap
+      // lock, ...) happen in sections much further down a genuinely long
+      // page — confirmed real case: an admin clicking "Save Teams" after
+      // reviewing a random draw saw no visible reaction at all and assumed
+      // the button was broken, when the save was actually succeeding (or
+      // failing) every time, just off-screen above where they were looking.
+      // Scrolling it into view every time makes the feedback impossible to
+      // miss regardless of which section triggered it.
+      bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     // ── Load data ─────────────────────────────────────────────
@@ -680,9 +690,13 @@
     }
 
     async function saveTeams(eventId, teams) {
-      if (!eventId || !teams.length) return;
+      // These used to fail silently — no status message, nothing — which
+      // read as "the button doesn't do anything" with zero clue why. Now
+      // paired with showStatus scrolling itself into view, so even this
+      // edge case is never a silent no-op.
+      if (!eventId || !teams.length) { showStatus('Nothing to save — generate or build teams first.', 'error'); return; }
       const event = state.kvEvents.find(e => e.id === eventId);
-      if (!event) return;
+      if (!event) { showStatus('Could not find this event — try reselecting it from the dropdown above.', 'error'); return; }
       const updatedEvent = { ...event, teams };
       try {
         const res = await fetch(API_WRITE, {
