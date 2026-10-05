@@ -181,10 +181,17 @@ async function handlePost(context) {
     const url = `${SGT_API_BASE}?key=${sgtKey}&players=${players.map(p => encodeURIComponent(p)).join(',')}`;
     let sgtRes;
     try {
-      sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(240_000) });
+      // 900s not 240s: confirmed by the admin (2026-10) that SGT's backend
+      // can take 10-15 minutes to actually pull everything into memory
+      // before player-check responds at all — a request that lands during
+      // that window doesn't get a slow response, it gets no response until
+      // the shorter timeout gives up, which reads as "it errors every time"
+      // even though retrying a few minutes later "just works." See the
+      // 'refresh' action below for the same fix on the bulk path.
+      sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(900_000) });
     } catch (e) {
       const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
-      return Response.json({ error: timedOut ? 'SGT took too long to respond.' : `Could not reach SGT: ${e.message}` }, { status: 502, headers: CORS });
+      return Response.json({ error: timedOut ? 'SGT took too long to respond (waited 15 min) — this usually means its backend is still warming up; try again shortly.' : `Could not reach SGT: ${e.message}` }, { status: 502, headers: CORS });
     }
     if (!sgtRes.ok) return Response.json({ error: `SGT API error: ${sgtRes.status}` }, { status: 502, headers: CORS });
 
@@ -277,20 +284,30 @@ async function handlePost(context) {
           return;
         }
 
-        await send({ status: `Fetching player summaries for ${playersToFetch.length} players${pendingAdded ? ` (incl. ${pendingAdded} pending registrant${pendingAdded === 1 ? '' : 's'})` : ''}…` });
+        await send({ status: `Fetching player summaries for ${playersToFetch.length} players${pendingAdded ? ` (incl. ${pendingAdded} pending registrant${pendingAdded === 1 ? '' : 's'})` : ''}… (SGT can take up to 15 min to warm up before it responds at all — this is normal, not stuck)` });
         const url = `${SGT_API_BASE}?key=${sgtKey}&players=${playersToFetch.join(',')}`;
         // Sequential, not parallel: two concurrent requests on the same API key
         // may be competing for the same rate-limited backend on SGT's end, which
         // could be *adding* to the slowness rather than avoiding it. Give
         // player-check — the one that's actually required — the full timeout
         // budget on its own first.
+        //
+        // 900s not 240s: confirmed by the admin (2026-10) that SGT's own
+        // backend can take 10-15 minutes to pull everything into memory
+        // before this responds at all — a request landing during that
+        // window doesn't get a slow response, it gets silence until the
+        // timeout gives up. The old 240s timeout fired reliably *during*
+        // that warm-up, which looked like "refresh fails every time" even
+        // though the admin could immediately retry a few minutes later and
+        // have it work — because by then SGT had finished warming up on
+        // the *previous* attempt.
         let sgtRes;
         try {
-          sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(240_000) });
+          sgtRes = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(900_000) });
         } catch (e) {
           const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
           await send({ done: true, ok: false, error: timedOut
-              ? 'SGT took too long to respond. Try selecting a single season (fewer players), or retry in a moment.'
+              ? 'SGT took too long to respond (waited 15 min) — this usually means its backend was still warming up. Try again in a few minutes; it often succeeds immediately on the next attempt.'
               : `Could not reach SGT: ${e.message}` });
           return;
         }
@@ -327,10 +344,12 @@ async function handlePost(context) {
         // it onto each player's entry. Supplementary — failures must not break the
         // core handicap refresh. Note: SGT caps player-hcp-rounds at ~1 response per
         // key per 24h, so this may only populate fully on the first call of a window.
+        // 300s not 120s — same SGT warm-up reasoning as player-check above, just a
+        // smaller budget since this one's supplementary and already fails soft.
         let roundsByPlayer = null;
         try {
           const roundsUrl = `${SGT_ROUNDS_API}?key=${sgtKey}&players=${playersToFetch.map(p => encodeURIComponent(p)).join(',')}`;
-          const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(120_000) });
+          const rRes = await fetch(roundsUrl, { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(300_000) });
           if (rRes.ok) {
             const rounds = await rRes.json();
             if (Array.isArray(rounds)) {

@@ -277,7 +277,7 @@
       const box = document.getElementById(`sgt-check-${rec.id}`);
       if (!box) return;
       box.classList.remove('hidden');
-      box.innerHTML = '<span class="text-gray-500">Checking SGT… (can take a minute or two — SGT\'s API is sometimes slow)</span>';
+      box.innerHTML = '<span class="text-gray-500">Checking SGT… (can take up to 15 min if SGT\'s backend is still warming up — this is normal)</span>';
       try {
         const res = await fetch(PLAYERS_WRITE, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },

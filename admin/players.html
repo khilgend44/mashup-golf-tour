@@ -506,13 +506,18 @@
 
       btn.disabled = true;
       icon.classList.add('spin');
-      showStatus(`Fetching handicaps for ${scopeLabel}… this can take up to several minutes when SGT is slow to respond — hang tight.`, 'info');
+      showStatus(`Fetching handicaps for ${scopeLabel}… SGT's backend can take up to 15 minutes to warm up before it responds at all — this is normal, hang tight.`, 'info');
 
       // Safety net so the spinner always resolves — long enough not to abort a
-      // legitimately slow SGT refresh (server-side timeout is now 240s + 120s,
-      // sequential = up to 360s), short enough to catch a true hang.
+      // legitimately slow SGT refresh (server-side timeout is now 900s + 300s,
+      // sequential = up to 1200s), short enough to catch a true hang. Confirmed
+      // 2026-10: SGT's own backend can take 10-15 min to pull everything into
+      // memory before player-check responds at all, which is what the old
+      // 240s/420s timeouts were actually firing during — not a true failure,
+      // just a request that landed mid-warm-up. See the server-side comment in
+      // functions/admin/api/players.js for the full reasoning.
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 420_000);
+      const timer = setTimeout(() => ctrl.abort(), 1_260_000);
       try {
         // Tell the server which season's pending registrants to fold in —
         // they're not on players:roster or any season.players list yet (only
