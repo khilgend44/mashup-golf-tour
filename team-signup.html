@@ -135,6 +135,7 @@
     const SEASON = params.get('season') || 'season-10';
     const WEEK   = parseInt(params.get('week'), 10) || 5;
     const FORMAT = params.get('format') || '2-Man Shamble';
+    const DATES  = params.get('dates') || 'October 19–25';
 
     function show(el, on) { el.classList.toggle('hidden', !on); }
 
@@ -229,7 +230,7 @@
         if (!res.ok) throw new Error(d.error || 'Could not load signups.');
         data = d;
         $('format-chip').textContent = FORMAT;
-        $('page-sub').textContent = `Season ${SEASON.replace('season-', '')}, Week ${WEEK} is a ${FORMAT} — course TBD. Pick your own 2-man team now so it's ready to go once the event is set up.`;
+        $('page-sub').textContent = `Season ${SEASON.replace('season-', '')}, Week ${WEEK} is a ${FORMAT}, ${DATES} — course TBD. Pick your own 2-man team now so it's ready to go once the event is set up.`;
         render();
         show($('loading'), false);
         show($('app'), true);
