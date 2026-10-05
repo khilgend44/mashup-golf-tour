@@ -166,6 +166,29 @@
 
         const results = computeSeasonGrid(weeks);
 
+        // "Moved up/down X places" — position now vs. position as it stood
+        // before the most recently-included week. Recomputing the whole
+        // grid with that last week dropped is the simplest way to get a
+        // genuine prior snapshot (no separate position-history storage
+        // needed) — every week is its own self-contained comparison anyway,
+        // same reasoning computeSeasonGrid already relies on. Needs 2+
+        // weeks *with actual data* to mean anything — a just-started week
+        // with 0 players posted yet is in `weeks` (so it shows up in
+        // "Weeks included") but contributes nothing to the grid, so
+        // dropping *that* as "the most recent week" would compare the
+        // standings against themselves and show zero movement for
+        // everyone, even right when a real prior week's results just
+        // landed. Confirmed live: W3 showed up with 0 posted the same day
+        // W2 completed, and movement briefly went flat for the whole table.
+        const weeksWithData = weeks.filter(w => w.players.length > 0);
+        if (weeksWithData.length > 1) {
+          const priorResults = computeSeasonGrid(weeksWithData.slice(0, -1));
+          const priorPosByKey = new Map(priorResults.map(r => [r.key, r.position]));
+          for (const r of results) r.priorPosition = priorPosByKey.get(r.key) ?? null;
+        } else {
+          for (const r of results) r.priorPosition = undefined; // "not enough weeks yet" — distinct from null ("new this week")
+        }
+
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         render(results);
@@ -222,12 +245,13 @@
           <table class="lb-table w-full text-sm" style="table-layout:fixed">
             <thead>
               <tr class="bg-surface">
-                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:8%">Pos</th>
-                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:28%">Player</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:15%" title="Sum of hole-by-hole points earned across every opponent faced, every week">Season Pts</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:15%" title="Total net holes won across every opponent faced — same points, read as real match-play UP/DOWN">Net Holes</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:10%">Weeks</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:24%">To Par</th>
+                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:7%">Pos</th>
+                <th class="px-2 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:9%" title="Change in position since the standings before the most recently-included week — needs 2+ weeks to show anything">Move</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:24%">Player</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:13%" title="Sum of hole-by-hole points earned across every opponent faced, every week">Season Pts</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:13%" title="Total net holes won across every opponent faced — same points, read as real match-play UP/DOWN">Net Holes</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:9%">Weeks</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:25%">To Par</th>
               </tr>
             </thead>
             <tbody id="lb-body"></tbody>
@@ -251,6 +275,7 @@
               ? `<span class="rank-medal medal-${player.position}">${posStr}</span>`
               : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
           </td>
+          <td class="px-2 py-3.5 text-center font-semibold font-mono text-xs num ${moveCls(player)}">${moveLabel(player)}</td>
           <td class="px-4 py-3.5 font-medium text-white" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(player.player_name)}</td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num text-flame">${fmtPts(player.seasonPoints)}</td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num ${netHolesCls(player.netHoles)}">${netHolesLabel(player.netHoles)}</td>
@@ -299,6 +324,24 @@
       return net === 0 ? 'even' : net > 0 ? 'under' : 'over';
     }
 
+    // Position moves the opposite direction of the number getting smaller —
+    // priorPosition 10 -> position 5 is "up 5 places", so the delta is
+    // priorPosition minus position (positive = moved up).
+    function moveLabel(r) {
+      if (r.priorPosition === undefined) return '–';
+      if (r.priorPosition == null) return 'NEW';
+      const delta = r.priorPosition - r.position;
+      if (delta === 0) return '–';
+      return `${delta > 0 ? '↑' : '↓'}${Math.abs(delta)}`;
+    }
+
+    function moveCls(r) {
+      if (r.priorPosition === undefined) return 'text-gray-700';
+      if (r.priorPosition == null) return 'text-flame';
+      const delta = r.priorPosition - r.position;
+      return delta === 0 ? 'even' : delta > 0 ? 'under' : 'over';
+    }
+
     function gridCell(row, col) {
       if (col === row) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
       const rowPts = row.vsOthers[col.player_name];
@@ -315,7 +358,7 @@
     }
 
     function renderGridSection(results) {
-      const headerCells = results.map(p => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap" style="min-width:52px">${esc(p.player_name)}</th>`).join('');
+      const headerCells = results.map(p => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap sticky top-0 bg-surface z-10" style="min-width:52px">${esc(p.player_name)}</th>`).join('');
       const bodyRows = results.map(row => `<tr class="border-b border-border/40">
           <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${esc(row.player_name)}</td>
           ${results.map(col => gridCell(row, col)).join('')}
@@ -336,7 +379,7 @@
           <table class="text-sm border-collapse">
             <thead>
               <tr class="bg-surface">
-                <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 bg-surface z-10">PLAYER</th>
+                <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 top-0 bg-surface z-20">PLAYER</th>
                 ${headerCells}
               </tr>
             </thead>
