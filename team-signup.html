@@ -28,7 +28,8 @@
   <style>
     body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
-    select, input { background: #0c0c0c; }
+    select, input, textarea { background: #0c0c0c; }
+    textarea::placeholder { color: #525252; }
     select:focus, input:focus { outline: none; box-shadow: 0 0 0 2px rgba(249,115,22,0.4); }
     .seg-btn { transition: background 0.12s, color 0.12s; }
     .seg-btn.active { background: #f97316; color: #fff; }
@@ -75,7 +76,7 @@
       <!-- Looking for a partner -->
       <section>
         <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-2">Looking For a Partner</h2>
-        <div id="solo-list" class="flex flex-wrap gap-2"></div>
+        <div id="solo-list" class="border border-border/50 rounded-lg bg-surface card-shadow divide-y divide-[#1f1f1f]"></div>
         <p id="solo-empty" class="text-xs text-gray-600 font-body hidden">Nobody's looking for a partner right now.</p>
       </section>
 
@@ -107,6 +108,11 @@
             <select id="su-partner" class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body">
               <option value="">— Select their name —</option>
             </select>
+          </div>
+          <div id="note-field" class="hidden">
+            <label class="block text-xs text-gray-500 font-body mb-1">Note for others <span class="text-gray-700">(optional — availability, what you're looking for, etc.)</span></label>
+            <textarea id="su-note" maxlength="140" rows="2" placeholder="e.g. Only free evenings after 6pm, or I'd rather not carry the whole match myself"
+              class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body resize-none"></textarea>
           </div>
           <button type="submit" id="su-submit" class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background 0.15s">
             Lock It In
@@ -143,6 +149,10 @@
     const DATES  = params.get('dates') || 'October 19–25';
 
     function show(el, on) { el.classList.toggle('hidden', !on); }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
 
     function setStatus(msg, kind) {
       const el = $('status');
@@ -187,7 +197,10 @@
 
       const soloEl = $('solo-list');
       soloEl.innerHTML = data.solo.map(s => `
-        <span class="text-xs font-body px-3 py-1.5 rounded-lg border border-amber-700/40 bg-amber-900/10 text-amber-300">${s.player}</span>`).join('');
+        <div class="px-4 py-2.5">
+          <span class="text-sm font-body text-amber-300">${escapeHtml(s.player)}</span>
+          ${s.note ? `<p class="text-xs font-body text-gray-500 mt-0.5">${escapeHtml(s.note)}</p>` : ''}
+        </div>`).join('');
       show($('solo-empty'), data.solo.length === 0);
 
       const paired = pairedNames();
@@ -218,6 +231,7 @@
       $('mode-pair-btn').classList.add('active');
       $('mode-solo-btn').classList.remove('active');
       show($('partner-field'), true);
+      show($('note-field'), false);
       $('su-submit').textContent = 'Lock It In';
     });
     $('mode-solo-btn').addEventListener('click', () => {
@@ -225,6 +239,7 @@
       $('mode-solo-btn').classList.add('active');
       $('mode-pair-btn').classList.remove('active');
       show($('partner-field'), false);
+      show($('note-field'), true);
       $('su-submit').textContent = "I'm Looking for a Partner";
     });
 
@@ -254,6 +269,8 @@
         const partner = $('su-partner').value;
         if (!partner) return setStatus("Please select your partner's name.", 'error');
         payload.partner = partner;
+      } else {
+        payload.note = $('su-note').value.trim();
       }
 
       const btn = $('su-submit'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Submitting…';

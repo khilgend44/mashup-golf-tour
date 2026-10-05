@@ -178,14 +178,21 @@ export async function onRequestPost(context) {
       const playerName = resolveRosterName(roster, body.player);
       if (!playerName) return json({ error: `Unknown player: ${body.player || ''}` }, 400);
 
+      const note = String(body.note || '').trim().slice(0, 140);
+
       const taken = data.pairs.find(p => p.players.some(n => n.toLowerCase() === playerName.toLowerCase()));
       if (taken) return json({ error: `${playerName} is already paired up — withdraw first if you want a new partner.` }, 409);
 
-      const already = data.solo.some(s => s.player.toLowerCase() === playerName.toLowerCase());
-      if (!already) {
-        data.solo.push({ player: playerName, at: new Date().toISOString() });
+      const existing = data.solo.find(s => s.player.toLowerCase() === playerName.toLowerCase());
+      if (!existing) {
+        data.solo.push({ player: playerName, note, at: new Date().toISOString() });
         await saveState(accountId, apiToken, season, week, data);
-        await notify(env, `🙋 **${playerName}** is looking for a partner for Season ${season.replace('season-', '')} Week ${week}`);
+        await notify(env, `🙋 **${playerName}** is looking for a partner for Season ${season.replace('season-', '')} Week ${week}${note ? `\n> ${note}` : ''}`);
+      } else if (existing.note !== note) {
+        // Re-submitting while already listed just updates the note (e.g. availability
+        // changed) — doesn't re-notify Discord, that would spam the channel.
+        existing.note = note;
+        await saveState(accountId, apiToken, season, week, data);
       }
       return json({ ok: true, ...data });
     }
