@@ -49,7 +49,10 @@
   </header>
 
   <main class="max-w-3xl mx-auto px-4 py-8">
-    <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none mb-2" id="page-title">2-MAN TEAM SIGNUP</h1>
+    <div class="flex items-center gap-3 flex-wrap mb-2">
+      <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none" id="page-title">2-MAN TEAM SIGNUP</h1>
+      <span id="format-chip" class="text-xs font-heading font-600 tracking-widest uppercase px-3 py-1 rounded-lg bg-flame/12 border border-flame/35 text-flame-dim" style="color:#fb923c"></span>
+    </div>
     <p class="text-gray-500 text-sm mb-6" id="page-sub">Loading…</p>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-5"></div>
@@ -131,6 +134,7 @@
     const params = new URLSearchParams(location.search);
     const SEASON = params.get('season') || 'season-10';
     const WEEK   = parseInt(params.get('week'), 10) || 5;
+    const FORMAT = params.get('format') || '2-Man Shamble';
 
     function show(el, on) { el.classList.toggle('hidden', !on); }
 
@@ -224,7 +228,8 @@
         const d = await res.json();
         if (!res.ok) throw new Error(d.error || 'Could not load signups.');
         data = d;
-        $('page-sub').textContent = `Season ${SEASON.replace('season-', '')}, Week ${WEEK} — pick your own 2-man team.`;
+        $('format-chip').textContent = FORMAT;
+        $('page-sub').textContent = `Season ${SEASON.replace('season-', '')}, Week ${WEEK} is a ${FORMAT} — course TBD. Pick your own 2-man team now so it's ready to go once the event is set up.`;
         render();
         show($('loading'), false);
         show($('app'), true);
