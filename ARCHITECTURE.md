@@ -180,13 +180,16 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B/admin/api/events" -d '{}'  
 - Discord webhook URL stored as `DISCORD_ANNOUNCE_WEBHOOK_URL` env var
 
 ### 8. Public Event Teams Page
-- Any event leaderboard (`event.html?id=X`) has a **View Teams** button linking to `event-teams.html?id=X`
+- Any event leaderboard (`event.html?id=X`) has a **View Caps/Teams/Prizes** button (renamed 2026-10 from "View Caps/Teams" once this page's prize section actually became reliable — see below) linking to `event-teams.html?id=X`
 - `event-teams.html` is a public read-only page showing the team draw and prizes for an event
 - **API endpoint:** `functions/api/event-public.js`
   - Public GET — no Cloudflare Access auth required
   - Returns event data, KV formats, handicaps, and roster for a given event ID
   - Only covers admin-created events (KV-stored, e.g. Season 8/10); Season 9 (static-only, not in `admin:events`) returns 404
 - **Handicap columns:** shows both **Raw MashCAP** and **Effective Event MashCAP** per player (team rows and the solo player list both). Re-derives the same `regCap`/allowance/scratch-offset math as `admin/teams.html`'s SGT Loading File and `admin/poster-preview.html` (duplicated inline, not shared — see **Handicap Allowance (per format)**), fetching `/api/seasons` + `/data/seasons.json` itself since `event-public.js`'s `roster` field is the all-time master list, not season-scoped.
+- **`renderPrizes()` had two real bugs, found via a live S10W3 report, fixed 2026-10:**
+  1. **CTP card never showed, on any event, ever** — the gate checked `ctps.amount > 0`, but the field actually saved on every event is `ctps.amountEach`. `ctps.amount` is always `undefined`, so `hasCtps` was always false. Invisible on most weeks because the Payouts card still had real content to show; became glaring on a week with nothing else to mask it.
+  2. **Nassau showed no payouts card at all** — Nassau (`nassau-2man`) doesn't use `event.payouts` (it's always `[]` for this format); its 3 independent pots (18-hole best ball / front 9 / back 9) live in `event.nassauPrizes` instead — the same field `event.html`'s own header pool total already reads (`pool += nassauPrizes.bb + nassauPrizes.f9 + nassauPrizes.b9`). `renderPrizes()` had never been taught about this second prize shape, so a Nassau week rendered only its side pot — looked exactly like "no real prizes this week" even with a $300 pot on the line. Fixed with a 3rd card, same labels event.html already uses ("18-Hole Best Ball" / "Front 9 Aggregate" / "Back 9 Aggregate"), gated on `hasNassauPrizes` alongside the existing `hasPayouts`/`hasCtps`/`hasSidePots` checks.
 
 ### 9. SGT Handicap API
 - Pulls player handicap data from SimulatorGolfTour

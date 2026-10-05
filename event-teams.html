@@ -425,12 +425,25 @@
       const payouts = event.payouts;
       const ctps = event.ctps;
       const sidePots = event.sidePots;
+      const nassauPrizes = event.nassauPrizes;
 
-      const hasPayouts  = payouts && payouts.length > 0;
-      const hasCtps     = ctps && ctps.count > 0 && ctps.amount > 0;
+      const hasPayouts = payouts && payouts.length > 0;
+      // Was `ctps.amount`, but the field this actually gets saved under is
+      // `amountEach` (confirmed against live event data) — `ctps.amount`
+      // is always undefined, so the CTP card has been silently skipped on
+      // every event, not just this one. Only noticeable here because S10W3
+      // (Nassau) has nothing else in the Payouts card to mask it.
+      const hasCtps     = ctps && ctps.count > 0 && ctps.amountEach > 0;
       const hasSidePots = sidePots && sidePots.length > 0;
+      // Nassau doesn't use `event.payouts` at all — its 3 independent pots
+      // (best ball / front 9 / back 9) live in `event.nassauPrizes` instead
+      // (same source `event.html`'s own header pool total already reads).
+      // This card was never added here, so a Nassau week showed nothing
+      // but its side pot — looked like "no prizes" even with real money on
+      // the line.
+      const hasNassauPrizes = nassauPrizes && ((nassauPrizes.bb || 0) + (nassauPrizes.f9 || 0) + (nassauPrizes.b9 || 0) > 0);
 
-      if (!hasPayouts && !hasCtps && !hasSidePots) return '';
+      if (!hasPayouts && !hasCtps && !hasSidePots && !hasNassauPrizes) return '';
 
       let html = `
         <div class="mt-2">
@@ -451,13 +464,32 @@
           </div>`;
       }
 
+      if (hasNassauPrizes) {
+        const nassauRows = [
+          ['18-Hole Best Ball', nassauPrizes.bb],
+          ['Front 9 Aggregate', nassauPrizes.f9],
+          ['Back 9 Aggregate', nassauPrizes.b9],
+        ].filter(([, amount]) => amount > 0);
+        const total = nassauRows.reduce((s, [, amount]) => s + amount, 0);
+        const rows = nassauRows.map(([label, amount]) =>
+          `<div class="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+            <span class="font-heading font-600 text-sm text-gray-300 tracking-wide">${label}</span>
+            <span class="font-body font-600 text-sm text-white">$${amount}</span>
+          </div>`).join('');
+        html += `
+          <div class="card-shadow bg-card border border-border rounded-lg p-4">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Payouts · $${total} Pot</div>
+            ${rows}
+          </div>`;
+      }
+
       if (hasCtps) {
         html += `
           <div class="card-shadow bg-card border border-border rounded-lg p-4">
             <div class="text-xs font-heading font-600 tracking-widest text-gray-600 uppercase mb-3">Closest to the Pin</div>
             <div class="flex items-center justify-between py-2">
               <span class="font-heading font-600 text-sm text-gray-300 tracking-wide">${ctps.count} designated holes</span>
-              <span class="font-body font-600 text-sm text-white">$${ctps.amount} each</span>
+              <span class="font-body font-600 text-sm text-white">$${ctps.amountEach} each</span>
             </div>
           </div>`;
       }
