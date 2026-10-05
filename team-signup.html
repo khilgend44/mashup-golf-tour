@@ -263,7 +263,7 @@
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error || 'Submission failed.');
-        data = d;
+        data = { ...data, ...d };
         render();
         $('signup-form').reset();
         setStatus(mode === 'pair' ? `${player} + ${payload.partner} locked in!` : `${player} is listed as looking for a partner.`);
@@ -289,7 +289,7 @@
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error || 'Withdraw failed.');
-        data = d;
+        data = { ...data, ...d };
         render();
         $('withdraw-form').reset();
         setStatus(`${player} has been withdrawn.`);
