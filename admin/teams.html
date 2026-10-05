@@ -849,6 +849,13 @@
       const manualEl = document.getElementById('rt-manual');
       manualEl.innerHTML = `
         <div class="space-y-4">
+          ${teamSize === 2 ? `
+          <div class="flex items-center gap-3">
+            <button type="button" id="import-pairs-btn"
+              class="px-3 py-1.5 rounded-lg border border-flame/40 text-flame text-xs font-heading font-600 tracking-wider hover:bg-flame/10"
+              style="transition:background 0.12s">⤓ Import Self-Signed Pairs</button>
+            <span id="import-pairs-status" class="text-xs font-body text-gray-600"></span>
+          </div>` : ''}
           <div>
             <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">
               Available Players <span class="font-body tracking-normal normal-case text-gray-700">(${pool.length} remaining — click to select, then click a team slot)</span>
@@ -917,6 +924,50 @@
         rtLastTeams = fullTeams.map(t => [...t]);
         saveTeams(rtEventId, rtLastTeams);
       });
+
+      document.getElementById('import-pairs-btn')?.addEventListener('click', () =>
+        importSignedPairs(event, allPlayers, numTeams, teamSize));
+    }
+
+    // Pulls locked-in pairs from the public team-signup tool (team-signup.html,
+    // keyed by season+week since that event may not have existed yet when
+    // players signed up) and seeds them into the manual builder. The admin
+    // still reviews and clicks Save Teams as normal — this only pre-fills.
+    async function importSignedPairs(event, allPlayers, numTeams, teamSize) {
+      const statusEl = document.getElementById('import-pairs-status');
+      if (!event.week) { statusEl.textContent = 'This event has no week number set.'; return; }
+      statusEl.textContent = 'Loading…';
+      try {
+        const res = await fetch(`/api/team-signup?season=${encodeURIComponent(event.season)}&week=${event.week}`);
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Could not load signups.');
+
+        const rosterNames = new Set(allPlayers.map(p => p.name.toLowerCase()));
+        const usablePairs = (d.pairs || []).filter(p =>
+          p.players.length === 2 && p.players.every(n => rosterNames.has(n.toLowerCase())));
+
+        if (usablePairs.length === 0) {
+          statusEl.textContent = 'No signed-up pairs found for this season/week.';
+          return;
+        }
+
+        manualState.teams = Array.from({ length: numTeams }, () => []);
+        manualState.selectedPlayer = null;
+        const imported = usablePairs.slice(0, numTeams);
+        imported.forEach((pair, i) => {
+          // Use each player's roster-exact name/casing, not whatever the signup form stored.
+          manualState.teams[i] = pair.players.map(n =>
+            allPlayers.find(p => p.name.toLowerCase() === n.toLowerCase())?.name || n);
+        });
+
+        const skipped = usablePairs.length - imported.length;
+        statusEl.textContent = `Imported ${imported.length} pair${imported.length === 1 ? '' : 's'}` +
+          (skipped > 0 ? ` (${skipped} more than fit — add teams or assign manually)` : '') +
+          ' — review below, then Save Teams.';
+        renderManualBuilder();
+      } catch (err) {
+        statusEl.textContent = err.message;
+      }
     }
 
     // ══════════════════════════════════════════════════════════

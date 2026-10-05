@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2-Man Team Signup — MashUp Golf</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png" />
+  <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    select, input { background: #0c0c0c; }
+    select:focus, input:focus { outline: none; box-shadow: 0 0 0 2px rgba(249,115,22,0.4); }
+    .seg-btn { transition: background 0.12s, color 0.12s; }
+    .seg-btn.active { background: #f97316; color: #fff; }
+    .pair-row { border-bottom: 1px solid #1f1f1f; }
+    .pair-row:last-child { border-bottom: none; }
+    .withdraw-link { transition: color 0.12s; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <header class="border-b border-border">
+    <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
+        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Team Signup</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none mb-2" id="page-title">2-MAN TEAM SIGNUP</h1>
+    <p class="text-gray-500 text-sm mb-6" id="page-sub">Loading…</p>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-5"></div>
+    <div id="loading" class="text-center py-16 text-gray-600 text-sm">Loading roster…</div>
+
+    <div id="app" class="hidden space-y-6">
+
+      <!-- Locked pairs -->
+      <section>
+        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-2">Locked In</h2>
+        <div id="pairs-list" class="border border-border/50 rounded-lg bg-surface card-shadow divide-y divide-[#1f1f1f]"></div>
+        <p id="pairs-empty" class="text-xs text-gray-600 font-body hidden">No pairs locked in yet — be the first.</p>
+      </section>
+
+      <!-- Looking for a partner -->
+      <section>
+        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-2">Looking For a Partner</h2>
+        <div id="solo-list" class="flex flex-wrap gap-2"></div>
+        <p id="solo-empty" class="text-xs text-gray-600 font-body hidden">Nobody's looking for a partner right now.</p>
+      </section>
+
+      <!-- Not yet signed up -->
+      <section>
+        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-2">Not Yet Signed Up</h2>
+        <div id="open-list" class="flex flex-wrap gap-2"></div>
+        <p id="open-empty" class="text-xs text-gray-600 font-body hidden">Everyone's signed up.</p>
+      </section>
+
+      <!-- Sign up -->
+      <section class="border border-border/50 rounded-lg bg-surface card-shadow p-5">
+        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-3">Sign Up</h2>
+
+        <div class="inline-flex rounded-lg border border-border/60 overflow-hidden mb-4 text-xs font-heading font-600 tracking-wider">
+          <button type="button" id="mode-pair-btn" class="seg-btn active px-4 py-2">I have a partner</button>
+          <button type="button" id="mode-solo-btn" class="seg-btn px-4 py-2">I need a partner</button>
+        </div>
+
+        <form id="signup-form" class="space-y-3">
+          <div>
+            <label class="block text-xs text-gray-500 font-body mb-1">Your name</label>
+            <select id="su-player" required class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body">
+              <option value="">— Select your name —</option>
+            </select>
+          </div>
+          <div id="partner-field">
+            <label class="block text-xs text-gray-500 font-body mb-1">Partner's name</label>
+            <select id="su-partner" class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body">
+              <option value="">— Select their name —</option>
+            </select>
+          </div>
+          <button type="submit" id="su-submit" class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background 0.15s">
+            Lock It In
+          </button>
+        </form>
+      </section>
+
+      <!-- Withdraw -->
+      <section class="border border-border/50 rounded-lg bg-surface card-shadow p-5">
+        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-3">Changed Your Mind?</h2>
+        <form id="withdraw-form" class="flex flex-wrap items-end gap-3">
+          <div class="flex-1 min-w-[180px]">
+            <label class="block text-xs text-gray-500 font-body mb-1">Your name</label>
+            <select id="wd-player" class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body">
+              <option value="">— Select your name —</option>
+            </select>
+          </div>
+          <button type="submit" id="wd-submit" class="px-5 py-2 rounded-lg border border-red-800/50 text-red-400 text-sm font-heading font-600 tracking-wider hover:bg-red-900/20 disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background 0.15s">
+            Withdraw
+          </button>
+        </form>
+        <p class="text-[11px] text-gray-600 font-body mt-2">Withdrawing from a locked pair frees up your partner too — they'll need to sign up again.</p>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
+    const SEASON = params.get('season') || 'season-10';
+    const WEEK   = parseInt(params.get('week'), 10) || 5;
+
+    function show(el, on) { el.classList.toggle('hidden', !on); }
+
+    function setStatus(msg, kind) {
+      const el = $('status');
+      if (!msg) { show(el, false); return; }
+      el.textContent = msg;
+      el.className = `rounded-lg px-4 py-3 text-sm font-body mb-5 ${kind === 'error'
+        ? 'bg-red-900/30 border border-red-800/40 text-red-300'
+        : 'bg-flame/10 border border-flame/30 text-flame'}`;
+      show(el, true);
+    }
+
+    let data = { pairs: [], solo: [], roster: [] };
+    let mode = 'pair';
+
+    function pairedNames() {
+      return new Set(data.pairs.flatMap(p => p.players.map(n => n.toLowerCase())));
+    }
+    function soloNames() {
+      return new Set(data.solo.map(s => s.player.toLowerCase()));
+    }
+    // Pickable as a partner: anyone not already in a locked pair.
+    function pickablePlayers(excludeName) {
+      const paired = pairedNames();
+      const exclude = (excludeName || '').toLowerCase();
+      return data.roster.filter(n => !paired.has(n.toLowerCase()) && n.toLowerCase() !== exclude);
+    }
+
+    function fillSelect(sel, names, placeholder) {
+      const prev = sel.value;
+      sel.innerHTML = `<option value="">${placeholder}</option>` + names.map(n => `<option value="${n}">${n}</option>`).join('');
+      if (names.includes(prev)) sel.value = prev;
+    }
+
+    function render() {
+      const pairsEl = $('pairs-list');
+      pairsEl.innerHTML = data.pairs.map(p => `
+        <div class="pair-row flex items-center justify-between px-4 py-2.5">
+          <span class="text-sm font-body text-gray-200">${p.players[0]} <span class="text-gray-600">+</span> ${p.players[1]}</span>
+          <span class="text-[10px] font-heading font-600 tracking-widest text-emerald-400 uppercase">Locked</span>
+        </div>`).join('');
+      show($('pairs-empty'), data.pairs.length === 0);
+
+      const soloEl = $('solo-list');
+      soloEl.innerHTML = data.solo.map(s => `
+        <span class="text-xs font-body px-3 py-1.5 rounded-lg border border-amber-700/40 bg-amber-900/10 text-amber-300">${s.player}</span>`).join('');
+      show($('solo-empty'), data.solo.length === 0);
+
+      const paired = pairedNames();
+      const solo = soloNames();
+      const openEl = $('open-list');
+      const open = data.roster.filter(n => !paired.has(n.toLowerCase()) && !solo.has(n.toLowerCase()));
+      openEl.innerHTML = open.map(n => `
+        <span class="text-xs font-body px-3 py-1.5 rounded-lg border border-border/60 bg-black/20 text-gray-400">${n}</span>`).join('');
+      show($('open-empty'), open.length === 0);
+
+      // Signup form: "your name" can be anyone not already locked into a pair
+      // (a solo player picking a partner forms a pair and clears their solo entry).
+      fillSelect($('su-player'), pickablePlayers(), '— Select your name —');
+      const playerVal = $('su-player').value;
+      fillSelect($('su-partner'), pickablePlayers(playerVal), '— Select their name —');
+
+      // Withdraw: anyone currently in a pair or solo list.
+      const active = data.roster.filter(n => paired.has(n.toLowerCase()) || solo.has(n.toLowerCase()));
+      fillSelect($('wd-player'), active, '— Select your name —');
+    }
+
+    $('su-player').addEventListener('change', () => {
+      fillSelect($('su-partner'), pickablePlayers($('su-player').value), '— Select their name —');
+    });
+
+    $('mode-pair-btn').addEventListener('click', () => {
+      mode = 'pair';
+      $('mode-pair-btn').classList.add('active');
+      $('mode-solo-btn').classList.remove('active');
+      show($('partner-field'), true);
+      $('su-submit').textContent = 'Lock It In';
+    });
+    $('mode-solo-btn').addEventListener('click', () => {
+      mode = 'solo';
+      $('mode-solo-btn').classList.add('active');
+      $('mode-pair-btn').classList.remove('active');
+      show($('partner-field'), false);
+      $('su-submit').textContent = "I'm Looking for a Partner";
+    });
+
+    async function load() {
+      try {
+        const res = await fetch(`/api/team-signup?season=${encodeURIComponent(SEASON)}&week=${WEEK}`);
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Could not load signups.');
+        data = d;
+        $('page-sub').textContent = `Season ${SEASON.replace('season-', '')}, Week ${WEEK} — pick your own 2-man team.`;
+        render();
+        show($('loading'), false);
+        show($('app'), true);
+      } catch (err) {
+        $('loading').textContent = err.message;
+      }
+    }
+
+    $('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('');
+      const player = $('su-player').value;
+      if (!player) return setStatus('Please select your name.', 'error');
+      const payload = { season: SEASON, week: WEEK, action: mode, player };
+      if (mode === 'pair') {
+        const partner = $('su-partner').value;
+        if (!partner) return setStatus("Please select your partner's name.", 'error');
+        payload.partner = partner;
+      }
+
+      const btn = $('su-submit'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Submitting…';
+      try {
+        const res = await fetch('/api/team-signup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || 'Submission failed.');
+        data = d;
+        render();
+        $('signup-form').reset();
+        setStatus(mode === 'pair' ? `${player} + ${payload.partner} locked in!` : `${player} is listed as looking for a partner.`);
+      } catch (err) {
+        setStatus(err.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+
+    $('withdraw-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('');
+      const player = $('wd-player').value;
+      if (!player) return setStatus('Please select your name.', 'error');
+      if (!confirm(`Withdraw ${player} from the team signup?`)) return;
+
+      const btn = $('wd-submit'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Withdrawing…';
+      try {
+        const res = await fetch('/api/team-signup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ season: SEASON, week: WEEK, action: 'withdraw', player }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || 'Withdraw failed.');
+        data = d;
+        render();
+        $('withdraw-form').reset();
+        setStatus(`${player} has been withdrawn.`);
+      } catch (err) {
+        setStatus(err.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>
