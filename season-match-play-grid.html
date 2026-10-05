@@ -175,17 +175,19 @@
       }
     }
 
+    // Reuses gridCell() (defined below) for every cell, so this always
+    // matches whatever gridMode the main grid is currently showing — one
+    // cell-rendering function, two places it's used, no risk of the two
+    // views disagreeing about what a cell means.
     function buildMatchupsHtml(player, complete) {
       const headerCells = complete.map(c => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap" style="min-width:52px">${esc(c.player_name)}</th>`).join('');
-      const cells = complete.map(c => {
-        if (c === player) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
-        const v = player.vsOthers[c.player_name];
-        const cls = v > (player.weeksPlayed * 9) ? 'text-emerald-400' : v < (player.weeksPlayed * 9) ? 'text-red-400/80' : 'text-gray-400';
-        return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${fmtPts(v)}</td>`;
-      }).join('');
+      const cells = complete.map(c => gridCell(player, c)).join('');
+      const captionHtml = gridMode === 'net'
+        ? 'net holes won vs. each opponent — real match-play UP/DOWN'
+        : 'season total vs. each opponent, out of 18 pts per week faced';
       return `
         <div class="mb-4">
-          <div class="text-[10px] font-heading tracking-widest text-gray-500 uppercase mb-2">Your Matchups <span class="text-gray-700 normal-case tracking-normal">— season total vs. each opponent, out of 18 pts per week faced</span></div>
+          <div class="text-[10px] font-heading tracking-widest text-gray-500 uppercase mb-2">Your Matchups <span class="text-gray-700 normal-case tracking-normal">— ${captionHtml}</span></div>
           <div class="card-shadow bg-card border border-border rounded-xl overflow-auto">
             <table class="text-sm border-collapse">
               <thead>
@@ -286,7 +288,7 @@
     // cancel out algebraically, so it falls straight out of `vsOthers`.
     // Confirmed against a real example (boiler_kh 10 pts / r3noble 8 pts
     // through S10W1 -> boiler_kh is 2 UP, r3noble 2 DN) before building.
-    let gridMode = 'total';
+    let gridMode = 'net';
 
     function netHolesLabel(net) {
       if (net === 0) return 'AS';
