@@ -276,7 +276,8 @@
         <!-- Coming up — planned formats with no real event yet -->
         ${coming.length ? `
         <section class="mb-10">
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Coming Up</h3>
+          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-1">Coming Up</h3>
+          <p class="text-xs text-gray-600 mb-3">Tentative — formats and dates are subject to change by the admin team.</p>
           <div class="space-y-2">
             ${coming.map(e => scheduleRow(e)).join('')}
           </div>

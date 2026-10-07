@@ -259,7 +259,8 @@
         <!-- Coming up — planned formats with no real event yet -->
         ${scheduleEntries.length ? `
         <section class="mb-8">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Coming Up</h2>
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-1">Coming Up</h2>
+          <p class="text-xs text-gray-600 mb-3">Tentative — formats and dates are subject to change by the admin team.</p>
           <div class="space-y-2">${scheduleEntries.map(e => scheduleCard(e)).join('')}</div>
         </section>` : ''}
 
