@@ -1487,12 +1487,18 @@ function calcNassau2Man(scorecards, format, event) {
     const total    = out + inn;
     const totalPar = outPar + inPar;
 
-    // Aggregate scores: sum of both players' individual nets per half
-    const f9Agg = team.players.reduce((s, p) =>
-      s + p.net.slice(0, 9).reduce((a, v) => a + (v == null ? 0 : v), 0), 0);
-    const b9Agg = team.players.reduce((s, p) =>
-      s + p.net.slice(9).reduce((a, v) => a + (v == null ? 0 : v), 0), 0);
-    const aggregate = f9Agg + b9Agg;
+    // Aggregate scores: sum of both players' individual nets per half. Only
+    // meaningful once BOTH players have a complete card — a lone player's
+    // total is always lower than a real two-player sum, which would falsely
+    // show a still-partial team "leading" the Front/Back 9 pot mid-event.
+    const bothIn = team.players.length === 2;
+    const f9Agg = bothIn
+      ? team.players.reduce((s, p) => s + p.net.slice(0, 9).reduce((a, v) => a + (v == null ? 0 : v), 0), 0)
+      : null;
+    const b9Agg = bothIn
+      ? team.players.reduce((s, p) => s + p.net.slice(9).reduce((a, v) => a + (v == null ? 0 : v), 0), 0)
+      : null;
+    const aggregate = bothIn ? f9Agg + b9Agg : null;
 
     return {
       isTeam: true,
@@ -1516,17 +1522,24 @@ function calcNassau2Man(scorecards, format, event) {
 
   if (results.length === 0) return results;
 
-  const sortBB = (a, b) => a.bbScore  !== b.bbScore  ? a.bbScore  - b.bbScore
-    : a.aggregate !== b.aggregate ? a.aggregate - b.aggregate : nassauCB18(a, b);
-  const sortF9 = (a, b) => a.f9Agg   !== b.f9Agg   ? a.f9Agg   - b.f9Agg
-    : a.aggregate !== b.aggregate ? a.aggregate - b.aggregate : nassauCBF9(a, b);
-  const sortB9 = (a, b) => a.b9Agg   !== b.b9Agg   ? a.b9Agg   - b.b9Agg
-    : a.aggregate !== b.aggregate ? a.aggregate - b.aggregate : nassauCBB9(a, b);
+  // A null aggregate (team not fully in yet) always sorts last — never beats
+  // a real value, so an incomplete team can't out-rank or win a pot over one
+  // with real two-player data.
+  const cmpMaybeNull = (x, y) => x == null && y == null ? 0 : x == null ? 1 : y == null ? -1 : x - y;
 
-  // Assign pot winners (no-double-win: each team wins at most one pot)
+  const sortBB = (a, b) => a.bbScore  !== b.bbScore  ? a.bbScore  - b.bbScore
+    : cmpMaybeNull(a.aggregate, b.aggregate) !== 0 ? cmpMaybeNull(a.aggregate, b.aggregate) : nassauCB18(a, b);
+  const sortF9 = (a, b) => cmpMaybeNull(a.f9Agg, b.f9Agg) !== 0 ? cmpMaybeNull(a.f9Agg, b.f9Agg)
+    : cmpMaybeNull(a.aggregate, b.aggregate) !== 0 ? cmpMaybeNull(a.aggregate, b.aggregate) : nassauCBF9(a, b);
+  const sortB9 = (a, b) => cmpMaybeNull(a.b9Agg, b.b9Agg) !== 0 ? cmpMaybeNull(a.b9Agg, b.b9Agg)
+    : cmpMaybeNull(a.aggregate, b.aggregate) !== 0 ? cmpMaybeNull(a.aggregate, b.aggregate) : nassauCBB9(a, b);
+
+  // Assign pot winners (no-double-win: each team wins at most one pot).
+  // F9/B9 pots additionally require a real (non-null) aggregate — otherwise
+  // the pot just stays unawarded ("no winner yet") until some team is fully in.
   [...results].sort(sortBB)[0].potWon = 'bb';
-  for (const t of [...results].sort(sortF9)) { if (!t.potWon) { t.potWon = 'f9'; break; } }
-  for (const t of [...results].sort(sortB9)) { if (!t.potWon) { t.potWon = 'b9'; break; } }
+  for (const t of [...results].sort(sortF9)) { if (!t.potWon && t.f9Agg != null) { t.potWon = 'f9'; break; } }
+  for (const t of [...results].sort(sortB9)) { if (!t.potWon && t.b9Agg != null) { t.potWon = 'b9'; break; } }
 
   // Sort leaderboard by BB score
   results.sort(sortBB);

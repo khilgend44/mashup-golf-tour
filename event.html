@@ -347,7 +347,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261003e';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261007a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1705,6 +1705,10 @@
         const toParCls = team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
         const potStr   = team.potWon ? POT_LABEL[team.potWon] : '—';
         const potCls   = team.potWon ? 'text-flame font-semibold' : 'text-gray-700';
+        // null until both players are in — see calcNassau2Man in scoring.js
+        const f9AggStr = team.f9Agg == null ? '—' : team.f9Agg;
+        const b9AggStr = team.b9Agg == null ? '—' : team.b9Agg;
+        const aggStr   = team.aggregate == null ? '—' : team.aggregate;
 
         const memberHtml = team.displayMembers.map(m => {
           const ps = getPlayerStreams(streams, m);
@@ -1722,9 +1726,9 @@
           <td class="px-4 py-3 leading-snug">${memberHtml}</td>
           <td class="px-3 py-3 text-center font-semibold font-mono num hidden sm:table-cell">${team.total}</td>
           <td class="px-3 py-3 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
-          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${team.f9Agg}</td>
-          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${team.b9Agg}</td>
-          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs num hidden md:table-cell">${team.aggregate}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${f9AggStr}</td>
+          <td class="px-3 py-3 text-center text-gray-300 font-mono text-xs num hidden sm:table-cell">${b9AggStr}</td>
+          <td class="px-3 py-3 text-center text-gray-400 font-mono text-xs num hidden md:table-cell">${aggStr}</td>
           <td class="px-3 py-3 text-center text-xs ${potCls}">${potStr}</td>
         `;
 
@@ -2081,7 +2085,7 @@
           <span class="text-red-500/60 font-heading font-600 text-[10px] tracking-widest">0</span> <span>Double+</span>
           <span class="text-gray-700 w-full mt-0.5">Team = top 2 stableford points per hole · Dimmed = doesn't count · Agg = all 3 players' individual totals</span>
           ` : isShamble || isNassau ? `
-          <span class="text-gray-700">Team score = best net ball per hole · Dimmed score didn't count${isNassau ? ' · F9 Agg: ' + team.f9Agg + ' · B9 Agg: ' + team.b9Agg : ''}</span>
+          <span class="text-gray-700">Team score = best net ball per hole · Dimmed score didn't count${isNassau ? ' · F9 Agg: ' + (team.f9Agg ?? 'pending') + ' · B9 Agg: ' + (team.b9Agg ?? 'pending') : ''}</span>
           ` : isDevilsDraw ? `
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">3BB</span> <span>All 3 net scores</span>
           <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span> <span>Best 2 net scores</span>
