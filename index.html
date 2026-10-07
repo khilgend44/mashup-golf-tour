@@ -178,16 +178,28 @@
   <script type="module">
     import { loadSeasons, loadEvents } from './js/api.js?v=20260929a';
 
+    async function loadSchedule(seasonId) {
+      try {
+        const res = await fetch(`/api/schedule?season=${encodeURIComponent(seasonId)}`);
+        if (!res.ok) return [];
+        return await res.json();
+      } catch {
+        return [];
+      }
+    }
+
     async function init() {
       const [seasons, events] = await Promise.all([loadSeasons(), loadEvents()]);
+      const activeSeason = seasons.find(s => s.status === 'active') || seasons[0];
+      const scheduleEntries = activeSeason ? await loadSchedule(activeSeason.id) : [];
       const loading = document.getElementById('loading');
       const app = document.getElementById('app');
       loading.classList.add('hidden');
       app.classList.remove('hidden');
-      app.innerHTML = renderApp(seasons, events);
+      app.innerHTML = renderApp(seasons, events, scheduleEntries);
     }
 
-    function renderApp(seasons, events) {
+    function renderApp(seasons, events, scheduleEntries) {
       const activeSeason = seasons.find(s => s.status === 'active') || seasons[0];
       const seasonEvents = events
         .filter(e => e.season === activeSeason?.id)
@@ -201,6 +213,15 @@
       const completed = seasonEvents.filter(e => e.status === 'completed');
       const live      = seasonEvents.filter(e => e.status === 'active');
       const upcoming  = seasonEvents.filter(e => e.status === 'upcoming');
+
+      // "Coming up" teasers — planned formats with no real event yet. Filtered
+      // against real weeks again here (not just trusting the backend's
+      // auto-clear-on-create) so a stale schedule entry never shadows a week
+      // that already has an actual event. Same logic as season.html.
+      const scheduledWeeks = new Set(seasonEvents.map(e => e.week).filter(w => w != null));
+      const coming = (scheduleEntries || [])
+        .filter(e => !scheduledWeeks.has(e.week))
+        .sort((a, b) => a.week - b.week);
 
       return `
         <!-- Live Now — deliberately first, above the season header, so it's
@@ -249,6 +270,15 @@
           <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Upcoming</h3>
           <div class="space-y-2">
             ${upcoming.map(e => eventRow(e, true)).join('')}
+          </div>
+        </section>` : ''}
+
+        <!-- Coming up — planned formats with no real event yet -->
+        ${coming.length ? `
+        <section class="mb-10">
+          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Coming Up</h3>
+          <div class="space-y-2">
+            ${coming.map(e => scheduleRow(e)).join('')}
           </div>
         </section>` : ''}
 
@@ -308,6 +338,24 @@
       return showLink
         ? `<a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="block">${inner}</a>`
         : `<div>${inner}</div>`;
+    }
+
+    // A planned week — not a real event yet, so no link, no scores, just a
+    // heads-up. Dashed border deliberately distinguishes it from eventRow()
+    // so nobody mistakes "planned" for "scheduled and locked." Same card as
+    // season.html's scheduleCard().
+    function scheduleRow(e) {
+      return `
+        <div class="border border-dashed border-border/60 rounded-lg px-5 py-4 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="font-heading font-700 text-base text-gray-300 truncate">Week ${e.week} — ${e.formatName}</div>
+            <div class="flex flex-wrap items-center gap-2 mt-1.5">
+              ${e.dateLabel ? `<span class="text-xs text-gray-500">${e.dateLabel}</span>` : ''}
+              ${e.note ? `<span class="text-xs text-gray-600">${e.note}</span>` : ''}
+            </div>
+          </div>
+          <span class="text-xs font-heading tracking-wider text-gray-600 shrink-0 uppercase">Planned</span>
+        </div>`;
     }
 
     // Deliberately louder than eventRow() — a live event is the single most
