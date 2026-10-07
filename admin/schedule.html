@@ -104,8 +104,12 @@
             <input type="number" id="f-week" min="1" max="50" placeholder="5" />
           </div>
           <div class="form-full">
-            <label>Format Name</label>
-            <input type="text" id="f-format" placeholder="2-Man Shamble" />
+            <label>Format</label>
+            <select id="f-format"><option value="">Loading…</option></select>
+          </div>
+          <div id="f-format-other-wrap" class="form-full hidden">
+            <label>Format Name <span class="text-gray-700 normal-case tracking-normal">(not in the formats list yet)</span></label>
+            <input type="text" id="f-format-other" placeholder="2-Man Shamble" />
           </div>
           <div>
             <label>Dates <span class="text-gray-700 normal-case tracking-normal">(optional)</span></label>
@@ -157,7 +161,7 @@
     const API_WRITE = '/admin/api/schedule';  // Access-protected writes
     const SEASONS_API = '/api/seasons';
 
-    let state = { seasons: [], events: [], entries: [], editingId: null };
+    let state = { seasons: [], events: [], entries: [], formats: {}, editingId: null };
 
     function showStatus(msg, type = 'info') {
       const bar = document.getElementById('status-bar');
@@ -173,14 +177,19 @@
     }
 
     async function loadAll() {
-      const [seasonsRes, eventsRes, scheduleRes] = await Promise.allSettled([
+      const [seasonsRes, eventsRes, scheduleRes, kvFormatsRes, staticFormatsRes] = await Promise.allSettled([
         fetch(SEASONS_API),
         fetch('/api/events-admin?type=events'),
         fetch(API),
+        fetch('/api/events-admin?type=formats'),
+        fetch('/data/formats.json'),
       ]);
       state.seasons = seasonsRes.status === 'fulfilled' && seasonsRes.value.ok ? await seasonsRes.value.json() : [];
       state.events  = eventsRes.status === 'fulfilled'  && eventsRes.value.ok  ? await eventsRes.value.json()  : [];
       state.entries = scheduleRes.status === 'fulfilled' && scheduleRes.value.ok ? await scheduleRes.value.json() : [];
+      const staticFmts = staticFormatsRes.status === 'fulfilled' && staticFormatsRes.value.ok ? await staticFormatsRes.value.json() : {};
+      const kvFmts     = kvFormatsRes.status === 'fulfilled'     && kvFormatsRes.value.ok     ? await kvFormatsRes.value.json()     : {};
+      state.formats = { ...staticFmts, ...kvFmts };
 
       const sel = document.getElementById('f-season');
       sel.innerHTML = state.seasons.length
@@ -189,7 +198,28 @@
       const active = state.seasons.find(s => s.status === 'active');
       if (active) sel.value = active.id;
 
+      populateFormatDropdown();
       renderTable();
+    }
+
+    const OTHER_FORMAT = '__other__';
+
+    function populateFormatDropdown() {
+      const sel = document.getElementById('f-format');
+      const fmts = Object.values(state.formats).sort((a, b) => a.name.localeCompare(b.name));
+      sel.innerHTML = `<option value="">— Select a format —</option>` +
+        fmts.map(f => `<option value="${f.name}">${f.name}</option>`).join('') +
+        `<option value="${OTHER_FORMAT}">Other (not listed yet)…</option>`;
+    }
+
+    function toggleFormatOther() {
+      const isOther = document.getElementById('f-format').value === OTHER_FORMAT;
+      document.getElementById('f-format-other-wrap').classList.toggle('hidden', !isOther);
+    }
+
+    function selectedFormatName() {
+      const sel = document.getElementById('f-format').value;
+      return sel === OTHER_FORMAT ? document.getElementById('f-format-other').value.trim() : sel;
     }
 
     function seasonName(id) {
@@ -234,8 +264,10 @@
       document.getElementById('btn-save').textContent = 'Save Week';
       document.getElementById('f-week').value = '';
       document.getElementById('f-format').value = '';
+      document.getElementById('f-format-other').value = '';
       document.getElementById('f-dates').value = '';
       document.getElementById('f-note').value = '';
+      toggleFormatOther();
       openPanel();
     }
 
@@ -247,7 +279,18 @@
       document.getElementById('btn-save').textContent = 'Update Week';
       document.getElementById('f-season').value = entry.season;
       document.getElementById('f-week').value = entry.week;
-      document.getElementById('f-format').value = entry.formatName;
+
+      const formatSel = document.getElementById('f-format');
+      const known = Object.values(state.formats).some(f => f.name === entry.formatName);
+      if (known) {
+        formatSel.value = entry.formatName;
+        document.getElementById('f-format-other').value = '';
+      } else {
+        formatSel.value = OTHER_FORMAT;
+        document.getElementById('f-format-other').value = entry.formatName;
+      }
+      toggleFormatOther();
+
       document.getElementById('f-dates').value = entry.dateLabel || '';
       document.getElementById('f-note').value = entry.note || '';
       openPanel();
@@ -269,13 +312,14 @@
     async function saveWeek() {
       const season = document.getElementById('f-season').value;
       const week   = parseInt(document.getElementById('f-week').value, 10);
-      const formatName = document.getElementById('f-format').value.trim();
+      const formatName = selectedFormatName();
       const dateLabel   = document.getElementById('f-dates').value.trim();
       const note        = document.getElementById('f-note').value.trim();
 
       if (!season)                     return showStatus('Please select a season.', 'error');
       if (!Number.isInteger(week) || week < 1) return showStatus('Please enter a valid week number.', 'error');
-      if (!formatName)                 return showStatus('Format name is required.', 'error');
+      if (!document.getElementById('f-format').value) return showStatus('Please select a format.', 'error');
+      if (!formatName)                 return showStatus('Please enter the format name.', 'error');
 
       const btn = document.getElementById('btn-save');
       btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
@@ -325,6 +369,7 @@
     });
     document.getElementById('btn-cancel').addEventListener('click', closePanel);
     document.getElementById('btn-save').addEventListener('click', saveWeek);
+    document.getElementById('f-format').addEventListener('change', toggleFormatOther);
     document.getElementById('schedule-tbody').addEventListener('click', e => {
       const editBtn = e.target.closest('[data-edit]');
       const delBtn  = e.target.closest('[data-delete]');
