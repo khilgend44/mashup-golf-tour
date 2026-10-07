@@ -169,6 +169,16 @@
 
     const params = new URLSearchParams(window.location.search);
 
+    async function loadSchedule(seasonId) {
+      try {
+        const res = await fetch(`/api/schedule?season=${encodeURIComponent(seasonId)}`);
+        if (!res.ok) return [];
+        return await res.json();
+      } catch {
+        return [];
+      }
+    }
+
     async function init() {
       const [seasons, events, formats] = await Promise.all([loadSeasons(), loadEvents(), loadFormats()]);
       const seasonId = params.get('id') || seasons.find(s => s.status === 'active')?.id || seasons[0]?.id;
@@ -184,6 +194,15 @@
           return new Date(a.date) - new Date(b.date);
         });
 
+      // "Coming up" teasers — planned formats for weeks that don't have a real
+      // event yet. Filtered against real weeks again here (not just trusting
+      // the backend's auto-clear-on-create) so a stale schedule entry never
+      // shadows a week that already has an actual event.
+      const scheduledWeeks = new Set(seasonEvents.map(e => e.week).filter(w => w != null));
+      const scheduleEntries = (await loadSchedule(seasonId))
+        .filter(e => !scheduledWeeks.has(e.week))
+        .sort((a, b) => a.week - b.week);
+
       renderHeader(season, seasonEvents);
 
       document.getElementById('breadcrumb').innerHTML =
@@ -193,7 +212,7 @@
 
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
-      document.getElementById('app').innerHTML = renderApp(season, seasonEvents, standings);
+      document.getElementById('app').innerHTML = renderApp(season, seasonEvents, standings, scheduleEntries);
       document.title = `${season.name} — MashUp Golf`;
     }
 
@@ -217,7 +236,7 @@
       `;
     }
 
-    function renderApp(season, events, standings) {
+    function renderApp(season, events, standings, scheduleEntries) {
       const completed = events.filter(e => e.status === 'completed');
       const upcoming  = events.filter(e => e.status !== 'completed');
 
@@ -237,6 +256,13 @@
           <div class="space-y-2">${upcoming.map(e => eventCard(e)).join('')}</div>
         </section>` : ''}
 
+        <!-- Coming up — planned formats with no real event yet -->
+        ${scheduleEntries.length ? `
+        <section class="mb-8">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Coming Up</h2>
+          <div class="space-y-2">${scheduleEntries.map(e => scheduleCard(e)).join('')}</div>
+        </section>` : ''}
+
         <section>
           <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Results</h2>
           ${completed.length
@@ -244,6 +270,23 @@
             : `<p class="text-gray-600 text-sm py-6">No completed events yet.</p>`}
         </section>
       `;
+    }
+
+    // A planned week — not a real event yet, so no link, no scores, just a
+    // heads-up. Dashed border deliberately distinguishes it from a real
+    // eventCard so nobody mistakes "planned" for "scheduled and locked."
+    function scheduleCard(e) {
+      return `
+        <div class="border border-dashed border-border/60 rounded-lg px-5 py-4 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="font-heading font-700 text-base text-gray-300 truncate">Week ${e.week} — ${e.formatName}</div>
+            <div class="flex flex-wrap items-center gap-2 mt-1.5">
+              ${e.dateLabel ? `<span class="text-xs text-gray-500">${e.dateLabel}</span>` : ''}
+              ${e.note ? `<span class="text-xs text-gray-600">${e.note}</span>` : ''}
+            </div>
+          </div>
+          <span class="text-xs font-heading tracking-wider text-gray-600 shrink-0 uppercase">Planned</span>
+        </div>`;
     }
 
     function eventCard(e) {

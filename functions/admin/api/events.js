@@ -32,6 +32,20 @@ export async function onRequestPost(context) {
       return Response.json({ error: `Event ${event.id} already exists` }, { status: 409, headers: CORS });
     events.push(event);
     await kvPut(accountId, apiToken, 'admin:events', JSON.stringify(events));
+
+    // A real event for this season+week replaces any "coming up" schedule
+    // teaser for the same slot — best-effort, never blocks the event save.
+    if (event.season && event.week) {
+      try {
+        const scheduleRaw = await kvGet(accountId, apiToken, 'admin:schedule');
+        const scheduleEntries = scheduleRaw ? JSON.parse(scheduleRaw) : [];
+        const id = `${event.season}-w${event.week}`;
+        if (scheduleEntries.some(e => e.id === id)) {
+          await kvPut(accountId, apiToken, 'admin:schedule', JSON.stringify(scheduleEntries.filter(e => e.id !== id)));
+        }
+      } catch { /* non-critical cleanup */ }
+    }
+
     return Response.json({ ok: true, event }, { headers: CORS });
   }
 

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schedule — MashUp Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            flame: '#f97316',
+            'flame-dim': '#c2530f',
+            surface: '#141414',
+            card: '#1e1e1e',
+            border: '#2c2c2c',
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .badge-gray { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
+    input, select, textarea {
+      background: #141414; border: 1px solid #2c2c2c; color: #e5e5e5;
+      border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem;
+      font-family: 'Inter', sans-serif; width: 100%;
+      transition: border-color 0.12s;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(249,115,22,0.5); }
+    select option { background: #1e1e1e; }
+    label { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+            font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+            color: #6b7280; margin-bottom: 0.35rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; }
+    .form-full { grid-column: 1 / -1; }
+    .panel { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .panel.open { max-height: 800px; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <!-- NAV -->
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="https://mashupgolf.com/" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">← Site</a>
+        <span class="text-border text-xs">/</span>
+        <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-600 tracking-wider text-sm" style="transition:color 0.12s">Admin</a>
+        <span class="text-border text-xs">/</span>
+        <span class="font-heading font-600 tracking-wider text-sm text-flame">Schedule</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-4 py-10 pb-20 space-y-8">
+
+    <!-- Header -->
+    <div class="flex items-end justify-between flex-wrap gap-4">
+      <div>
+        <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Admin</div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white">SCHEDULE</h1>
+        <p class="text-gray-500 text-sm font-body mt-2 max-w-xl">
+          Announce formats for future weeks before an SGT event exists. Shows as a
+          "Coming Up" teaser on the public season page. Once you create the real
+          event for that week (SGT URL required, as always), its teaser disappears
+          automatically.
+        </p>
+      </div>
+      <button id="toggle-form-btn"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
+        style="transition:background 0.15s">
+        <span id="toggle-form-icon">+</span> Add Week
+      </button>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
+
+    <!-- CREATE / EDIT PANEL -->
+    <div id="form-panel" class="panel">
+      <div class="card-shadow bg-card border border-border rounded-lg p-6 sm:p-8">
+        <h2 id="panel-title" class="font-display text-2xl tracking-wider text-white mb-6">ADD WEEK</h2>
+
+        <div class="form-grid mb-6">
+          <div>
+            <label>Season</label>
+            <select id="f-season"><option value="">Loading…</option></select>
+          </div>
+          <div>
+            <label>Week #</label>
+            <input type="number" id="f-week" min="1" max="50" placeholder="5" />
+          </div>
+          <div class="form-full">
+            <label>Format Name</label>
+            <input type="text" id="f-format" placeholder="2-Man Shamble" />
+          </div>
+          <div>
+            <label>Dates <span class="text-gray-700 normal-case tracking-normal">(optional)</span></label>
+            <input type="text" id="f-dates" placeholder="Oct 19–25" />
+          </div>
+          <div>
+            <label>Note <span class="text-gray-700 normal-case tracking-normal">(optional)</span></label>
+            <input type="text" id="f-note" placeholder="Course TBD" />
+          </div>
+        </div>
+
+        <div class="flex gap-3 flex-wrap">
+          <button id="btn-save" type="button"
+            class="px-5 py-2.5 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed"
+            style="transition:background 0.15s">
+            Save Week
+          </button>
+          <button id="btn-cancel" type="button"
+            class="px-5 py-2.5 rounded-lg border border-border text-gray-400 text-sm font-heading font-600 tracking-wider hover:border-gray-500 hover:text-white"
+            style="transition:color 0.12s,border-color 0.12s">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE TABLE -->
+    <div class="card-shadow bg-card border border-border rounded-lg overflow-auto" style="max-height: calc(100vh - 12rem)">
+      <div id="schedule-loading" class="px-6 py-8 text-center text-gray-600 text-sm font-body">Loading schedule…</div>
+      <table id="schedule-table" class="w-full hidden">
+        <thead>
+          <tr class="border-b border-border">
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Season</th>
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Week</th>
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Format</th>
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Dates</th>
+            <th class="px-5 py-3 text-left text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Note</th>
+            <th class="px-5 py-3 text-right text-xs font-heading font-600 tracking-widest uppercase text-gray-500">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-tbody"></tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <script>
+    const API       = '/api/schedule';        // public reads
+    const API_WRITE = '/admin/api/schedule';  // Access-protected writes
+    const SEASONS_API = '/api/seasons';
+
+    let state = { seasons: [], events: [], entries: [], editingId: null };
+
+    function showStatus(msg, type = 'info') {
+      const bar = document.getElementById('status-bar');
+      bar.className = `rounded-lg px-4 py-3 text-sm font-body ${
+        type === 'error'   ? 'bg-red-900/30 border border-red-800/40 text-red-300' :
+        type === 'success' ? 'bg-green-900/30 border border-green-800/40 text-green-300' :
+                             'bg-surface border border-border text-gray-400'
+      }`;
+      bar.textContent = msg;
+      bar.classList.remove('hidden');
+      bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (type !== 'error') setTimeout(() => bar.classList.add('hidden'), 4000);
+    }
+
+    async function loadAll() {
+      const [seasonsRes, eventsRes, scheduleRes] = await Promise.allSettled([
+        fetch(SEASONS_API),
+        fetch('/api/events-admin?type=events'),
+        fetch(API),
+      ]);
+      state.seasons = seasonsRes.status === 'fulfilled' && seasonsRes.value.ok ? await seasonsRes.value.json() : [];
+      state.events  = eventsRes.status === 'fulfilled'  && eventsRes.value.ok  ? await eventsRes.value.json()  : [];
+      state.entries = scheduleRes.status === 'fulfilled' && scheduleRes.value.ok ? await scheduleRes.value.json() : [];
+
+      const sel = document.getElementById('f-season');
+      sel.innerHTML = state.seasons.length
+        ? state.seasons.map(s => `<option value="${s.id}">${s.name}</option>`).join('')
+        : '<option value="">No seasons found</option>';
+      const active = state.seasons.find(s => s.status === 'active');
+      if (active) sel.value = active.id;
+
+      renderTable();
+    }
+
+    function seasonName(id) {
+      return state.seasons.find(s => s.id === id)?.name || id;
+    }
+
+    function hasRealEvent(season, week) {
+      return state.events.some(e => e.season === season && e.week === week);
+    }
+
+    function renderTable() {
+      document.getElementById('schedule-loading').classList.add('hidden');
+      document.getElementById('schedule-table').classList.remove('hidden');
+      const tbody = document.getElementById('schedule-tbody');
+
+      const sorted = [...state.entries].sort((a, b) =>
+        seasonName(a.season).localeCompare(seasonName(b.season)) || a.week - b.week);
+
+      tbody.innerHTML = sorted.map(e => {
+        const superseded = hasRealEvent(e.season, e.week);
+        return `
+          <tr class="border-b border-border/60 ${superseded ? 'opacity-40' : ''}">
+            <td class="px-5 py-3 text-sm text-gray-300">${seasonName(e.season)}</td>
+            <td class="px-5 py-3 font-heading font-600 text-white">Week ${e.week}</td>
+            <td class="px-5 py-3 text-sm text-gray-300">${e.formatName}</td>
+            <td class="px-5 py-3 text-sm text-gray-500">${e.dateLabel || '—'}</td>
+            <td class="px-5 py-3 text-sm text-gray-500">${e.note || '—'}</td>
+            <td class="px-5 py-3 text-right">
+              <div class="flex gap-2 justify-end items-center">
+                ${superseded ? `<span class="badge-gray px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Event exists</span>` : ''}
+                <button data-edit="${e.id}" class="text-xs font-heading font-600 tracking-wider px-2 py-1 rounded border border-border text-gray-500 hover:text-flame hover:border-flame/30" style="transition:color 0.12s,border-color 0.12s">Edit</button>
+                <button data-delete="${e.id}" class="text-xs font-heading font-600 tracking-wider px-2 py-1 rounded border border-border text-gray-500 hover:text-red-400 hover:border-red-800/40" style="transition:color 0.12s,border-color 0.12s">Delete</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('') || `<tr><td colspan="6" class="px-5 py-8 text-center text-gray-600 text-sm font-body">Nothing on the schedule yet.</td></tr>`;
+    }
+
+    function openCreate() {
+      state.editingId = null;
+      document.getElementById('panel-title').textContent = 'ADD WEEK';
+      document.getElementById('btn-save').textContent = 'Save Week';
+      document.getElementById('f-week').value = '';
+      document.getElementById('f-format').value = '';
+      document.getElementById('f-dates').value = '';
+      document.getElementById('f-note').value = '';
+      openPanel();
+    }
+
+    function openEdit(id) {
+      const entry = state.entries.find(e => e.id === id);
+      if (!entry) return;
+      state.editingId = id;
+      document.getElementById('panel-title').textContent = 'EDIT WEEK';
+      document.getElementById('btn-save').textContent = 'Update Week';
+      document.getElementById('f-season').value = entry.season;
+      document.getElementById('f-week').value = entry.week;
+      document.getElementById('f-format').value = entry.formatName;
+      document.getElementById('f-dates').value = entry.dateLabel || '';
+      document.getElementById('f-note').value = entry.note || '';
+      openPanel();
+    }
+
+    function openPanel() {
+      const panel = document.getElementById('form-panel');
+      panel.classList.add('open');
+      document.getElementById('toggle-form-icon').textContent = '−';
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    }
+
+    function closePanel() {
+      document.getElementById('form-panel').classList.remove('open');
+      document.getElementById('toggle-form-icon').textContent = '+';
+      state.editingId = null;
+    }
+
+    async function saveWeek() {
+      const season = document.getElementById('f-season').value;
+      const week   = parseInt(document.getElementById('f-week').value, 10);
+      const formatName = document.getElementById('f-format').value.trim();
+      const dateLabel   = document.getElementById('f-dates').value.trim();
+      const note        = document.getElementById('f-note').value.trim();
+
+      if (!season)                     return showStatus('Please select a season.', 'error');
+      if (!Number.isInteger(week) || week < 1) return showStatus('Please enter a valid week number.', 'error');
+      if (!formatName)                 return showStatus('Format name is required.', 'error');
+
+      const btn = document.getElementById('btn-save');
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
+      try {
+        const res = await fetch(API_WRITE, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save-week', entry: { season, week, formatName, dateLabel, note } }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+
+        const idx = state.entries.findIndex(e => e.id === data.entry.id);
+        if (idx !== -1) state.entries[idx] = data.entry; else state.entries.push(data.entry);
+
+        renderTable();
+        closePanel();
+        showStatus(`Week ${week} saved.`, 'success');
+      } catch (e) {
+        showStatus(`Error: ${e.message}`, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
+    async function deleteWeek(id) {
+      const entry = state.entries.find(e => e.id === id);
+      if (!entry) return;
+      if (!confirm(`Remove ${seasonName(entry.season)} Week ${entry.week} from the schedule?`)) return;
+      try {
+        const res = await fetch(API_WRITE, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete-week', season: entry.season, week: entry.week }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        state.entries = state.entries.filter(e => e.id !== id);
+        renderTable();
+        showStatus('Removed.', 'success');
+      } catch (e) {
+        showStatus(`Error: ${e.message}`, 'error');
+      }
+    }
+
+    document.getElementById('toggle-form-btn').addEventListener('click', () => {
+      if (document.getElementById('form-panel').classList.contains('open')) closePanel();
+      else openCreate();
+    });
+    document.getElementById('btn-cancel').addEventListener('click', closePanel);
+    document.getElementById('btn-save').addEventListener('click', saveWeek);
+    document.getElementById('schedule-tbody').addEventListener('click', e => {
+      const editBtn = e.target.closest('[data-edit]');
+      const delBtn  = e.target.closest('[data-delete]');
+      if (editBtn) openEdit(editBtn.dataset.edit);
+      if (delBtn)  deleteWeek(delBtn.dataset.delete);
+    });
+
+    loadAll();
+  </script>
+
+</body>
+</html>
