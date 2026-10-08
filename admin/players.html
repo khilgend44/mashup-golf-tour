@@ -136,7 +136,6 @@
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Adjusted</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Raw</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Low</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Combo Events</th>
               <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Total Events</th>
@@ -146,7 +145,7 @@
             </tr>
           </thead>
           <tbody id="players-tbody">
-            <tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
+            <tr><td colspan="11" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -264,7 +263,7 @@
       }
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-gray-600 font-body text-sm">${filter ? 'No players match.' : 'No players in roster.'}</td></tr>`;
         return;
       }
 
@@ -276,7 +275,6 @@
           ${mashCapCellHtml(r, nd)}
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${r.name}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${r.adjusted !== null ? r.adjusted : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-flame">${r.hcp ? hcpDisplay(r.hcp.comboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? hcpDisplay(r.hcp.rawCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp && r.hcp.minComboCap !== undefined ? hcpDisplay(r.hcp.minComboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? r.hcp.comboRoundsCount : nd}</td>
@@ -304,7 +302,7 @@
     // what's currently on screen (season filter, search filter, MashCAP sort).
     function buildExportMarkup(rows, title) {
       const nd = '—';
-      const headers = ['#', 'MashCAP', 'Player', 'Adjusted', 'Combo', 'Raw', 'Low', 'Combo Events', 'Total Events'];
+      const headers = ['#', 'MashCAP', 'Player', 'Adjusted', 'Combo', 'Low', 'Combo Events', 'Total Events'];
       const theadHtml = headers.map((h, i) =>
         `<th class="${i === 0 ? 'text-left px-6' : 'text-center px-4'} py-3 text-[10px] font-heading font-600 tracking-widest ${i === 1 ? 'text-flame' : 'text-gray-600'} uppercase">${h}</th>`
       ).join('');
@@ -313,7 +311,6 @@
           ${mashCapCellHtml(r, nd)}
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${r.name}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${r.adjusted !== null ? r.adjusted : nd}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-flame">${r.hcp ? hcpDisplay(r.hcp.comboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? hcpDisplay(r.hcp.rawCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp && r.hcp.minComboCap !== undefined ? hcpDisplay(r.hcp.minComboCap) : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? r.hcp.comboRoundsCount : nd}</td>
