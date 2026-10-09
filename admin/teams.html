@@ -1374,7 +1374,10 @@
           <div class="flex items-center justify-between mb-2">
             <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Team ${ti + 1}</div>
             ${isLocked
-              ? `<span class="flex items-center gap-1 text-[10px] font-heading font-600 tracking-wider text-emerald-400" title="Order saved"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>LOCKED</span>`
+              ? `<span class="flex items-center gap-2">
+                   <span class="flex items-center gap-1 text-[10px] font-heading font-600 tracking-wider text-emerald-400" title="Order saved"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>LOCKED</span>
+                   <button type="button" class="lr-unlock-one text-[9px] font-heading font-600 tracking-wider text-gray-600 hover:text-red-400 underline underline-offset-2" data-ti="${ti}" style="transition:color 0.12s">Unlock</button>
+                 </span>`
               : ''}
           </div>
           ${slots.map((name, si) => {
@@ -1441,6 +1444,10 @@
 
       panel.querySelectorAll('.lr-lock-one').forEach(btn => {
         btn.addEventListener('click', () => saveOneTeam(cfgEventId, parseInt(btn.dataset.ti)));
+      });
+
+      panel.querySelectorAll('.lr-unlock-one').forEach(btn => {
+        btn.addEventListener('click', () => unlockOneTeam(cfgEventId, parseInt(btn.dataset.ti)));
       });
 
       document.getElementById('lr-reset-all')?.addEventListener('click', () => {
@@ -1519,6 +1526,41 @@
       } catch (e) {
         showStatus(`Error locking in Team ${ti + 1}: ` + e.message, 'error');
         if (btn) { btn.disabled = false; btn.textContent = 'Lock In This Team'; }
+      }
+    }
+
+    // Undoes a locked team — removes its entry from event.teamSlots entirely
+    // (not just a local edit), so it reverts to the default A→1/B→2/C→3 order
+    // and shows as unconfigured again, exactly as if it had never been saved.
+    async function unlockOneTeam(eventId, ti) {
+      if (!eventId) return;
+      const event = state.kvEvents.find(e => e.id === eventId);
+      if (!event) return;
+      const roster = (event.teams || [])[ti];
+      if (!roster) return;
+      if (!confirm(`Unlock Team ${ti + 1}? This removes its saved order — it'll revert to the default A/B/C order until you lock it in again.`)) return;
+
+      const btn = document.querySelector(`.lr-unlock-one[data-ti="${ti}"]`);
+      if (btn) { btn.disabled = true; btn.textContent = 'Unlocking…'; }
+
+      const nextSlots = (event.teamSlots || []).filter(slots => !rosterMatch(slots, roster));
+      const updatedEvent = { ...event, teamSlots: nextSlots };
+      try {
+        const res = await fetch(API_WRITE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-event', event: updatedEvent }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const idx = state.kvEvents.findIndex(e => e.id === eventId);
+        if (idx !== -1) state.kvEvents[idx] = data.event;
+        lrTeams[ti] = defaultSlotOrder(roster);
+        lrSavedTeams[ti] = null;
+        renderLrTeams();
+      } catch (e) {
+        showStatus(`Error unlocking Team ${ti + 1}: ` + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Unlock'; }
       }
     }
 
