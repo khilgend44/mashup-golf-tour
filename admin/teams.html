@@ -1268,6 +1268,13 @@
       return !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
     }
 
+    // Same player set regardless of order — used to find which saved
+    // teamSlots entry (if any) belongs to a given team roster.
+    function rosterMatch(slots, roster) {
+      return slots.length === roster.length &&
+        slots.every(p => roster.some(n => n.toLowerCase() === p.toLowerCase()));
+    }
+
     function populateConfigEventDropdown() {
       const sel = document.getElementById('cfg-event-select');
       if (!sel) return;
@@ -1331,10 +1338,7 @@
       lrSavedTeams = [];
       for (const team of teams) {
         // Use existing slot config if it covers exactly this team's players
-        const existing = (event.teamSlots || []).find(slots =>
-          slots.length === team.length &&
-          slots.every(p => team.some(n => n.toLowerCase() === p.toLowerCase()))
-        );
+        const existing = (event.teamSlots || []).find(slots => rosterMatch(slots, team));
         lrTeams.push(existing ? [...existing] : defaultSlotOrder(team));
         lrSavedTeams.push(existing ? [...existing] : null);
       }
@@ -1393,12 +1397,21 @@
                 </div>
               </div>`;
           }).join('')}
+          <button type="button" class="lr-lock-one w-full mt-2 py-1 rounded text-[10px] font-heading font-600 tracking-widest uppercase ${
+            isLocked
+              ? 'text-emerald-700 cursor-default'
+              : 'text-flame border border-flame/40 hover:bg-flame/10'
+          }" data-ti="${ti}" ${isLocked ? 'disabled' : ''} style="transition:background 0.12s">
+            ${isLocked ? '✓ Locked In' : 'Lock In This Team'}
+          </button>
         </div>`;
       }).join('');
 
+      const anyUnlocked = lrTeams.some((slots, ti) => !arraysEqual(slots, lrSavedTeams[ti]));
+
       panel.innerHTML = `
         <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-          <p class="text-xs text-gray-600 font-body">All teams pre-loaded. Default order: A player → Slot 1, B → Slot 2, C → Slot 3. Use ▲▼ to swap slots within a team.</p>
+          <p class="text-xs text-gray-600 font-body">Default order: A player → Slot 1, B → Slot 2, C → Slot 3. Use ▲▼ to swap slots, then <span class="text-white">Lock In This Team</span> to save just that one — or Save All Teams below to lock in everything shown.</p>
           <button type="button" id="lr-reset-all"
             class="text-xs text-gray-600 hover:text-gray-400 font-heading font-600 tracking-wider shrink-0"
             style="transition:color 0.12s">↺ Reset All to Default</button>
@@ -1406,9 +1419,9 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 mb-4">
           ${cards}
         </div>
-        <button type="button" id="lr-save-btn"
-          class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim"
-          style="transition:background 0.15s">Save Configuration</button>`;
+        <button type="button" id="lr-save-btn" ${anyUnlocked ? '' : 'disabled'}
+          class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed"
+          style="transition:background 0.15s">Save All Teams</button>`;
 
       panel.querySelectorAll('.lr-up').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1424,6 +1437,10 @@
           [lrTeams[ti][si], lrTeams[ti][si + 1]] = [lrTeams[ti][si + 1], lrTeams[ti][si]];
           renderLrTeams();
         });
+      });
+
+      panel.querySelectorAll('.lr-lock-one').forEach(btn => {
+        btn.addEventListener('click', () => saveOneTeam(cfgEventId, parseInt(btn.dataset.ti)));
       });
 
       document.getElementById('lr-reset-all')?.addEventListener('click', () => {
@@ -1458,11 +1475,50 @@
         if (liveBtn) { liveBtn.textContent = '✓ Saved!'; liveBtn.style.background = '#16a34a'; }
         setTimeout(() => {
           const b = document.getElementById('lr-save-btn');
-          if (b) { b.textContent = 'Save Configuration'; b.style.background = ''; b.disabled = false; }
+          if (b) { b.textContent = 'Save All Teams'; b.style.background = ''; }
         }, 2000);
       } catch (e) {
         showStatus('Error saving configuration: ' + e.message, 'error');
-        if (btn) { btn.textContent = 'Save Configuration'; btn.disabled = false; }
+        if (btn) { btn.textContent = 'Save All Teams'; btn.disabled = false; }
+      }
+    }
+
+    // Locks in exactly one team's slot order — merges just that team's entry
+    // into event.teamSlots, leaving every other team's saved entry untouched.
+    // This is what lets you lock Team 8 without re-saving (or disturbing)
+    // every other team on the page.
+    async function saveOneTeam(eventId, ti) {
+      if (!eventId) return;
+      const event = state.kvEvents.find(e => e.id === eventId);
+      if (!event) return;
+      const roster = (event.teams || [])[ti];
+      if (!roster) return;
+
+      const btn = document.querySelector(`.lr-lock-one[data-ti="${ti}"]`);
+      if (btn) { btn.disabled = true; btn.textContent = 'Locking…'; }
+
+      const existingSlots = event.teamSlots || [];
+      const matchIdx = existingSlots.findIndex(slots => rosterMatch(slots, roster));
+      const nextSlots = [...existingSlots];
+      if (matchIdx !== -1) nextSlots[matchIdx] = [...lrTeams[ti]];
+      else nextSlots.push([...lrTeams[ti]]);
+
+      const updatedEvent = { ...event, teamSlots: nextSlots };
+      try {
+        const res = await fetch(API_WRITE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-event', event: updatedEvent }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const idx = state.kvEvents.findIndex(e => e.id === eventId);
+        if (idx !== -1) state.kvEvents[idx] = data.event;
+        lrSavedTeams[ti] = [...lrTeams[ti]];
+        renderLrTeams();
+      } catch (e) {
+        showStatus(`Error locking in Team ${ti + 1}: ` + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Lock In This Team'; }
       }
     }
 
