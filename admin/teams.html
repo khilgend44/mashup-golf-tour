@@ -1261,7 +1261,12 @@
     // ══════════════════════════════════════════════════════════
 
     let lrTeams    = [];
+    let lrSavedTeams = []; // last-persisted order per team (event.teamSlots), or null if never saved
     let cfgEventId = null;
+
+    function arraysEqual(a, b) {
+      return !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
+    }
 
     function populateConfigEventDropdown() {
       const sel = document.getElementById('cfg-event-select');
@@ -1322,14 +1327,17 @@
         return;
       }
 
-      lrTeams = teams.map(team => {
+      lrTeams = [];
+      lrSavedTeams = [];
+      for (const team of teams) {
         // Use existing slot config if it covers exactly this team's players
         const existing = (event.teamSlots || []).find(slots =>
           slots.length === team.length &&
           slots.every(p => team.some(n => n.toLowerCase() === p.toLowerCase()))
         );
-        return existing ? [...existing] : defaultSlotOrder(team);
-      });
+        lrTeams.push(existing ? [...existing] : defaultSlotOrder(team));
+        lrSavedTeams.push(existing ? [...existing] : null);
+      }
 
       renderLrTeams();
     }
@@ -1355,9 +1363,16 @@
       const TIER_LABELS = ['A', 'B', 'C', 'D'];
       const TIER_CLS    = ['text-emerald-400', 'text-yellow-400', 'text-orange-400', 'text-violet-400'];
 
-      const cards = lrTeams.map((slots, ti) => `
-        <div class="border border-border/60 rounded-lg p-3 bg-surface">
-          <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase mb-2">Team ${ti + 1}</div>
+      const cards = lrTeams.map((slots, ti) => {
+        const isLocked = arraysEqual(slots, lrSavedTeams[ti]);
+        return `
+        <div class="border rounded-lg p-3 ${isLocked ? 'border-emerald-700/50 bg-emerald-900/10' : 'border-border/60 bg-surface'}">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Team ${ti + 1}</div>
+            ${isLocked
+              ? `<span class="flex items-center gap-1 text-[10px] font-heading font-600 tracking-wider text-emerald-400" title="Order saved"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>LOCKED</span>`
+              : ''}
+          </div>
           ${slots.map((name, si) => {
             const h       = state.handicaps[name.toLowerCase()];
             const cap     = h?.rawCap !== undefined ? Math.round(parseFloat(h.rawCap) - minRaw) : '—';
@@ -1378,7 +1393,8 @@
                 </div>
               </div>`;
           }).join('')}
-        </div>`).join('');
+        </div>`;
+      }).join('');
 
       panel.innerHTML = `
         <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
@@ -1436,9 +1452,13 @@
         if (!res.ok) throw new Error(data.error);
         const idx = state.kvEvents.findIndex(e => e.id === eventId);
         if (idx !== -1) state.kvEvents[idx] = data.event;
-        if (btn) { btn.textContent = '✓ Saved!'; btn.style.background = '#16a34a'; }
+        lrSavedTeams = lrTeams.map(t => [...t]);
+        renderLrTeams();
+        const liveBtn = document.getElementById('lr-save-btn');
+        if (liveBtn) { liveBtn.textContent = '✓ Saved!'; liveBtn.style.background = '#16a34a'; }
         setTimeout(() => {
-          if (btn) { btn.textContent = 'Save Configuration'; btn.style.background = ''; btn.disabled = false; }
+          const b = document.getElementById('lr-save-btn');
+          if (b) { b.textContent = 'Save Configuration'; b.style.background = ''; b.disabled = false; }
         }, 2000);
       } catch (e) {
         showStatus('Error saving configuration: ' + e.message, 'error');
