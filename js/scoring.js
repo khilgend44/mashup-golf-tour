@@ -1612,65 +1612,82 @@ function nassauCBB9(a, b) {
 // ─── 3-Man Lone Ranger ──────────────────────────────────────────────────────
 
 function calcLoneRanger(scorecards, format, event) {
-  const cardsByPlayer = {};
-  for (const card of scorecards) {
-    if (isCardComplete(card)) cardsByPlayer[card.player_name.toLowerCase()] = card;
-  }
+  const teamSize = format.teamSize || 3;
+  const teams = buildTeamRoster(scorecards, event, teamSize);
 
-  const kvTeamMap = buildKvTeamMap(event);
-
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
-    }
-    teams[key].players.push({
-      name: card.player_name,
-      isSub: false,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
-      totalNet: card.total_net,
-    });
-  }
-
-  for (const sub of (event?.substitutions ?? [])) {
-    const origKey = sub.originalPlayers.map(p => p.toLowerCase()).sort().join('|');
-    const team = teams[origKey];
-    const subCard = cardsByPlayer[sub.with.toLowerCase()];
-    if (!team || !subCard) continue;
-    team.players.push({
-      name: sub.with,
-      isSub: true,
-      net: Array.from({ length: 18 }, (_, i) => subCard[`hole${i + 1}_net`]),
-      gross: Array.from({ length: 18 }, (_, i) => subCard[`hole${i + 1}_gross`]),
-      totalNet: subCard.total_net,
-    });
-    const ri = team.displayMembers.findIndex(p => p.toLowerCase() === sub.replace.toLowerCase());
-    if (ri >= 0) team.displayMembers[ri] = sub.with + ' (sub)';
-  }
-
-  // Build slot lookup: sorted player key → [slot1, slot2, slot3]
+  // Sorted-roster key → locked slot order, straight from "Configure Special
+  // Team Orders" (admin/teams.html). Keyed by clean player names (never the
+  // "(sub)"-suffixed display label), same convention buildTeamRoster itself
+  // uses internally, so a substitution doesn't break the lookup any worse
+  // than it already did before this rewrite.
   const slotMap = {};
   for (const slots of (event?.teamSlots ?? [])) {
     const key = slots.map(p => p.toLowerCase()).sort().join('|');
     slotMap[key] = slots;
   }
 
-  const results = Object.values(teams).map(team => {
-    const adjPars = team.pars.map(p => p * 2);
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
 
-    const teamKey = team.players.map(p => p.name.toLowerCase()).sort().join('|');
-    const slots = slotMap[teamKey] ?? team.players.map(p => p.name);
+    const rosterKey = members.map(m => m.name.toLowerCase()).sort().join('|');
+    // null (not just "default to completion order") on purpose — a team
+    // whose order hasn't been locked in yet shouldn't imply one, even
+    // before anyone's played. See "Unannounced Order" in event.html.
+    const lockedSlots = slotMap[rosterKey] ?? null;
+
+    // Only score a team once every roster spot is a completed card — the
+    // slot-rotation (LR score + best-ball-of-2) needs a real score from
+    // every single member every hole, so a short-handed team would either
+    // silently use the wrong slot rotation or (confirmed before this fix)
+    // crash outright reading a missing teammate's score. Matches the same
+    // "show the roster, no real total yet" treatment already shipped for
+    // Escalator/Stableford/etc.
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      // Provisional to-par from whoever's actually posted a real score on
+      // each hole so far. Lone Ranger's real rule always counts exactly 2
+      // of the 3 scores per hole (1 solo + best-of-the-other-2) — this
+      // approximates that with "best 2 of however many are in" rather than
+      // trying to replay the actual slot rotation on partial data, same
+      // "not the real ranked total, just how it's trending" spirit as the
+      // other live formats.
+      let provisionalToPar = null;
+      if (team.pars) {
+        let provTotal = 0, provPar = 0;
+        for (let h = 0; h < 18; h++) {
+          const available = members.map(m => m.net?.[h]).filter(n => n != null);
+          if (!available.length) continue;
+          const countN = Math.min(2, available.length);
+          const sorted = [...available].sort((a, b) => a - b);
+          provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
+          provPar += team.pars[h] * countN;
+        }
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        slots: lockedSlots,
+        teamSize,
+        pars: team.pars,
+        indices: team.indices,
+        total: null,
+        toPar: provisionalToPar,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
+    }
+
+    const adjPars = team.pars.map(p => p * 2);
+    const slots = lockedSlots ?? completePlayers.map(p => p.name);
 
     const playerByName = {};
-    for (const p of team.players) playerByName[p.name.toLowerCase()] = p;
+    for (const p of completePlayers) playerByName[p.name.toLowerCase()] = p;
     const slotPlayers = slots.map(s => playerByName[s.toLowerCase()]);
 
     const countingPlayers = [];
@@ -1684,11 +1701,11 @@ function calcLoneRanger(scorecards, format, event) {
         if (op.net[h] < bbScore) { bbScore = op.net[h]; bbPlayer = op; }
       }
 
-      const counting = new Array(team.players.length).fill(false);
-      const lrIdx = team.players.findIndex(p => p.name.toLowerCase() === lrPlayer.name.toLowerCase());
+      const counting = new Array(completePlayers.length).fill(false);
+      const lrIdx = completePlayers.findIndex(p => p.name.toLowerCase() === lrPlayer.name.toLowerCase());
       if (lrIdx >= 0) counting[lrIdx] = true;
       if (bbPlayer) {
-        const bbIdx = team.players.findIndex(p => p.name.toLowerCase() === bbPlayer.name.toLowerCase());
+        const bbIdx = completePlayers.findIndex(p => p.name.toLowerCase() === bbPlayer.name.toLowerCase());
         if (bbIdx >= 0) counting[bbIdx] = true;
       }
       countingPlayers.push(counting);
@@ -1701,12 +1718,12 @@ function calcLoneRanger(scorecards, format, event) {
     const inPar = adjPars.slice(9).reduce((a, b) => a + b, 0);
     const total = out + inn;
     const totalPar = outPar + inPar;
-    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       slots,
       teamHoleScores,
       countingPlayers,
@@ -1717,20 +1734,23 @@ function calcLoneRanger(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate,
       prize: null,
-    };
+    });
+  }
+
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
   });
 
-  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
-  }
-  return results;
+  return [...ranked, ...sortInProgress(unranked)];
 }
 
 // ─── Solo Match Play Grid ───────────────────────────────────────────────────

@@ -347,7 +347,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261007a';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261011a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1402,6 +1402,7 @@
     // ── Team event leaderboard ───────────────────────────────────────────────
     function renderTeamLeaderboard(results, event, format, streams = {}, ctpLive = null) {
       const isStableford = format?.type === 'stableford-3man';
+      const isLoneRanger = format?.type === 'lone-ranger';
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
 
@@ -1453,17 +1454,37 @@
         // such so it never reads as a competitive number.
         if (team.inProgress) {
           const doneCount = team.members.filter(m => m.status === 'complete').length;
-          const memberChips = team.members.map(m => {
+
+          // Lone Ranger: show the locked-in slot order (even pre-play) once
+          // the admin's set it on the Configure Special Team Orders page —
+          // reorder the chips to match S1/S2/S3 instead of whatever order
+          // memberStatus happens to iterate in, and label each one. A team
+          // with no locked order yet still shows (roster + status dots),
+          // just flagged so nobody reads "no slots shown" as "not playing."
+          const SLOT_CLS = ['text-blue-400', 'text-amber-400', 'text-flame'];
+          const memberByName = new Map(team.members.map(m => [m.name.toLowerCase(), m]));
+          const orderedMembers = (isLoneRanger && team.slots)
+            ? team.slots.map(name => memberByName.get(name.toLowerCase()) || { name, status: 'not-started' })
+            : team.members;
+
+          const memberChips = orderedMembers.map((m, i) => {
             const ps = getPlayerStreams(streams, m.name);
             const icon = `<span onclick="event.stopPropagation()">${streamIconCell(ps, false)}</span>`;
+            const slotTag = (isLoneRanger && team.slots)
+              ? `<span class="font-heading font-700 ${SLOT_CLS[i]}" style="font-size:9px">S${i + 1}</span>`
+              : '';
             if (m.status === 'complete') {
-              return `<span class="inline-flex items-center gap-1 text-xs text-white">${icon}<span class="text-emerald-400">●</span>${m.name}</span>`;
+              return `<span class="inline-flex items-center gap-1 text-xs text-white">${slotTag}${icon}<span class="text-emerald-400">●</span>${m.name}</span>`;
             }
             if (m.status === 'live') {
-              return `<span class="inline-flex items-center gap-1 text-xs text-white">${icon}<span class="text-amber-400" style="animation:pulse 2s infinite">●</span>${m.name} <span class="text-gray-500">(thru ${m.holesPlayed})</span></span>`;
+              return `<span class="inline-flex items-center gap-1 text-xs text-white">${slotTag}${icon}<span class="text-amber-400" style="animation:pulse 2s infinite">●</span>${m.name} <span class="text-gray-500">(thru ${m.holesPlayed})</span></span>`;
             }
-            return `<span class="inline-flex items-center gap-1 text-xs text-gray-600">${icon}<span class="text-gray-700">○</span>${m.name}</span>`;
+            return `<span class="inline-flex items-center gap-1 text-xs text-gray-600">${slotTag}${icon}<span class="text-gray-700">○</span>${m.name}</span>`;
           }).join('');
+
+          const orderBadge = (isLoneRanger && !team.slots)
+            ? `<span class="text-[9px] font-heading font-600 tracking-widest text-gray-600 uppercase border border-border rounded px-1.5 py-0.5 shrink-0" title="Admin hasn't locked in this team's playing order yet">Unannounced Order</span>`
+            : '';
           // Stableford's `toPar` is repurposed to hold raw points (higher is
           // better, no par offset) — same as the ranked row below, show it
           // as a plain point count instead of a +/- to-par diff.
@@ -1484,7 +1505,7 @@
             <td class="w-8 pl-3 py-3"></td>
             <td class="pos-col px-3 py-3 text-center text-gray-700">—</td>
             <td class="px-4 py-3 leading-snug">
-              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">${memberChips}</div>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">${memberChips}${orderBadge}</div>
             </td>
             <td class="px-3 py-3 text-right" colspan="${spanCols}">
               <div class="flex items-center justify-end gap-3">
