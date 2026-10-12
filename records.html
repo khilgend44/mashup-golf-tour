@@ -58,7 +58,7 @@
 
   <script type="module">
     import { loadSeasons, loadEvents, loadFormats } from './js/api.js?v=20260929a';
-    import { buildPlayerStats, scanScorecardRounds } from './js/stats.js';
+    import { buildPlayerStats, scanScorecardRounds } from './js/stats.js?v=20261012a';
 
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     const enc = s => encodeURIComponent(s);

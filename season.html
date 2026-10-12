@@ -165,7 +165,7 @@
   <script type="module">
     import { loadSeasons, loadEvents, loadFormats, fetchScorecards } from './js/api.js?v=20260929a';
     import { applyFormat, applyPayouts, resolveSidePots } from './js/scoring.js?v=20261011a';
-    import { buildPlayerStats } from './js/stats.js';
+    import { buildPlayerStats } from './js/stats.js?v=20261012a';
 
     const params = new URLSearchParams(window.location.search);
 
@@ -346,7 +346,10 @@
     // tracked independently and a total alone doesn't tell an admin auditing
     // "why does this number look off" which of the three to go check.
     function standingsBreakdownHtml(p) {
-      if (!p.breakdown.length) {
+      // Defensive: a stale cached stats.js (pre-dating the `breakdown` field)
+      // would leave this undefined — don't let one row's missing data blank
+      // the whole standings table, which is built in one `.map()` pass.
+      if (!p.breakdown?.length) {
         return `<div class="px-5 py-4 text-xs text-gray-600 font-body">No money recorded for ${p.name} this season.</div>`;
       }
       const rows = [...p.breakdown].sort((a, b) => {
