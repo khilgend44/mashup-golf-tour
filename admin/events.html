@@ -931,6 +931,20 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
     const ordinalSuffix = p => { const s = ['th','st','nd','rd'], v = p % 100; return p + (s[(v - 20) % 10] || s[v] || s[0]); };
     const placeLabel = r => r.tied ? `T${ordinalSuffix(r.position)}` : `${medal(r.position)} ${ordinalSuffix(r.position)}`.trim();
 
+    // Nassau's 3 payouts are 3 independent contests (18-Hole Best Ball,
+    // Front 9 Aggregate, Back 9 Aggregate), not "1st/2nd/3rd place" — a team
+    // can win the Back 9 pot while finishing 5th overall on total BB score,
+    // so `r.position` (that overall rank) is the wrong thing to show as the
+    // payout label. Use the pot each team actually won (`r.potWon`, set in
+    // calcNassau2Man) instead, for both the Discord text and the poster.
+    const NASSAU_POT_LABELS = { bb: '18-Hole Best Ball', f9: 'Front 9 Aggregate', b9: 'Back 9 Aggregate' };
+    const NASSAU_POT_ORDER  = { bb: 0, f9: 1, b9: 2 };
+    const isNassauFormat = format => format?.type === 'nassau-2man';
+    const resultLabel = (r, format) => isNassauFormat(format) ? (NASSAU_POT_LABELS[r.potWon] || placeLabel(r)) : placeLabel(r);
+    const paidSort = (format) => (a, b) => isNassauFormat(format)
+      ? (NASSAU_POT_ORDER[a.potWon] ?? 99) - (NASSAU_POT_ORDER[b.potWon] ?? 99)
+      : a.position - b.position;
+
     // Shared by the text message and the poster image so both are built from
     // the exact same computed results — one fetch/score pass, not two.
     async function computeEventResults(event, format) {
@@ -967,14 +981,14 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
 
       const lines = [`🏁 **${ev.name} — COMPLETE!**`, ''];
 
-      const paid = results.filter(r => r.prize != null).sort((a, b) => a.position - b.position);
+      const paid = results.filter(r => r.prize != null).sort(paidSort(format));
       if (paid.length) {
         lines.push('🏆 **Payouts**');
         for (const r of paid) {
           if (isTeam) {
-            lines.push(`${placeLabel(r)} — ${r.displayMembers.map(tag).join(' / ')} — ${fmtMoney(r.prize)} (${fmtMoney(r.prize / teamSize)}/ea)`);
+            lines.push(`${resultLabel(r, format)} — ${r.displayMembers.map(tag).join(' / ')} — ${fmtMoney(r.prize)} (${fmtMoney(r.prize / teamSize)}/ea)`);
           } else {
-            lines.push(`${placeLabel(r)} — ${tag(r.player_name)} — ${fmtMoney(r.prize)}`);
+            lines.push(`${resultLabel(r, format)} — ${tag(r.player_name)} — ${fmtMoney(r.prize)}`);
           }
         }
         lines.push('');
@@ -1031,13 +1045,18 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       const weekStr = ev.week ? `Week ${ev.week}` : '';
       const labelStr = [seasonStr, weekStr].filter(Boolean).join(' · ');
 
-      const paid = results.filter(r => r.prize != null).sort((a, b) => a.position - b.position);
+      const paid = results.filter(r => r.prize != null).sort(paidSort(format));
       const prizeRows = paid.map(r => {
-        const dec = r.position === 1 ? 'gold' : r.position === 2 ? 'silver' : r.position === 3 ? 'bronze' : '';
+        // Nassau's 3 pots are independent contests, not a 1st/2nd/3rd ranking
+        // against each other — every pot winner gets the same "winner" look
+        // rather than gold/silver/bronze implying one pot outranks another.
+        const dec = isNassauFormat(format)
+          ? 'gold'
+          : r.position === 1 ? 'gold' : r.position === 2 ? 'silver' : r.position === 3 ? 'bronze' : '';
         const names = isTeam ? r.displayMembers.join(' / ') : r.player_name;
         const perEa = isTeam ? ` <span style="color:#6b7280;font-size:12px">($${fmtMoney(r.prize / teamSize).slice(1)}/ea)</span>` : '';
         return `<div class="rp-row">
-          <span><span class="rp-place ${dec}">${placeLabel(r)}</span><span class="rp-names">${names}</span></span>
+          <span><span class="rp-place ${dec}">${resultLabel(r, format)}</span><span class="rp-names">${names}</span></span>
           <span class="rp-amt">${fmtMoney(r.prize)}${perEa}</span>
         </div>`;
       }).join('');
