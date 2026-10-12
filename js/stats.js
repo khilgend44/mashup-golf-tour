@@ -100,9 +100,26 @@ export async function buildPlayerStats(completedEvents, formats) {
     const key = clean.toLowerCase();
     if (!players[key]) players[key] = {
       name: clean, earnings: 0, ctpEarnings: 0, wins: 0, podiums: 0,
-      events: new Set(), finishes: [],
+      events: new Set(), finishes: [], breakdown: [],
     };
     return players[key];
+  };
+
+  // Per-event money audit trail: separate from `finishes` (position + single
+  // `prize` figure, consumed as-is by player.html) because a player can earn
+  // money from 3 independent sources on the same event — payout, side pot,
+  // CTP — and `finishes` only ever tracked the first. One entry per event per
+  // player, source amounts kept apart so an admin auditing "why does this
+  // total look off" can see exactly where it came from, not just the sum.
+  const addMoney = (rec, meta, field, amount) => {
+    if (!amount) return;
+    let entry = rec.breakdown.find(b => b.eventId === meta.eventId);
+    if (!entry) {
+      entry = { eventId: meta.eventId, tournamentId: meta.tournamentId, name: meta.name, format: meta.format, week: meta.week, season: meta.season, date: meta.date, payout: 0, sidePot: 0, ctp: 0, total: 0 };
+      rec.breakdown.push(entry);
+    }
+    entry[field] += amount;
+    entry.total += amount;
   };
 
   for (const e of completedEvents) {
@@ -146,7 +163,9 @@ export async function buildPlayerStats(completedEvents, formats) {
       for (const p of e.payouts) {
         if (!p.player) continue;
         const key = stripSub(p.player).toLowerCase();
-        ensure(p.player).earnings += p.amount || 0;
+        const rec = ensure(p.player);
+        rec.earnings += p.amount || 0;
+        addMoney(rec, meta, 'payout', p.amount || 0);
         prizeByPlayer[key] = (prizeByPlayer[key] || 0) + (p.amount || 0);
         if (placeByPlayer[key] == null || p.place < placeByPlayer[key]) placeByPlayer[key] = p.place;
       }
@@ -179,7 +198,7 @@ export async function buildPlayerStats(completedEvents, formats) {
           const rec = ensure(m);
           rec.events.add(e.id);
           rec.finishes.push({ ...meta, position: r.position, prize: share });
-          if (share) rec.earnings += share;
+          if (share) { rec.earnings += share; addMoney(rec, meta, 'payout', share); }
           if (r.position === 1) rec.wins++;
           if (r.position <= 3) rec.podiums++;
         }
@@ -188,6 +207,7 @@ export async function buildPlayerStats(completedEvents, formats) {
         if (!sp.player) continue;
         const rec = ensure(sp.player);
         rec.earnings += sp.amount || 0;
+        addMoney(rec, meta, 'sidePot', sp.amount || 0);
         rec.events.add(e.id);
       }
     }
@@ -196,6 +216,7 @@ export async function buildPlayerStats(completedEvents, formats) {
       if (!c.player) continue;
       const rec = ensure(c.player);
       rec.ctpEarnings += c.amount || 0;
+      addMoney(rec, meta, 'ctp', c.amount || 0);
       rec.events.add(e.id);
     }
   }
@@ -246,6 +267,6 @@ export async function scanScorecardRounds(events) {
 // Convenience: pull a single player's record (case-insensitive) from a stats map.
 export function playerRecord(statsMap, name) {
   const rec = statsMap[String(name).toLowerCase()];
-  if (!rec) return { name, earnings: 0, ctpEarnings: 0, wins: 0, podiums: 0, events: new Set(), finishes: [] };
+  if (!rec) return { name, earnings: 0, ctpEarnings: 0, wins: 0, podiums: 0, events: new Set(), finishes: [], breakdown: [] };
   return rec;
 }

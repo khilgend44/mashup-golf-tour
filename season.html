@@ -213,6 +213,7 @@
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
       document.getElementById('app').innerHTML = renderApp(season, seasonEvents, standings, scheduleEntries);
+      renderStandingsRows(standings);
       document.title = `${season.name} — MashUp Golf`;
     }
 
@@ -339,12 +340,47 @@
 
     const money = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+    // One row per event a player earned any money from, newest first — same
+    // sort convention as player.html's Event Results timeline. Breaks each
+    // event's total out by source (payout / side pot / CTP) since those are
+    // tracked independently and a total alone doesn't tell an admin auditing
+    // "why does this number look off" which of the three to go check.
+    function standingsBreakdownHtml(p) {
+      if (!p.breakdown.length) {
+        return `<div class="px-5 py-4 text-xs text-gray-600 font-body">No money recorded for ${p.name} this season.</div>`;
+      }
+      const rows = [...p.breakdown].sort((a, b) => {
+        if (a.date && b.date) return a.date < b.date ? 1 : -1;
+        return (b.week || 0) - (a.week || 0);
+      });
+      return `
+        <div class="divide-y divide-border/60">
+          ${rows.map(b => {
+            const sources = [
+              b.payout  ? `Payout $${money(b.payout)}`   : null,
+              b.sidePot ? `Side Pot $${money(b.sidePot)}` : null,
+              b.ctp     ? `CTP $${money(b.ctp)}`          : null,
+            ].filter(Boolean).join(' · ');
+            const href = `event.html?id=${b.tournamentId != null ? b.tournamentId : b.eventId}`;
+            return `
+              <a href="${href}" class="flex items-center gap-4 px-5 py-3 hover:bg-black/20" style="transition:background .12s">
+                <div class="flex-1 min-w-0">
+                  <div class="font-heading font-700 text-sm text-white truncate">${b.name || 'Event'}</div>
+                  <div class="text-xs text-gray-600 truncate">${sources || '—'}</div>
+                </div>
+                <div class="text-right shrink-0 font-mono text-sm font-semibold text-flame">$${money(b.total)}</div>
+              </a>`;
+          }).join('')}
+        </div>`;
+    }
+
     function standingsTable(standings) {
       return `
         <div class="card-shadow rounded-xl overflow-auto border border-border" style="max-height: calc(100vh - 12rem)">
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-surface">
+                <th class="w-6 px-2 py-3"></th>
                 <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-10">Pos</th>
                 <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
                 <th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Wins</th>
@@ -353,19 +389,39 @@
                 <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
               </tr>
             </thead>
-            <tbody>
-              ${standings.map((p, i) => `
-                <tr class="standings-row border-t border-border">
-                  <td class="px-3 py-3 text-center font-heading font-700 text-sm ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
-                  <td class="px-4 py-3 font-medium"><a href="player.html?name=${encodeURIComponent(p.name)}" class="text-white hover:text-flame" style="transition:color .12s">${p.name}</a></td>
-                  <td class="px-4 py-3 text-center text-gray-400">${p.wins > 0 ? p.wins : '—'}</td>
-                  <td class="px-4 py-3 text-right text-gray-300 font-mono text-sm hidden sm:table-cell">$${money(p.earnings)}</td>
-                  <td class="px-4 py-3 text-right text-gray-400 font-mono text-sm hidden sm:table-cell">${p.ctpEarnings > 0 ? '$' + money(p.ctpEarnings) : '—'}</td>
-                  <td class="px-4 py-3 text-right font-semibold text-flame font-mono">$${money(p.total)}</td>
-                </tr>`).join('')}
-            </tbody>
+            <tbody id="standings-tbody"></tbody>
           </table>
         </div>`;
+    }
+
+    function renderStandingsRows(standings) {
+      const tbody = document.getElementById('standings-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = standings.map((p, i) => `
+        <tr class="standings-row cursor-pointer select-none border-t border-border" data-idx="${i}">
+          <td class="px-2 py-3 text-center text-gray-700 standings-chevron">▸</td>
+          <td class="px-3 py-3 text-center font-heading font-700 text-sm ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
+          <td class="px-4 py-3 font-medium"><a href="player.html?name=${encodeURIComponent(p.name)}" onclick="event.stopPropagation()" class="text-white hover:text-flame" style="transition:color .12s">${p.name}</a></td>
+          <td class="px-4 py-3 text-center text-gray-400">${p.wins > 0 ? p.wins : '—'}</td>
+          <td class="px-4 py-3 text-right text-gray-300 font-mono text-sm hidden sm:table-cell">$${money(p.earnings)}</td>
+          <td class="px-4 py-3 text-right text-gray-400 font-mono text-sm hidden sm:table-cell">${p.ctpEarnings > 0 ? '$' + money(p.ctpEarnings) : '—'}</td>
+          <td class="px-4 py-3 text-right font-semibold text-flame font-mono">$${money(p.total)}</td>
+        </tr>
+        <tr class="hidden" data-detail="${i}">
+          <td colspan="7" class="p-0 border-t border-border/60 bg-[#111]">
+            ${standingsBreakdownHtml(p)}
+          </td>
+        </tr>`).join('');
+
+      tbody.querySelectorAll('.standings-row').forEach(tr => {
+        tr.addEventListener('click', () => {
+          const detail = tbody.querySelector(`[data-detail="${tr.dataset.idx}"]`);
+          const chevron = tr.querySelector('.standings-chevron');
+          detail.classList.toggle('hidden');
+          chevron.textContent = detail.classList.contains('hidden') ? '▸' : '▾';
+          chevron.classList.toggle('text-flame', !detail.classList.contains('hidden'));
+        });
+      });
     }
 
     function showError(msg) {
