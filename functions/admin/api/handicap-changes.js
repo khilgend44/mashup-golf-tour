@@ -35,6 +35,17 @@ export async function onRequestGet(context) {
   const event = events.find(e => e.id === eventId);
   if (!event) return Response.json({ error: 'Event not found' }, { status: 404, headers: CORS });
 
+  // The handicap snapshot taken at activation is a verbatim copy of the
+  // *entire* players:handicaps blob (every lifetime player), not scoped to
+  // this event's season — so without filtering, every player who's ever had
+  // a handicap on file shows up here, not just this season's roster.
+  const seasonsRaw = await kvGet(accountId, apiToken, 'admin:seasons');
+  const seasons = seasonsRaw ? JSON.parse(seasonsRaw) : [];
+  const seasonObj = seasons.find(s => s.id === event.season);
+  const seasonRoster = seasonObj?.players?.length
+    ? new Set(seasonObj.players.map(p => p.toLowerCase()))
+    : null; // no roster on file — don't filter rather than show nobody
+
   // Same-season siblings, needed to find "previous week" and "week 1".
   const seasonEvents = events.filter(e => e.season === event.season && e.week != null);
   const prevWeekEvent = event.week > 1
@@ -59,11 +70,14 @@ export async function onRequestGet(context) {
   // Union of every player name seen in any of the three snapshots — a
   // player who just joined won't be in earlier snapshots, and one who's
   // since left the roster still deserves to show their last known change.
+  // Filtered down to this season's actual roster (see seasonRoster above) —
+  // without this, every lifetime player with a handicap entry shows up,
+  // since the snapshots themselves aren't season-scoped.
   const names = new Set([
     ...Object.keys(currentSnap),
     ...Object.keys(prevWeekSnap || {}),
     ...Object.keys(week1Snap || {}),
-  ]);
+  ].filter(key => !seasonRoster || seasonRoster.has(key.toLowerCase())));
 
   const players = [...names].map(key => {
     const cur = currentSnap[key]?.mashCap ?? null;
