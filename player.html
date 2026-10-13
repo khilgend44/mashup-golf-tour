@@ -201,7 +201,13 @@
         return fail(`Player "${name}" not found.`);
       }
 
-      const trend = rollingMashCap(rounds);
+      // Full history still feeds the rolling calculation (the actual MashCAP
+      // figure shown elsewhere on the page is untouched) — only the charted
+      // trend is clipped to on/after this date. Early rounds from when the
+      // site/formula was still being worked out produce visibly odd swings
+      // that aren't representative of anything real.
+      const TREND_CHART_START = '2026-09-01';
+      const trend = rollingMashCap(rounds).filter(t => t.date >= TREND_CHART_START);
       const form = recentForm(rounds);
 
       // adjusted vs field (lowest MashCAP among players who have one)
@@ -268,7 +274,8 @@
           ${statCard(d.eventsPlayed, 'Events')}
           ${statCard(d.rec.wins, 'Wins')}
           ${statCard(d.rec.podiums, 'Top 3')}
-          ${statCard('$' + money(d.rec.earnings + d.rec.ctpEarnings), 'Earnings', d.rec.ctpEarnings > 0 ? `incl $${money(d.rec.ctpEarnings)} CTP` : '')}
+          ${statCard('$' + money(d.rec.earnings + d.rec.ctpEarnings), 'Lifetime Earnings',
+            ['since Season 8', d.rec.ctpEarnings > 0 ? `incl $${money(d.rec.ctpEarnings)} CTP` : null].filter(Boolean).join(' · '))}
         </section>
 
         <!-- TREND + FORM -->
