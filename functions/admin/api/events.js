@@ -6,6 +6,39 @@ export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
+// Long-term per-player MashCAP trend, independent of SGT's ~48-round rolling
+// combo window (players:rounds gets trimmed to that window on every refresh,
+// so it can never show more than a few months of history no matter how long
+// a player's career gets). One point per *event*, not per round — recorded
+// from the same handicaps blob already snapshotted at activation time into
+// `${event.id}:handicaps`, so this never requires a second source of truth.
+// Pure (no KV I/O) so both the activation hook and the backfill below share
+// one implementation and one upsert-by-eventId rule (never duplicates a
+// point if an event is somehow processed twice).
+function recordMashCapPoint(history, event, handicapsObj) {
+  if (!event || !handicapsObj) return;
+  for (const key of Object.keys(handicapsObj)) {
+    const mashCap = handicapsObj[key]?.mashCap;
+    if (mashCap == null) continue;
+    if (!history[key]) history[key] = [];
+    const point = {
+      eventId: event.id,
+      season: event.season || null,
+      week: event.week ?? null,
+      date: event.date || new Date().toISOString().slice(0, 10),
+      mashCap: Number(mashCap),
+    };
+    const idx = history[key].findIndex(h => h.eventId === event.id);
+    if (idx !== -1) history[key][idx] = point; else history[key].push(point);
+  }
+}
+
+function sortMashCapHistory(history) {
+  for (const key of Object.keys(history)) {
+    history[key].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  }
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -76,6 +109,15 @@ export async function onRequestPost(context) {
     const handicapsRaw = await kvGet(accountId, apiToken, 'players:handicaps');
     if (handicapsRaw) {
       await kvPut(accountId, apiToken, `${eventId}:handicaps`, handicapsRaw);
+      // Also log a long-term trend point per player — best-effort, never
+      // blocks activation itself if this secondary write has a problem.
+      try {
+        const historyRaw = await kvGet(accountId, apiToken, 'players:mashcap-history');
+        const history = historyRaw ? JSON.parse(historyRaw) : {};
+        recordMashCapPoint(history, events[idx], JSON.parse(handicapsRaw));
+        sortMashCapHistory(history);
+        await kvPut(accountId, apiToken, 'players:mashcap-history', JSON.stringify(history));
+      } catch { /* trend history is supplementary */ }
     }
     return Response.json({ ok: true, event: events[idx] }, { headers: CORS });
   }
@@ -142,6 +184,45 @@ export async function onRequestPost(context) {
     delete formats[formatId];
     await kvPut(accountId, apiToken, 'admin:formats', JSON.stringify(formats));
     return Response.json({ ok: true }, { headers: CORS });
+  }
+
+  // One-time migration: reconstructs players:mashcap-history from every
+  // already-existing ${eventId}:handicaps snapshot (activation has been
+  // taking these since before this trend even existed) — so turning this
+  // feature on doesn't mean starting from a blank chart. Safe to re-run any
+  // time (recordMashCapPoint upserts by eventId), e.g. after an old event
+  // gets a corrected handicap snapshot for some reason.
+  if (action === 'backfill-mashcap-history') {
+    const raw = await kvGet(accountId, apiToken, 'admin:events');
+    const events = raw ? JSON.parse(raw) : [];
+    // 'upcoming' events have never been activated, so they have no snapshot
+    // to pull from — anything else (active or completed) might.
+    const eligible = events.filter(e => e.status === 'active' || e.status === 'completed');
+
+    const snapshots = await Promise.all(eligible.map(e => kvGet(accountId, apiToken, `${e.id}:handicaps`)));
+
+    const historyRaw = await kvGet(accountId, apiToken, 'players:mashcap-history');
+    const history = historyRaw ? JSON.parse(historyRaw) : {};
+
+    let snapshotsFound = 0;
+    eligible.forEach((event, i) => {
+      const snapRaw = snapshots[i];
+      if (!snapRaw) return;
+      let snap;
+      try { snap = JSON.parse(snapRaw); } catch { return; }
+      recordMashCapPoint(history, event, snap);
+      snapshotsFound++;
+    });
+
+    sortMashCapHistory(history);
+    await kvPut(accountId, apiToken, 'players:mashcap-history', JSON.stringify(history));
+
+    return Response.json({
+      ok: true,
+      eventsScanned: eligible.length,
+      snapshotsFound,
+      playersRecorded: Object.keys(history).length,
+    }, { headers: CORS });
   }
 
   return Response.json({ error: 'Unknown action' }, { status: 400, headers: CORS });

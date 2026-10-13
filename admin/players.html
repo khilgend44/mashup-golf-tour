@@ -98,6 +98,11 @@
           style="transition:all 0.15s" title="View the last refresh's stage-by-stage debug trail">
           🐛 Debug
         </button>
+        <button id="backfill-trend-btn"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface border border-border text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-gray-300 hover:border-gray-600"
+          style="transition:all 0.15s" title="One-time: rebuild every player's long-term MashCAP trend from existing per-event handicap snapshots. Safe to re-run.">
+          📈 Backfill Trend History
+        </button>
         <button id="refresh-btn"
           class="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:text-white hover:border-flame/40"
           style="transition:all 0.15s">
@@ -164,6 +169,7 @@
   <script>
     const API = '/api/players';            // public reads (roster/handicaps)
     const API_WRITE = '/admin/api/players'; // Access-protected writes
+    const EVENTS_WRITE = '/admin/api/events'; // Access-protected writes (events + MashCAP trend backfill)
     let state = { roster: [], handicaps: {}, lastRefresh: null, seasons: [], selectedSeason: '', discord: {} };
 
     function getSeasonRoster() {
@@ -576,6 +582,33 @@
     });
 
     document.getElementById('export-btn').addEventListener('click', exportTable);
+
+    // One-time migration (safe to re-run): rebuilds players:mashcap-history
+    // from every event's existing ${eventId}:handicaps activation snapshot.
+    // Going forward this also happens automatically on every activation —
+    // see functions/admin/api/events.js — this button is just for backfilling
+    // events that were activated before that was wired up.
+    document.getElementById('backfill-trend-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('backfill-trend-btn');
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = 'Backfilling…';
+      try {
+        const res = await fetch(EVENTS_WRITE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'backfill-mashcap-history' }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        showStatus(`Trend backfill done — scanned ${data.eventsScanned} events, found ${data.snapshotsFound} snapshots, ${data.playersRecorded} players now have trend history.`, 'success');
+      } catch (e) {
+        showStatus('Backfill failed: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    });
 
     document.getElementById('debug-btn').addEventListener('click', async () => {
       const panel = document.getElementById('debug-panel');

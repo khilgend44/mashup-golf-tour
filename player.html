@@ -61,7 +61,7 @@
 
   <script type="module">
     import { loadSeasons, loadEvents, loadFormats } from './js/api.js?v=20260929a';
-    import { buildPlayerStats, playerRecord, rollingMashCap, recentForm } from './js/stats.js?v=20261012a';
+    import { buildPlayerStats, playerRecord, recentForm } from './js/stats.js?v=20261012a';
 
     const params = new URLSearchParams(location.search);
     const name = params.get('name');
@@ -159,11 +159,12 @@
     async function init() {
       if (!name) return fail('No player specified.');
 
-      let pData, prData;
+      let pData, prData, mcData;
       try {
-        [pData, prData] = await Promise.all([
+        [pData, prData, mcData] = await Promise.all([
           fetch('/api/players').then(r => r.json()),
           fetch('/api/player-rounds?player=' + encodeURIComponent(name)).then(r => r.json()),
+          fetch('/api/player-mashcap-history?player=' + encodeURIComponent(name)).then(r => r.json()),
         ]);
       } catch (e) { return fail('Could not load player data.'); }
 
@@ -201,13 +202,14 @@
         return fail(`Player "${name}" not found.`);
       }
 
-      // Full history still feeds the rolling calculation (the actual MashCAP
-      // figure shown elsewhere on the page is untouched) — only the charted
-      // trend is clipped to on/after this date. Early rounds from when the
-      // site/formula was still being worked out produce visibly odd swings
-      // that aren't representative of anything real.
-      const TREND_CHART_START = '2026-09-01';
-      const trend = rollingMashCap(rounds).filter(t => t.date >= TREND_CHART_START);
+      // One point per activated event (players:mashcap-history), not per
+      // round — players:rounds gets trimmed to SGT's ~48-round combo window
+      // on every refresh, so a round-based trend can never show more than a
+      // few months of history no matter how long a career runs. This is
+      // recorded at event activation (see functions/admin/api/events.js)
+      // and backfilled from every event's existing handicap snapshot.
+      const trend = (Array.isArray(mcData.history) ? mcData.history : [])
+        .map(h => ({ date: h.date, cap: h.mashCap }));
       const form = recentForm(rounds);
 
       // adjusted vs field (lowest MashCAP among players who have one)
