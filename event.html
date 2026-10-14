@@ -2031,7 +2031,14 @@
         const par     = team.pars[holeIdx];
         const scoreCls = holeScoreClass(score, par);
         const adjusted = ovByPlayer[playerIdx].has(`${holeIdx + 1}`);
-        return `<td class="${opacity} ${scoreCls}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
+        // Lone Ranger's mandatory slot score gets a colored underline in that
+        // hole's slot color (same blue/amber/flame as the S1/S2/S3 header
+        // row) — distinguishes it from the optional best-ball score next to
+        // it, which also counts but isn't forced.
+        const isForcedSlot = isLoneRanger && team.slots
+          && team.players[playerIdx].name.toLowerCase() === (team.slots[holeIdx % 3] || '').toLowerCase();
+        const forcedCls = isForcedSlot ? `border-b-2 ${segLabel(holeIdx).cls.replace('text-', 'border-')}` : '';
+        return `<td class="${opacity} ${scoreCls} ${forcedCls}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
           <span class="sc-score${adjusted ? ' adj' : ''}">${score}${strokeDotsHtml(gross, score)}</span>
         </td>`;
       }
@@ -2138,7 +2145,7 @@
           <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">S1</span> <span>${team.slots[0]} — LR on holes 1,4,7,10,13,16</span>
           <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">S2</span> <span>${team.slots[1]} — LR on holes 2,5,8,11,14,17</span>
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">S3</span> <span>${team.slots[2]} — LR on holes 3,6,9,12,15,18</span>
-          <span class="text-gray-700 w-full mt-0.5">LR score is mandatory · other score is best ball of remaining two · dimmed = doesn't count</span>
+          <span class="text-gray-700 w-full mt-0.5">LR score is mandatory (underlined in slot color) · other score is best ball of remaining two · dimmed = doesn't count</span>
           ` : `
           <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span> <span>Holes 1–6: 1 best ball</span>
           <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span> <span>Holes 7–12: 2 best ball</span>
