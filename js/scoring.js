@@ -1611,6 +1611,37 @@ function nassauCBB9(a, b) {
 
 // ─── 3-Man Lone Ranger ──────────────────────────────────────────────────────
 
+// Pure per-hole Lone Ranger formula: given exactly 3 players in slot order
+// (S1/S2/S3, each needing only a `.net` array), the mandatory slot player's
+// score plus the best ball of the other two, for every hole. Must match the
+// inline version inside calcLoneRanger below — kept deliberately tiny (two
+// lines of real logic) so the two are easy to eyeball in sync. Used by the
+// event summary's "optimal slot order" backtest to score hypothetical
+// orders that were never actually played, which calcLoneRanger itself has
+// no reason to ever do.
+export function lrTeamHoleScores(slotPlayers) {
+  return Array.from({ length: 18 }, (_, h) => {
+    const lrPlayer = slotPlayers[h % 3];
+    const others = slotPlayers.filter((_, i) => i !== h % 3);
+    const bbScore = Math.min(...others.map(op => op.net[h]));
+    return lrPlayer.net[h] + bbScore;
+  });
+}
+
+// All 6 ways to assign 3 players to S1/S2/S3, scored by the real formula
+// above, picking the lowest-total order — "what this team's best possible
+// slot order would have been," given the net scores they actually posted.
+export function bestLoneRangerSlotOrder(players) {
+  const [a, b, c] = players;
+  const orders = [[a,b,c], [a,c,b], [b,a,c], [b,c,a], [c,a,b], [c,b,a]];
+  let best = null;
+  for (const order of orders) {
+    const total = lrTeamHoleScores(order).reduce((s, v) => s + v, 0);
+    if (!best || total < best.total) best = { slots: order.map(p => p.name), total };
+  }
+  return best;
+}
+
 function calcLoneRanger(scorecards, format, event) {
   const teamSize = format.teamSize || 3;
   const teams = buildTeamRoster(scorecards, event, teamSize);

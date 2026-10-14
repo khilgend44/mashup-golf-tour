@@ -79,6 +79,8 @@ function buildBasisEventStats(cards, basis) {
   const holeAverages = holeTotals.map((h, i) => ({
     hole: i + 1,
     avgToPar: h.count ? h.sum / h.count : null,
+    sum: h.sum,
+    count: h.count,
     index: indexByHole[i],
     par: parByHole[i],
   })).filter(h => h.avgToPar != null);
@@ -96,6 +98,7 @@ function buildBasisEventStats(cards, basis) {
     doubleOrWorse: buckets.double,
     hardestHole,
     easiestHole,
+    holeAverages,
   };
 }
 

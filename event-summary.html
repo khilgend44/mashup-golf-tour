@@ -75,8 +75,8 @@
 
   <script type="module">
     import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { formatToPar, applyFormat } from './js/scoring.js?v=20261013d';
-    import { buildEventSummary } from './js/event-summary.js?v=20260926c';
+    import { formatToPar, applyFormat, bestLoneRangerSlotOrder } from './js/scoring.js?v=20261014a';
+    import { buildEventSummary } from './js/event-summary.js?v=20261014a';
 
     const $ = id => document.getElementById(id);
     const params = new URLSearchParams(window.location.search);
@@ -133,8 +133,17 @@
         ? applyFormat(scorecards, format, event).filter(t => t.players)
         : null;
 
+      // Per-team optimal slot order backtest — replays the real per-hole
+      // formula (scoring.js, same one calcLoneRanger uses) against every
+      // possible S1/S2/S3 assignment of a team's own net scores, to see
+      // whether their actual locked-in order already minimized their team
+      // total or whether a different order would have beaten it.
+      const loneRangerOptimal = loneRangerTeams
+        ? loneRangerTeams.map(team => ({ team, best: bestLoneRangerSlotOrder(team.players) }))
+        : null;
+
       const season = seasons.find(s => s.id === event.season);
-      render(event, format, season, summary, loneRangerTeams);
+      render(event, format, season, summary, loneRangerTeams, loneRangerOptimal);
 
       $('loading').classList.add('hidden');
       $('app').classList.remove('hidden');
@@ -442,7 +451,88 @@
         </div>`;
     }
 
-    function render(event, format, season, summary, loneRangerTeams) {
+    // Sums a basis's per-hole averages (already computed by
+    // buildBasisEventStats) into one of the 3 Lone Ranger slot hole-groups
+    // — holes 1,4,7,10,13,16 / 2,5,8,11,14,17 / 3,6,9,12,15,18 (0-indexed
+    // (hole-1)%3). Uses every player in the field who played that hole, not
+    // just whoever each team happened to assign there — this measures the
+    // holes themselves, not which players got stuck playing them.
+    function slotHoleBucket(holeAverages, slotIdx) {
+      const holes = holeAverages.filter(h => (h.hole - 1) % 3 === slotIdx);
+      const sum = holes.reduce((s, h) => s + h.sum, 0);
+      const count = holes.reduce((s, h) => s + h.count, 0);
+      return { avgToPar: count ? sum / count : null, count };
+    }
+
+    function slotDifficultyHtml(gross, net) {
+      if (!gross?.holeAverages?.length) return '';
+      const SLOT_HOLES = ['1, 4, 7, 10, 13, 16', '2, 5, 8, 11, 14, 17', '3, 6, 9, 12, 15, 18'];
+      const perRound = v => v == null ? '—' : formatToPar(Math.round(v * 6 * 10) / 10);
+      const perHole = v => v == null ? '—' : formatToPar(Math.round(v * 100) / 100);
+
+      const cards = [0, 1, 2].map(i => {
+        const g = slotHoleBucket(gross.holeAverages, i);
+        const n = slotHoleBucket(net.holeAverages, i);
+        return `
+          <div class="stat-tile">
+            <div class="lbl mb-2">Slot ${i + 1} <span class="text-gray-600 normal-case">(holes ${SLOT_HOLES[i]})</span></div>
+            <div class="grid grid-cols-2 gap-3 mt-1">
+              <div>
+                <div class="text-[10px] text-gray-500 uppercase tracking-wide">Gross</div>
+                <div class="text-white font-heading font-600 text-lg">${perRound(g.avgToPar)}<span class="text-gray-500 text-[11px] font-body"> /round</span></div>
+                <div class="text-[11px] text-gray-500">${perHole(g.avgToPar)} avg/hole · ${g.count} played</div>
+              </div>
+              <div>
+                <div class="text-[10px] text-gray-500 uppercase tracking-wide">Net</div>
+                <div class="text-white font-heading font-600 text-lg">${perRound(n.avgToPar)}<span class="text-gray-500 text-[11px] font-body"> /round</span></div>
+                <div class="text-[11px] text-gray-500">${perHole(n.avgToPar)} avg/hole · ${n.count} played</div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="mt-10">
+          <h2 class="section-head mb-4">Slot Difficulty</h2>
+          <p class="text-xs text-gray-600 mb-4 max-w-2xl">How each slot's 6 holes actually played across the whole field — every player who played those holes, not just whoever each team put there — to settle which slot is really easiest.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            ${cards}
+          </div>
+        </div>`;
+    }
+
+    // For each team, replays the real Lone Ranger formula against every
+    // possible S1/S2/S3 assignment of their own 3 net rounds (scoring.js's
+    // bestLoneRangerSlotOrder) to see whether the order they actually
+    // locked in already minimized their team total.
+    function optimalSlotOrderHtml(loneRangerOptimal) {
+      if (!loneRangerOptimal || !loneRangerOptimal.length) return '';
+      const cards = loneRangerOptimal.map(({ team, best }) => {
+        const diff = team.total - best.total;
+        const isOptimal = diff <= 0;
+        return `
+          <div class="stat-tile">
+            <div class="lbl mb-2">${teamName(team.displayMembers)}</div>
+            <div class="text-xs text-gray-500">Actual: <span class="text-gray-300">${team.slots.join(' → ')}</span></div>
+            <div class="text-white font-heading font-600 text-lg mt-0.5">${team.total} <span class="text-gray-500 text-xs font-body">(${formatToPar(team.toPar)})</span></div>
+            ${isOptimal
+              ? `<div class="text-emerald-400 text-xs font-heading font-600 tracking-wide mt-2">✓ Already their best order</div>`
+              : `<div class="text-amber-400 text-xs font-heading font-600 tracking-wide mt-2">Could have saved ${diff} stroke${diff === 1 ? '' : 's'}</div>
+                 <div class="text-[11px] text-gray-500 mt-1">Best order: <span class="text-gray-400">${best.slots.join(' → ')}</span> · ${best.total}</div>`}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="mt-10">
+          <h2 class="section-head mb-4">Optimal Slot Order</h2>
+          <p class="text-xs text-gray-600 mb-4 max-w-2xl">Replays every possible S1/S2/S3 assignment of each team's own net scores to check whether they actually picked their best order.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${cards}
+          </div>
+        </div>`;
+    }
+
+    function render(event, format, season, summary, loneRangerTeams, loneRangerOptimal) {
       const { eventStats, playerStats, teamStats, meta } = summary;
       const seasonWeekLabel = `${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}${event.week ? ` · Week ${event.week}` : ''}`;
 
@@ -496,7 +586,11 @@
 
         ${teamHtml}
 
+        ${format.type === 'lone-ranger' ? slotDifficultyHtml(eventStats.gross, eventStats.net) : ''}
+
         ${loneRangerContributionsHtml(loneRangerTeams)}
+
+        ${optimalSlotOrderHtml(loneRangerOptimal)}
 
         <div id="pace-section" class="mt-10 hidden"></div>
         <div id="sgt-section" class="mt-10 hidden"></div>
