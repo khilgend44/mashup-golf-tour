@@ -347,7 +347,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261013c';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback } from './js/scoring.js?v=20261013d';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1791,11 +1791,18 @@
       const winnerMembers = new Set(
         results.filter(t => t.prize != null).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
       );
+      // Same course/round for every team, so any team's `.indices` works as
+      // the shared stroke-index countback order for breaking a net tie.
+      const indices = results.find(t => t.indices)?.indices;
       const eligible = results
-        .flatMap(team => (team.players || team.members || []).map(p => ({ name: p.name, totalNet: p.totalNet, status: p.status, teamPos: team.position })))
+        .flatMap(team => (team.players || team.members || []).map(p => ({ name: p.name, totalNet: p.totalNet, net: p.net, status: p.status, teamPos: team.position })))
         .filter(p => (p.status === 'complete' || p.status === undefined) && p.totalNet != null)
         .filter(p => !winnerMembers.has(p.name.toLowerCase()))
-        .sort((a, b) => a.totalNet - b.totalNet);
+        .sort((a, b) => {
+          const diff = a.totalNet - b.totalNet;
+          if (diff !== 0 || !indices || !a.net || !b.net) return diff;
+          return netIndexCountback({ net: a.net, indices }, { net: b.net, indices });
+        });
 
       if (eligible.length === 0 || !event.sidePots?.length) return '';
 

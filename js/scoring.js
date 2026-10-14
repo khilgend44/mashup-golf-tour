@@ -359,8 +359,8 @@ function indexCountback(a, b) {
 // Same idea as indexCountback above (lowest score on the hardest-rated hole
 // first), generalized to any object with `.net`/`.indices` instead of
 // assuming Ringer's `.ringerCard` field name — used by Match Play Grid's
-// single-round card.
-function netIndexCountback(a, b) {
+// single-round card, and by resolveSidePots below.
+export function netIndexCountback(a, b) {
   const sorted = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.indices[x] - a.indices[y]);
   for (const h of sorted) { const d = a.net[h] - b.net[h]; if (d !== 0) return d; }
   return 0;
@@ -2193,15 +2193,24 @@ export function resolveSidePots(results, event, format) {
   // from whichever is present and filter to status 'complete' so an
   // individual's own finished round counts the moment it's in, not once
   // their slowest teammate catches up.
+  // Same course, same round, so stroke-index allocation is identical across
+  // every team — any team's `.indices` works as the shared countback order.
+  const indices = results.find(t => t.indices)?.indices;
+
   const eligible = results
     .flatMap(team => team.players || team.members || [])
     .filter(p => p.status === 'complete' || p.status === undefined)
     .map(p => ({
       name: p.name,
       metric: isStableford ? p.individualTotal : p.totalNet,
+      net: p.net,
     }))
     .filter(p => !winnerMembers.has(p.name.toLowerCase()) && p.metric != null)
-    .sort((a, b) => isStableford ? b.metric - a.metric : a.metric - b.metric);
+    .sort((a, b) => {
+      const diff = isStableford ? b.metric - a.metric : a.metric - b.metric;
+      if (diff !== 0 || !indices || !a.net || !b.net) return diff;
+      return netIndexCountback({ net: a.net, indices }, { net: b.net, indices });
+    });
 
   return eligible.slice(0, pots.length).map((p, i) => ({ player: p.name, amount: pots[i].amount }));
 }
