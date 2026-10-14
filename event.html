@@ -353,6 +353,21 @@
     const idParam = params.get('id');
     const numericId = parseInt(idParam);
 
+    // Lone Ranger's mandatory-slot underline on a scorecard cell, by slot
+    // (S1/S2/S3 — same blue/amber/flame used for the header labels). An
+    // inset box-shadow instead of a real border: .sc-table uses
+    // border-collapse, and a real border-bottom there bled across whole
+    // unrelated cells on mobile Safari once a neighboring row used a
+    // colspan (the "Not started" row) — border-collapse conflict
+    // resolution isn't consistent across browsers in that situation. A
+    // box-shadow paints inside the cell's own box and never collapses with
+    // a neighbor's border, so it can't bleed regardless of row shape.
+    const SLOT_UNDERLINE_CLS = [
+      'shadow-[inset_0_-2px_0_0_#60a5fa]',
+      'shadow-[inset_0_-2px_0_0_#fbbf24]',
+      'shadow-[inset_0_-2px_0_0_#f97316]',
+    ];
+
     async function init() {
       if (!idParam) {
         showError('No event ID in URL. Use ?id=XXXXX');
@@ -1884,12 +1899,6 @@
       const indices = team.indices || [];
       const sum = (arr, idxs) => idxs.reduce((s, i) => s + (arr[i] || 0), 0);
 
-      // Lone Ranger's mandatory slot score gets a colored underline, same
-      // treatment and same S1/S2/S3 colors as the completed-team scorecard
-      // (buildTeamScorecardHTML) — team.slots is the signal, since no other
-      // format sets it on an in-progress result (see comment below).
-      const SLOT_BORDER_CLS = ['border-blue-400', 'border-amber-400', 'border-flame'];
-
       function scoreCell(score, par, grossVal = null, extraCls = '') {
         if (score == null) {
           return `<td style="padding:3px 4px"><span class="sc-score" style="color:#3a3a3a">–</span></td>`;
@@ -1951,7 +1960,7 @@
         // meaningful once team.slots is locked in; forcedAt(i) is a no-op
         // (always '') for every other format.
         const forcedAt = i => (team.slots && m.name.toLowerCase() === (team.slots[i % 3] || '').toLowerCase())
-          ? `border-b-2 ${SLOT_BORDER_CLS[i % 3]}` : '';
+          ? SLOT_UNDERLINE_CLS[i % 3] : '';
         const cellCls = i => [dimmedAt[i] === m.name.toLowerCase() ? 'opacity-20' : '', forcedAt(i)].join(' ');
         return `
           <tr class="score-row" ${isLive ? 'style="opacity:0.85"' : ''}>
@@ -2089,7 +2098,7 @@
         // it, which also counts but isn't forced.
         const isForcedSlot = isLoneRanger && team.slots
           && team.players[playerIdx].name.toLowerCase() === (team.slots[holeIdx % 3] || '').toLowerCase();
-        const forcedCls = isForcedSlot ? `border-b-2 ${segLabel(holeIdx).cls.replace('text-', 'border-')}` : '';
+        const forcedCls = isForcedSlot ? SLOT_UNDERLINE_CLS[holeIdx % 3] : '';
         return `<td class="${opacity} ${scoreCls} ${forcedCls}" style="padding:3px 4px" ${adjusted ? 'title="Score manually adjusted"' : ''}>
           <span class="sc-score${adjusted ? ' adj' : ''}">${score}${strokeDotsHtml(gross, score)}</span>
         </td>`;
