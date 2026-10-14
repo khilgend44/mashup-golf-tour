@@ -2175,12 +2175,21 @@ export function resolveSidePots(results, event, format) {
   const winnerMembers = new Set(
     results.filter(t => t.prize != null).flatMap(t => (t.displayMembers || []).map(m => m.toLowerCase()))
   );
+  // A side pot is an individual prize — it shouldn't wait on a player's
+  // whole team finishing. `team.players` only exists once every roster spot
+  // on that team is complete (see buildTeamRoster/calc*); a still-in-progress
+  // team instead carries `.members` (mixed complete/live/not-started). Pull
+  // from whichever is present and filter to status 'complete' so an
+  // individual's own finished round counts the moment it's in, not once
+  // their slowest teammate catches up.
   const eligible = results
-    .flatMap(team => (team.players || []).map(p => ({
+    .flatMap(team => team.players || team.members || [])
+    .filter(p => p.status === 'complete' || p.status === undefined)
+    .map(p => ({
       name: p.name,
       metric: isStableford ? p.individualTotal : p.totalNet,
-    })))
-    .filter(p => !winnerMembers.has(p.name.toLowerCase()))
+    }))
+    .filter(p => !winnerMembers.has(p.name.toLowerCase()) && p.metric != null)
     .sort((a, b) => isStableford ? b.metric - a.metric : a.metric - b.metric);
 
   return eligible.slice(0, pots.length).map((p, i) => ({ player: p.name, amount: pots[i].amount }));
