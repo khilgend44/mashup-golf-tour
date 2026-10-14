@@ -1725,27 +1725,38 @@ function calcLoneRanger(scorecards, format, event) {
     for (const p of completePlayers) playerByName[p.name.toLowerCase()] = p;
     const slotPlayers = slots.map(s => playerByName[s.toLowerCase()]);
 
+    // How many holes did each teammate's score count toward the team total
+    // on a hole where they *weren't* the mandatory Lone Ranger — i.e. they
+    // either won or tied the best-ball comparison between the other two.
+    // Exposed per player as offSlotContributions, surfaced on the event
+    // summary page.
+    const offSlotContributions = new Array(completePlayers.length).fill(0);
     const countingPlayers = [];
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
       const lrPlayer = slotPlayers[h % 3];
       const others = slotPlayers.filter((_, i) => i !== h % 3);
 
       const lrScore = lrPlayer.net[h];
-      let bbScore = Infinity, bbPlayer = null;
-      for (const op of others) {
-        if (op.net[h] < bbScore) { bbScore = op.net[h]; bbPlayer = op; }
-      }
+      const bbScore = Math.min(...others.map(op => op.net[h]));
+      // A tie for best ball mattered just as much as whichever score
+      // happened to be summed — both players get credit, neither reads as
+      // "didn't count" (unlike a plain loss, which still dims normally).
+      const bbPlayers = others.filter(op => op.net[h] === bbScore);
 
       const counting = new Array(completePlayers.length).fill(false);
       const lrIdx = completePlayers.findIndex(p => p.name.toLowerCase() === lrPlayer.name.toLowerCase());
       if (lrIdx >= 0) counting[lrIdx] = true;
-      if (bbPlayer) {
-        const bbIdx = completePlayers.findIndex(p => p.name.toLowerCase() === bbPlayer.name.toLowerCase());
-        if (bbIdx >= 0) counting[bbIdx] = true;
+      for (const bp of bbPlayers) {
+        const bbIdx = completePlayers.findIndex(p => p.name.toLowerCase() === bp.name.toLowerCase());
+        if (bbIdx >= 0) {
+          counting[bbIdx] = true;
+          offSlotContributions[bbIdx]++;
+        }
       }
       countingPlayers.push(counting);
       return lrScore + bbScore;
     });
+    completePlayers.forEach((p, i) => { p.offSlotContributions = offSlotContributions[i]; });
 
     const out = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
     const inn = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);

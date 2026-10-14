@@ -347,7 +347,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261013b';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete } from './js/scoring.js?v=20261013c';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1902,12 +1902,13 @@
         : team.members;
 
       // Per hole, the forced slot player always counts — the other two are
-      // a best-ball, so whichever of them posted the worse net score is
-      // already known not to count, same tie rule as the real scoring
-      // (calcLoneRanger: strict `<`, first in slot order wins a tie). Only
-      // resolved once BOTH of the non-forced teammates have reached that
-      // hole; with just one of them in, there's nothing to compare against
-      // yet, so it's left undimmed rather than guessed at.
+      // a best-ball, so whichever of them posted the strictly worse net
+      // score is already known not to count. A tie dims neither: both
+      // scores mattered equally (see offSlotContributions in scoring.js,
+      // which credits both on a tie too). Only resolved once BOTH of the
+      // non-forced teammates have reached that hole; with just one of them
+      // in, there's nothing to compare against yet, so it's left undimmed
+      // rather than guessed at.
       const dimmedAt = {};
       if (team.slots) {
         for (let h = 0; h < 18; h++) {
@@ -1915,11 +1916,8 @@
           const others = team.slots.filter(s => s.toLowerCase() !== forced.toLowerCase());
           const otherScores = others.map(name => ({ name, score: memberByName.get(name.toLowerCase())?.net?.[h] ?? null }));
           if (otherScores.length === 2 && otherScores.every(o => o.score != null)) {
-            let bestScore = Infinity, bestName = null;
-            for (const o of otherScores) {
-              if (o.score < bestScore) { bestScore = o.score; bestName = o.name; }
-            }
-            const loser = otherScores.find(o => o.name !== bestName);
+            const bestScore = Math.min(...otherScores.map(o => o.score));
+            const loser = otherScores.find(o => o.score > bestScore);
             if (loser) dimmedAt[h] = loser.name.toLowerCase();
           }
         }

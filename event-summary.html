@@ -75,7 +75,7 @@
 
   <script type="module">
     import { fetchScorecards, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { formatToPar } from './js/scoring.js?v=20261013b';
+    import { formatToPar, applyFormat } from './js/scoring.js?v=20261013c';
     import { buildEventSummary } from './js/event-summary.js?v=20260926c';
 
     const $ = id => document.getElementById(id);
@@ -122,8 +122,19 @@
 
       if (!summary.meta.roundsPlayed) return showError('No completed rounds yet — check back once the event wraps up.');
 
+      // Lone Ranger only: how many holes did each teammate's score count
+      // toward the team total on a hole where they *weren't* the mandatory
+      // slot player — offSlotContributions, computed by calcLoneRanger
+      // (scoring.js) alongside the real per-hole scoring itself, since it
+      // needs the same locked slot order + best-ball-of-two replay. Only
+      // populated on fully completed teams (applyFormat gives in-progress
+      // teams `.members`, not `.players`, and no contribution count).
+      const loneRangerTeams = format.type === 'lone-ranger'
+        ? applyFormat(scorecards, format, event).filter(t => t.players)
+        : null;
+
       const season = seasons.find(s => s.id === event.season);
-      render(event, format, season, summary);
+      render(event, format, season, summary, loneRangerTeams);
 
       $('loading').classList.add('hidden');
       $('app').classList.remove('hidden');
@@ -399,7 +410,39 @@
 
     function teamName(members) { return members.join(' / '); }
 
-    function render(event, format, season, summary) {
+    // Each teammate's own-score contribution count, reordered to slot order
+    // (S1/S2/S3) for consistency with how the live event page shows teams.
+    // A tie for best ball on a hole credits both players — see
+    // offSlotContributions in calcLoneRanger (scoring.js).
+    function loneRangerContributionsHtml(teams) {
+      if (!teams || !teams.length) return '';
+      const cards = teams.map(team => {
+        const bySlot = team.slots
+          .map(name => team.players.find(p => p.name.toLowerCase() === name.toLowerCase()))
+          .filter(Boolean);
+        const rows = bySlot.map(p => `
+          <div class="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+            <span class="text-gray-300">${p.name}</span>
+            <span class="font-mono font-600 text-white">${p.offSlotContributions}</span>
+          </div>`).join('');
+        return `
+          <div class="stat-tile">
+            <div class="lbl mb-2">${teamName(team.displayMembers)}</div>
+            ${rows}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="mt-10">
+          <h2 class="section-head mb-4">Lone Ranger Contributions</h2>
+          <p class="text-xs text-gray-600 mb-4 max-w-2xl">How many holes each teammate's own score counted toward the team total on a hole that wasn't their mandatory slot — a tie for best ball credits both players.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${cards}
+          </div>
+        </div>`;
+    }
+
+    function render(event, format, season, summary, loneRangerTeams) {
       const { eventStats, playerStats, teamStats, meta } = summary;
       const seasonWeekLabel = `${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}${event.week ? ` · Week ${event.week}` : ''}`;
 
@@ -452,6 +495,8 @@
         </div>
 
         ${teamHtml}
+
+        ${loneRangerContributionsHtml(loneRangerTeams)}
 
         <div id="pace-section" class="mt-10 hidden"></div>
         <div id="sgt-section" class="mt-10 hidden"></div>
