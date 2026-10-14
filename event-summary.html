@@ -464,32 +464,57 @@
       return { avgToPar: count ? sum / count : null, count };
     }
 
+    // Highest avgToPar = hardest (worst scoring relative to par), lowest =
+    // easiest. Gross and net are tagged independently — handicap strokes
+    // can flip which slot comes out ahead on net even when gross points the
+    // other way, so a single combined tag would hide exactly the thing
+    // this section exists to show.
+    function extremeSlotIdx(vals, mode) {
+      let idx = null, best = null;
+      vals.forEach((v, i) => {
+        if (v == null) return;
+        if (best == null || (mode === 'max' ? v > best : v < best)) { best = v; idx = i; }
+      });
+      return idx;
+    }
+
+    function difficultyTag(i, hardestIdx, easiestIdx) {
+      if (i === hardestIdx) return `<span class="text-[9px] font-heading font-700 tracking-widest uppercase px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 ml-1.5">Hardest</span>`;
+      if (i === easiestIdx) return `<span class="text-[9px] font-heading font-700 tracking-widest uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 ml-1.5">Easiest</span>`;
+      return '';
+    }
+
     function slotDifficultyHtml(gross, net) {
       if (!gross?.holeAverages?.length) return '';
       const SLOT_HOLES = ['1, 4, 7, 10, 13, 16', '2, 5, 8, 11, 14, 17', '3, 6, 9, 12, 15, 18'];
       const perRound = v => v == null ? '—' : formatToPar(Math.round(v * 6 * 10) / 10);
       const perHole = v => v == null ? '—' : formatToPar(Math.round(v * 100) / 100);
 
-      const cards = [0, 1, 2].map(i => {
-        const g = slotHoleBucket(gross.holeAverages, i);
-        const n = slotHoleBucket(net.holeAverages, i);
-        return `
+      const buckets = [0, 1, 2].map(i => ({
+        gross: slotHoleBucket(gross.holeAverages, i),
+        net: slotHoleBucket(net.holeAverages, i),
+      }));
+      const gHardest = extremeSlotIdx(buckets.map(b => b.gross.avgToPar), 'max');
+      const gEasiest = extremeSlotIdx(buckets.map(b => b.gross.avgToPar), 'min');
+      const nHardest = extremeSlotIdx(buckets.map(b => b.net.avgToPar), 'max');
+      const nEasiest = extremeSlotIdx(buckets.map(b => b.net.avgToPar), 'min');
+
+      const cards = buckets.map(({ gross: g, net: n }, i) => `
           <div class="stat-tile">
             <div class="lbl mb-2">Slot ${i + 1} <span class="text-gray-600 normal-case">(holes ${SLOT_HOLES[i]})</span></div>
             <div class="grid grid-cols-2 gap-3 mt-1">
               <div>
-                <div class="text-[10px] text-gray-500 uppercase tracking-wide">Gross</div>
+                <div class="text-[10px] text-gray-500 uppercase tracking-wide flex items-center">Gross${difficultyTag(i, gHardest, gEasiest)}</div>
                 <div class="text-white font-heading font-600 text-lg">${perRound(g.avgToPar)}<span class="text-gray-500 text-[11px] font-body"> /round</span></div>
                 <div class="text-[11px] text-gray-500">${perHole(g.avgToPar)} avg/hole · ${g.count} played</div>
               </div>
               <div>
-                <div class="text-[10px] text-gray-500 uppercase tracking-wide">Net</div>
+                <div class="text-[10px] text-gray-500 uppercase tracking-wide flex items-center">Net${difficultyTag(i, nHardest, nEasiest)}</div>
                 <div class="text-white font-heading font-600 text-lg">${perRound(n.avgToPar)}<span class="text-gray-500 text-[11px] font-body"> /round</span></div>
                 <div class="text-[11px] text-gray-500">${perHole(n.avgToPar)} avg/hole · ${n.count} played</div>
               </div>
             </div>
-          </div>`;
-      }).join('');
+          </div>`).join('');
 
       return `
         <div class="mt-10">
