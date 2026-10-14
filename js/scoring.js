@@ -1645,15 +1645,50 @@ function calcLoneRanger(scorecards, format, event) {
     // "show the roster, no real total yet" treatment already shipped for
     // Escalator/Stableford/etc.
     if (completePlayers.length < teamSize || members.length < teamSize) {
-      // Provisional to-par from whoever's actually posted a real score on
-      // each hole so far. Lone Ranger's real rule always counts exactly 2
-      // of the 3 scores per hole (1 solo + best-of-the-other-2) — this
-      // approximates that with "best 2 of however many are in" rather than
-      // trying to replay the actual slot rotation on partial data, same
-      // "not the real ranked total, just how it's trending" spirit as the
-      // other live formats.
+      // Provisional to-par from whoever's actually posted a real score so
+      // far. When the slot order is already locked in, this replays the
+      // REAL per-hole rule (LR slot's own score + best-of-the-other-2)
+      // using whichever of the other two have played — not a generic
+      // "best 2 of however many are in" approximation. That generic version
+      // (still used below when the order isn't locked yet) sums BOTH known
+      // players on every hole regardless of who's actually this hole's Lone
+      // Ranger, which produces a visibly wrong number once two of three are
+      // done — confirmed against a real S10W4 team (pottsy=S1, tigerstew84=
+      // S3, third player not started): on S1 holes it should be pottsy
+      // (solo) + tigerstew84 (best-of-available), on S3 the reverse, and on
+      // S2 holes — where neither known player is the Lone Ranger — just the
+      // single better of the two, not both summed.
       let provisionalToPar = null;
-      if (team.pars) {
+      if (team.pars && lockedSlots) {
+        const playerByName = {};
+        for (const m of members) playerByName[m.name.toLowerCase()] = m;
+        const slotMembers = lockedSlots.map(s => playerByName[s.toLowerCase()]);
+
+        let provTotal = 0, provPar = 0, holesCounted = 0;
+        for (let h = 0; h < 18; h++) {
+          const lrMember = slotMembers[h % 3];
+          const others = slotMembers.filter((_, i) => i !== h % 3);
+          const lrScore = lrMember?.net?.[h] ?? null;
+          const otherScores = others.map(o => o?.net?.[h]).filter(n => n != null);
+          const bbScore = otherScores.length ? Math.min(...otherScores) : null;
+
+          let holeScore = null;
+          if (lrScore != null && bbScore != null) holeScore = lrScore + bbScore;
+          else if (lrScore != null) holeScore = lrScore;  // only the LR player has reached this hole so far
+          else if (bbScore != null) holeScore = bbScore;  // LR player not in yet — best of whoever else has played
+          if (holeScore == null) continue;
+
+          // Par target matches whatever's actually being summed: full par
+          // for both sides counted, half when only one side is.
+          const parMultiplier = (lrScore != null && bbScore != null) ? 2 : 1;
+          provTotal += holeScore;
+          provPar += team.pars[h] * parMultiplier;
+          holesCounted++;
+        }
+        provisionalToPar = holesCounted ? provTotal - provPar : null;
+      } else if (team.pars) {
+        // No locked slot order yet — can't know who's the Lone Ranger on
+        // which hole, so this is the best available fallback.
         let provTotal = 0, provPar = 0;
         for (let h = 0; h < 18; h++) {
           const available = members.map(m => m.net?.[h]).filter(n => n != null);
