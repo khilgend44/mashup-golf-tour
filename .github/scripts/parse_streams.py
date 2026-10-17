@@ -10,6 +10,19 @@ those links. If SGT changes that markup, this will start producing an
 empty `[]` rather than crashing the fetch job — same accepted tradeoff
 as parse_ctp.py.
 
+SGT's stream link markup (confirmed live, Oct 2026) lives inside each
+leaderboard row — `<tr ... data-player-name='...'>...</tr>` — as a
+`stream-menu-item` link, not the older `stream-link` class this script
+used to look for (that class doesn't exist in SGT's current output at
+all, solo or team — this was silently matching nothing for a while).
+A solo event's row covers exactly one player, so the row's own
+data-player-name attribute names them and the stream link's own text is
+just "ROUND N". A team event's row covers all 3 teammates at once
+(data-player-name is a space-separated list), so SGT disambiguates by
+appending the specific player's name after a divider span inside the
+stream link itself — when that's present, it names the actual player,
+not whoever else shares the row.
+
 Usage: parse_streams.py <path-to-fetched-html>  ->  JSON array on stdout
   [{"player": "jibbsy", "round": 1, "url": "https://youtube.com/..."}, ...]
 """
@@ -17,22 +30,25 @@ import re
 import sys
 import json
 
+ROW_RE = re.compile(r"<tr[^>]*data-player-name='([^']*)'.*?</tr>", re.S)
+STREAM_RE = re.compile(
+    r"stream-menu-item'\s+href='([^']+)'>\s*"
+    r"<i[^>]*></i><span class='text-uppercase'>\s*ROUND\s+(\d+)\s*"
+    r"(?:<span class='divider'></span>\s*([^<]+))?</span>",
+    re.S)
+
 
 def parse(html):
-    pattern = re.compile(
-        r"stream-link'\s+href='([^']+)'>\s*"
-        r"<div[^>]*>\s*"
-        r"<div>ROUND\s+(\d+)</div>\s*"
-        r"<div[^>]*>([^<]+)</div>",
-        re.S)
-
     streams = []
-    for url, round_num, name in pattern.findall(html):
-        streams.append({
-            "player": name.strip().lower(),
-            "round": int(round_num),
-            "url": url.strip(),
-        })
+    for row_match in ROW_RE.finditer(html):
+        row_player = row_match.group(1).strip().lower()
+        for url, round_num, name in STREAM_RE.findall(row_match.group(0)):
+            player = name.strip().lower() if name and name.strip() else row_player
+            streams.append({
+                "player": player,
+                "round": int(round_num),
+                "url": url.strip(),
+            })
     return streams
 
 
