@@ -347,7 +347,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback } from './js/scoring.js?v=20261014a';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback, rankSidePotField } from './js/scoring.js?v=20261018a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1639,10 +1639,9 @@
         tbody.appendChild(cardTr);
       });
 
-      if (isStableford) {
-        document.getElementById('side-section').innerHTML = buildStablefordSidePotHtml(results, event);
-      } else if (event.sidePots?.length) {
-        document.getElementById('side-section').innerHTML = buildTeamSidePotHtml(results, event);
+      if (event.sidePots?.length) {
+        document.getElementById('side-section').innerHTML = buildSidePotHtml(results, event, format);
+        wireSidePotAnalysisToggle();
       } else if (event.payouts?.length) {
         document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       }
@@ -1802,85 +1801,111 @@
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
     }
 
-    function buildTeamSidePotHtml(results, event) {
-      const winnerMembers = new Set(
-        results.filter(t => t.prize != null).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
-      );
-      // Same course/round for every team, so any team's `.indices` works as
-      // the shared stroke-index countback order for breaking a net tie.
-      const indices = results.find(t => t.indices)?.indices;
-      const eligible = results
-        .flatMap(team => (team.players || team.members || []).map(p => ({ name: p.name, totalNet: p.totalNet, net: p.net, status: p.status, teamPos: team.position })))
-        .filter(p => (p.status === 'complete' || p.status === undefined) && p.totalNet != null)
-        .filter(p => !winnerMembers.has(p.name.toLowerCase()))
-        .sort((a, b) => {
-          const diff = a.totalNet - b.totalNet;
-          if (diff !== 0 || !indices || !a.net || !b.net) return diff;
-          return netIndexCountback({ net: a.net, indices }, { net: b.net, indices });
-        });
+    function wireSidePotAnalysisToggle() {
+      const btn = document.querySelector('.side-pot-analysis-toggle');
+      const panel = document.getElementById('side-pot-analysis');
+      if (!btn || !panel) return;
+      btn.addEventListener('click', () => {
+        const hidden = panel.classList.toggle('hidden');
+        btn.textContent = hidden ? 'See Full Side Pot Analysis' : 'Hide Full Side Pot Analysis';
+      });
+    }
 
-      if (eligible.length === 0 || !event.sidePots?.length) return '';
+    // A player's own team, for the "Team finished #N" / "Team in progress"
+    // sub-label on each side-pot row — rankSidePotField (scoring.js) only
+    // knows about individuals, not which team they're on.
+    function findTeamPosition(results, playerName) {
+      const team = results.find(t => (t.players || t.members || []).some(p => p.name.toLowerCase() === playerName.toLowerCase()));
+      return team?.position ?? null;
+    }
 
+    // Single source of truth for side-pot display, for every team format —
+    // built on rankSidePotField (scoring.js), the same ranking resolveSidePots
+    // itself uses, so this view can never show a different "winner" than
+    // what actually pays out elsewhere on the site. Previously this and
+    // Stableford had their own separate, independently-duplicated sort/
+    // filter logic (Stableford's additionally excluded every in-progress
+    // team entirely, the same "no one's fully done yet" bug already fixed
+    // for the generic path — fixed here too by going through the shared
+    // function instead of hand-rolling a second copy of it).
+    function buildSidePotHtml(results, event, format) {
+      if (!event.sidePots?.length) return '';
+      const ranked = rankSidePotField(results, event, format);
+      const paying = ranked.filter(p => p.payout != null);
+      if (!paying.length) return '';
+
+      const isStableford = format?.type === 'stableford-3man';
       const ORDINALS = ['1st', '2nd', '3rd'];
-      const rows = eligible.slice(0, event.sidePots.length).map((p, i) => {
-        const prize = event.sidePots[i];
-        const teamStatus = p.teamPos != null ? `Team finished #${p.teamPos}` : 'Team in progress';
+      const rows = paying.map((p, i) => {
+        const teamPos = findTeamPosition(results, p.name);
+        const teamStatus = teamPos != null ? `Team finished #${teamPos}` : 'Team in progress';
+        const metricLabel = isStableford ? `${p.metric} individual pts` : `Individual net: ${p.metric}`;
         return `
           <div class="flex items-center justify-between py-3 border-b border-border last:border-0">
             <div class="flex items-center gap-4">
               <span class="font-display text-2xl text-flame leading-none">${ORDINALS[i] || `${i+1}th`}</span>
               <div>
                 <div class="font-heading font-600 text-sm text-white tracking-wide">${p.name}</div>
-                <div class="text-xs text-gray-500 mt-0.5">Individual net: ${p.totalNet} &nbsp;·&nbsp; ${teamStatus}</div>
+                <div class="text-xs text-gray-500 mt-0.5">${metricLabel} &nbsp;·&nbsp; ${teamStatus}</div>
               </div>
             </div>
-            ${prize ? `<div class="text-right"><div class="font-semibold text-flame">$${prize.amount}</div><div class="text-xs text-gray-600 mt-0.5">${prize.name || 'Side Pot'}</div></div>` : ''}
+            <div class="text-right"><div class="font-semibold text-flame">$${p.payout}</div><div class="text-xs text-gray-600 mt-0.5">${p.potLabel || 'Side Pot'}</div></div>
           </div>`;
       }).join('');
 
+      const subtitle = isStableford
+        ? 'Top individual stableford scorers not on a prize-winning team'
+        : 'Best individual net — players not on winning team';
+
       return `
         <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 mt-6">
-          <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Individual Side Pot</div>
-          <div class="text-xs text-gray-600 mb-4">Best individual net — players not on winning team</div>
+          <div class="flex items-center justify-between gap-3 mb-1">
+            <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">Individual Side Pot</div>
+            <button type="button" class="side-pot-analysis-toggle text-[11px] font-heading font-600 tracking-wide text-gray-500 hover:text-flame underline underline-offset-2" style="transition:color .12s">See Full Side Pot Analysis</button>
+          </div>
+          <div class="text-xs text-gray-600 mb-4">${subtitle}</div>
           ${rows}
+          <div id="side-pot-analysis" class="hidden mt-4 pt-4 border-t border-border">
+            ${buildSidePotAnalysisTableHtml(ranked, results, isStableford)}
+          </div>
         </div>`;
     }
 
-    function buildStablefordSidePotHtml(results, event) {
-      const topTeamMembers = new Set(
-        results.filter(t => t.prize != null).flatMap(t => t.displayMembers.map(m => m.toLowerCase()))
-      );
-      const eligible = results
-        .filter(team => !team.inProgress) // in-progress teams have no final `players` list yet
-        .flatMap(team => team.players.map(p => ({ name: p.name, pts: p.individualTotal, teamPos: team.position })))
-        .filter(p => !topTeamMembers.has(p.name.toLowerCase()))
-        .sort((a, b) => b.pts - a.pts);
-
-      if (eligible.length === 0) return '';
-
-      const ORDINALS = ['1st', '2nd', '3rd'];
-      const sidePotPrizes = event.sidePots || [];
-      const showCount = Math.max(2, sidePotPrizes.length);
-      const rows = eligible.slice(0, showCount).map((p, i) => {
-        const prize = sidePotPrizes[i];
+    // Full stack rank, not just the payout slice — every individual in the
+    // field, including the ones excluded for being on the team that already
+    // won the main prize, and whoever ranked just below the payout cutoff.
+    function buildSidePotAnalysisTableHtml(ranked, results, isStableford) {
+      const metricLabel = isStableford ? 'Pts' : 'Net';
+      const rows = ranked.map(p => {
+        const teamPos = findTeamPosition(results, p.name);
+        const statusHtml = p.payout != null
+          ? `<span class="text-flame font-600">$${p.payout} — ${p.potLabel || 'Side Pot'}</span>`
+          : p.excluded
+            ? `<span class="text-gray-600">Excluded — team finished #${teamPos ?? '?'}</span>`
+            : `<span class="text-gray-600">Not in payout range</span>`;
         return `
-          <div class="flex items-center justify-between py-3 border-b border-border last:border-0">
-            <div class="flex items-center gap-4">
-              <span class="font-display text-2xl text-flame leading-none">${ORDINALS[i] || `${i+1}th`}</span>
-              <div>
-                <div class="font-heading font-600 text-sm text-white tracking-wide">${p.name}</div>
-                <div class="text-xs text-gray-500 mt-0.5">${p.pts} individual pts &nbsp;·&nbsp; Team finished #${p.teamPos}</div>
-              </div>
-            </div>
-            ${prize ? `<div class="text-right"><div class="font-semibold text-flame">$${prize.amount}</div><div class="text-xs text-gray-600 mt-0.5">${prize.name || 'Side Pot'}</div></div>` : ''}
-          </div>`;
+          <tr class="border-b border-border/50 last:border-0">
+            <td class="py-1.5 pr-3 text-gray-500 font-mono text-xs">${p.rank}</td>
+            <td class="py-1.5 pr-3 text-gray-200 text-sm">${p.name}</td>
+            <td class="py-1.5 pr-3 font-mono text-gray-300 text-xs">${p.metric ?? '—'}</td>
+            <td class="py-1.5 text-xs">${statusHtml}</td>
+          </tr>`;
       }).join('');
 
       return `
-        <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 mt-6">
-          <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Individual Side Pot</div>
-          <div class="text-xs text-gray-600 mb-4">Top individual stableford scorers not on 1st or 2nd place team</div>
-          ${rows}
+        <div class="text-[11px] text-gray-600 mb-2">Full stack rank — includes players excluded for being on the winning team, and anyone ranked just outside the payout cutoff.</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-[10px] text-gray-600 uppercase tracking-wide">
+                <th class="text-left pb-1 pr-3 font-heading font-600">#</th>
+                <th class="text-left pb-1 pr-3 font-heading font-600">Player</th>
+                <th class="text-left pb-1 pr-3 font-heading font-600">${metricLabel}</th>
+                <th class="text-left pb-1 font-heading font-600">Status</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
         </div>`;
     }
 
@@ -2831,7 +2856,7 @@
           </div>`;
 
         if (done) {
-          if (event.sidePots?.length) lbEl.insertAdjacentHTML('beforeend', buildTeamSidePotHtml(results, event));
+          if (event.sidePots?.length) { lbEl.insertAdjacentHTML('beforeend', buildSidePotHtml(results, event, format)); wireSidePotAnalysisToggle(); }
           if (event.ctp?.length) lbEl.insertAdjacentHTML('beforeend', buildCtpHtml(event.ctp));
           lbEl.querySelectorAll('[data-lb-row]').forEach(row => {
             row.addEventListener('click', () => {

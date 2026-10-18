@@ -2197,20 +2197,30 @@ export function applyPayouts(results, payouts) {
 
 // ─── Side pots ────────────────────────────────────────────────────────────────
 
-// Resolve side-pot winners + amounts from event.sidePots. Shared by the season
-// money standings and the leaderboard display so the winner logic lives in one
-// place. Requires applyPayouts to have run (reads team.prize). Returns
-// [{ player, amount }] for the paid positions only.
-//   • Nassau: best individual nets not on a pot-winning team (results.nassauSidePot)
-//   • Stableford: top individual points not on a prize-winning team
-//   • Other team formats: best individual net not on a prize-winning team
-export function resolveSidePots(results, event, format) {
+// Stack-ranks the ENTIRE individual field for event.sidePots — not just the
+// payout slice. Each entry carries enough to show "who's actually in line
+// and why they are or aren't getting paid": { name, metric, rank (1-based,
+// among the whole field, excluded players included in their natural spot),
+// excluded (true if their team already won the main payout), payout
+// (amount if this entry is actually getting paid, else null), potLabel
+// (that pot's name, else null) }. resolveSidePots below is a thin filter
+// over this for callers that only want the winners — single source of
+// truth for both, so they can't drift apart (see event.html's
+// buildSidePotAnalysisHtml, which renders the full list this returns).
+//   • Nassau: results.nassauSidePot is already a pre-ranked candidate list
+//   • Stableford: ranked by individual points (higher wins)
+//   • Other team formats: ranked by individual net (lower wins), index countback on a tie
+export function rankSidePotField(results, event, format) {
   const pots = event?.sidePots || [];
-  if (!pots.length || !Array.isArray(results)) return [];
+  if (!Array.isArray(results)) return [];
 
   if (format?.type === 'nassau-2man') {
     const cand = results.nassauSidePot || [];
-    return cand.slice(0, pots.length).map((p, i) => ({ player: p.name, amount: pots[i].amount }));
+    return cand.map((p, i) => ({
+      name: p.name, metric: null, rank: i + 1, excluded: false,
+      payout: i < pots.length ? pots[i].amount : null,
+      potLabel: i < pots.length ? (pots[i].name || null) : null,
+    }));
   }
 
   const isStableford = format?.type === 'stableford-3man';
@@ -2228,22 +2238,44 @@ export function resolveSidePots(results, event, format) {
   // every team — any team's `.indices` works as the shared countback order.
   const indices = results.find(t => t.indices)?.indices;
 
-  const eligible = results
+  const all = results
     .flatMap(team => team.players || team.members || [])
     .filter(p => p.status === 'complete' || p.status === undefined)
     .map(p => ({
       name: p.name,
       metric: isStableford ? p.individualTotal : p.totalNet,
       net: p.net,
+      excluded: winnerMembers.has(p.name.toLowerCase()),
     }))
-    .filter(p => !winnerMembers.has(p.name.toLowerCase()) && p.metric != null)
+    .filter(p => p.metric != null)
     .sort((a, b) => {
       const diff = isStableford ? b.metric - a.metric : a.metric - b.metric;
       if (diff !== 0 || !indices || !a.net || !b.net) return diff;
       return netIndexCountback({ net: a.net, indices }, { net: b.net, indices });
     });
 
-  return eligible.slice(0, pots.length).map((p, i) => ({ player: p.name, amount: pots[i].amount }));
+  let payoutIdx = 0;
+  return all.map((p, i) => {
+    let payout = null, potLabel = null;
+    if (!p.excluded && payoutIdx < pots.length) {
+      payout = pots[payoutIdx].amount;
+      potLabel = pots[payoutIdx].name || null;
+      payoutIdx++;
+    }
+    return { name: p.name, metric: p.metric, rank: i + 1, excluded: p.excluded, payout, potLabel };
+  });
+}
+
+// Resolve side-pot winners + amounts from event.sidePots. Shared by the season
+// money standings and the leaderboard display so the winner logic lives in one
+// place. Requires applyPayouts to have run (reads team.prize). Returns
+// [{ player, amount }] for the paid positions only — a thin filter over
+// rankSidePotField above.
+export function resolveSidePots(results, event, format) {
+  if (!event?.sidePots?.length) return [];
+  return rankSidePotField(results, event, format)
+    .filter(p => p.payout != null)
+    .map(p => ({ player: p.name, amount: p.payout }));
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
