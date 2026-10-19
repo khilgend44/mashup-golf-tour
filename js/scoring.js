@@ -2262,7 +2262,10 @@ export function rankSidePotField(results, event, format) {
       potLabel = pots[payoutIdx].name || null;
       payoutIdx++;
     }
-    return { name: p.name, metric: p.metric, rank: i + 1, excluded: p.excluded, payout, potLabel };
+    // net + indices exposed so a UI can explain *why* a tie on `metric`
+    // broke the way it did (see event.html's side-pot analysis table) —
+    // not used by resolveSidePots itself, which only needs the ranking.
+    return { name: p.name, metric: p.metric, net: p.net, indices, rank: i + 1, excluded: p.excluded, payout, potLabel };
   });
 }
 

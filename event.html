@@ -347,7 +347,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback, rankSidePotField } from './js/scoring.js?v=20261018a';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback, rankSidePotField } from './js/scoring.js?v=20261019a';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -1883,21 +1883,48 @@
     // Full stack rank, not just the payout slice — every individual in the
     // field, including the ones excluded for being on the team that already
     // won the main prize, and whoever ranked just below the payout cutoff.
+    // Same-metric rows are only in this order because of index countback
+    // (netIndexCountback, scoring.js) — without saying so, two players
+    // both showing "64" with one paying out and the other not reads as
+    // arbitrary. Finds the first hole (in stroke-index order, hardest
+    // first) where the two actually differ, exactly reproducing the
+    // comparator's own logic for display purposes.
+    function countbackExplain(a, b) {
+      if (!a.net || !b.net || !a.indices) return null;
+      const sorted = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.indices[x] - a.indices[y]);
+      for (const h of sorted) {
+        if (a.net[h] !== b.net[h]) return { hole: h + 1, index: a.indices[h], aScore: a.net[h], bScore: b.net[h] };
+      }
+      return null;
+    }
+
     function buildSidePotAnalysisTableHtml(ranked, results, isStableford) {
       const metricLabel = isStableford ? 'Pts' : 'Net';
-      const rows = ranked.map(p => {
+      const rows = ranked.map((p, i) => {
         const teamPos = findTeamPosition(results, p.name);
         const statusHtml = p.payout != null
           ? `<span class="text-flame font-600">$${p.payout} — ${p.potLabel || 'Side Pot'}</span>`
           : p.excluded
             ? `<span class="text-gray-600">Excluded — team finished #${teamPos ?? '?'}</span>`
             : `<span class="text-gray-600">Not in payout range</span>`;
+
+        // Tied with the row directly above on raw metric — explain the
+        // countback that put this player below them instead of leaving it
+        // looking like an arbitrary ordering of two equal numbers.
+        const prev = ranked[i - 1];
+        const tieHtml = (prev && prev.metric === p.metric && !isStableford) ? (() => {
+          const cb = countbackExplain(prev, p);
+          if (!cb) return '';
+          const holeLabel = cb.index === 1 ? `hole ${cb.hole} (hardest hole, stroke index 1)` : `hole ${cb.hole} (stroke index ${cb.index})`;
+          return `<div class="text-[10px] text-gray-600 mt-0.5">Tie broken on ${holeLabel} — ${prev.name} shot ${cb.aScore}, ${p.name} shot ${cb.bScore}</div>`;
+        })() : '';
+
         return `
           <tr class="border-b border-border/50 last:border-0">
-            <td class="py-1.5 pr-3 text-gray-500 font-mono text-xs">${p.rank}</td>
-            <td class="py-1.5 pr-3 text-gray-200 text-sm">${p.name}</td>
-            <td class="py-1.5 pr-3 font-mono text-gray-300 text-xs">${p.metric ?? '—'}</td>
-            <td class="py-1.5 text-xs">${statusHtml}</td>
+            <td class="py-1.5 pr-3 text-gray-500 font-mono text-xs align-top">${p.rank}</td>
+            <td class="py-1.5 pr-3 text-gray-200 text-sm align-top">${p.name}</td>
+            <td class="py-1.5 pr-3 font-mono text-gray-300 text-xs align-top">${p.metric ?? '—'}</td>
+            <td class="py-1.5 text-xs">${statusHtml}${tieHtml}</td>
           </tr>`;
       }).join('');
 
