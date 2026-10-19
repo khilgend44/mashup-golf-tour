@@ -1,8 +1,21 @@
 // Reusable player-stats engine. One source of truth for per-player money,
 // wins, finishes (from the scoring engine) and MashCAP-from-rounds math.
 // Consumed by player.html (profiles) and — going forward — Records / Superlatives.
-import { fetchScorecards } from './api.js';
-import { applyFormat, applyPayouts, resolveSidePots } from './scoring.js';
+//
+// These two imports MUST carry the same ?v= cache-bust used everywhere else
+// scoring.js/api.js are imported, and bump every time those bump. Without
+// it, a browser that cached the bare /js/scoring.js or /js/api.js URL once
+// keeps using that exact cached copy forever — every other page bumping its
+// own `?v=` never touches this unversioned URL, so a returning visitor's
+// stats.js silently keeps running whatever scoring engine was live on their
+// first visit. The likely explanation for a returning user seeing
+// records.html missing Season 10 data entirely while a fresh/incognito
+// load of the same deployed code shows it correctly — confirmed records.html
+// itself has no bug (S10's real scoring/money data computes and renders
+// fine), so a stale cached scoring.js from before this season's format
+// fixes (Lone Ranger, Escalator, Nassau) was the next most likely cause.
+import { fetchScorecards } from './api.js?v=20260929a';
+import { applyFormat, applyPayouts, resolveSidePots } from './scoring.js?v=20261019a';
 
 // SGT's COMBO log caps at the most-recent 48 rounds; mirror it when a stored
 // comboRoundsCount isn't available. (Stored player rounds are already trimmed,

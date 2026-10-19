@@ -9,7 +9,13 @@
 // "Most Birdies" record), par: 0, bogey: 1, double+: diff>=2. Keeping one
 // bucket definition site-wide means these numbers agree with records.html
 // and event.html's scorecard coloring instead of quietly drifting apart.
-import { isCardComplete } from './scoring.js';
+// Must carry the same ?v= cache-bust used on every other scoring.js import
+// and bump whenever those bump — an unversioned internal import here is a
+// permanently separate cache entry that a returning browser never
+// invalidates just because every other page bumped its own `?v=` (see the
+// identical note in stats.js, where this exact gap caused records.html to
+// look like it had no Season 10 data for a returning visitor).
+import { isCardComplete } from './scoring.js?v=20261019a';
 
 function classify(diff) {
   if (diff <= -2) return 'eagle';
