@@ -723,7 +723,16 @@
       const isRinger = format?.type === 'ringer';
       const selectCls = 'w-full bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 font-heading tracking-wide focus:outline-none focus:border-flame';
       const inputCls  = 'w-full bg-surface border border-border rounded px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-flame';
-      const options   = players.map(p => `<option value="${p}">${p}</option>`).join('');
+      // season.players isn't stored alphabetically — new registrants get
+      // appended to the end rather than merged in sorted order (confirmed:
+      // season-10's roster is alphabetical up through "winch99", then a
+      // trailing block of later additions in registration order) — so this
+      // always needs its own sort rather than trusting the source order.
+      // localeCompare, not a plain string sort, so mixed-case usernames
+      // (e.g. "SteveMac") interleave correctly instead of every capital
+      // letter sorting before every lowercase one.
+      const sortedPlayers = [...players].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      const options   = sortedPlayers.map(p => `<option value="${p}">${p}</option>`).join('');
 
       if (isRinger) {
         container.innerHTML = `
