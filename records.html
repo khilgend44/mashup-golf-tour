@@ -149,14 +149,21 @@
           if (!c.player) continue;
           ctpByPlayer[c.player] = (ctpByPlayer[c.player] || 0) + 1;
           ctpMoneyByPlayer[c.player] = (ctpMoneyByPlayer[c.player] || 0) + (c.amount || 0);
-          const dist = parseFloat(c.distance);
-          if (!isNaN(dist) && dist > 0) ctpAll.push({ name: c.player, value: dist, detail: `${e.name}${c.hole ? ' · #' + c.hole : ''}` });
+          // An ace is recorded as the literal string "ACE" (admin's CTP
+          // entry form, see admin/events.html), not a number — parseFloat
+          // on that is NaN, which silently dropped every hole-in-one out of
+          // this ranking even though an ace is definitionally the closest
+          // possible shot (0 ft). Treat it as distance 0 so it sorts to the
+          // top rather than vanishing from "Closest CTP Ever" entirely.
+          const isAce = String(c.distance).trim().toUpperCase() === 'ACE';
+          const dist = isAce ? 0 : parseFloat(c.distance);
+          if (isAce || (!isNaN(dist) && dist > 0)) ctpAll.push({ name: c.player, value: dist, detail: `${e.name}${c.hole ? ' · #' + c.hole : ''}` });
         }
       }
       const ctpCards = [
         recordCard('Most CTPs', 'Closest-to-pin wins', topN(Object.entries(ctpByPlayer).map(([name, value]) => ({ name, value })), x => x.value, 4), v => v),
         recordCard('Most CTP $', 'CTP earnings', topN(Object.entries(ctpMoneyByPlayer).map(([name, value]) => ({ name, value })), x => x.value, 4), money),
-        recordCard('Closest CTP Ever', 'Smallest recorded distance', topN(ctpAll, x => x.value, 4, 'asc'), v => `${(+v).toFixed(2)}'`),
+        recordCard('Closest CTP Ever', 'Smallest recorded distance', topN(ctpAll, x => x.value, 4, 'asc'), v => +v === 0 ? '🎯 ACE' : `${(+v).toFixed(2)}'`),
       ];
 
       // ── Hall of Fame ───────────────────────────────────────────────────
