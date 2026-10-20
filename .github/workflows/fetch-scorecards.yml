@@ -172,6 +172,20 @@ jobs:
               # every candidate below is checked against it and skipped if
               # the CTP winner themselves never linked a stream, even when
               # their shared scorecard has one attached.
+              #
+              # Two teammates who genuinely share one physical broadcast
+              # (same sim bay, one camera) can both still get auto-linked —
+              # but only if *each of them* separately links that same video
+              # through SGT's own system under their own name. SGT's markup
+              # supports more than one stream-menu-item per team row, so
+              # parse_streams.py already picks up both independently in
+              # that case. Deliberately not inferring this from matching
+              # scores between a teammate's own hole-by-hole data and the
+              # stream owner's — SGT's per-shot numbers inside a shared
+              # stream have been observed to reflect a *different* teammate
+              # than the one who linked it, so whose shots are actually in
+              # a given broadcast isn't reliably derivable from data alone.
+              # An explicit, separate link from each player is the signal.
               EVENT_CTP=$(echo "$ALL_EVENTS" | jq -c --argjson tid "$tid" '[.[] | select(.tournamentId == $tid)][0].ctp // []')
               NEEDED=$(echo "$EVENT_CTP" | jq -c '[.[] | select((.video // "") == "") | {hole, player}]')
               nc=$(echo "$NEEDED" | jq 'length')
