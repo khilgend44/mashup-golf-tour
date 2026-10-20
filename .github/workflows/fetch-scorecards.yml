@@ -144,8 +144,6 @@ jobs:
                 echo "  → no missing streams found for $EVENT_ID"
               fi
 
-              rm -f "$mashup_streams"
-
               # CTP video auto-linking. A player who links their stream
               # through SGT's own system (not MashUp's submission form) gets
               # exact per-hole shot timing for free — SGT's own "jump to
@@ -174,18 +172,26 @@ jobs:
               # their shared scorecard has one attached.
               #
               # Two teammates who genuinely share one physical broadcast
-              # (same sim bay, one camera) can both still get auto-linked —
-              # but only if *each of them* separately links that same video
-              # through SGT's own system under their own name. SGT's markup
-              # supports more than one stream-menu-item per team row, so
-              # parse_streams.py already picks up both independently in
-              # that case. Deliberately not inferring this from matching
-              # scores between a teammate's own hole-by-hole data and the
-              # stream owner's — SGT's per-shot numbers inside a shared
-              # stream have been observed to reflect a *different* teammate
-              # than the one who linked it, so whose shots are actually in
-              # a given broadcast isn't reliably derivable from data alone.
-              # An explicit, separate link from each player is the signal.
+              # (same sim bay, one camera) can both still get auto-linked.
+              # Either of two explicit signals is accepted — never an
+              # inferred guess: (a) the teammate separately linked that same
+              # video through SGT's own system under their own name (SGT's
+              # markup supports more than one stream-menu-item per team row,
+              # so parse_streams.py already picks up both independently), or
+              # (b) MashUp's own stream submission (get-streams — kept alive
+              # in $mashup_streams below rather than deleted after the
+              # stream-gap step above) already has that teammate registered
+              # to the EXACT SAME url as whoever linked it on SGT — e.g.
+              # pottsy tagging both himself and ryanlane10 to one video in a
+              # single MashUp submission. That's a deliberate declaration
+              # from a real person, same as (a), just made through MashUp's
+              # form instead of SGT's. Deliberately NOT inferring shared
+              # coverage from matching scores between a teammate's own
+              # hole-by-hole data and the stream owner's — SGT's per-shot
+              # numbers inside a shared stream have been observed to reflect
+              # a *different* teammate than the one who linked it, so whose
+              # shots are actually in a given broadcast isn't reliably
+              # derivable from play data alone.
               EVENT_CTP=$(echo "$ALL_EVENTS" | jq -c --argjson tid "$tid" '[.[] | select(.tournamentId == $tid)][0].ctp // []')
               NEEDED=$(echo "$EVENT_CTP" | jq -c '[.[] | select((.video // "") == "") | {hole, player}]')
               nc=$(echo "$NEEDED" | jq 'length')
@@ -197,12 +203,26 @@ jobs:
                   hole=$(echo "$row" | jq -r '.hole')
                   player=$(echo "$row" | jq -r '.player')
 
-                  # This player must have linked their OWN stream — not just
-                  # share a scorecard with a teammate who did (see the bug
-                  # note above). A missing/unreadable $sgt_streams fails
-                  # closed (treated as 0 matches, so this skips rather than
-                  # risks guessing wrong).
-                  owns_stream=$(jq -r --arg p "$(echo "$player" | tr '[:upper:]' '[:lower:]')" '[.[] | select(.player == $p)] | length' "$sgt_streams" 2>/dev/null || echo 0)
+                  # This player must have linked their OWN stream, OR be
+                  # registered on MashUp's own stream data to the exact same
+                  # video (by id, since SGT's and MashUp's URL shapes for
+                  # the same video differ) as whoever did link it on SGT —
+                  # not just share a scorecard with a teammate who happens
+                  # to have a stream attached (see the notes above). A
+                  # missing/unreadable file fails closed (treated as no
+                  # match, so this skips rather than risks guessing wrong).
+                  player_lower=$(echo "$player" | tr '[:upper:]' '[:lower:]')
+                  owns_stream=$(jq -r --arg p "$player_lower" '[.[] | select(.player == $p)] | length' "$sgt_streams" 2>/dev/null || echo 0)
+                  if [ "$owns_stream" = "0" ]; then
+                    my_urls=$(jq -r --arg p "$player_lower" '.[$p] // {} | to_entries | map(.value) | .[]' "$mashup_streams" 2>/dev/null)
+                    sgt_video_ids=$(jq -r '.[].url' "$sgt_streams" 2>/dev/null | while read -r u; do python3 .github/scripts/ctp_video_link.py videoid "$u"; done)
+                    while read -r my_url; do
+                      [ -z "$my_url" ] && continue
+                      my_vid=$(python3 .github/scripts/ctp_video_link.py videoid "$my_url")
+                      [ -z "$my_vid" ] && continue
+                      if echo "$sgt_video_ids" | grep -qx "$my_vid"; then owns_stream=1; break; fi
+                    done <<< "$my_urls"
+                  fi
                   [ "$owns_stream" = "0" ] && continue
 
                   slug=$(python3 .github/scripts/ctp_video_link.py slug "$lbhtml" "$player")
@@ -275,12 +295,26 @@ jobs:
                   hole=$(echo "$row" | jq -r '.hole')
                   player=$(echo "$row" | jq -r '.player')
 
-                  # This player must have linked their OWN stream — not just
-                  # share a scorecard with a teammate who did (see the bug
-                  # note above). A missing/unreadable $sgt_streams fails
-                  # closed (treated as 0 matches, so this skips rather than
-                  # risks guessing wrong).
-                  owns_stream=$(jq -r --arg p "$(echo "$player" | tr '[:upper:]' '[:lower:]')" '[.[] | select(.player == $p)] | length' "$sgt_streams" 2>/dev/null || echo 0)
+                  # This player must have linked their OWN stream, OR be
+                  # registered on MashUp's own stream data to the exact same
+                  # video (by id, since SGT's and MashUp's URL shapes for
+                  # the same video differ) as whoever did link it on SGT —
+                  # not just share a scorecard with a teammate who happens
+                  # to have a stream attached (see the notes above). A
+                  # missing/unreadable file fails closed (treated as no
+                  # match, so this skips rather than risks guessing wrong).
+                  player_lower=$(echo "$player" | tr '[:upper:]' '[:lower:]')
+                  owns_stream=$(jq -r --arg p "$player_lower" '[.[] | select(.player == $p)] | length' "$sgt_streams" 2>/dev/null || echo 0)
+                  if [ "$owns_stream" = "0" ]; then
+                    my_urls=$(jq -r --arg p "$player_lower" '.[$p] // {} | to_entries | map(.value) | .[]' "$mashup_streams" 2>/dev/null)
+                    sgt_video_ids=$(jq -r '.[].url' "$sgt_streams" 2>/dev/null | while read -r u; do python3 .github/scripts/ctp_video_link.py videoid "$u"; done)
+                    while read -r my_url; do
+                      [ -z "$my_url" ] && continue
+                      my_vid=$(python3 .github/scripts/ctp_video_link.py videoid "$my_url")
+                      [ -z "$my_vid" ] && continue
+                      if echo "$sgt_video_ids" | grep -qx "$my_vid"; then owns_stream=1; break; fi
+                    done <<< "$my_urls"
+                  fi
                   [ "$owns_stream" = "0" ] && continue
 
                   slug=$(python3 .github/scripts/ctp_video_link.py slug "$lbhtml" "$player")
@@ -323,7 +357,7 @@ jobs:
               echo "  → leaderboard fetch failed for $tid, skipping stream check"
             fi
 
-            rm -f "$cookiejar" "$rawhtml" "$lbhtml" "$sgt_streams"
+            rm -f "$cookiejar" "$rawhtml" "$lbhtml" "$sgt_streams" "$mashup_streams"
           done
 
       - name: Commit and push if changed

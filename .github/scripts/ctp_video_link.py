@@ -32,6 +32,13 @@ calls, since each URL depends on the previous step's output):
   ctp_video_link.py offset <stream_fragment_html> <hole>        -> time offset in seconds, or nothing
   ctp_video_link.py reps   <leaderboard_html>                   -> one "<player> <slug>" per line,
                                                                     one per distinct scorecard entry
+  ctp_video_link.py videoid <youtube_url>                        -> bare video id, or nothing
+                                                                    (SGT's own links and MashUp's
+                                                                    submitted ones use different URL
+                                                                    shapes for the same video —
+                                                                    youtube.com/live/ID vs
+                                                                    watch?v=ID — so comparing ids is
+                                                                    what actually catches a match)
 Prints nothing (exit 0) when a step can't resolve — the common case for
 the many players who haven't linked a stream via SGT's own system, not
 an error.
@@ -98,6 +105,19 @@ def cmd_reps(leaderboard_html_path):
         print(f"{names[0]} {slug}")
 
 
+YT_URL_PATTERN = re.compile(
+    r"^https?://(www\.)?(?:youtube\.com/watch\?v=([\w-]+)|youtu\.be/([\w-]+)|youtube\.com/live/([\w-]+))")
+
+
+def cmd_videoid(url):
+    m = YT_URL_PATTERN.match(url.strip())
+    if not m:
+        return
+    vid = m.group(2) or m.group(3) or m.group(4)
+    if vid:
+        print(vid)
+
+
 def cmd_offset(stream_fragment_html_path, hole):
     html = read(stream_fragment_html_path)
     for m in re.finditer(r"<div[^>]*class='play-hole-button[^>]*>", html):
@@ -122,5 +142,7 @@ if __name__ == "__main__":
         cmd_offset(sys.argv[2], sys.argv[3])
     elif step == "reps":
         cmd_reps(sys.argv[2])
+    elif step == "videoid":
+        cmd_videoid(sys.argv[2])
     else:
         sys.exit(f"Unknown step: {step}")
