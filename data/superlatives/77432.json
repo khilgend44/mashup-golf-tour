@@ -1,0 +1,44 @@
+{
+  "tournamentId": 77432,
+  "generatedAt": "2026-10-20T22:04:41Z",
+  "driveOfWeek": [
+    {
+      "player": "cloverlinksgolf",
+      "hole": 9,
+      "par": 4,
+      "distanceYds": 366.0
+    }
+  ],
+  "approachOfWeek": [
+    {
+      "player": "garyn2732",
+      "hole": 12,
+      "par": 4,
+      "proximityFt": 4.0
+    },
+    {
+      "player": "magic",
+      "hole": 1,
+      "par": 5,
+      "proximityFt": 4.0
+    },
+    {
+      "player": "tofty31",
+      "hole": 3,
+      "par": 4,
+      "proximityFt": 4.0
+    }
+  ],
+  "puttOfWeek": [
+    {
+      "player": "cloverlinksgolf",
+      "hole": 14,
+      "lengthFt": 36.0
+    },
+    {
+      "player": "r3noble",
+      "hole": 12,
+      "lengthFt": 36.0
+    }
+  ]
+}

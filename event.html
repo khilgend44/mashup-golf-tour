@@ -568,8 +568,18 @@
         }
       } catch { /* icon just won't show */ }
 
+      // Drive/Approach/Putt of the Week — computed server-side (see
+      // fetch-weekly-superlatives.yml) from SGT's own per-shot data across
+      // the whole field. Best-effort: an event this hasn't run for yet
+      // (or one with no shot data resolvable) just shows nothing.
+      let superlatives = null;
+      try {
+        const sr2 = await fetch(`/data/superlatives/${event.tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
+        if (sr2.ok) superlatives = await sr2.json();
+      } catch { /* section just won't show */ }
+
       renderHeader(event, format, results.length, scorecards, season?.players?.length);
-      renderLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive);
+      renderLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive, superlatives);
 
       if (event.status !== 'completed') {
         renderStreamForm(event, season?.players || [], format, streams);
@@ -1023,13 +1033,13 @@
       return set;
     }
 
-    function renderLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
-      if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive); return; }
-      if (format?.type === 'match-play-grid') { renderMatchPlayGridLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive); return; }
-      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive); return; }
-      renderSoloLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive);
+    function renderLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map(), superlatives = null) {
+      if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive, superlatives); return; }
+      if (format?.type === 'match-play-grid') { renderMatchPlayGridLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive, superlatives); return; }
+      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive, superlatives); return; }
+      renderSoloLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive, superlatives);
     }
-    function renderSoloLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
+    function renderSoloLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map(), superlatives = null) {
       const isRinger = format?.type === 'ringer';
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
@@ -1205,6 +1215,7 @@
       if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
+      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives);
     }
 
     // ── Solo Match Play Grid leaderboard ──────────────────────────────────────
@@ -1216,7 +1227,7 @@
     // Three sections, top to bottom per the agreed design: standings, the
     // full player × player grid, then every player's own scorecard listed
     // out (not hidden behind a click, unlike every other format's rows).
-    function renderMatchPlayGridLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
+    function renderMatchPlayGridLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map(), superlatives = null) {
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
       const complete = results.filter(r => r.gridTotal != null);
@@ -1402,6 +1413,7 @@
       if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
+      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives);
 
       // Grid matrix — player × player, sorted same as the standings above.
       // Cell = row player's points earned in their direct 18-hole match vs
@@ -1442,7 +1454,7 @@
     }
 
     // ── Team event leaderboard ───────────────────────────────────────────────
-    function renderTeamLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
+    function renderTeamLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map(), superlatives = null) {
       const isStableford = format?.type === 'stableford-3man';
       const isLoneRanger = format?.type === 'lone-ranger';
       const hasPrizes = results.some(r => r.prize);
@@ -1675,10 +1687,11 @@
       }
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
+      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives);
     }
 
     // ── Nassau 2-Man leaderboard ─────────────────────────────────────────────
-    function renderNassauLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
+    function renderNassauLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map(), superlatives = null) {
       const app = document.getElementById('app');
       const pots = results.nassauPots || {};
       const sidePot = results.nassauSidePot || [];
@@ -1828,6 +1841,7 @@
 
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
+      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives);
     }
 
     function wireSidePotAnalysisToggle() {
@@ -2361,6 +2375,51 @@
     // scorecard-fetch job (see .github/scripts/parse_ctp.py) — separate
     // from `event.ctp` above, which is the admin-entered final CTP payout
     // record added after the event wraps up.
+    // Drive/Approach/Putt of the Week — three field-wide superlatives
+    // computed server-side from SGT's own per-shot data (fetch-weekly-
+    // superlatives.yml). A stat's array can hold more than one entry when
+    // the field genuinely ties (same distance to the hundredth) — shown as
+    // co-winners rather than picking one arbitrarily.
+    function buildSuperlativesHtml(superlatives) {
+      if (!superlatives) return '';
+      const { driveOfWeek = [], approachOfWeek = [], puttOfWeek = [] } = superlatives;
+      if (!driveOfWeek.length && !approachOfWeek.length && !puttOfWeek.length) return '';
+
+      const statCard = (icon, title, entries, valueFn) => {
+        if (!entries.length) return '';
+        const rows = entries.map(e => `
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-medium text-white text-sm truncate">${e.player}</span>
+            <span class="text-xs text-gray-500 whitespace-nowrap">Hole ${e.hole}</span>
+          </div>`).join('');
+        return `
+          <div class="bg-card border border-border rounded-xl p-4 flex flex-col">
+            <div class="text-center mb-2">
+              <div class="font-display text-2xl text-flame leading-none">${icon} ${valueFn(entries[0])}</div>
+              <div class="text-[11px] text-gray-500 uppercase tracking-widest mt-1">${title}${entries.length > 1 ? ' · Co-winners' : ''}</div>
+            </div>
+            <div class="flex flex-col gap-1.5 mt-1">${rows}</div>
+          </div>`;
+      };
+
+      const cards = [
+        statCard('🏌️', 'Drive of the Week', driveOfWeek, e => `${e.distanceYds.toFixed(0)} yds`),
+        statCard('🎯', 'Approach of the Week', approachOfWeek, e => `${e.proximityFt.toFixed(0)} ft`),
+        statCard('⛳', 'Putt of the Week', puttOfWeek, e => `${e.lengthFt.toFixed(0)} ft`),
+      ].filter(Boolean);
+
+      return `
+        <div class="mt-8">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">🏆 Superlatives of the Week</h2>
+            <span class="text-[11px] text-gray-600">via SGT</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            ${cards.join('')}
+          </div>
+        </div>`;
+    }
+
     function buildCtpLiveHtml(ctpLive, ctpVideoLive = new Map()) {
       const rounds = (ctpLive.rounds || []).filter(r => r.holes?.some(h => h.leaders?.length));
       if (!rounds.length) return '';
