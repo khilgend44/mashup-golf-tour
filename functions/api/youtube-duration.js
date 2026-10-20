@@ -66,7 +66,11 @@ export async function onRequestGet(context) {
 
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken  = env.CLOUDFLARE_API_TOKEN;
-  const cacheKey  = `yt-duration:${videoId}`;
+  // Bumped from yt-duration: — old entries were cached forever with only
+  // {durationSeconds}, no actualStartTime key at all, and would otherwise
+  // be served back as a false "this video was never live" for every
+  // video already cached before this field existed.
+  const cacheKey  = `yt-duration-v2:${videoId}`;
 
   try {
     if (accountId && apiToken) {
@@ -77,7 +81,13 @@ export async function onRequestGet(context) {
       }
     }
 
-    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${encodeURIComponent(videoId)}&key=${apiKey}`);
+    // liveStreamingDetails.actualStartTime is the real wall-clock UTC moment
+    // the broadcast went live — the anchor needed to correlate an SGT shot's
+    // own timestamp to a position in the video (actualStartTime + offset =
+    // shot time). Absent entirely for a video that was never a live stream
+    // (a regular upload), so callers should treat its absence as "not
+    // applicable" rather than an error.
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,liveStreamingDetails&id=${encodeURIComponent(videoId)}&key=${apiKey}`);
     const data = await res.json();
     if (!res.ok) return Response.json({ error: `YouTube API returned ${res.status}: ${data.error?.message || 'Unknown error'}` }, { status: 502, headers: CORS });
 
@@ -85,7 +95,8 @@ export async function onRequestGet(context) {
     if (!item) return Response.json({ error: `No video found for id ${videoId}` }, { status: 404, headers: CORS });
 
     const durationSeconds = parseIsoDuration(item.contentDetails.duration);
-    const payload = { durationSeconds };
+    const actualStartTime = item.liveStreamingDetails?.actualStartTime || null;
+    const payload = { durationSeconds, actualStartTime };
     if (accountId && apiToken && durationSeconds != null) {
       await kvPut(accountId, apiToken, cacheKey, JSON.stringify(payload));
     }
