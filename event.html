@@ -2385,7 +2385,7 @@
       const { driveOfWeek = [], approachOfWeek = [], puttOfWeek = [] } = superlatives;
       if (!driveOfWeek.length && !approachOfWeek.length && !puttOfWeek.length) return '';
 
-      const statCard = (icon, title, entries, valueFn) => {
+      const statCard = (icon, title, subtitle, entries, valueFn) => {
         if (!entries.length) return '';
         const rows = entries.map(e => `
           <div class="flex items-center justify-between gap-3">
@@ -2397,15 +2397,16 @@
             <div class="text-center mb-2">
               <div class="font-display text-2xl text-flame leading-none">${icon} ${valueFn(entries[0])}</div>
               <div class="text-[11px] text-gray-500 uppercase tracking-widest mt-1">${title}${entries.length > 1 ? ' · Co-winners' : ''}</div>
+              ${subtitle ? `<div class="text-[10px] text-gray-600 mt-0.5">${subtitle}</div>` : ''}
             </div>
             <div class="flex flex-col gap-1.5 mt-1">${rows}</div>
           </div>`;
       };
 
       const cards = [
-        statCard('🏌️', 'Drive of the Week', driveOfWeek, e => `${e.distanceYds.toFixed(0)} yds`),
-        statCard('🎯', 'Approach of the Week', approachOfWeek, e => `${e.proximityFt.toFixed(0)} ft`),
-        statCard('⛳', 'Putt of the Week', puttOfWeek, e => `${e.lengthFt.toFixed(0)} ft`),
+        statCard('🏌️', 'Drive of the Week', null, driveOfWeek, e => `${e.distanceYds.toFixed(0)} yds`),
+        statCard('🎯', 'Approach of the Week', 'Par 4/5 only, from outside 100 yds — par 3s already have their own CTP', approachOfWeek, e => `${e.proximityFt.toFixed(0)} ft`),
+        statCard('⛳', 'Putt of the Week', null, puttOfWeek, e => `${e.lengthFt.toFixed(0)} ft`),
       ].filter(Boolean);
 
       return `
