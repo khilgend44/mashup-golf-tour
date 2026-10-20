@@ -1039,6 +1039,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         lines.push('📍 **Closest to the Pin**');
         for (const c of ctps) {
           lines.push(`Hole ${c.hole} — ${tag(c.player)}${c.distance ? ` — ${c.distance}` : ''} — ${fmtMoney(c.amount)}`);
+          if (c.video) lines.push(c.video); // Discord auto-links a bare URL on its own line
         }
         lines.push('');
       }
@@ -1204,6 +1205,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         const hole     = ex.hole ?? suggestion?.hole ?? '';
         const player   = ex.player ?? (suggestion ? resolvePlayer(suggestion.player) : '');
         const distance = ex.distance ?? (suggestion ? fmtSuggested(suggestion) : '');
+        const video    = ex.video ?? '';
         return `
           <div class="grid grid-cols-12 gap-2 items-end" data-ctp-row="${i}">
             <div class="col-span-3">
@@ -1219,6 +1221,10 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
               <input type="text" placeholder="e.g. 3' 6&quot;" class="ctp-dist w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${String(distance).replace(/"/g, '&quot;')}" />
             </div>
             ${suggestion ? `<div class="col-span-12 -mt-1"><span class="text-[10px] text-emerald-500 font-heading tracking-wide uppercase">✓ Suggested from live CTP tracker — verify before saving</span></div>` : ''}
+            <div class="col-span-12">
+              <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Video link (optional) — timestamped YouTube URL for the shot</label>
+              <input type="url" placeholder="https://youtube.com/watch?v=...&t=123s" class="ctp-video w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${String(video).replace(/"/g, '&quot;')}" />
+            </div>
           </div>`;
       }).join('');
 
@@ -1237,8 +1243,11 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         const hole     = parseInt(row.querySelector('.ctp-hole').value);
         const player   = row.querySelector('.ctp-player').value;
         const distance = row.querySelector('.ctp-dist').value.trim();
+        const video    = row.querySelector('.ctp-video').value.trim();
         if (!player || !hole) { showStatus('Each CTP needs a hole number and a player.', 'error'); return; }
-        ctp.push({ hole, player, distance, amount: amountEach });
+        const entry = { hole, player, distance, amount: amountEach };
+        if (video) entry.video = video;
+        ctp.push(entry);
       }
       modal.style.display = 'none';
       submitComplete(eventId, ev.name || eventId, ctp);
