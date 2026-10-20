@@ -49,10 +49,18 @@ jobs:
             --argjson kv "$KV_EVENTS" \
             '($static + $kv) | reduce .[] as $e ({}; .[$e.id] = $e) | to_entries | map(.value)')
 
-          # Get tournament IDs for active events in the active season
+          # Get tournament IDs to fetch for the active season: every active
+          # event, plus any completed one that still has a recorded CTP
+          # winner with no video link yet — a player can link their stream
+          # on SGT any time, including after their event closes, so this
+          # stays in scope only until the gap is filled (then the completed
+          # event naturally drops out of this list on its own next run).
           TOURNAMENT_IDS=$(echo "$ALL_EVENTS" | jq -r \
             --arg season "$ACTIVE_SEASON" \
-            '.[] | select(.season == $season and .status == "active") | .tournamentId')
+            '.[] | select(.season == $season and (
+                .status == "active" or
+                (.status == "completed" and ([.ctp[]? | select((.video // "") == "")] | length) > 0)
+              )) | .tournamentId')
 
           if [ -z "$TOURNAMENT_IDS" ]; then
             echo "No events with status=active to fetch for $ACTIVE_SEASON."
@@ -137,6 +145,73 @@ jobs:
               fi
 
               rm -f "$sgt_streams" "$mashup_streams"
+
+              # CTP video auto-linking. A player who links their stream
+              # through SGT's own system (not MashUp's submission form) gets
+              # exact per-hole shot timing for free — SGT's own "jump to
+              # this hole in the video" offset, confirmed accurate (unlike
+              # its separate per-shot offset, which drifts by a different,
+              # unpredictable amount per stream). This only ever fills a
+              # CTP entry's `video` field when it's still empty. See
+              # ctp_video_link.py for why this takes several fetches: the
+              # URL slug in a scorecard link isn't the id SGT's own API
+              # needs, so each candidate needs its own scorecard-page fetch
+              # to resolve the real one first.
+              EVENT_CTP=$(echo "$ALL_EVENTS" | jq -c --argjson tid "$tid" '[.[] | select(.tournamentId == $tid)][0].ctp // []')
+              NEEDED=$(echo "$EVENT_CTP" | jq -c '[.[] | select((.video // "") == "") | {hole, player}]')
+              nc=$(echo "$NEEDED" | jq 'length')
+
+              if [ "$nc" != "0" ] && [ -n "$STREAM_IMPORT_SECRET" ]; then
+                echo "  → resolving video links for $nc CTP hole(s) without one yet..."
+                CTP_VIDEOS="[]"
+                for row in $(echo "$NEEDED" | jq -c '.[]'); do
+                  hole=$(echo "$row" | jq -r '.hole')
+                  player=$(echo "$row" | jq -r '.player')
+
+                  slug=$(python3 .github/scripts/ctp_video_link.py slug "$lbhtml" "$player")
+                  [ -z "$slug" ] && continue
+
+                  scpage=$(mktemp)
+                  curl -sf -H "Referer: https://simulatorgolftour.com/tournament/${tid}" -H "User-Agent: Mozilla/5.0" \
+                    "https://simulatorgolftour.com/scorecard/${tid}/${slug}" -o "$scpage" || { rm -f "$scpage"; continue; }
+                  pidteam=$(python3 .github/scripts/ctp_video_link.py pid "$scpage")
+                  rm -f "$scpage"
+                  [ -z "$pidteam" ] && continue
+                  pid=$(echo "$pidteam" | cut -d' ' -f1)
+                  team=$(echo "$pidteam" | cut -d' ' -f2)
+
+                  scdefault=$(mktemp)
+                  curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+                    "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; continue; }
+                  streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault")
+                  rm -f "$scdefault"
+                  [ -z "$streamvideo" ] && continue
+                  streamid=$(echo "$streamvideo" | cut -d' ' -f1)
+                  videoid=$(echo "$streamvideo" | cut -d' ' -f2)
+
+                  scstream=$(mktemp)
+                  curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+                    "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; continue; }
+                  offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
+                  rm -f "$scstream"
+                  [ -z "$offset" ] && continue
+
+                  video="https://www.youtube.com/watch?v=${videoid}&t=${offset}s"
+                  CTP_VIDEOS=$(echo "$CTP_VIDEOS" | jq -c --argjson hole "$hole" --arg player "$player" --arg video "$video" '. + [{hole: $hole, player: $player, video: $video}]')
+                done
+
+                vcount=$(echo "$CTP_VIDEOS" | jq 'length')
+                if [ "$vcount" != "0" ]; then
+                  echo "  → found $vcount CTP video link(s), importing..."
+                  payload=$(jq -n --arg eventId "$EVENT_ID" --argjson items "$CTP_VIDEOS" '{eventId: $eventId, items: $items}')
+                  curl -sf -X POST "https://mashup-golf-tour.pages.dev/api/import-ctp-video" \
+                    -H "Content-Type: application/json" \
+                    -H "X-Cron-Secret: ${STREAM_IMPORT_SECRET}" \
+                    -d "$payload" || echo "  → CTP video import request failed"
+                else
+                  echo "  → no resolvable CTP videos this run"
+                fi
+              fi
             else
               echo "  → leaderboard fetch failed for $tid, skipping stream check"
             fi

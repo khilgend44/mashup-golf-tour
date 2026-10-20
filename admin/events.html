@@ -1224,6 +1224,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
             <div class="col-span-12">
               <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Video link (optional) — timestamped YouTube URL for the shot</label>
               <input type="url" placeholder="https://youtube.com/watch?v=...&t=123s" class="ctp-video w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${String(video).replace(/"/g, '&quot;')}" />
+              ${ex.videoSource === 'auto' ? `<span class="block mt-1 text-[10px] text-sky-500 font-heading tracking-wide uppercase">🤖 Auto-linked from SGT stream — verify before relying on it</span>` : ''}
             </div>
           </div>`;
       }).join('');
@@ -1238,15 +1239,24 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       const eventId = modal.dataset.eventId;
       const ev      = state.kvEvents.find(e => e.id === eventId);
       const amountEach = Number(ev.ctps?.amountEach) || 0;
+      const existing = ev.ctp || [];
       const ctp = [];
       for (const row of document.querySelectorAll('#ctp-rows [data-ctp-row]')) {
+        const i        = parseInt(row.dataset.ctpRow);
         const hole     = parseInt(row.querySelector('.ctp-hole').value);
         const player   = row.querySelector('.ctp-player').value;
         const distance = row.querySelector('.ctp-dist').value.trim();
         const video    = row.querySelector('.ctp-video').value.trim();
         if (!player || !hole) { showStatus('Each CTP needs a hole number and a player.', 'error'); return; }
         const entry = { hole, player, distance, amount: amountEach };
-        if (video) entry.video = video;
+        if (video) {
+          entry.video = video;
+          // Only keep the auto-linked tag if the link wasn't touched — any
+          // edit (including pasting a different one) makes this a manual
+          // entry going forward, same "never second-guess a human" rule
+          // import-ctp-video.js itself follows in the other direction.
+          if (existing[i]?.videoSource === 'auto' && existing[i]?.video === video) entry.videoSource = 'auto';
+        }
         ctp.push(entry);
       }
       modal.style.display = 'none';
