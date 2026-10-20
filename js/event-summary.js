@@ -15,7 +15,7 @@
 // invalidates just because every other page bumped its own `?v=` (see the
 // identical note in stats.js, where this exact gap caused records.html to
 // look like it had no Season 10 data for a returning visitor).
-import { isCardComplete } from './scoring.js?v=20261019a';
+import { isCardComplete } from './scoring.js?v=20261019b';
 
 function classify(diff) {
   if (diff <= -2) return 'eagle';

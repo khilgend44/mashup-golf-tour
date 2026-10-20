@@ -1354,39 +1354,56 @@ function calcBestBall3Man(scorecards, format, event) {
 // ─── 2-Man Shamble ──────────────────────────────────────────────────────────
 
 function calcShamble2Man(scorecards, format, event) {
-  const kvTeamMap = buildKvTeamMap(event);
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
-    }
-    teams[key].players.push({
-      name: card.player_name,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
-      totalNet: card.total_net,
-    });
-  }
+  const teamSize = format.teamSize || 2;
+  const teams = buildTeamRoster(scorecards, event, teamSize);
+  const COUNT_N = 1; // single best net ball counts on every hole
 
-  const results = Object.values(teams).map(team => {
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
+
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      let provisionalToPar = null;
+      if (team.pars) {
+        let provTotal = 0, provPar = 0;
+        for (let h = 0; h < 18; h++) {
+          // Capped to whoever has a real score on THIS hole so far — a live
+          // member's already-played holes count alongside completed
+          // members' (settled data, same reasoning as the other formats).
+          const available = members.map(m => m.net?.[h]).filter(n => n != null);
+          if (!available.length) continue;
+          provTotal += Math.min(...available);
+          provPar += team.pars[h];
+        }
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        teamSize,
+        pars: team.pars,
+        indices: team.indices,
+        total: null,
+        toPar: provisionalToPar,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
+    }
+
     const countingPlayers = [];
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
-      // Treat 0 or null as missing — use the other player's score
-      const effective = team.players.map(p => {
-        const s = p.net[h];
-        return (s === null || s === 0) ? Infinity : s;
-      });
-      const best = Math.min(...effective);
-      const counting = team.players.map((_, i) => best !== Infinity && effective[i] === best);
+      const ranked = completePlayers
+        .map((p, idx) => ({ idx, score: p.net[h] }))
+        .sort((a, b) => a.score - b.score);
+      const counting = new Array(completePlayers.length).fill(false);
+      counting[ranked[0].idx] = true;
       countingPlayers.push(counting);
-      return best === Infinity ? 0 : best;
+      return ranked[0].score;
     });
 
     const out = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
@@ -1395,12 +1412,12 @@ function calcShamble2Man(scorecards, format, event) {
     const inPar = team.pars.slice(9).reduce((a, b) => a + b, 0);
     const total = out + inn;
     const totalPar = outPar + inPar;
-    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       teamHoleScores,
       countingPlayers,
       pars: team.pars,
@@ -1410,35 +1427,25 @@ function calcShamble2Man(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate,
       prize: null,
-    };
-  });
+    });
+  }
 
-  results.sort((a, b) => {
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => {
     if (a.total !== b.total) return a.total - b.total;
     if (a.aggregate !== b.aggregate) return a.aggregate - b.aggregate;
-    return shambleCountback(a, b);
+    return teamIndexCountback(a, b);
   });
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total &&
-        curr.aggregate === prev.aggregate &&
-        shambleCountback(curr, prev) === 0;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
-  }
-  return results;
-}
-
-function shambleCountback(a, b) {
-  const sorted = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.indices[x] - a.indices[y]);
-  for (const h of sorted) {
-    const d = a.teamHoleScores[h] - b.teamHoleScores[h];
-    if (d !== 0) return d;
-  }
-  return 0;
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate && teamIndexCountback(curr, prev) === 0;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
+  return [...ranked, ...sortInProgress(unranked)];
 }
 
 // ─── 2-Man Modified Nassau ──────────────────────────────────────────────────
