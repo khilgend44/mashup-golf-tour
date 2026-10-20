@@ -1,0 +1,37 @@
+{
+  "tournamentId": 78306,
+  "generatedAt": "2026-10-20T22:10:20Z",
+  "driveOfWeek": [
+    {
+      "player": "ryanlane10",
+      "hole": 14,
+      "par": 4,
+      "distanceYds": 311.0
+    }
+  ],
+  "approachOfWeek": [
+    {
+      "player": "adamw19",
+      "hole": 8,
+      "par": 4,
+      "proximityFt": 5.0
+    }
+  ],
+  "puttOfWeek": [
+    {
+      "player": "pottsy",
+      "hole": 9,
+      "lengthFt": 20.0
+    },
+    {
+      "player": "pottsy",
+      "hole": 11,
+      "lengthFt": 20.0
+    },
+    {
+      "player": "adamw19",
+      "hole": 14,
+      "lengthFt": 20.0
+    }
+  ]
+}
