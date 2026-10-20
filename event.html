@@ -1555,7 +1555,7 @@
                   <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">
                     Team In Progress — ${orderedMembers.map(m => m.name).join(' / ')}
                   </div>
-                  ${buildTeamProgressScorecardHTML(team, event)}
+                  ${buildTeamProgressScorecardHTML(team, format, event)}
                   <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
                     ${orderedMembers.map(m => m.name).map(m => `
                       <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
@@ -1945,20 +1945,37 @@
         </div>`;
     }
 
-    // A team stuck in `inProgress` has no real team score yet (any
-    // best-ball-style segment needs every roster spot filled first — see
-    // `buildTeamRoster`/`calcEscalatorDoom` and friends), so this can't
-    // reuse `buildTeamScorecardHTML` below, which assumes a fully-scored
-    // team (`team.players`, `team.teamHoleScores`, etc.). This instead just
-    // shows each teammate's own individual round — net + gross, no team
-    // math — so a completed member's card isn't hidden behind however long
-    // the slowest teammate takes.
-    function buildTeamProgressScorecardHTML(team, event = null) {
+    // A team stuck in `inProgress` has no *final* team score yet (most
+    // formats' best-ball-style segments need every roster spot filled
+    // first — see `buildTeamRoster`/`calcEscalatorDoom` and friends), so
+    // this can't reuse `buildTeamScorecardHTML` below, which assumes a
+    // fully-scored team (`team.players`, `team.teamHoleScores`, etc.).
+    // Mainly shows each teammate's own individual round — net + gross, no
+    // team math — so a completed member's card isn't hidden behind however
+    // long the slowest teammate takes. Shamble is the one exception: its
+    // hole score has no order/segment to wait on, so it also gets a live
+    // per-hole TEAM row (see isShamble below) once both teammates have
+    // actually played a given hole.
+    function buildTeamProgressScorecardHTML(team, format = null, event = null) {
       const front = [0, 1, 2, 3, 4, 5, 6, 7, 8];
       const back  = [9, 10, 11, 12, 13, 14, 15, 16, 17];
       const pars = team.pars || [];
       const indices = team.indices || [];
       const sum = (arr, idxs) => idxs.reduce((s, i) => s + (arr[i] || 0), 0);
+
+      // Shamble's hole score has no slot order or segment rule to wait on —
+      // it's just whichever teammate's net is lower on that hole, so it can
+      // be shown live, hole by hole, the instant both teammates have
+      // actually played it. teamHoleScores[h] stays null until then (one
+      // teammate could still beat the "best so far" once they get there).
+      const isShamble = format?.type === 'shamble-2man';
+      let teamHoleScores = null;
+      if (isShamble) {
+        teamHoleScores = Array.from({ length: 18 }, (_, h) => {
+          const scores = team.members.map(m => m.net?.[h]).filter(n => n != null);
+          return scores.length >= (team.teamSize || 2) ? Math.min(...scores) : null;
+        });
+      }
 
       function scoreCell(score, par, grossVal = null, extraCls = '') {
         if (score == null) {
@@ -2076,11 +2093,36 @@
                 <td class="sub-cell"></td>
               </tr>
               ${memberRows}
+              ${isShamble ? teamProgressRowHtml() : ''}
             </tbody>
           </table>
         </div>
-        <p class="text-xs text-gray-600 mt-3">Full team scoring isn't available until all ${team.teamSize} teammates have a completed round — this just shows each player's own card so far.${team.slots ? ' Underlined score = that hole\'s mandatory Lone Ranger slot · dimmed = already beaten by a teammate, won\'t count.' : ''}</p>
+        <p class="text-xs text-gray-600 mt-3">${isShamble
+          ? 'TEAM row shows the lower of the two net scores on any hole both teammates have already played — holes still waiting on one of them show as "–".'
+          : `Full team scoring isn't available until all ${team.teamSize} teammates have a completed round — this just shows each player's own card so far.${team.slots ? ' Underlined score = that hole\'s mandatory Lone Ranger slot · dimmed = already beaten by a teammate, won\'t count.' : ''}`}</p>
       `;
+
+      function teamProgressRowHtml() {
+        const teamCell = h => {
+          const score = teamHoleScores[h];
+          if (score == null) return `<td style="padding:3px 4px"><span class="sc-score" style="color:#3a3a3a">–</span></td>`;
+          const diff = score - pars[h];
+          const cls = diff < 0 ? 'under' : diff > 0 ? 'over' : 'even';
+          return `<td class="font-semibold ${cls} font-mono" style="padding:3px 4px;font-size:12px">${score}</td>`;
+        };
+        const nOut = sum(teamHoleScores, front), nIn = sum(teamHoleScores, back);
+        const confirmedThru = teamHoleScores.findIndex(s => s == null);
+        const thru = confirmedThru === -1 ? 18 : confirmedThru;
+        return `
+          <tr class="score-row" style="border-top:1px solid #333">
+            <td class="name-cell" style="color:#f97316">TEAM${thru < 18 ? `<span class="chip chip-live" style="margin-left:6px;padding:1px 6px;font-size:9px;vertical-align:1px"><span class="pulse-dot" style="width:5px;height:5px"></span>THRU ${thru}</span>` : ''}</td>
+            ${front.map(teamCell).join('')}
+            <td class="sub-cell">${nOut}</td>
+            ${back.map(teamCell).join('')}
+            <td class="sub-cell">${nIn}</td>
+            <td class="total-cell">${nOut + nIn}</td>
+          </tr>`;
+      }
     }
 
     function buildTeamScorecardHTML(team, format, event = null) {
