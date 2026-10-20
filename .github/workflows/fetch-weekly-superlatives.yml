@@ -1,0 +1,142 @@
+name: Fetch Weekly Superlatives
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # hourly — these are weekly stats, not a per-shot
+                           # race like CTP timing, so this is plenty
+                           # responsive without hammering SGT's servers with
+                           # the ~2 extra requests per team/solo entry this
+                           # needs on top of the 10-minute scorecard cron.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compute Drive/Approach/Putt of the Week for active events
+        run: |
+          STATIC_SEASONS=$(cat data/seasons.json)
+          KV_SEASONS=$(curl -sf "https://mashup-golf-tour.pages.dev/api/seasons" || echo "[]")
+          ALL_SEASONS=$(jq -n \
+            --argjson static "$STATIC_SEASONS" \
+            --argjson kv "$KV_SEASONS" \
+            '($static + $kv) | reduce .[] as $s ({}; .[$s.id] = $s) | to_entries | map(.value)')
+          ACTIVE_SEASON=$(echo "$ALL_SEASONS" | jq -r '.[] | select(.status == "active") | .id' | head -1)
+
+          if [ -z "$ACTIVE_SEASON" ]; then
+            echo "No active season found — nothing to compute."
+            exit 0
+          fi
+
+          STATIC_EVENTS=$(cat data/events.json)
+          KV_EVENTS=$(curl -sf "https://mashup-golf-tour.pages.dev/api/events-admin?type=events" || echo "[]")
+          ALL_EVENTS=$(jq -n \
+            --argjson static "$STATIC_EVENTS" \
+            --argjson kv "$KV_EVENTS" \
+            '($static + $kv) | reduce .[] as $e ({}; .[$e.id] = $e) | to_entries | map(.value)')
+
+          # Only events still being played — once an event completes, its
+          # last computed file while active is already the final answer,
+          # no need to keep refetching a closed week every hour forever.
+          TOURNAMENT_IDS=$(echo "$ALL_EVENTS" | jq -r \
+            --arg season "$ACTIVE_SEASON" \
+            '.[] | select(.season == $season and .status == "active") | .tournamentId')
+
+          if [ -z "$TOURNAMENT_IDS" ]; then
+            echo "No active events to compute for $ACTIVE_SEASON."
+            exit 0
+          fi
+
+          mkdir -p data/superlatives
+
+          echo "$TOURNAMENT_IDS" | while read tid; do
+            echo "Computing superlatives for tournament $tid..."
+
+            cookiejar=$(mktemp)
+            curl -sf -c "$cookiejar" "https://simulatorgolftour.com/tournament/${tid}" -o /dev/null \
+              || { echo "  → couldn't get a session cookie, skipping"; rm -f "$cookiejar"; continue; }
+
+            lbhtml=$(mktemp)
+            curl -sf -b "$cookiejar" \
+              -H "X-Requested-With: XMLHttpRequest" \
+              -H "Referer: https://simulatorgolftour.com/tournament/${tid}" \
+              "https://simulatorgolftour.com/sgt-api/leaderboard/${tid}" -o "$lbhtml" \
+              || { echo "  → leaderboard fetch failed, skipping"; rm -f "$cookiejar" "$lbhtml"; continue; }
+            rm -f "$cookiejar"
+
+            # One representative player per scorecard entry (team or solo —
+            # see ctp_video_link.py's `reps` step for why teammates only
+            # need fetching once). Each rep's shots fragment is parsed on
+            # its own and appended as one line of a JSONL file, since a
+            # piped `while read` loop runs in a subshell and can't
+            # accumulate results into a bash variable the way a plain
+            # variable append can elsewhere in this repo's scripts.
+            fragments=$(mktemp)
+            python3 .github/scripts/ctp_video_link.py reps "$lbhtml" | while read -r player slug; do
+              [ -z "$slug" ] && continue
+
+              scpage=$(mktemp)
+              curl -sf -H "Referer: https://simulatorgolftour.com/tournament/${tid}" -H "User-Agent: Mozilla/5.0" \
+                "https://simulatorgolftour.com/scorecard/${tid}/${slug}" -o "$scpage" || { rm -f "$scpage"; continue; }
+              pidteam=$(python3 .github/scripts/ctp_video_link.py pid "$scpage")
+              rm -f "$scpage"
+              [ -z "$pidteam" ] && continue
+              pid=$(echo "$pidteam" | cut -d' ' -f1)
+              team=$(echo "$pidteam" | cut -d' ' -f2)
+
+              shots=$(mktemp)
+              curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+                "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/shots" -o "$shots" || { rm -f "$shots"; continue; }
+              python3 .github/scripts/parse_shots.py "$shots" >> "$fragments"
+              rm -f "$shots"
+            done
+            rm -f "$lbhtml"
+
+            if [ ! -s "$fragments" ]; then
+              echo "  → no shot data resolved for $tid, leaving superlatives file as-is"
+              rm -f "$fragments"
+              continue
+            fi
+
+            jq -s '{
+              drives:     [.[].drives[]],
+              approaches: [.[].approaches[]],
+              putts:      [.[].putts[]]
+            }' "$fragments" > "data/superlatives/${tid}.raw.json"
+            rm -f "$fragments"
+
+            # Winners are arrays, not a single pick — a genuine tie (same
+            # distance to the hundredth) is a real possibility across a
+            # whole field and gets shown as co-winners rather than an
+            # arbitrary tiebreak.
+            jq '
+              def bestBy(f; pick): (map(f) | pick) as $best | map(select(f == $best));
+              {
+                tournamentId: '"$tid"',
+                generatedAt: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
+                driveOfWeek:    (.drives     | bestBy(.distanceYds; max)),
+                approachOfWeek: (.approaches | bestBy(.proximityFt; min)),
+                puttOfWeek:     (.putts      | bestBy(.lengthFt;    max))
+              }
+            ' "data/superlatives/${tid}.raw.json" > "data/superlatives/${tid}.json"
+            rm -f "data/superlatives/${tid}.raw.json"
+            echo "  → saved data/superlatives/${tid}.json"
+          done
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/superlatives/
+          if git diff --staged --quiet; then
+            echo "No superlative changes — skipping commit."
+          else
+            git commit -m "chore: refresh weekly superlatives $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi

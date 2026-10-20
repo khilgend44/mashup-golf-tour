@@ -212,6 +212,68 @@ jobs:
                   echo "  → no resolvable CTP videos this run"
                 fi
               fi
+
+              # Live-leaderboard CTP video links — for the public event
+              # page's "Closest to the Pin — Live" cards, while a hole's
+              # winner isn't recorded in admin's ctp[] at all yet (that
+              # only gets written when the admin completes the event). The
+              # candidates here are each round's current hole leader
+              # (leaders[0] — already sorted closest-first by parse_ctp.py),
+              # matching exactly what resolveCtpLeaders (js/api.js) picks
+              # as the current leader client-side. Unlike the admin ctp[]
+              # step above, this file is fully regenerated every run (same
+              # as data/ctp/*.json itself) rather than merged, since it's
+              # just a live snapshot of who's leading right now, not a
+              # permanent record — keyed by round:hole:player so a leader
+              # change can never show a stale shot's video by mistake.
+              mkdir -p data/ctp-video
+              LIVE_CANDIDATES=$(jq -c '[.rounds[]? | .round as $r | .holes[]? | select(.leaders | length > 0) | {round: $r, hole, player: .leaders[0].player}]' "data/ctp/${tid}.json" 2>/dev/null || echo "[]")
+              lc=$(echo "$LIVE_CANDIDATES" | jq 'length')
+
+              if [ "$lc" != "0" ]; then
+                echo "  → resolving live-leaderboard video links for $lc hole(s)..."
+                LIVE_VIDEOS="[]"
+                for row in $(echo "$LIVE_CANDIDATES" | jq -c '.[]'); do
+                  round=$(echo "$row" | jq -r '.round')
+                  hole=$(echo "$row" | jq -r '.hole')
+                  player=$(echo "$row" | jq -r '.player')
+
+                  slug=$(python3 .github/scripts/ctp_video_link.py slug "$lbhtml" "$player")
+                  [ -z "$slug" ] && continue
+
+                  scpage=$(mktemp)
+                  curl -sf -H "Referer: https://simulatorgolftour.com/tournament/${tid}" -H "User-Agent: Mozilla/5.0" \
+                    "https://simulatorgolftour.com/scorecard/${tid}/${slug}" -o "$scpage" || { rm -f "$scpage"; continue; }
+                  pidteam=$(python3 .github/scripts/ctp_video_link.py pid "$scpage")
+                  rm -f "$scpage"
+                  [ -z "$pidteam" ] && continue
+                  pid=$(echo "$pidteam" | cut -d' ' -f1)
+                  team=$(echo "$pidteam" | cut -d' ' -f2)
+
+                  scdefault=$(mktemp)
+                  curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+                    "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; continue; }
+                  streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault")
+                  rm -f "$scdefault"
+                  [ -z "$streamvideo" ] && continue
+                  streamid=$(echo "$streamvideo" | cut -d' ' -f1)
+                  videoid=$(echo "$streamvideo" | cut -d' ' -f2)
+
+                  scstream=$(mktemp)
+                  curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+                    "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; continue; }
+                  offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
+                  rm -f "$scstream"
+                  [ -z "$offset" ] && continue
+
+                  video="https://www.youtube.com/watch?v=${videoid}&t=${offset}s"
+                  LIVE_VIDEOS=$(echo "$LIVE_VIDEOS" | jq -c --argjson round "$round" --argjson hole "$hole" --arg player "$player" --arg video "$video" '. + [{round: $round, hole: $hole, player: $player, video: $video}]')
+                done
+                echo "$LIVE_VIDEOS" > "data/ctp-video/${tid}.json"
+                echo "  → saved data/ctp-video/${tid}.json ($(echo "$LIVE_VIDEOS" | jq 'length') link(s))"
+              else
+                echo "[]" > "data/ctp-video/${tid}.json"
+              fi
             else
               echo "  → leaderboard fetch failed for $tid, skipping stream check"
             fi
@@ -223,7 +285,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/scorecards/ data/ctp/
+          git add data/scorecards/ data/ctp/ data/ctp-video/
           if git diff --staged --quiet; then
             echo "No scorecard changes — skipping commit."
           else

@@ -552,8 +552,24 @@
       // Live closest-to-pin standings — best-effort, see js/api.js fetchCtp
       const ctpLive = await fetchCtp(event.tournamentId);
 
+      // Timestamped YouTube links for whoever's currently leading a CTP
+      // hole, resolved server-side (fetch-scorecards.yml) from SGT's own
+      // "jump to this hole" offset for players who've linked their stream
+      // through SGT directly — only exists for the few who've done that,
+      // so an empty/missing file here just means no icon shows yet, not
+      // an error. Keyed by round:hole:player so it survives a leader
+      // changing hole/round without ever matching the wrong shot.
+      let ctpVideoLive = new Map();
+      try {
+        const cvr = await fetch(`/data/ctp-video/${event.tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
+        if (cvr.ok) {
+          const list = await cvr.json();
+          ctpVideoLive = new Map(list.map(v => [`${v.round}:${v.hole}:${v.player.toLowerCase()}`, v.video]));
+        }
+      } catch { /* icon just won't show */ }
+
       renderHeader(event, format, results.length, scorecards, season?.players?.length);
-      renderLeaderboard(results, event, format, streams, ctpLive);
+      renderLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive);
 
       if (event.status !== 'completed') {
         renderStreamForm(event, season?.players || [], format, streams);
@@ -1007,13 +1023,13 @@
       return set;
     }
 
-    function renderLeaderboard(results, event, format, streams = {}, ctpLive = null) {
-      if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams, ctpLive); return; }
-      if (format?.type === 'match-play-grid') { renderMatchPlayGridLeaderboard(results, event, format, streams, ctpLive); return; }
-      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams, ctpLive); return; }
-      renderSoloLeaderboard(results, event, format, streams, ctpLive);
+    function renderLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
+      if (format?.type === 'nassau-2man') { renderNassauLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive); return; }
+      if (format?.type === 'match-play-grid') { renderMatchPlayGridLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive); return; }
+      if (format && format.teamSize > 1) { renderTeamLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive); return; }
+      renderSoloLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive);
     }
-    function renderSoloLeaderboard(results, event, format, streams = {}, ctpLive = null) {
+    function renderSoloLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
       const isRinger = format?.type === 'ringer';
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
@@ -1050,6 +1066,7 @@
           </table>
         </div>
         <div id="ctp-live-section"></div>
+        <div id="superlatives-section"></div>
         <div id="side-section"></div>
         <div id="ctp-section"></div>
       `;
@@ -1187,7 +1204,7 @@
       // Side pots + CTP
       if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
-      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
+      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
     }
 
     // ── Solo Match Play Grid leaderboard ──────────────────────────────────────
@@ -1199,7 +1216,7 @@
     // Three sections, top to bottom per the agreed design: standings, the
     // full player × player grid, then every player's own scorecard listed
     // out (not hidden behind a click, unlike every other format's rows).
-    function renderMatchPlayGridLeaderboard(results, event, format, streams = {}, ctpLive = null) {
+    function renderMatchPlayGridLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
       const complete = results.filter(r => r.gridTotal != null);
@@ -1279,6 +1296,7 @@
           </table>
         </div>
         <div id="ctp-live-section"></div>
+        <div id="superlatives-section"></div>
         <div id="side-section"></div>
         <div id="ctp-section"></div>
         <div id="grid-section" class="mt-10" style="scroll-margin-top:72px"></div>
@@ -1383,7 +1401,7 @@
       // Side pots + CTP
       if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
-      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
+      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
 
       // Grid matrix — player × player, sorted same as the standings above.
       // Cell = row player's points earned in their direct 18-hole match vs
@@ -1424,7 +1442,7 @@
     }
 
     // ── Team event leaderboard ───────────────────────────────────────────────
-    function renderTeamLeaderboard(results, event, format, streams = {}, ctpLive = null) {
+    function renderTeamLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
       const isStableford = format?.type === 'stableford-3man';
       const isLoneRanger = format?.type === 'lone-ranger';
       const hasPrizes = results.some(r => r.prize);
@@ -1461,6 +1479,7 @@
           </table>
         </div>
         <div id="ctp-live-section"></div>
+        <div id="superlatives-section"></div>
         <div id="side-section"></div>
         <div id="ctp-section"></div>
       `;
@@ -1655,11 +1674,11 @@
         document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       }
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
-      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
+      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
     }
 
     // ── Nassau 2-Man leaderboard ─────────────────────────────────────────────
-    function renderNassauLeaderboard(results, event, format, streams = {}, ctpLive = null) {
+    function renderNassauLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map()) {
       const app = document.getElementById('app');
       const pots = results.nassauPots || {};
       const sidePot = results.nassauSidePot || [];
@@ -1738,6 +1757,7 @@
           </table>
         </div>
         <div id="ctp-live-section"></div>
+        <div id="superlatives-section"></div>
         ${sidePotHtml}
         <div id="ctp-section"></div>
       `;
@@ -1807,7 +1827,7 @@
       });
 
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
-      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive);
+      if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
     }
 
     function wireSidePotAnalysisToggle() {
@@ -2332,7 +2352,7 @@
     // scorecard-fetch job (see .github/scripts/parse_ctp.py) — separate
     // from `event.ctp` above, which is the admin-entered final CTP payout
     // record added after the event wraps up.
-    function buildCtpLiveHtml(ctpLive) {
+    function buildCtpLiveHtml(ctpLive, ctpVideoLive = new Map()) {
       const rounds = (ctpLive.rounds || []).filter(r => r.holes?.some(h => h.leaders?.length));
       if (!rounds.length) return '';
       const showRoundLabel = rounds.length > 1;
@@ -2360,10 +2380,15 @@
               <div class="flex flex-col gap-2 mt-1">
                 ${h.leaders.map((l, i) => {
                   const isCurrentCtp = i === 0 && winner?.round === r.round && winner?.player === l.player;
+                  // Only exists for the few players who've linked their
+                  // stream through SGT directly (see fetch-scorecards.yml) —
+                  // a missing entry just means no icon, not an error.
+                  const video = isCurrentCtp ? ctpVideoLive.get(`${r.round}:${h.hole}:${l.player.toLowerCase()}`) : null;
                   return `
                   <div class="flex items-center gap-2 ${isCurrentCtp ? 'rounded-lg px-2 py-1 -mx-2' : ''}" ${isCurrentCtp ? 'style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.5)"' : ''}>
                     <span class="fi ${l.flag}" style="width:18px;height:13px;border-radius:2px;flex-shrink:0;box-shadow:0 0 0 1px rgba(255,255,255,0.08)"></span>
                     <span class="font-medium ${l.ace ? 'text-amber-400' : isCurrentCtp ? 'text-amber-300' : 'text-white'} text-sm truncate flex-1">${l.player}${isCurrentCtp ? ' <span class="text-[9px] text-amber-400 font-700 tracking-wide align-middle">CTP</span>' : ''}</span>
+                    ${video ? `<a href="${video}" target="_blank" rel="noopener" title="Watch the shot on YouTube" onclick="event.stopPropagation()" class="flex items-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}</a>` : ''}
                     <span class="text-xs ${l.ace ? 'text-amber-400 font-700' : isCurrentCtp ? 'text-amber-300 font-700' : 'text-gray-400'} font-mono whitespace-nowrap">${l.ace ? 'ACE! 🎯' : l.distance_ft.toFixed(2) + ' ft'}</span>
                   </div>`;
                 }).join('')}

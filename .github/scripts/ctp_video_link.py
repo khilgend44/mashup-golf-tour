@@ -30,6 +30,8 @@ calls, since each URL depends on the previous step's output):
   ctp_video_link.py pid    <scorecard_page_html>               -> "<pid> <is_team>", or nothing
   ctp_video_link.py stream <default_fragment_html>             -> "<streamId> <videoId>", or nothing
   ctp_video_link.py offset <stream_fragment_html> <hole>        -> time offset in seconds, or nothing
+  ctp_video_link.py reps   <leaderboard_html>                   -> one "<player> <slug>" per line,
+                                                                    one per distinct scorecard entry
 Prints nothing (exit 0) when a step can't resolve — the common case for
 the many players who haven't linked a stream via SGT's own system, not
 an error.
@@ -74,6 +76,28 @@ def cmd_stream(default_fragment_html_path):
         print(f"{m.group(1)} {m.group(2)}")
 
 
+def cmd_reps(leaderboard_html_path):
+    """One representative player per distinct scorecard entry — teammates in
+    a team format share one scorecard (and so one slug), so fetching more
+    than the first teammate's shots would just refetch identical bytes.
+    Works for both team and solo formats unchanged, since a solo row's own
+    data-player-name is just a single name."""
+    html = read(leaderboard_html_path)
+    seen_slugs = set()
+    for row_m in re.finditer(r"<tr[^>]*data-player-name='([^']*)'.*?</tr>", html, re.S):
+        names = row_m.group(1).strip().split()
+        if not names:
+            continue
+        slug_m = re.search(r"/scorecard/\d+/(\d+)", row_m.group(0))
+        if not slug_m:
+            continue
+        slug = slug_m.group(1)
+        if slug in seen_slugs:
+            continue
+        seen_slugs.add(slug)
+        print(f"{names[0]} {slug}")
+
+
 def cmd_offset(stream_fragment_html_path, hole):
     html = read(stream_fragment_html_path)
     for m in re.finditer(r"<div[^>]*class='play-hole-button[^>]*>", html):
@@ -96,5 +120,7 @@ if __name__ == "__main__":
         cmd_stream(sys.argv[2])
     elif step == "offset":
         cmd_offset(sys.argv[2], sys.argv[3])
+    elif step == "reps":
+        cmd_reps(sys.argv[2])
     else:
         sys.exit(f"Unknown step: {step}")
