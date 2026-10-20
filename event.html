@@ -2156,6 +2156,7 @@
       const isModifiedBB  = format?.type === 'modified-bb-3man';
       const isDevilsDraw   = format?.type === 'devils-draw' || format?.type === 'devils-draw-4man';
       const isStableford   = format?.type === 'stableford-3man';
+      const isEscalator    = format?.type === 'escalator-doom';
 
       // Segment label for a hole index (0-based)
       function segLabel(h) {
@@ -2187,9 +2188,17 @@
         }
         if (isNassau)     return { label: 'BB',  cls: 'text-amber-400' };
         if (isStableford) return { label: '2BB', cls: 'text-amber-400' };
-        if (h < 6)  return { label: '1BB', cls: 'text-blue-400' };
-        if (h < 12) return { label: '2BB', cls: 'text-amber-400' };
-        return { label: 'ALL', cls: 'text-flame' };
+        if (isEscalator) {
+          if (h < 6)  return { label: '1BB', cls: 'text-blue-400' };
+          if (h < 12) return { label: '2BB', cls: 'text-amber-400' };
+          return { label: 'ALL', cls: 'text-flame' };
+        }
+        // Shamble (every player plays out every hole, best net ball counts
+        // throughout — no rotating rule to label) and any future format
+        // land here. Empty rather than guessing, so a new format can't
+        // silently inherit Escalator of Doom's 1-6/7-12/13-18 labels the
+        // way Shamble just did.
+        return { label: '', cls: '' };
       }
 
       // Segment header row spanning front/back 9
@@ -2338,12 +2347,12 @@
           <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">S2</span> <span>${team.slots[1]} — LR on holes 2,5,8,11,14,17</span>
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">S3</span> <span>${team.slots[2]} — LR on holes 3,6,9,12,15,18</span>
           <span class="text-gray-700 w-full mt-0.5">LR score is mandatory (underlined in slot color) · other score is best ball of remaining two · dimmed = doesn't count</span>
-          ` : `
+          ` : isEscalator ? `
           <span class="text-blue-400 font-heading font-600 text-[10px] tracking-widest">1BB</span> <span>Holes 1–6: 1 best ball</span>
           <span class="text-amber-400 font-heading font-600 text-[10px] tracking-widest">2BB</span> <span>Holes 7–12: 2 best ball</span>
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">ALL</span> <span>Holes 13–18: all 3 scores</span>
           <span class="ml-2 text-gray-700">Dimmed scores don't count toward team total</span>
-          `}
+          ` : ''}
           ${hasAdjust ? `<span class="text-flame w-full mt-0.5"><span class="adj" style="margin-right:8px"></span>manually adjusted score</span>` : ''}
         </div>`;
     }
