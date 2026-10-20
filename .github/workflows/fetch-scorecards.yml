@@ -144,7 +144,7 @@ jobs:
                 echo "  → no missing streams found for $EVENT_ID"
               fi
 
-              rm -f "$sgt_streams" "$mashup_streams"
+              rm -f "$mashup_streams"
 
               # CTP video auto-linking. A player who links their stream
               # through SGT's own system (not MashUp's submission form) gets
@@ -157,6 +157,21 @@ jobs:
               # URL slug in a scorecard link isn't the id SGT's own API
               # needs, so each candidate needs its own scorecard-page fetch
               # to resolve the real one first.
+              #
+              # Critical: teammates on a team format share ONE scorecard, so
+              # the `stream` step below finds whichever teammate's stream is
+              # attached to it — not necessarily the CTP winner's own. Bug
+              # confirmed live: ryanlane10 won a CTP but shared a scorecard
+              # with jibbsy, who had linked his own stream; the pipeline
+              # resolved jibbsy's video as if it were ryanlane10's shot,
+              # because it never checked whose stream it actually was. SGT's
+              # own markup does name the specific player when a team stream
+              # link is disambiguated (parse_streams.py already extracts
+              # this correctly for the stream-gap-import step above, kept
+              # alive in $sgt_streams rather than deleted immediately) —
+              # every candidate below is checked against it and skipped if
+              # the CTP winner themselves never linked a stream, even when
+              # their shared scorecard has one attached.
               EVENT_CTP=$(echo "$ALL_EVENTS" | jq -c --argjson tid "$tid" '[.[] | select(.tournamentId == $tid)][0].ctp // []')
               NEEDED=$(echo "$EVENT_CTP" | jq -c '[.[] | select((.video // "") == "") | {hole, player}]')
               nc=$(echo "$NEEDED" | jq 'length')
@@ -167,6 +182,14 @@ jobs:
                 for row in $(echo "$NEEDED" | jq -c '.[]'); do
                   hole=$(echo "$row" | jq -r '.hole')
                   player=$(echo "$row" | jq -r '.player')
+
+                  # This player must have linked their OWN stream — not just
+                  # share a scorecard with a teammate who did (see the bug
+                  # note above). A missing/unreadable $sgt_streams fails
+                  # closed (treated as 0 matches, so this skips rather than
+                  # risks guessing wrong).
+                  owns_stream=$(jq -r --arg p "$(echo "$player" | tr '[:upper:]' '[:lower:]')" '[.[] | select(.player == $p)] | length' "$sgt_streams" 2>/dev/null || echo 0)
+                  [ "$owns_stream" = "0" ] && continue
 
                   slug=$(python3 .github/scripts/ctp_video_link.py slug "$lbhtml" "$player")
                   [ -z "$slug" ] && continue
@@ -238,6 +261,14 @@ jobs:
                   hole=$(echo "$row" | jq -r '.hole')
                   player=$(echo "$row" | jq -r '.player')
 
+                  # This player must have linked their OWN stream — not just
+                  # share a scorecard with a teammate who did (see the bug
+                  # note above). A missing/unreadable $sgt_streams fails
+                  # closed (treated as 0 matches, so this skips rather than
+                  # risks guessing wrong).
+                  owns_stream=$(jq -r --arg p "$(echo "$player" | tr '[:upper:]' '[:lower:]')" '[.[] | select(.player == $p)] | length' "$sgt_streams" 2>/dev/null || echo 0)
+                  [ "$owns_stream" = "0" ] && continue
+
                   slug=$(python3 .github/scripts/ctp_video_link.py slug "$lbhtml" "$player")
                   [ -z "$slug" ] && continue
 
@@ -278,7 +309,7 @@ jobs:
               echo "  → leaderboard fetch failed for $tid, skipping stream check"
             fi
 
-            rm -f "$cookiejar" "$rawhtml" "$lbhtml"
+            rm -f "$cookiejar" "$rawhtml" "$lbhtml" "$sgt_streams"
           done
 
       - name: Commit and push if changed
