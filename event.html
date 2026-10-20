@@ -1215,7 +1215,7 @@
       if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
-      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives);
+      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives, event.status !== 'completed');
     }
 
     // ── Solo Match Play Grid leaderboard ──────────────────────────────────────
@@ -1413,7 +1413,7 @@
       if (event.payouts?.length) document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       if (event.ctp?.length)     document.getElementById('ctp-section').innerHTML  = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
-      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives);
+      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives, event.status !== 'completed');
 
       // Grid matrix — player × player, sorted same as the standings above.
       // Cell = row player's points earned in their direct 18-hole match vs
@@ -1687,7 +1687,7 @@
       }
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
-      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives);
+      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives, event.status !== 'completed');
     }
 
     // ── Nassau 2-Man leaderboard ─────────────────────────────────────────────
@@ -1841,7 +1841,7 @@
 
       if (event.ctp?.length) document.getElementById('ctp-section').innerHTML = buildCtpHtml(event.ctp);
       if (ctpLive?.rounds?.length) document.getElementById('ctp-live-section').innerHTML = buildCtpLiveHtml(ctpLive, ctpVideoLive);
-      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives);
+      document.getElementById('superlatives-section').innerHTML = buildSuperlativesHtml(superlatives, event.status !== 'completed');
     }
 
     function wireSidePotAnalysisToggle() {
@@ -2380,7 +2380,7 @@
     // superlatives.yml). A stat's array can hold more than one entry when
     // the field genuinely ties (same distance to the hundredth) — shown as
     // co-winners rather than picking one arbitrarily.
-    function buildSuperlativesHtml(superlatives) {
+    function buildSuperlativesHtml(superlatives, isProvisional = false) {
       if (!superlatives) return '';
       const { driveOfWeek = [], approachOfWeek = [], puttOfWeek = [] } = superlatives;
       if (!driveOfWeek.length && !approachOfWeek.length && !puttOfWeek.length) return '';
@@ -2412,9 +2412,13 @@
       return `
         <div class="mt-8">
           <div class="flex items-center justify-between mb-3">
-            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">🏆 Superlatives of the Week</h2>
+            <div class="flex items-center gap-2">
+              <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">🏆 Superlatives of the Week</h2>
+              ${isProvisional ? `<span class="text-[9px] font-heading font-700 tracking-widest uppercase text-amber-400 border border-amber-400/40 rounded px-1.5 py-0.5">Provisional</span>` : ''}
+            </div>
             <span class="text-[11px] text-gray-600">via SGT</span>
           </div>
+          ${isProvisional ? `<p class="text-[11px] text-gray-600 mb-3 -mt-1">Week still in progress — these can change as more rounds come in.</p>` : ''}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             ${cards.join('')}
           </div>
