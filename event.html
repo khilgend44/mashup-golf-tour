@@ -2103,13 +2103,12 @@
       `;
 
       function teamProgressRowHtml() {
-        const teamCell = h => {
-          const score = teamHoleScores[h];
-          if (score == null) return `<td style="padding:3px 4px"><span class="sc-score" style="color:#3a3a3a">–</span></td>`;
-          const diff = score - pars[h];
-          const cls = diff < 0 ? 'under' : diff > 0 ? 'over' : 'even';
-          return `<td class="font-semibold ${cls} font-mono" style="padding:3px 4px;font-size:12px">${score}</td>`;
-        };
+        // Shamble's adjusted par is just the real par (only one score
+        // counts per hole), so the team's hole score is directly comparable
+        // to par the exact same way an individual's is — reuse scoreCell
+        // (same eagle/birdie/par/bogey/double chip as the player rows
+        // above) instead of a separate under/over/even scheme.
+        const teamCell = h => scoreCell(teamHoleScores[h], pars[h]);
         const nOut = sum(teamHoleScores, front), nIn = sum(teamHoleScores, back);
         const confirmedThru = teamHoleScores.findIndex(s => s == null);
         const thru = confirmedThru === -1 ? 18 : confirmedThru;
@@ -2214,6 +2213,15 @@
           return `<td class="font-semibold text-white font-mono" style="padding:3px 4px;font-size:12px">${score}</td>`;
         }
         const adjPar = team.adjPars[holeIdx];
+        // Shamble never adjusts par (only one score counts per hole), so its
+        // team score is directly comparable to par the same way an
+        // individual's is — same eagle/birdie/par/bogey/double chip as the
+        // player rows above, instead of the generic under/over/even text
+        // every other format's doubled/tripled adjPar would make misleading.
+        if (isShamble) {
+          const scoreCls = holeScoreClass(score, adjPar);
+          return `<td class="${scoreCls}" style="padding:3px 4px"><span class="sc-score font-semibold">${score}</span></td>`;
+        }
         const diff   = score - adjPar;
         const cls    = diff < 0 ? 'under' : diff > 0 ? 'over' : 'even';
         return `<td class="font-semibold ${cls} font-mono" style="padding:3px 4px;font-size:12px">${score}</td>`;
