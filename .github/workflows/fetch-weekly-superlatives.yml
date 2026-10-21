@@ -21,6 +21,72 @@ jobs:
 
       - name: Compute Drive/Approach/Putt of the Week for active events
         run: |
+          # Resolves a timestamped YouTube link for one superlative winner,
+          # reusing the exact same accuracy/safety rules as the CTP-video
+          # pipeline in fetch-scorecards.yml (kept here as its own copy,
+          # same convention this repo already follows rather than sharing
+          # code between workflow files):
+          #   - only SGT's per-hole "Play hole N" offset is trusted (its
+          #     per-shot offset drifts by an unpredictable amount per
+          #     stream — see ctp_video_link.py)
+          #   - a player only gets linked if they personally linked a
+          #     stream on SGT, OR MashUp's own stream data already has them
+          #     registered to the exact same video (by id) as a teammate
+          #     who did — never inferred from matching scores
+          # Echoes the video URL on success, nothing on failure — every
+          # failure path is a silent skip, not an error, since most of the
+          # field hasn't linked a stream at all.
+          resolve_video() {
+            local tid="$1" hole="$2" player="$3" lbhtml="$4" sgt_streams="$5" mashup_streams="$6"
+            local player_lower owns_stream slug scpage pidteam pid team
+            local scdefault streamvideo streamid videoid scstream offset
+
+            player_lower=$(echo "$player" | tr '[:upper:]' '[:lower:]')
+            owns_stream=$(jq -r --arg p "$player_lower" '[.[] | select(.player == $p)] | length' "$sgt_streams" 2>/dev/null || echo 0)
+            if [ "$owns_stream" = "0" ]; then
+              local my_urls sgt_video_ids my_url my_vid
+              my_urls=$(jq -r --arg p "$player_lower" '.[$p] // {} | to_entries | map(.value) | .[]' "$mashup_streams" 2>/dev/null)
+              sgt_video_ids=$(jq -r '.[].url' "$sgt_streams" 2>/dev/null | while read -r u; do python3 .github/scripts/ctp_video_link.py videoid "$u"; done)
+              while read -r my_url; do
+                [ -z "$my_url" ] && continue
+                my_vid=$(python3 .github/scripts/ctp_video_link.py videoid "$my_url")
+                [ -z "$my_vid" ] && continue
+                if echo "$sgt_video_ids" | grep -qx "$my_vid"; then owns_stream=1; break; fi
+              done <<< "$my_urls"
+            fi
+            [ "$owns_stream" = "0" ] && return
+
+            slug=$(python3 .github/scripts/ctp_video_link.py slug "$lbhtml" "$player")
+            [ -z "$slug" ] && return
+
+            scpage=$(mktemp)
+            curl -sf -H "Referer: https://simulatorgolftour.com/tournament/${tid}" -H "User-Agent: Mozilla/5.0" \
+              "https://simulatorgolftour.com/scorecard/${tid}/${slug}" -o "$scpage" || { rm -f "$scpage"; return; }
+            pidteam=$(python3 .github/scripts/ctp_video_link.py pid "$scpage")
+            rm -f "$scpage"
+            [ -z "$pidteam" ] && return
+            pid=$(echo "$pidteam" | cut -d' ' -f1)
+            team=$(echo "$pidteam" | cut -d' ' -f2)
+
+            scdefault=$(mktemp)
+            curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+              "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; return; }
+            streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault")
+            rm -f "$scdefault"
+            [ -z "$streamvideo" ] && return
+            streamid=$(echo "$streamvideo" | cut -d' ' -f1)
+            videoid=$(echo "$streamvideo" | cut -d' ' -f2)
+
+            scstream=$(mktemp)
+            curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+              "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; return; }
+            offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
+            rm -f "$scstream"
+            [ -z "$offset" ] && return
+
+            echo "https://www.youtube.com/watch?v=${videoid}&t=${offset}s"
+          }
+
           STATIC_SEASONS=$(cat data/seasons.json)
           KV_SEASONS=$(curl -sf "https://mashup-golf-tour.pages.dev/api/seasons" || echo "[]")
           ALL_SEASONS=$(jq -n \
@@ -96,11 +162,10 @@ jobs:
               python3 .github/scripts/parse_shots.py "$shots" >> "$fragments"
               rm -f "$shots"
             done
-            rm -f "$lbhtml"
 
             if [ ! -s "$fragments" ]; then
               echo "  → no shot data resolved for $tid, leaving superlatives file as-is"
-              rm -f "$fragments"
+              rm -f "$fragments" "$lbhtml"
               continue
             fi
 
@@ -111,10 +176,6 @@ jobs:
             }' "$fragments" > "data/superlatives/${tid}.raw.json"
             rm -f "$fragments"
 
-            # Winners are arrays, not a single pick — a genuine tie (same
-            # distance to the hundredth) is a real possibility across a
-            # whole field and gets shown as co-winners rather than an
-            # arbitrary tiebreak.
             jq '
               def bestBy(f; pick): (map(f) | pick) as $best | map(select(f == $best));
               {
@@ -126,6 +187,38 @@ jobs:
               }
             ' "data/superlatives/${tid}.raw.json" > "data/superlatives/${tid}.json"
             rm -f "data/superlatives/${tid}.raw.json"
+
+            # Timestamped video links for each winner (a tie means more
+            # than one). Only ever resolves for a player who's linked a
+            # stream (directly or via the MashUp cross-reference) — most of
+            # the field hasn't, so most winners just won't have a video
+            # yet, which is expected, not a failure.
+            sgt_streams=$(mktemp)
+            python3 .github/scripts/parse_streams.py "$lbhtml" > "$sgt_streams"
+            EVENT_ID=$(echo "$ALL_EVENTS" | jq -r --argjson tid "$tid" '[.[] | select(.tournamentId == $tid)][0].id // empty')
+            mashup_streams=$(mktemp)
+            if [ -n "$EVENT_ID" ]; then
+              curl -sf "https://mashup-golf-tour.pages.dev/api/get-streams?eventId=${EVENT_ID}" -o "$mashup_streams" || echo "{}" > "$mashup_streams"
+            else
+              echo "{}" > "$mashup_streams"
+            fi
+
+            RESULT=$(cat "data/superlatives/${tid}.json")
+            for category in driveOfWeek approachOfWeek puttOfWeek; do
+              count=$(echo "$RESULT" | jq --arg c "$category" '.[$c] | length')
+              for i in $(seq 0 $((count - 1))); do
+                entry=$(echo "$RESULT" | jq --arg c "$category" --argjson i "$i" '.[$c][$i]')
+                hole=$(echo "$entry" | jq -r '.hole')
+                player=$(echo "$entry" | jq -r '.player')
+                video=$(resolve_video "$tid" "$hole" "$player" "$lbhtml" "$sgt_streams" "$mashup_streams")
+                if [ -n "$video" ]; then
+                  RESULT=$(echo "$RESULT" | jq --arg c "$category" --argjson i "$i" --arg video "$video" '.[$c][$i].video = $video')
+                fi
+              done
+            done
+            echo "$RESULT" > "data/superlatives/${tid}.json"
+            rm -f "$lbhtml" "$sgt_streams" "$mashup_streams"
+
             echo "  → saved data/superlatives/${tid}.json"
           done
 
