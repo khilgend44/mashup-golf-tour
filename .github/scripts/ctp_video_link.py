@@ -28,8 +28,21 @@ Usage, one step at a time (each step's curl happens in bash between
 calls, since each URL depends on the previous step's output):
   ctp_video_link.py slug   <leaderboard_html> <player>        -> scorecard URL slug, or nothing
   ctp_video_link.py pid    <scorecard_page_html>               -> "<pid> <is_team>", or nothing
-  ctp_video_link.py stream <default_fragment_html>             -> "<streamId> <videoId>", or nothing
-  ctp_video_link.py offset <stream_fragment_html> <hole>        -> time offset in seconds, or nothing
+  ctp_video_link.py stream <default_fragment_html> <player>    -> "<streamId> <videoId>", or nothing
+                                                                    (see cmd_stream for why <player>
+                                                                    is required, not optional)
+  ctp_video_link.py offset <stream_fragment_html> <hole>        -> hole-level time offset in seconds
+                                                                    — really just shot 1's own offset,
+                                                                    correct for a tee shot (CTP),
+                                                                    wrong for any later shot
+  ctp_video_link.py shotoffset <stream_fragment_html> <hole> <shotNum> <expectedValue>
+                                                                 -> that specific shot's own offset, but
+                                                                    ONLY if its own on-screen value
+                                                                    (remaining-ft, or putt length)
+                                                                    matches <expectedValue> — see
+                                                                    cmd_shotoffset for why this check
+                                                                    isn't optional. Use for Approach/
+                                                                    Putt of the Week, never shot 1.
   ctp_video_link.py reps   <leaderboard_html>                   -> one "<player> <slug>" per line,
                                                                     one per distinct scorecard entry
   ctp_video_link.py videoid <youtube_url>                        -> bare video id, or nothing
@@ -76,8 +89,34 @@ def cmd_pid(scorecard_page_html_path):
         print(f"{pid_m.group(1)} {team_m.group(1) if team_m else ''}")
 
 
-def cmd_stream(default_fragment_html_path):
+def cmd_stream(default_fragment_html_path, player):
+    """A scorecard's linked stream(s). Two real markup shapes, confirmed
+    live: a single un-named `stream-play-button` div when only one stream
+    is linked to this scorecard at all (solo, or a team where only one
+    teammate has linked anything) — safe to use directly, there's no
+    ambiguity. But when a team has MULTIPLE teammates who each
+    independently linked their OWN separate stream, SGT instead renders a
+    dropdown of named buttons, one per teammate, each tagged
+    `<span class='text-uppercase'>{player}</span>`. A naive first-match
+    grab here silently returns whichever teammate's button happens to come
+    first in the document — confirmed live as a real bug: cloverlinksgolf
+    and winch99 (teammates, each with their own distinct stream) both
+    resolved to winch99's video, because his button simply appeared first.
+    Must match by name in the multi-stream case, and must NOT fall back to
+    guessing if this specific player isn't one of the named buttons."""
     html = read(default_fragment_html_path)
+    player_lower = player.strip().lower()
+
+    named = re.findall(
+        r"data-stream-id='(\d+)'\s+data-video-id='([\w-]+)'[^>]*>.*?<span class='text-uppercase'>([^<]+)</span>",
+        html, re.S)
+    if named:
+        for stream_id, video_id, owner in named:
+            if owner.strip().lower() == player_lower:
+                print(f"{stream_id} {video_id}")
+                return
+        return  # named buttons exist, but not for this player — don't guess
+
     m = re.search(r"data-stream-id='(\d+)'\s+data-video-id='([\w-]+)'", html)
     if m:
         print(f"{m.group(1)} {m.group(2)}")
@@ -130,6 +169,69 @@ def cmd_offset(stream_fragment_html_path, hole):
         return
 
 
+def _parse_remaining_ft(detail_text):
+    if detail_text is None:
+        return None
+    detail_text = detail_text.strip()
+    if 'gimme' in detail_text.lower():
+        return 0.0
+    m = re.search(r"([\d.]+)\s*(ft|yds)\s*left", detail_text)
+    if not m:
+        return None
+    value, unit = float(m.group(1)), m.group(2)
+    return value * 3.0 if unit == 'yds' else value
+
+
+def cmd_shotoffset(stream_fragment_html_path, hole, shot_num, expected_value):
+    """A specific shot's own data-time-offset, by hole + shot number (1-based,
+    positional within the hole — mirrors parse_shots.py's own enumeration,
+    not the shot's displayed number text). Needed because the hole-level
+    `offset` (above) is really just shot 1's own offset under a different
+    name — exactly right for a CTP tee shot, provably wrong (confirmed
+    live, ~45-120s early) for any later shot, which Approach/Putt of the
+    Week always are.
+
+    Only returns an offset if this shot's own on-screen value (remaining
+    distance to pin, or the putt length for a holed putt) matches the
+    value already recorded for this candidate — confirmed live as
+    necessary, not optional: the per-shot breakdown embedded in a team's
+    stream replay view has been observed to reflect one specific
+    teammate's own numbers regardless of which of several linked streams
+    you actually query (SteveMac/adamw19, and again cloverlinksgolf/
+    winch99 — cloverlinksgolf's own individually-linked stream embedded
+    winch99's shot sequence for a shared hole, not his own). The hole-
+    level offset has held up regardless of whose numbers are shown
+    (teammates' tee shots cluster in time), but there's no equivalent
+    guarantee for a later shot — so this requires the shot's own value to
+    actually match before trusting its timestamp, and returns nothing
+    rather than a silently-wrong guess when it doesn't."""
+    html = read(stream_fragment_html_path)
+    shot_num = int(shot_num)
+    try:
+        expected = float(expected_value)
+    except ValueError:
+        return
+
+    pattern = re.compile(
+        r"<div[^>]*data-hole='%s'\s+data-time-offset='(\d+)'[^>]*class='shot-row[^>]*>\s*"
+        r"<div class='shot-number[^>]*>\d+</div>\s*"
+        r"<div class='ms-2'><span class='shot-main'>([^<]+)</span>\s*"
+        r"(?:<span class='shot-detail'>([^<]*)</span>)?" % re.escape(str(hole)),
+        re.S)
+
+    count = 0
+    for m in pattern.finditer(html):
+        count += 1
+        if count != shot_num:
+            continue
+        offset, main_text, detail_text = m.group(1), m.group(2), m.group(3)
+        made_putt_m = re.match(r"Made\s+([\d.]+)\s*ft putt$", main_text.strip())
+        actual = float(made_putt_m.group(1)) if made_putt_m else _parse_remaining_ft(detail_text)
+        if actual is not None and abs(actual - expected) < 0.5:
+            print(offset)
+        return
+
+
 if __name__ == "__main__":
     step = sys.argv[1]
     if step == "slug":
@@ -137,9 +239,11 @@ if __name__ == "__main__":
     elif step == "pid":
         cmd_pid(sys.argv[2])
     elif step == "stream":
-        cmd_stream(sys.argv[2])
+        cmd_stream(sys.argv[2], sys.argv[3])
     elif step == "offset":
         cmd_offset(sys.argv[2], sys.argv[3])
+    elif step == "shotoffset":
+        cmd_shotoffset(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     elif step == "reps":
         cmd_reps(sys.argv[2])
     elif step == "videoid":

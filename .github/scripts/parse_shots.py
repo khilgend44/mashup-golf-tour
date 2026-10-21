@@ -32,10 +32,24 @@ text distinguishes this clearly: a holed putt reads "Made {N} ft putt"
 and from a holed-out approach/chip ("Holed out" / "from {N} yds" — a
 non-putt shot holed from off the green, not counted here).
 
+Every candidate carries `shotNum` (1-based, within its hole) — needed
+because the only reliably-accurate SGT timestamp is a *hole's* own
+"Play hole N" offset, which is really just shot 1's own per-shot offset
+under a different name (confirmed: identical value in every case
+checked). That's exactly right for a CTP shot (always a tee shot on a
+par 3), but Approach/Putt of the Week are never shot 1 by definition —
+using the hole-level offset for them points at the tee shot, 1-2 minutes
+before the real moment (confirmed live: an approach's actual timestamp
+sat almost exactly in the middle of its OWN shot's data-time-offset /
+data-time-end window, ~45s after the hole-level offset pointed to
+instead). So resolving a timestamp for anything but a drive must look up
+that specific shot's own offset (`ctp_video_link.py`'s `shotoffset` step)
+keyed by hole *and* shot number, not just hole.
+
 Usage: parse_shots.py <shots_fragment_html_path>
-  -> {"drives": [{"player","hole","par","distanceYds"}],
-      "approaches": [{"player","hole","par","proximityFt"}],
-      "putts": [{"player","hole","lengthFt"}]} on stdout
+  -> {"drives": [{"player","hole","par","distanceYds","shotNum"}],
+      "approaches": [{"player","hole","par","proximityFt","shotNum"}],
+      "putts": [{"player","hole","lengthFt","shotNum"}]} on stdout
 """
 import re
 import sys
@@ -105,23 +119,25 @@ def parse(html):
                 lie, main_text, detail_text = sm.group(1), sm.group(2), sm.group(3)
                 is_first_shot = shot_i == 0
 
+                shot_num = shot_i + 1
+
                 made_putt_m = MADE_PUTT_RE.match(main_text.strip())
                 if made_putt_m:
-                    putts.append({"player": player, "hole": hole, "lengthFt": float(made_putt_m.group(1))})
+                    putts.append({"player": player, "hole": hole, "lengthFt": float(made_putt_m.group(1)), "shotNum": shot_num})
                     break  # holing out always ends the hole — nothing follows
 
                 distance_yds = parse_main(main_text)
                 remaining_ft = parse_remaining_ft(detail_text)
 
                 if is_first_shot and par in (4, 5) and lie == 'fairway' and distance_yds is not None:
-                    drives.append({"player": player, "hole": hole, "par": par, "distanceYds": distance_yds})
+                    drives.append({"player": player, "hole": hole, "par": par, "distanceYds": distance_yds, "shotNum": shot_num})
 
                 is_eligible_approach = (
                     not is_first_shot and par in (4, 5) and
                     prior_remaining_yds is not None and prior_remaining_yds > 100
                 )
                 if is_eligible_approach and distance_yds is not None:
-                    approaches.append({"player": player, "hole": hole, "par": par, "proximityFt": remaining_ft})
+                    approaches.append({"player": player, "hole": hole, "par": par, "proximityFt": remaining_ft, "shotNum": shot_num})
 
                 prior_remaining_yds = remaining_ft / 3.0
 

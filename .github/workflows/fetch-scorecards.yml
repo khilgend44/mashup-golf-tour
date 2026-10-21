@@ -240,7 +240,7 @@ jobs:
                   scdefault=$(mktemp)
                   curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
                     "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; continue; }
-                  streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault")
+                  streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault" "$player")
                   rm -f "$scdefault"
                   [ -z "$streamvideo" ] && continue
                   streamid=$(echo "$streamvideo" | cut -d' ' -f1)
@@ -332,7 +332,7 @@ jobs:
                   scdefault=$(mktemp)
                   curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
                     "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; continue; }
-                  streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault")
+                  streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault" "$player")
                   rm -f "$scdefault"
                   [ -z "$streamvideo" ] && continue
                   streamid=$(echo "$streamvideo" | cut -d' ' -f1)

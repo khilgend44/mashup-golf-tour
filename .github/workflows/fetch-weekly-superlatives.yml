@@ -26,18 +26,35 @@ jobs:
           # pipeline in fetch-scorecards.yml (kept here as its own copy,
           # same convention this repo already follows rather than sharing
           # code between workflow files):
-          #   - only SGT's per-hole "Play hole N" offset is trusted (its
-          #     per-shot offset drifts by an unpredictable amount per
-          #     stream — see ctp_video_link.py)
           #   - a player only gets linked if they personally linked a
           #     stream on SGT, OR MashUp's own stream data already has them
           #     registered to the exact same video (by id) as a teammate
           #     who did — never inferred from matching scores
+          #   - when a team has multiple teammates who each linked their
+          #     OWN separate stream, the correct one is picked by name, not
+          #     just the first one SGT's markup happens to list (confirmed
+          #     live: cloverlinksgolf and winch99 each linked a different
+          #     video, and the naive first-match approach resolved both of
+          #     them to winch99's)
+          #   - a drive (always a hole's first/tee shot) uses the hole-
+          #     level "Play hole N" offset, confirmed accurate. An approach
+          #     or putt (never the first shot) uses that SPECIFIC shot's
+          #     own offset instead, but ONLY when that shot's own on-screen
+          #     value (remaining distance, or putt length) matches the
+          #     value already recorded for it — confirmed live as required,
+          #     not optional: the per-shot breakdown embedded in a team's
+          #     stream view has been observed to reflect one specific
+          #     teammate's own numbers regardless of whose correctly-
+          #     resolved stream you're actually looking at (cloverlinksgolf
+          #     and winch99 again — cloverlinksgolf's own stream still
+          #     showed winch99's shot sequence for a shared hole). No
+          #     verified match means no link, not a best-effort guess.
           # Echoes the video URL on success, nothing on failure — every
           # failure path is a silent skip, not an error, since most of the
           # field hasn't linked a stream at all.
           resolve_video() {
-            local tid="$1" hole="$2" player="$3" lbhtml="$4" sgt_streams="$5" mashup_streams="$6"
+            local tid="$1" hole="$2" player="$3" shot_num="$4" expected_value="$5"
+            local lbhtml="$6" sgt_streams="$7" mashup_streams="$8"
             local player_lower owns_stream slug scpage pidteam pid team
             local scdefault streamvideo streamid videoid scstream offset
 
@@ -71,7 +88,7 @@ jobs:
             scdefault=$(mktemp)
             curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
               "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; return; }
-            streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault")
+            streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault" "$player")
             rm -f "$scdefault"
             [ -z "$streamvideo" ] && return
             streamid=$(echo "$streamvideo" | cut -d' ' -f1)
@@ -80,7 +97,11 @@ jobs:
             scstream=$(mktemp)
             curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
               "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; return; }
-            offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
+            if [ -z "$shot_num" ] || [ "$shot_num" = "null" ]; then
+              offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
+            else
+              offset=$(python3 .github/scripts/ctp_video_link.py shotoffset "$scstream" "$hole" "$shot_num" "$expected_value")
+            fi
             rm -f "$scstream"
             [ -z "$offset" ] && return
 
@@ -210,7 +231,21 @@ jobs:
                 entry=$(echo "$RESULT" | jq --arg c "$category" --argjson i "$i" '.[$c][$i]')
                 hole=$(echo "$entry" | jq -r '.hole')
                 player=$(echo "$entry" | jq -r '.player')
-                video=$(resolve_video "$tid" "$hole" "$player" "$lbhtml" "$sgt_streams" "$mashup_streams")
+                # A drive is always a hole's first shot — the hole-level
+                # offset (shot_num left empty) already covers it, same as
+                # CTP. An approach/putt is never shot 1, so it needs its
+                # own verified shot-level offset instead (see resolve_video).
+                if [ "$category" = "driveOfWeek" ]; then
+                  shot_num=""
+                  expected_value=""
+                elif [ "$category" = "approachOfWeek" ]; then
+                  shot_num=$(echo "$entry" | jq -r '.shotNum')
+                  expected_value=$(echo "$entry" | jq -r '.proximityFt')
+                else
+                  shot_num=$(echo "$entry" | jq -r '.shotNum')
+                  expected_value=$(echo "$entry" | jq -r '.lengthFt')
+                fi
+                video=$(resolve_video "$tid" "$hole" "$player" "$shot_num" "$expected_value" "$lbhtml" "$sgt_streams" "$mashup_streams")
                 if [ -n "$video" ]; then
                   RESULT=$(echo "$RESULT" | jq --arg c "$category" --argjson i "$i" --arg video "$video" '.[$c][$i].video = $video')
                 fi
