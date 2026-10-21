@@ -191,7 +191,7 @@ def cmd_shotoffset(stream_fragment_html_path, hole, shot_num, expected_value):
     live, ~45-120s early) for any later shot, which Approach/Putt of the
     Week always are.
 
-    Only returns an offset if this shot's own on-screen value (remaining
+    Only returns a timestamp if this shot's own on-screen value (remaining
     distance to pin, or the putt length for a holed putt) matches the
     value already recorded for this candidate — confirmed live as
     necessary, not optional: the per-shot breakdown embedded in a team's
@@ -204,7 +204,18 @@ def cmd_shotoffset(stream_fragment_html_path, hole, shot_num, expected_value):
     (teammates' tee shots cluster in time), but there's no equivalent
     guarantee for a later shot — so this requires the shot's own value to
     actually match before trusting its timestamp, and returns nothing
-    rather than a silently-wrong guess when it doesn't."""
+    rather than a silently-wrong guess when it doesn't.
+
+    Returns the MIDPOINT of the shot's own data-time-offset/data-time-end
+    window, not the raw offset — confirmed live, twice, that the raw
+    offset alone lands early: a verified-correct approach shot's window
+    was 1276-1360s, and the real moment (per direct report, ~22:00) was
+    1320s, 2 seconds from the midpoint (1318s) and 44s after the raw
+    offset. Plausible mechanism: the window appears to start at setup/
+    walk-up rather than contact and end after the result displays, so
+    contact itself sits nearer the middle than either edge — unlike a
+    hole's first shot (CTP), where the raw offset alone has held up on
+    its own, so that case (the `offset` subcommand above) is untouched."""
     html = read(stream_fragment_html_path)
     shot_num = int(shot_num)
     try:
@@ -213,7 +224,7 @@ def cmd_shotoffset(stream_fragment_html_path, hole, shot_num, expected_value):
         return
 
     pattern = re.compile(
-        r"<div[^>]*data-hole='%s'\s+data-time-offset='(\d+)'[^>]*class='shot-row[^>]*>\s*"
+        r"<div[^>]*data-hole='%s'\s+data-time-offset='(\d+)'\s+data-time-end='(\d+)'[^>]*class='shot-row[^>]*>\s*"
         r"<div class='shot-number[^>]*>\d+</div>\s*"
         r"<div class='ms-2'><span class='shot-main'>([^<]+)</span>\s*"
         r"(?:<span class='shot-detail'>([^<]*)</span>)?" % re.escape(str(hole)),
@@ -224,11 +235,11 @@ def cmd_shotoffset(stream_fragment_html_path, hole, shot_num, expected_value):
         count += 1
         if count != shot_num:
             continue
-        offset, main_text, detail_text = m.group(1), m.group(2), m.group(3)
+        offset, end, main_text, detail_text = m.group(1), m.group(2), m.group(3), m.group(4)
         made_putt_m = re.match(r"Made\s+([\d.]+)\s*ft putt$", main_text.strip())
         actual = float(made_putt_m.group(1)) if made_putt_m else _parse_remaining_ft(detail_text)
         if actual is not None and abs(actual - expected) < 0.5:
-            print(offset)
+            print((int(offset) + int(end)) // 2)
         return
 
 
