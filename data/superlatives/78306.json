@@ -1,12 +1,13 @@
 {
   "tournamentId": 78306,
-  "generatedAt": "2026-10-21T21:14:22Z",
+  "generatedAt": "2026-10-21T21:37:59Z",
   "driveOfWeek": [
     {
       "player": "toursauce86",
       "hole": 9,
       "par": 5,
-      "distanceYds": 350.0
+      "distanceYds": 350.0,
+      "shotNum": 1
     }
   ],
   "approachOfWeek": [
@@ -15,7 +16,8 @@
       "hole": 6,
       "par": 5,
       "proximityFt": 1.0,
-      "video": "https://www.youtube.com/watch?v=sf5V78__lfQ&t=1198s"
+      "shotNum": 2,
+      "video": "https://www.youtube.com/watch?v=sf5V78__lfQ&t=1276s"
     }
   ],
   "puttOfWeek": [
@@ -23,17 +25,19 @@
       "player": "cloverlinksgolf",
       "hole": 2,
       "lengthFt": 21.0,
-      "video": "https://www.youtube.com/watch?v=sf5V78__lfQ&t=453s"
+      "shotNum": 3
     },
     {
       "player": "notthatjt",
       "hole": 18,
-      "lengthFt": 21.0
+      "lengthFt": 21.0,
+      "shotNum": 3
     },
     {
       "player": "ccondon30",
       "hole": 10,
-      "lengthFt": 21.0
+      "lengthFt": 21.0,
+      "shotNum": 4
     }
   ]
 }
