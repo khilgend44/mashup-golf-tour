@@ -2387,10 +2387,17 @@
 
       const statCard = (icon, title, subtitle, entries, valueFn) => {
         if (!entries.length) return '';
+        // Only exists for a winner who's linked a stream (directly, or via
+        // a teammate MashUp's own data proves they share one with) — see
+        // fetch-weekly-superlatives.yml. Missing just means no icon, not
+        // an error, since most of the field hasn't linked anything.
         const rows = entries.map(e => `
           <div class="flex items-center justify-between gap-3">
             <span class="font-medium text-white text-sm truncate">${e.player}</span>
-            <span class="text-xs text-gray-500 whitespace-nowrap">Hole ${e.hole}</span>
+            <div class="flex items-center gap-2 shrink-0">
+              ${e.video ? `<a href="${e.video}" target="_blank" rel="noopener" title="Watch the shot on YouTube" class="flex items-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}</a>` : ''}
+              <span class="text-xs text-gray-500 whitespace-nowrap">Hole ${e.hole}</span>
+            </div>
           </div>`).join('');
         return `
           <div class="bg-card border border-border rounded-xl p-4 flex flex-col">
