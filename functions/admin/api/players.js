@@ -450,5 +450,114 @@ async function handlePost(context) {
     return new Response(readable, { headers: { ...CORS, 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store' } });
   }
 
+  // TEMPORARY, added 2026-10 for a one-off personal Sim Cup roster lookup —
+  // remove once that event has passed. Deliberately a separate action from
+  // 'refresh' above rather than a tweak to it: SGT's player-check/hcp-rounds
+  // endpoints share one 24h-per-key cache regardless of which `players=`
+  // list a given call passes (confirmed empirically — a second same-day
+  // call just replays the FIRST call's result), so pulling 32 non-roster
+  // Sim Cup names separately from the real roster would either get starved
+  // by a same-day roster refresh or silently poison the cache for one. This
+  // bundles the real roster + the extra names into ONE combined SGT call
+  // (today's first and only call), but — unlike 'refresh' — persists to
+  // players:handicaps/players:rounds (which feed the public handicaps page)
+  // for ONLY the names already on players:roster. The extra names' results
+  // are returned in the response and never written anywhere.
+  if (action === 'sim-cup-pull') {
+    if (!sgtKey) return Response.json({ error: 'player_api_key not configured' }, { status: 500, headers: CORS });
+
+    const extraPlayers = Array.isArray(body.extraPlayers)
+      ? [...new Set(body.extraPlayers.map(p => String(p).trim()).filter(Boolean))]
+      : [];
+    if (!extraPlayers.length) return Response.json({ error: 'No extraPlayers provided' }, { status: 400, headers: CORS });
+
+    const rosterRaw = await kvGet(accountId, apiToken, 'players:roster');
+    const roster = rosterRaw ? JSON.parse(rosterRaw) : [];
+    const rosterLower = new Set(roster.map(p => String(p).toLowerCase()));
+
+    const seen = new Set();
+    const allPlayers = [];
+    for (const p of [...roster, ...extraPlayers]) {
+      const lc = String(p).toLowerCase();
+      if (seen.has(lc)) continue;
+      seen.add(lc);
+      allPlayers.push(p);
+    }
+
+    let sgtRes;
+    try {
+      sgtRes = await fetch(`${SGT_API_BASE}?key=${sgtKey}&players=${allPlayers.map(p => encodeURIComponent(p)).join(',')}`,
+        { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(900_000) });
+    } catch (e) {
+      const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
+      return Response.json({ error: timedOut ? 'SGT took too long to respond (waited 15 min) — its backend may still be warming up.' : `Could not reach SGT: ${e.message}` }, { status: 502, headers: CORS });
+    }
+    if (!sgtRes.ok) return Response.json({ error: `SGT API error: ${sgtRes.status}` }, { status: 502, headers: CORS });
+    let data;
+    try { data = await sgtRes.json(); } catch { data = null; }
+    if (!Array.isArray(data)) return Response.json({ error: 'SGT returned an unexpected (empty/non-JSON) response — the player_api_key may be invalid or expired.' }, { status: 502, headers: CORS });
+
+    const fetched = {};
+    for (const p of data) {
+      if (!p || !p.user_name) continue;
+      fetched[p.user_name.toLowerCase()] = {
+        username: p.user_name, rawCap: p.rawCap, comboCap: p.comboCap, numEvents: p.NumEvents,
+        connector: p.Connector_Used || '', minComboCap: p.minComboCap, comboRoundsCount: p.comboRoundsCount,
+      };
+    }
+
+    let roundsByPlayer = {};
+    try {
+      const rRes = await fetch(`${SGT_ROUNDS_API}?key=${sgtKey}&players=${allPlayers.map(p => encodeURIComponent(p)).join(',')}`,
+        { cf: { cacheTtl: 0, cacheEverything: false }, signal: AbortSignal.timeout(300_000) });
+      if (rRes.ok) {
+        const rounds = await rRes.json();
+        if (Array.isArray(rounds)) {
+          for (const r of rounds) {
+            if (!r || r.player == null || typeof r.differential !== 'number') continue;
+            const k = String(r.player).toLowerCase();
+            (roundsByPlayer[k] = roundsByPlayer[k] || []).push({ date: r.date, differential: r.differential, tour: r.tour });
+          }
+          for (const k of Object.keys(roundsByPlayer)) {
+            roundsByPlayer[k].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+            const comboCount = fetched[k] ? Number(fetched[k].comboRoundsCount) : NaN;
+            const cap = comboCount > 0 ? comboCount : ROUND_CAP_FALLBACK;
+            if (roundsByPlayer[k].length > cap) roundsByPlayer[k] = roundsByPlayer[k].slice(0, cap);
+            const m = computeMashCap(roundsByPlayer[k].map(r => r.differential));
+            if (m && fetched[k]) { fetched[k].mashCap = m.cap; fetched[k].mashCapRounds = m.rounds; fetched[k].mashCapCounting = m.counting; }
+          }
+        }
+      }
+    } catch { /* supplementary */ }
+
+    // Persist ONLY real roster members — same merge-never-replace shape as
+    // 'refresh', scoped so none of the 32 Sim Cup names ever reach the
+    // public handicaps page or players:roster.
+    const rosterFetched = {};
+    const rosterRounds = {};
+    for (const k of Object.keys(fetched)) if (rosterLower.has(k)) rosterFetched[k] = fetched[k];
+    for (const k of Object.keys(roundsByPlayer)) if (rosterLower.has(k)) rosterRounds[k] = roundsByPlayer[k];
+
+    if (Object.keys(rosterFetched).length) {
+      const existingRaw = await kvGet(accountId, apiToken, 'players:handicaps');
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      await kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify({ ...existing, ...rosterFetched }));
+      await kvPut(accountId, apiToken, 'players:last_refresh', new Date().toISOString());
+    }
+    if (Object.keys(rosterRounds).length) {
+      const existingRoundsRaw = await kvGet(accountId, apiToken, 'players:rounds');
+      const existingRounds = existingRoundsRaw ? JSON.parse(existingRoundsRaw) : {};
+      await kvPut(accountId, apiToken, 'players:rounds', JSON.stringify({ ...existingRounds, ...rosterRounds }));
+    }
+
+    const simCup = {};
+    for (const name of extraPlayers) {
+      const k = name.toLowerCase();
+      simCup[name] = fetched[k] ? { ...fetched[k], rounds: roundsByPlayer[k] || [] } : { found: false, rounds: [] };
+    }
+
+    return Response.json({ ok: true, simCup, totalPlayersRequested: allPlayers.length, sgtReturnedCount: data.length, rosterUpdated: Object.keys(rosterFetched).length }, { headers: CORS });
+  }
+
   return Response.json({ error: 'Unknown action' }, { status: 400, headers: CORS });
 }
