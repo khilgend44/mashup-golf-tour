@@ -1,6 +1,6 @@
 {
   "tournamentId": 78306,
-  "generatedAt": "2026-10-21T23:52:23Z",
+  "generatedAt": "2026-10-22T02:58:45Z",
   "driveOfWeek": [
     {
       "player": "toursauce86",
@@ -22,21 +22,9 @@
   ],
   "puttOfWeek": [
     {
-      "player": "cloverlinksgolf",
-      "hole": 2,
-      "lengthFt": 21.0,
-      "shotNum": 3
-    },
-    {
-      "player": "notthatjt",
-      "hole": 18,
-      "lengthFt": 21.0,
-      "shotNum": 3
-    },
-    {
-      "player": "ccondon30",
-      "hole": 10,
-      "lengthFt": 21.0,
+      "player": "mrsnowman",
+      "hole": 1,
+      "lengthFt": 27.0,
       "shotNum": 4
     }
   ]
