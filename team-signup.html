@@ -170,6 +170,13 @@
         ? 'bg-red-900/30 border border-red-800/40 text-red-300'
         : 'bg-flame/10 border border-flame/30 text-flame'}`;
       show(el, true);
+      // This bar sits near the top of the page, but the Sign Up form (where
+      // every action that calls setStatus actually happens) is much further
+      // down — confirmed real case: a repeat-pair rejection fired correctly
+      // but went unnoticed because it appeared off-screen above where the
+      // player was looking. Same fix, same reasoning, as admin/players.html's
+      // showStatus().
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     let data = { pairs: [], solo: [], roster: [] };
