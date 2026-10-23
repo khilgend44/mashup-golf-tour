@@ -1,6 +1,6 @@
 {
   "tournamentId": 78306,
-  "generatedAt": "2026-10-22T22:55:37Z",
+  "generatedAt": "2026-10-23T01:10:08Z",
   "driveOfWeek": [
     {
       "player": "toursauce86",
@@ -22,10 +22,10 @@
   ],
   "puttOfWeek": [
     {
-      "player": "mrsnowman",
-      "hole": 1,
-      "lengthFt": 27.0,
-      "shotNum": 4
+      "player": "magic",
+      "hole": 3,
+      "lengthFt": 35.0,
+      "shotNum": 2
     }
   ]
 }
