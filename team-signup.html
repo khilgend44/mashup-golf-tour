@@ -56,9 +56,9 @@
     </div>
     <p class="text-gray-500 text-sm mb-4" id="page-sub">Loading…</p>
 
-    <div class="flex items-start gap-2 bg-flame/10 border border-flame/30 rounded-lg px-4 py-3 mb-6 text-sm text-flame">
+    <div id="mm-warning" class="flex items-start gap-2 bg-flame/10 border border-flame/30 rounded-lg px-4 py-3 mb-6 text-sm text-flame">
       <span class="mt-0.5 shrink-0">⚠</span>
-      <span><strong class="font-semibold">NOTE:</strong> Whoever you pick as your partner for Week 5 <strong class="font-semibold">cannot</strong> be your partner in the end-of-season Member-Member.</span>
+      <span><strong class="font-semibold">NOTE:</strong> Whoever you pick as your partner for <span id="mm-warning-week">this week</span> <strong class="font-semibold">cannot</strong> be your partner in the end-of-season Member-Member.</span>
     </div>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-5"></div>
@@ -147,6 +147,14 @@
     const WEEK   = parseInt(params.get('week'), 10) || 5;
     const FORMAT = params.get('format') || '2-Man Shamble';
     const DATES  = params.get('dates') || 'October 19–25';
+    // This tool is also reused for special events keyed to an out-of-band
+    // week number (e.g. the Member-Member itself) — LABEL overrides the
+    // "Week N" phrasing everywhere it'd otherwise read strangely, and MM=1
+    // hides the "can't be your MM partner" warning, which only makes sense
+    // when signing up for a REGULAR week, not for the Member-Member's own
+    // signup.
+    const LABEL  = params.get('label') || `Season ${SEASON.replace('season-', '')} Week ${WEEK}`;
+    const IS_MM  = params.get('mm') === '1';
 
     function show(el, on) { el.classList.toggle('hidden', !on); }
 
@@ -244,13 +252,15 @@
     });
 
     async function load() {
+      show($('mm-warning'), !IS_MM);
+      if (!IS_MM) $('mm-warning-week').textContent = LABEL;
       try {
         const res = await fetch(`/api/team-signup?season=${encodeURIComponent(SEASON)}&week=${WEEK}`);
         const d = await res.json();
         if (!res.ok) throw new Error(d.error || 'Could not load signups.');
         data = d;
         $('format-chip').textContent = FORMAT;
-        $('page-sub').textContent = `Season ${SEASON.replace('season-', '')}, Week ${WEEK} is a ${FORMAT}, ${DATES} — course TBD. Pick your own 2-man team now so it's ready to go once the event is set up.`;
+        $('page-sub').textContent = `${LABEL} is a ${FORMAT}, ${DATES} — course TBD. Pick your own 2-man team now so it's ready to go once the event is set up.`;
         render();
         show($('loading'), false);
         show($('app'), true);
@@ -264,7 +274,7 @@
       setStatus('');
       const player = $('su-player').value;
       if (!player) return setStatus('Please select your name.', 'error');
-      const payload = { season: SEASON, week: WEEK, action: mode, player };
+      const payload = { season: SEASON, week: WEEK, label: LABEL, action: mode, player };
       if (mode === 'pair') {
         const partner = $('su-partner').value;
         if (!partner) return setStatus("Please select your partner's name.", 'error');
@@ -302,7 +312,7 @@
       try {
         const res = await fetch('/api/team-signup', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ season: SEASON, week: WEEK, action: 'withdraw', player }),
+          body: JSON.stringify({ season: SEASON, week: WEEK, label: LABEL, action: 'withdraw', player }),
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error || 'Withdraw failed.');

@@ -133,6 +133,12 @@ export async function onRequestPost(context) {
   const sw = parseSeasonWeek(body.season, body.week);
   if (!sw) return json({ error: 'Invalid season/week' }, 400);
   const { season, week } = sw;
+  // Optional human label for Discord messages (e.g. "the Season 10
+  // Member-Member") — this tool is also reused for special events keyed to
+  // an out-of-band week number that'd read strangely as "Week 90" in chat.
+  // Falls back to the normal phrasing when omitted so every existing link
+  // keeps behaving exactly as before.
+  const label = String(body.label || '').trim() || `Season ${season.replace('season-', '')} Week ${week}`;
 
   const action = String(body.action || '');
   if (!['pair', 'solo', 'withdraw'].includes(action)) return json({ error: 'Invalid action' }, 400);
@@ -170,7 +176,7 @@ export async function onRequestPost(context) {
 
       data.pairs.push({ players: [playerName, partnerName], at: new Date().toISOString() });
       await saveState(accountId, apiToken, season, week, data);
-      await notify(env, `⛳ **${playerName}** + **${partnerName}** locked in a pair for Season ${season.replace('season-', '')} Week ${week}`);
+      await notify(env, `⛳ **${playerName}** + **${partnerName}** locked in a pair for ${label}`);
       return json({ ok: true, ...data });
     }
 
@@ -187,7 +193,7 @@ export async function onRequestPost(context) {
       if (!existing) {
         data.solo.push({ player: playerName, note, at: new Date().toISOString() });
         await saveState(accountId, apiToken, season, week, data);
-        await notify(env, `🙋 **${playerName}** is looking for a partner for Season ${season.replace('season-', '')} Week ${week}${note ? `\n> ${note}` : ''}`);
+        await notify(env, `🙋 **${playerName}** is looking for a partner for ${label}${note ? `\n> ${note}` : ''}`);
       } else if (existing.note !== note) {
         // Re-submitting while already listed just updates the note (e.g. availability
         // changed) — doesn't re-notify Discord, that would spam the channel.
@@ -208,11 +214,11 @@ export async function onRequestPost(context) {
       const other = found.entry.players.find(n => n.toLowerCase() !== playerName.toLowerCase());
       data.pairs = data.pairs.filter(p => p !== found.entry);
       await saveState(accountId, apiToken, season, week, data);
-      await notify(env, `⚠️ **${playerName}** withdrew from their pair with **${other}** (Season ${season.replace('season-', '')} Week ${week}) — ${other}, you're free to sign up again`);
+      await notify(env, `⚠️ **${playerName}** withdrew from their pair with **${other}** (${label}) — ${other}, you're free to sign up again`);
     } else {
       data.solo = data.solo.filter(s => s !== found.entry);
       await saveState(accountId, apiToken, season, week, data);
-      await notify(env, `${playerName} is no longer looking for a partner (Season ${season.replace('season-', '')} Week ${week})`);
+      await notify(env, `${playerName} is no longer looking for a partner (${label})`);
     }
     return json({ ok: true, ...data });
   } catch (e) {

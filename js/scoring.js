@@ -7,6 +7,9 @@ export function applyFormat(scorecards, format, event = null) {
     case 'escalator-doom':  return calcEscalatorDoom(cards, format, event);
     case 'lone-ranger':     return calcLoneRanger(cards, format, event);
     case 'shamble-2man':      return calcShamble2Man(cards, format, event);
+    case 'best-ball-2man':    return calcBestBall2Man(cards, format, event);
+    case 'alt-shot-2man':     return calcAltShot2Man(cards, format, event);
+    case 'scramble-2man':     return calcScramble2Man(cards, format, event);
     case 'nassau-2man':       return calcNassau2Man(cards, format, event);
     case 'best2-worst2-all3': return calcBest2Worst2All3(cards, format, event);
     case 'modified-bb-3man':  return calcModifiedBB3Man(cards, format, event);
@@ -1353,6 +1356,18 @@ function calcBestBall3Man(scorecards, format, event) {
 
 // ─── 2-Man Shamble ──────────────────────────────────────────────────────────
 
+// 2-Man Best Ball shares the exact same scoring math as Shamble — both
+// formats compare each player's own net score per hole and take the
+// lower one. They only differ in a tee-shot rule (Shamble shares the best
+// drive, Best Ball doesn't) that the simulator itself handles; by the time
+// SGT reports net scores per hole, there's nothing left to distinguish.
+// Aliased under its own name for clarity rather than pointed at
+// calcShamble2Man directly in the switch, so this doesn't silently break
+// if Shamble's own logic ever grows something Shamble-specific.
+function calcBestBall2Man(scorecards, format, event) {
+  return calcShamble2Man(scorecards, format, event);
+}
+
 function calcShamble2Man(scorecards, format, event) {
   const teamSize = format.teamSize || 2;
   const teams = buildTeamRoster(scorecards, event, teamSize);
@@ -1446,6 +1461,80 @@ function calcShamble2Man(scorecards, format, event) {
     if (trulyTied) prev.tied = true;
   });
   return [...ranked, ...sortInProgress(unranked)];
+}
+
+// ─── 2-Man Alternate Shot ───────────────────────────────────────────────────
+// One ball per team per hole — SGT already computes the single shared score
+// and reports it identically on both teammates' own cards (confirmed: no
+// per-hole aggregation needed here the way Shamble/Nassau need best-ball
+// logic). Team net is just whichever teammate's own net total SGT returned,
+// taken as-is; straight stroke play across teams, no side pots.
+// 2-Man Scramble shares the same "one shared ball, SGT already computed
+// the score" pass-through as Alt Shot — aliased under its own name for
+// clarity, same reasoning as calcBestBall2Man above.
+function calcScramble2Man(scorecards, format, event) {
+  return calcAltShot2Man(scorecards, format, event);
+}
+
+function calcAltShot2Man(scorecards, format, event) {
+  const kvTeamMap = buildKvTeamMap(event);
+  const teams = {};
+
+  for (const card of scorecards) {
+    if (!isCardComplete(card)) continue;
+    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2], kvTeamMap);
+    if (!teams[key]) {
+      teams[key] = {
+        displayMembers: [...displayMembers],
+        players: [],
+        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
+        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
+      };
+    }
+    teams[key].players.push({
+      name: card.player_name,
+      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
+      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
+      totalNet: card.total_net,
+    });
+  }
+
+  const results = Object.values(teams).map(team => {
+    const rep = team.players[0];
+    const teamHoleScores = Array.from({ length: 18 }, (_, h) => rep?.net?.[h] ?? 0);
+
+    const out      = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inn      = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);
+    const outPar   = team.pars.slice(0, 9).reduce((a, b) => a + b, 0);
+    const inPar    = team.pars.slice(9).reduce((a, b) => a + b, 0);
+    const total    = out + inn;
+    const totalPar = outPar + inPar;
+
+    return {
+      isTeam: true,
+      displayMembers: team.displayMembers,
+      players: team.players,
+      teamHoleScores,
+      pars: team.pars,
+      adjPars: team.pars,
+      indices: team.indices,
+      out, inn, outPar, inPar, total, totalPar,
+      toPar: total - totalPar,
+      aggregate: total,
+      prize: null,
+    };
+  });
+
+  results.sort((a, b) => a.total !== b.total ? a.total - b.total : teamIndexCountback(a, b));
+  results.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = results[i - 1];
+    const trulyTied = curr.total === prev.total && teamIndexCountback(curr, prev) === 0;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
+  });
+  return results;
 }
 
 // ─── 2-Man Modified Nassau ──────────────────────────────────────────────────

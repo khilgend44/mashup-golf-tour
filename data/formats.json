@@ -125,6 +125,51 @@
       { "type": "index-countback",    "label": "F9 countback: per-hole aggregate from hardest front-9 hole; B9 same for back 9" }
     ]
   },
+  "alt-shot-2man": {
+    "id": "alt-shot-2man",
+    "name": "2-Man Alternate Shot",
+    "shortName": "Alt Shot",
+    "description": "2-player teams play one ball per hole, alternating shots. SGT computes the single shared score directly — no per-hole aggregation needed, team net is simply the shared score SGT already reports.",
+    "scoringBasis": "net",
+    "type": "alt-shot-2man",
+    "lowScoreWins": true,
+    "teamSize": 2,
+    "allowance": 0.50,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (the shared score, same as total)" },
+      { "type": "index-countback",    "label": "Scorecard countback from index hole 1" }
+    ]
+  },
+  "best-ball-2man": {
+    "id": "best-ball-2man",
+    "name": "2-Man Best Ball",
+    "shortName": "Best Ball",
+    "description": "2-player teams. Both players play their own ball the entire hole. Team records the best net score per hole.",
+    "scoringBasis": "net",
+    "type": "best-ball-2man",
+    "lowScoreWins": true,
+    "teamSize": 2,
+    "allowance": 0.70,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (sum of both players' net totals)" },
+      { "type": "index-countback",    "label": "Scorecard countback from index hole 1" }
+    ]
+  },
+  "scramble-2man": {
+    "id": "scramble-2man",
+    "name": "2-Man Scramble",
+    "shortName": "Scramble",
+    "description": "2-player teams play one ball per hole, both hit every shot and pick the best result. SGT computes the single shared score directly — no per-hole aggregation needed, team net is simply the shared score SGT already reports.",
+    "scoringBasis": "net",
+    "type": "scramble-2man",
+    "lowScoreWins": true,
+    "teamSize": 2,
+    "allowance": 0.35,
+    "tiebreakers": [
+      { "type": "team-net-aggregate", "label": "Team net aggregate (the shared score, same as total)" },
+      { "type": "index-countback",    "label": "Scorecard countback from index hole 1" }
+    ]
+  },
   "shamble-2man": {
     "id": "shamble-2man",
     "name": "2-Man Shamble",

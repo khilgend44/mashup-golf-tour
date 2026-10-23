@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Member-Member Match Play Grid — MashUp Golf</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png" />
+  <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            heading: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .lb-row td { border-bottom: 1px solid #1f1f1f; }
+    .lb-row.advancing { background: linear-gradient(90deg, rgba(74,222,128,.08), rgba(74,222,128,0) 60%); }
+    .pos-col { min-width: 3rem; }
+    .num { font-variant-numeric: tabular-nums; }
+    .under { color: #4ade80; }
+    .over  { color: #f87171; }
+    .even  { color: #f5f5f5; }
+    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; letter-spacing:.09em; padding:3px 10px; border-radius:6px; }
+    .chip-advance { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.3); color:#4ade80; }
+    .rank-medal { min-width:28px; height:28px; padding:0 6px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px; }
+    .medal-1 { background:linear-gradient(160deg,#fde68a,#f59e0b); color:#1a1205; box-shadow:0 4px 12px rgba(245,158,11,.35); }
+    .medal-2 { background:linear-gradient(160deg,#e5e7eb,#9ca3af); color:#1a1a1a; }
+    .medal-3 { background:linear-gradient(160deg,#d6a06a,#a16207); color:#1a1205; }
+    .lb-table > thead > tr > th { position: sticky; top: 56px; z-index: 30; background:#171717; box-shadow: 0 1px 0 #2c2c2c; }
+    .lb-table > thead > tr > th:first-child { border-top-left-radius: 0.75rem; }
+    .lb-table > thead > tr > th:last-child  { border-top-right-radius: 0.75rem; }
+    @media (max-width: 639px) {
+      .lb-table th, .lb-table td { padding-left: 0.5rem; padding-right: 0.5rem; }
+      .rank-medal { min-width: 24px; height: 24px; font-size: 13px; padding: 0 4px; }
+    }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+  <header class="border-b border-border">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
+        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Member-Member Match Play Grid</span>
+      </div>
+      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex items-center gap-3 mb-2 flex-wrap">
+      <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none" id="page-title">MEMBER-MEMBER MATCH PLAY GRID</h1>
+      <span id="advance-chip" class="chip chip-advance">TOP <span id="advance-n">4</span> ADVANCE</span>
+    </div>
+    <p class="text-gray-500 text-sm mb-1" id="page-sub"></p>
+    <p class="text-gray-600 text-xs mb-6 max-w-2xl">Each team's own net score per hole, head-to-head against every other team, combined across both Week 1 events. Green rows are currently inside the cutline to advance to Week 2.</p>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+    <div id="loading" class="text-center py-20 text-gray-600 text-sm">Loading…</div>
+    <div id="app" class="hidden"></div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour</div>
+  </footer>
+
+  <script type="module">
+    import { loadEvents, loadFormats, fetchScorecards } from '/js/api.js?v=20260929a';
+    import { applyFormat, formatToPar } from '/js/scoring.js?v=20261022';
+
+    const params = new URLSearchParams(location.search);
+    const e1Id = params.get('e1');
+    const e2Id = params.get('e2');
+    const ADVANCE_N = parseInt(params.get('top'), 10) || 4;
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const fmtPts = n => n == null ? '—' : (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+    function showStatus(msg) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'rounded-lg px-4 py-3 text-sm font-body mb-4 bg-red-900/30 border border-red-800/40 text-red-300';
+      el.classList.remove('hidden');
+    }
+
+    // Canonical team key: sorted lowercase member names, joined — the same
+    // pair playing both Week 1 events resolves to the same key both times,
+    // regardless of which order SGT happens to list them in on a given day.
+    function teamKey(displayMembers) {
+      return [...displayMembers].map(n => n.toLowerCase()).sort().join('|');
+    }
+
+    async function loadEventTeams(eventId, formats, allEvents) {
+      const event = allEvents.find(e => e.id === eventId);
+      if (!event) throw new Error(`Event "${eventId}" not found`);
+      const format = formats[event.format];
+      if (!format) throw new Error(`Event "${eventId}" has an unknown format`);
+      const scorecards = await fetchScorecards(event.tournamentId);
+      const results = applyFormat(scorecards, format, event);
+      // Only complete teams have real per-hole scores to compare — an
+      // in-progress team (no teamHoleScores yet) can't contribute to any
+      // head-to-head holes until it finishes, same as the season grid only
+      // ever compares complete cards.
+      const complete = results.filter(r => r.isTeam && Array.isArray(r.teamHoleScores));
+      return { event, format, teams: complete };
+    }
+
+    // Hole-by-hole head-to-head, same scoring as the season grid's
+    // computeSeasonGrid (1 pt per hole won, 0.5 each if tied) — just
+    // applied to each TEAM's own computed net score per hole instead of an
+    // individual player's, and across exactly these two events' holes
+    // (36 total) rather than a whole season's.
+    function computeMMGrid(eventTeamSets) {
+      const byKey = new Map(); // key -> { displayMembers, vsOthers: {key: pts}, holesPlayed }
+      const ensure = (key, displayMembers) => {
+        if (!byKey.has(key)) byKey.set(key, { key, displayMembers, vsOthers: {}, holesPlayed: 0 });
+        return byKey.get(key);
+      };
+
+      for (const { teams } of eventTeamSets) {
+        for (let i = 0; i < teams.length; i++) {
+          for (let j = i + 1; j < teams.length; j++) {
+            const a = teams[i], b = teams[j];
+            const aKey = teamKey(a.displayMembers), bKey = teamKey(b.displayMembers);
+            const aRow = ensure(aKey, a.displayMembers);
+            const bRow = ensure(bKey, b.displayMembers);
+            let aPts = 0, bPts = 0;
+            for (let h = 0; h < 18; h++) {
+              const av = a.teamHoleScores[h], bv = b.teamHoleScores[h];
+              if (av == null || bv == null) continue;
+              if (av < bv) aPts += 1;
+              else if (av > bv) bPts += 1;
+              else { aPts += 0.5; bPts += 0.5; }
+            }
+            aRow.vsOthers[bKey] = (aRow.vsOthers[bKey] || 0) + aPts;
+            bRow.vsOthers[aKey] = (bRow.vsOthers[aKey] || 0) + bPts;
+          }
+        }
+        for (const t of teams) {
+          const row = ensure(teamKey(t.displayMembers), t.displayMembers);
+          row.holesPlayed += t.teamHoleScores.filter(v => v != null).length;
+          row.toPar = (row.toPar || 0) + (t.toPar || 0);
+          row.eventsPlayed = (row.eventsPlayed || 0) + 1;
+        }
+      }
+
+      const results = [...byKey.values()].map(row => ({
+        ...row,
+        totalPoints: Object.values(row.vsOthers).reduce((a, b) => a + b, 0),
+      }));
+
+      results.sort((a, b) => b.totalPoints - a.totalPoints);
+      results.forEach((curr, i) => {
+        if (i === 0) { curr.position = 1; curr.tied = false; return; }
+        const prev = results[i - 1];
+        const tied = curr.totalPoints === prev.totalPoints;
+        curr.position = tied ? prev.position : i + 1;
+        curr.tied = tied;
+        if (tied) prev.tied = true;
+      });
+      return results;
+    }
+
+    async function init() {
+      if (!e1Id || !e2Id) {
+        showStatus('Missing event ids — link to this page as mm-match-play-grid.html?e1=event-XXX&e2=event-YYY with your two Week 1 event ids.');
+        document.getElementById('loading').classList.add('hidden');
+        return;
+      }
+      document.getElementById('advance-n').textContent = ADVANCE_N;
+
+      try {
+        const [allEvents, formats] = await Promise.all([loadEvents(), loadFormats()]);
+        const [set1, set2] = await Promise.all([
+          loadEventTeams(e1Id, formats, allEvents),
+          loadEventTeams(e2Id, formats, allEvents),
+        ]);
+
+        document.getElementById('page-title').textContent = 'MEMBER-MEMBER MATCH PLAY GRID';
+        document.getElementById('page-sub').textContent =
+          `${set1.event.name} (${set1.format.shortName || set1.format.name}) + ${set2.event.name} (${set2.format.shortName || set2.format.name}) — ` +
+          `${set1.teams.length} / ${set2.teams.length} teams posted`;
+
+        const results = computeMMGrid([set1, set2]);
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        render(results);
+      } catch (e) {
+        document.getElementById('loading').classList.add('hidden');
+        showStatus('Could not load the MM grid: ' + e.message);
+      }
+    }
+
+    function teamName(displayMembers) {
+      return displayMembers.join(' + ');
+    }
+
+    function render(results) {
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Standings</h2>
+          <span class="text-xs text-gray-600">${results.length} teams</span>
+        </div>
+        <div class="flex items-center gap-4 mb-3 text-xs">
+          <a href="#grid-section" class="text-gray-500 hover:text-flame transition-colors">↓ Jump to The Grid</a>
+        </div>
+        <div class="card-shadow rounded-xl border border-border">
+          <table class="lb-table w-full text-sm" style="table-layout:fixed">
+            <thead>
+              <tr class="bg-surface">
+                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:8%">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:38%">Team</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:16%" title="Sum of hole-by-hole points earned against every other team, across both Week 1 events">Points</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:14%">Events</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:24%">To Par (combined)</th>
+              </tr>
+            </thead>
+            <tbody id="lb-body"></tbody>
+          </table>
+        </div>
+        <div id="grid-section" class="mt-10" style="scroll-margin-top:72px"></div>
+      `;
+
+      const tbody = document.getElementById('lb-body');
+      results.forEach(team => {
+        const posStr = team.tied ? `T${team.position}` : team.position;
+        const toParStr = formatToPar(team.toPar);
+        const toParCls = team.toPar < 0 ? 'under' : team.toPar > 0 ? 'over' : 'even';
+        const advancing = team.position <= ADVANCE_N;
+
+        const tr = document.createElement('tr');
+        tr.className = `lb-row ${advancing ? 'advancing' : ''}`;
+        tr.innerHTML = `
+          <td class="pos-col px-3 py-3.5 text-center">
+            ${team.position <= 3
+              ? `<span class="rank-medal medal-${team.position}">${posStr}</span>`
+              : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
+          </td>
+          <td class="px-4 py-3.5 font-medium text-white" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${esc(teamName(team.displayMembers))}
+            ${advancing ? '<span class="ml-2 text-[10px] font-heading font-700 tracking-widest text-emerald-400 uppercase">Advancing</span>' : ''}
+          </td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num text-flame">${fmtPts(team.totalPoints)}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${team.eventsPlayed}</td>
+          <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderGridSection(results);
+    }
+
+    function gridCell(row, col) {
+      if (col === row) return `<td class="px-2 py-2 text-center text-gray-700 bg-[#161616]">—</td>`;
+      const pts = row.vsOthers[col.key];
+      if (pts == null) return `<td class="px-2 py-2 text-center text-gray-700">—</td>`;
+      const maxPossible = Math.min(row.eventsPlayed, col.eventsPlayed) * 9;
+      const cls = pts > maxPossible ? 'text-emerald-400' : pts < maxPossible ? 'text-red-400/80' : 'text-gray-400';
+      return `<td class="px-2 py-2 text-center font-mono text-xs ${cls}">${fmtPts(pts)}</td>`;
+    }
+
+    function renderGridSection(results) {
+      const headerCells = results.map(t => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap sticky top-0 bg-surface z-10" style="min-width:90px">${esc(teamName(t.displayMembers))}</th>`).join('');
+      const bodyRows = results.map(row => `<tr class="border-b border-border/40">
+          <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${esc(teamName(row.displayMembers))}</td>
+          ${results.map(col => gridCell(row, col)).join('')}
+        </tr>`).join('');
+
+      document.getElementById('grid-section').innerHTML = `
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">The Grid</h2>
+          <span class="text-[11px] text-gray-600">row's cumulative points earned vs. column, across both events &nbsp;·&nbsp; ${results.length} teams</span>
+        </div>
+        <div class="card-shadow bg-card border border-border rounded-xl overflow-auto" style="max-height: 70vh">
+          <table class="text-sm border-collapse">
+            <thead>
+              <tr class="bg-surface">
+                <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 top-0 bg-surface z-20">TEAM</th>
+                ${headerCells}
+              </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    init();
+  </script>
+</body>
+</html>
