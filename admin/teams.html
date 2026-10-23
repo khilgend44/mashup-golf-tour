@@ -250,6 +250,23 @@
       return null;
     }
 
+    // Scramble and Alt Shot play one shared ball per team, so SGT needs one
+    // shared effective handicap per team, not each player's own separately-
+    // allowanced number the way every other format (even other 2-man ones
+    // like Best Ball/Nassau, which still score each player's own net
+    // individually even though only one ends up counting) works. Confirmed
+    // by the admin (2026-10): both teammates get tagged with the SAME
+    // blended number in the SGT loading file.
+    //   Scramble: 35% of the better (lower) player's own raw cap + 15% of
+    //   the worse (higher) player's — e.g. a -5/+5 pair blends to
+    //   (-5×.35)+(5×.15) = -1.
+    //   Alt Shot: 50% of the two players' own raw caps summed together
+    //   (order doesn't matter) — e.g. a -5/+5 pair blends to (-5+5)×.5 = 0.
+    const TEAM_BLEND_FORMULAS = {
+      'scramble-2man': caps => Math.min(...caps) * 0.35 + Math.max(...caps) * 0.15,
+      'alt-shot-2man': caps => caps.reduce((a, b) => a + b, 0) * 0.50,
+    };
+
     // A format's handicap allowance (data/formats.json's `allowance`, e.g.
     // 0.80 for an 80% team best-ball format) reduces each player's raw cap
     // FIRST — courseHandicap × allowance% — and only then is the field
@@ -257,12 +274,32 @@
     // Doing it in the other order would dilute the allowance instead of
     // applying it to the number SGT actually uses to compute net scores.
     // Returns a lookup fn; players with no cap on file resolve to null.
-    function buildAllowedCapFn(names, allowance) {
+    // `opts.teams` + `opts.formatType` activate the blended-team formula
+    // above for Scramble/Alt Shot instead of the normal flat-rate-per-
+    // player calculation — omit them (every other call site does) and this
+    // behaves exactly as before.
+    function buildAllowedCapFn(names, allowance, opts = {}) {
+      const { teams, formatType } = opts;
       const rate = allowance != null ? Number(allowance) : 1;
-      const allowedRaw = name => {
-        const rc = regCap(state.handicaps[name.toLowerCase()]);
-        return rc !== null ? rc * rate : null;
-      };
+      const blendFn = formatType && TEAM_BLEND_FORMULAS[formatType];
+
+      let allowedRaw;
+      if (blendFn && Array.isArray(teams)) {
+        const nameToTeam = new Map();
+        for (const pair of teams) for (const n of pair) nameToTeam.set(n.toLowerCase(), pair);
+        allowedRaw = name => {
+          const pair = nameToTeam.get(name.toLowerCase());
+          if (!pair) return null;
+          const caps = pair.map(n => regCap(state.handicaps[n.toLowerCase()])).filter(c => c !== null);
+          return caps.length === pair.length ? blendFn(caps) : null;
+        };
+      } else {
+        allowedRaw = name => {
+          const rc = regCap(state.handicaps[name.toLowerCase()]);
+          return rc !== null ? rc * rate : null;
+        };
+      }
+
       const values = names.map(allowedRaw).filter(v => v !== null);
       const minAllowed = values.length ? Math.min(...values) : 0;
       return name => {
@@ -633,7 +670,7 @@
       // Same allowance-adjusted number the SGT CSV will actually use, so
       // this preview never shows something different from what gets
       // downloaded.
-      const adjCap = buildAllowedCapFn(fieldNames, rtFmt?.allowance);
+      const adjCap = buildAllowedCapFn(fieldNames, rtFmt?.allowance, { teams, formatType: rtFmt?.type });
       const hasPairs = teamSize > 1 && Object.keys(rtPartnerships).length > 0;
 
       const conflictBadge = !hasPairs
@@ -1147,12 +1184,12 @@
     // event shows, even though the live MashCAP table underneath it keeps
     // moving. Falls back to live computation only when nothing's locked yet
     // (still drafting/previewing before the CSV has ever been generated).
-    function eventCapFn(event, seasonPlayers, allowance) {
+    function eventCapFn(event, seasonPlayers, allowance, formatType) {
       if (event.lockedHandicaps) {
         const locked = event.lockedHandicaps;
         return name => locked[name.toLowerCase()]?.adjusted ?? null;
       }
-      return buildAllowedCapFn(seasonPlayers.map(p => p.name), allowance);
+      return buildAllowedCapFn(seasonPlayers.map(p => p.name), allowance, { teams: event.teams, formatType });
     }
 
     function buildHandicapSnapshot(seasonPlayers, adjCapFn) {
@@ -1172,7 +1209,7 @@
       const isSolo   = teamSize < 2;
 
       const seasonPlayers = getSortedPlayers(event.season);
-      const adjCap = eventCapFn(event, seasonPlayers, fmt.allowance);
+      const adjCap = eventCapFn(event, seasonPlayers, fmt.allowance, fmt.type);
 
       const header = 'TeamPlayer1,Player1 HCP,TeamPlayer2,Player2 HCP,TeamPlayer3,Player3 HCP,TeamPlayer4,Player4 HCP,teamID,opponentID';
       const rows = [];
@@ -1219,7 +1256,7 @@
     async function lockEventHandicaps(event) {
       const fmt = state.allFormats[event.format] || {};
       const seasonPlayers = getSortedPlayers(event.season);
-      const liveAdjCap = buildAllowedCapFn(seasonPlayers.map(p => p.name), fmt.allowance);
+      const liveAdjCap = buildAllowedCapFn(seasonPlayers.map(p => p.name), fmt.allowance, { teams: event.teams, formatType: fmt.type });
       const lockedHandicaps = buildHandicapSnapshot(seasonPlayers, liveAdjCap);
       const updatedEvent = { ...event, lockedHandicaps };
       const res = await fetch(API_WRITE, {

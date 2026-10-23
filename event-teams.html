@@ -222,12 +222,34 @@
         if (h.rawCap  !== undefined && h.rawCap  !== null) return parseFloat(h.rawCap);
         return null;
       }
+      // Scramble/Alt Shot play one shared ball per team, so both teammates
+      // get tagged with the SAME blended team handicap in the SGT loading
+      // file, not each player's own separately-allowanced number — same
+      // formulas and reasoning as admin/teams.html's TEAM_BLEND_FORMULAS,
+      // must match.
+      const TEAM_BLEND_FORMULAS = {
+        'scramble-2man': caps => Math.min(...caps) * 0.35 + Math.max(...caps) * 0.15,
+        'alt-shot-2man': caps => caps.reduce((a, b) => a + b, 0) * 0.50,
+      };
+      const teamBlendFn = TEAM_BLEND_FORMULAS[format.type];
+      const nameToTeam = new Map();
+      if (teamBlendFn && Array.isArray(event.teams)) {
+        for (const pair of event.teams) for (const n of pair) nameToTeam.set(n.toLowerCase(), pair);
+      }
+
       // Format's handicap allowance applied to each player's raw cap FIRST,
       // then the field is offset so the best (lowest) resulting handicap
       // plays to scratch — same order of operations, and must produce the
-      // same numbers, as admin/teams.html's SGT Loading File.
+      // same numbers, as admin/teams.html's SGT Loading File. Blended teams
+      // (above) skip this per-player rate entirely.
       const allowance = format.allowance != null ? Number(format.allowance) : 1;
       function liveAllowedRaw(name) {
+        if (teamBlendFn) {
+          const pair = nameToTeam.get(name.toLowerCase());
+          if (!pair) return null;
+          const caps = pair.map(n => liveRegCap(n)).filter(c => c !== null);
+          return caps.length === pair.length ? teamBlendFn(caps) : null;
+        }
         const rc = liveRegCap(name);
         return rc !== null ? rc * allowance : null;
       }
