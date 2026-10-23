@@ -72,9 +72,23 @@
       ];
       if (f.scoringBasis) badges.push(`<span class="badge badge-gray">${esc(f.scoringBasis)}</span>`);
       if (f.lowScoreWins != null) badges.push(`<span class="badge badge-gray">${f.lowScoreWins ? 'Low score wins' : 'High score wins'}</span>`);
-      badges.push(f.allowance != null
-        ? `<span class="badge badge-flame">${Math.round(f.allowance * 100)}% handicap allowance</span>`
-        : `<span class="badge badge-gray">No handicap allowance</span>`);
+      // Scramble plays one shared ball per team, so its handicap isn't one
+      // flat per-player rate — both teammates register at a blended team
+      // cap (35% of the better player's own raw cap + 15% of the worse
+      // player's), computed in admin/teams.html/admin/poster-preview.html/
+      // event-teams.html's TEAM_BLEND_FORMULAS, not expressible as a single
+      // ALLOWANCE %, so formats.json leaves `allowance` null for it on
+      // purpose. That null previously fell through to the generic "No
+      // handicap allowance" badge, which is actively wrong for this format
+      // — it very much has one, just not this field's shape. Alt Shot uses
+      // the same blended mechanism but keeps a real `allowance: 0.50`
+      // (still accurate as a display number there, see data/formats.json),
+      // so it already shows correctly without this special case.
+      badges.push(f.type === 'scramble-2man'
+        ? `<span class="badge badge-flame">Blended team handicap (35%/15%)</span>`
+        : f.allowance != null
+          ? `<span class="badge badge-flame">${Math.round(f.allowance * 100)}% handicap allowance</span>`
+          : `<span class="badge badge-gray">No handicap allowance</span>`);
 
       const segments = Array.isArray(f.segments) && f.segments.length
         ? `<div class="mt-4">
