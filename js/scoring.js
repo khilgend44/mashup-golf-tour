@@ -1465,10 +1465,15 @@ function calcShamble2Man(scorecards, format, event) {
 
 // ─── 2-Man Alternate Shot ───────────────────────────────────────────────────
 // One ball per team per hole — SGT already computes the single shared score
-// and reports it identically on both teammates' own cards (confirmed: no
-// per-hole aggregation needed here the way Shamble/Nassau need best-ball
-// logic). Team net is just whichever teammate's own net total SGT returned,
-// taken as-is; straight stroke play across teams, no side pots.
+// and reports it identically on both teammates' own cards, so no per-hole
+// aggregation like Shamble/Nassau's best-ball logic is needed; just take the
+// shared value. BUT: confirmed by the admin (2026-10) that SGT sometimes
+// reports one teammate's card as a placeholder 0 for a given hole — real
+// shared score on the OTHER teammate's card that same hole, not a tie, not
+// an actual 0. So this can't just trust team.players[0] blindly (that
+// teammate could be the one holding the placeholder); it takes, per hole,
+// the first teammate with a non-zero/non-null value, falling back to 0
+// only if neither has one (a genuinely unscored hole).
 // 2-Man Scramble shares the same "one shared ball, SGT already computed
 // the score" pass-through as Alt Shot — aliased under its own name for
 // clarity, same reasoning as calcBestBall2Man above.
@@ -1500,8 +1505,13 @@ function calcAltShot2Man(scorecards, format, event) {
   }
 
   const results = Object.values(teams).map(team => {
-    const rep = team.players[0];
-    const teamHoleScores = Array.from({ length: 18 }, (_, h) => rep?.net?.[h] ?? 0);
+    const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
+      for (const p of team.players) {
+        const v = p.net?.[h];
+        if (v) return v;
+      }
+      return 0;
+    });
 
     const out      = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
     const inn      = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);
