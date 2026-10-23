@@ -169,6 +169,33 @@ export async function onRequestPost(context) {
       const partnerTaken = data.pairs.find(p => p.players.some(n => n.toLowerCase() === partnerName.toLowerCase()));
       if (partnerTaken) return json({ error: `${partnerName} is already paired up.` }, 409);
 
+      // Member-Member specifically forbids a pair that was already partnered
+      // in S10W5 (the real self-pick-your-partner week — W3's Nassau pairs
+      // were admin-assigned, not self-signed-up, and W4 was a 3-man format,
+      // so W5 is the one week this actually needs to guard against).
+      // Checked server-side, not just the client-side warning banner, so it
+      // can't be bypassed by hitting this endpoint directly. Fails closed —
+      // any problem verifying Week 5's pairs blocks the signup rather than
+      // silently letting a possible repeat through.
+      if (body.mm) {
+        let w5Event;
+        try {
+          const eventsRaw = await kvGet(accountId, apiToken, 'admin:events');
+          const events = eventsRaw ? JSON.parse(eventsRaw) : [];
+          w5Event = events.find(e => e.season === season && e.week === 5);
+        } catch {
+          return json({ error: 'Could not verify Week 5 pairings — please try again.' }, 502);
+        }
+        if (!w5Event) return json({ error: 'Could not find Week 5 event data to check for repeat pairings — please contact the admin.' }, 502);
+
+        const w5Pairs = (w5Event.teams || []).filter(t => Array.isArray(t) && t.length === 2);
+        const attemptedKey = [playerName.toLowerCase(), partnerName.toLowerCase()].sort().join('|');
+        const isRepeat = w5Pairs.some(pair => pair.map(n => n.toLowerCase()).sort().join('|') === attemptedKey);
+        if (isRepeat) {
+          return json({ error: `${playerName} and ${partnerName} were already partners in Week 5 — Member-Member pairs must be new.` }, 409);
+        }
+      }
+
       // A locked-in pair absorbs either player's "looking for partner" entry.
       data.solo = data.solo.filter(s =>
         s.player.toLowerCase() !== playerName.toLowerCase() &&

@@ -174,6 +174,22 @@
 
     let data = { pairs: [], solo: [], roster: [] };
     let mode = 'pair';
+    // MM-only: pairs already partnered in S10W5, for an immediate inline
+    // warning before submitting — the server enforces this independently
+    // (functions/api/team-signup.js), this is just faster feedback.
+    let w5RepeatKeys = new Set();
+    function pairKey(a, b) { return [a.toLowerCase(), b.toLowerCase()].sort().join('|'); }
+    async function loadW5RepeatKeys() {
+      if (!IS_MM) return;
+      try {
+        const res = await fetch('/api/events-admin?type=events');
+        const events = await res.json();
+        const w5 = Array.isArray(events) ? events.find(e => e.season === SEASON && e.week === 5) : null;
+        for (const pair of (w5?.teams || [])) {
+          if (Array.isArray(pair) && pair.length === 2) w5RepeatKeys.add(pairKey(pair[0], pair[1]));
+        }
+      } catch { /* server-side check still applies even if this fails */ }
+    }
 
     function pairedNames() {
       return new Set(data.pairs.flatMap(p => p.players.map(n => n.toLowerCase())));
@@ -254,6 +270,7 @@
     async function load() {
       show($('mm-warning'), !IS_MM);
       if (!IS_MM) $('mm-warning-week').textContent = LABEL;
+      await loadW5RepeatKeys();
       try {
         const res = await fetch(`/api/team-signup?season=${encodeURIComponent(SEASON)}&week=${WEEK}`);
         const d = await res.json();
@@ -274,10 +291,13 @@
       setStatus('');
       const player = $('su-player').value;
       if (!player) return setStatus('Please select your name.', 'error');
-      const payload = { season: SEASON, week: WEEK, label: LABEL, action: mode, player };
+      const payload = { season: SEASON, week: WEEK, label: LABEL, mm: IS_MM, action: mode, player };
       if (mode === 'pair') {
         const partner = $('su-partner').value;
         if (!partner) return setStatus("Please select your partner's name.", 'error');
+        if (IS_MM && w5RepeatKeys.has(pairKey(player, partner))) {
+          return setStatus(`${player} and ${partner} were already partners in Week 5 — Member-Member pairs must be new.`, 'error');
+        }
         payload.partner = partner;
       } else {
         payload.note = $('su-note').value.trim();
