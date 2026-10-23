@@ -149,7 +149,7 @@
     "type": "best-ball-2man",
     "lowScoreWins": true,
     "teamSize": 2,
-    "allowance": 0.70,
+    "allowance": 0.80,
     "tiebreakers": [
       { "type": "team-net-aggregate", "label": "Team net aggregate (sum of both players' net totals)" },
       { "type": "index-countback",    "label": "Scorecard countback from index hole 1" }
