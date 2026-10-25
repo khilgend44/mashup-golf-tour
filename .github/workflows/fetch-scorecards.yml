@@ -69,6 +69,22 @@ jobs:
 
           echo "Tournaments to fetch: $(echo "$TOURNAMENT_IDS" | tr '\n' ' ')"
 
+          # The stream-gap check below calls MashUp's get-streams endpoint,
+          # which does a KV "list" operation — a much lower daily cap (1,000)
+          # than reads, and the one that actually tripped Cloudflare's
+          # usage-cap warning (2026-10). The live-score fetch above has no KV
+          # cost and keeps running every 10 minutes; this just thins out how
+          # often the stream check itself runs, to roughly every 30 minutes
+          # (checked against the run's own UTC clock minute, so it's not tied
+          # to whenever the workflow happened to first be enabled).
+          MINUTE=$(date -u +%M)
+          if [ $((10#$MINUTE % 30)) -eq 0 ]; then
+            CHECK_STREAMS=1
+          else
+            CHECK_STREAMS=0
+            echo "Skipping the stream-gap check this run (only checked every 30 min)."
+          fi
+
           echo "$TOURNAMENT_IDS" | while read tid; do
             echo "Fetching tournament $tid..."
             curl -sf \
@@ -126,22 +142,31 @@ jobs:
               sgt_streams=$(mktemp)
               python3 .github/scripts/parse_streams.py "$lbhtml" > "$sgt_streams"
 
+              # Defaults to an empty set so the CTP-video-linking sections
+              # further down (which only ever use this as a secondary,
+              # optional signal) degrade gracefully on a skipped run instead
+              # of erroring — they just find fewer shared-teammate matches
+              # until the next 30-minute check, never a wrong one.
               mashup_streams=$(mktemp)
-              curl -sf "https://mashup-golf-tour.pages.dev/api/get-streams?eventId=${EVENT_ID}" -o "$mashup_streams" || echo "{}" > "$mashup_streams"
+              echo "{}" > "$mashup_streams"
 
-              gaps=$(python3 .github/scripts/stream_gaps.py "$sgt_streams" "$mashup_streams")
-              count=$(echo "$gaps" | jq 'length')
+              if [ "$CHECK_STREAMS" = "1" ]; then
+                curl -sf "https://mashup-golf-tour.pages.dev/api/get-streams?eventId=${EVENT_ID}" -o "$mashup_streams" || echo "{}" > "$mashup_streams"
 
-              if [ "$count" != "0" ] && [ -n "$STREAM_IMPORT_SECRET" ]; then
-                echo "  → found $count stream(s) on SGT missing from MashUp, importing..."
-                payload=$(jq -n --arg eventId "$EVENT_ID" --arg eventName "$EVENT_NAME" --argjson items "$gaps" \
-                  '{eventId: $eventId, eventName: $eventName, items: $items}')
-                curl -sf -X POST "https://mashup-golf-tour.pages.dev/api/import-sgt-stream" \
-                  -H "Content-Type: application/json" \
-                  -H "X-Cron-Secret: ${STREAM_IMPORT_SECRET}" \
-                  -d "$payload" || echo "  → stream import request failed"
-              else
-                echo "  → no missing streams found for $EVENT_ID"
+                gaps=$(python3 .github/scripts/stream_gaps.py "$sgt_streams" "$mashup_streams")
+                count=$(echo "$gaps" | jq 'length')
+
+                if [ "$count" != "0" ] && [ -n "$STREAM_IMPORT_SECRET" ]; then
+                  echo "  → found $count stream(s) on SGT missing from MashUp, importing..."
+                  payload=$(jq -n --arg eventId "$EVENT_ID" --arg eventName "$EVENT_NAME" --argjson items "$gaps" \
+                    '{eventId: $eventId, eventName: $eventName, items: $items}')
+                  curl -sf -X POST "https://mashup-golf-tour.pages.dev/api/import-sgt-stream" \
+                    -H "Content-Type: application/json" \
+                    -H "X-Cron-Secret: ${STREAM_IMPORT_SECRET}" \
+                    -d "$payload" || echo "  → stream import request failed"
+                else
+                  echo "  → no missing streams found for $EVENT_ID"
+                fi
               fi
 
               # CTP video auto-linking. A player who links their stream
