@@ -96,6 +96,17 @@ export async function onRequestPost(context) {
   // ── Write streams, tracking any that replaced a different existing link ───
   const overwrites = [];
   try {
+    // event.html reloads the page ~3s after a successful submit, expecting to
+    // immediately see the stream it just posted. get-streams.js now caches
+    // its response for 45s (2026-10, to cut KV list-operation usage), so
+    // without this the reload could briefly show the submission as missing.
+    // Best-effort purge, same tradeoff class as the rate limiter's read-then-
+    // increment above it isn't atomic (a request landing at a different edge
+    // location than the cached entry won't see the purge), but it clears the
+    // common case for free and the worst case is just the old 45s staleness.
+    const getStreamsUrl = new URL('/api/get-streams', request.url);
+    getStreamsUrl.searchParams.set('eventId', eventId);
+    context.waitUntil(caches.default.delete(new Request(getStreamsUrl.toString())));
     if (isRinger) {
       const player = players[0];
       if (round1Url) { const prev = await putStream(accountId, apiToken, eventId, player, 1, round1Url); if (prev) overwrites.push({ player, round: 1, prev, next: round1Url }); }
