@@ -277,6 +277,53 @@ export async function scanScorecardRounds(events) {
   return out;
 }
 
+// ── Margin of victory (from the scoring engine) ────────────────────────────
+// Gap between 1st and 2nd place for one event, taken from the same `.total`
+// field the scoring engine itself ranks by. Restricted to formats that score
+// in net strokes — match-play-grid and stableford-3man rank by POINTS under
+// that same `.total` field (lowScoreWins: false), which isn't a comparable
+// unit to strokes, so those are excluded rather than silently mixed into a
+// "margin of victory" number that would read as strokes but sometimes mean
+// points. Ties-for-1st yield no result (zero margin isn't a record).
+const POINTS_BASED_FORMATS = new Set(['match-play-grid', 'stableford-3man']);
+
+export async function buildMarginOfVictory(completedEvents, formats) {
+  const out = [];
+  for (const e of completedEvents) {
+    const fmt = formats[e.format];
+    if (!fmt || e.tournamentId == null || POINTS_BASED_FORMATS.has(fmt.type)) continue;
+
+    let scorecards;
+    try { scorecards = await fetchScorecards(e.tournamentId); } catch { continue; }
+    if (!scorecards) continue;
+
+    let results;
+    try { results = applyFormat(scorecards, fmt, e); } catch { continue; }
+    if (!results) continue;
+
+    const ranked = results
+      .filter(r => !r.inProgress && r.total != null && r.position != null)
+      .sort((a, b) => a.position - b.position);
+    if (ranked.length < 2) continue;
+
+    const winner = ranked[0];
+    // Skip past any players/teams tied for 1st to the first genuinely
+    // different placing — with a 3-way tie for 1st, ranked[1] is still part
+    // of that tie (same position), not the real runner-up.
+    const runnerUp = ranked.find(r => r.position !== winner.position);
+    if (!runnerUp || runnerUp.total == null) continue;
+
+    const margin = Math.abs(runnerUp.total - winner.total);
+    if (!margin) continue;
+
+    const name = winner.isTeam ? (winner.displayMembers || []).filter(Boolean).join(' & ') : winner.player_name;
+    if (!name) continue;
+
+    out.push({ name, value: margin, detail: e.name });
+  }
+  return out;
+}
+
 // Convenience: pull a single player's record (case-insensitive) from a stats map.
 export function playerRecord(statsMap, name) {
   const rec = statsMap[String(name).toLowerCase()];

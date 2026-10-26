@@ -58,7 +58,7 @@
 
   <script type="module">
     import { loadSeasons, loadEvents, loadFormats } from './js/api.js?v=20260929a';
-    import { buildPlayerStats, scanScorecardRounds } from './js/stats.js?v=20261019a';
+    import { buildPlayerStats, scanScorecardRounds, buildMarginOfVictory } from './js/stats.js?v=20261026a';
 
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     const enc = s => encodeURIComponent(s);
@@ -175,6 +175,14 @@
         { name: 'Jonty', event: 'Season 10, Week 1', detail: 'Hole 17 · Round 2', video: 'https://www.youtube.com/live/CeQDy3ZRkv4?si=cjVmzyxXtVXJJhKr&t=1570' },
       ];
 
+      // Largest Margin of Victory: gap between 1st and 2nd place, across
+      // every completed event (net-strokes formats only — see
+      // buildMarginOfVictory in stats.js for why points-based formats are
+      // excluded). One entry per event, so a blowout only ever counts once
+      // no matter how many holes it played out over.
+      const margins = await buildMarginOfVictory(completed, formats);
+      const marginCard = recordCard('Largest Margin of Victory', 'Gap between 1st and 2nd place, net strokes', topN(margins, m => m.value, 4), v => `${v}`);
+
       // Season champions: money-list leader of each season's completed events.
       const seasonList = [...seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
       const champRows = [];
@@ -209,7 +217,7 @@
           <h2 class="font-display text-3xl tracking-wider text-white mb-1 text-center">🏆 Hall of Fame</h2>
           <p class="text-center text-gray-600 text-xs mb-6">The MashUp honor roll</p>
 
-          <div class="grid lg:grid-cols-2 gap-4">
+          <div class="grid lg:grid-cols-3 gap-4">
             <div class="card-shadow bg-card border border-border rounded-xl p-5">
               <div class="text-[10px] font-heading font-700 tracking-widest text-flame uppercase mb-3">Season Money Leaders</div>
               ${champRows.length ? `<div class="space-y-2">${champRows.map(c => `
@@ -239,6 +247,8 @@
                 <p class="text-xs text-gray-600 mt-1 max-w-xs">The first member to card a hole-in-one takes the entire <a href="hole-in-one.html" class="text-flame hover:text-flame-dim">pot</a> and a permanent spot here.</p>
               </div>`}
             </div>
+
+            ${marginCard}
           </div>
 
           <div class="card-shadow bg-card border border-border rounded-xl p-5 mt-4">
