@@ -379,6 +379,15 @@
     let manualState    = { teams: [], selectedPlayer: null };
     let rtPartnerships = {}; // pair key -> times played together
 
+    // Manual tier re-categorization (e.g. move a borderline player from B to
+    // C) for tiered draws. Keyed by lowercase player name -> tier index
+    // (0-based), only ever holding entries that differ from the natural
+    // handicap-rank tier. Reset whenever the event selection changes.
+    let rtTierOverrides = {};
+    let rtTierPlayers   = []; // cached inputs so the per-player tier <select>
+    let rtTierTeamSize  = 1;  // can re-render the breakdown after a move
+    let rtTierNumTeams  = 0;  // without re-deriving them from scratch
+
     const TIER_NAMES  = ['A', 'B', 'C', 'D'];
     const TIER_STYLES = ['tier-a', 'tier-b', 'tier-c', 'badge-gray'];
     const ATTEMPTS    = 300; // random restarts for partnership avoidance
@@ -470,6 +479,35 @@
       );
     }
 
+    // Starts from the natural handicap-rank tiers, then moves any player with
+    // a manual override straight into their chosen tier. A move isn't paired
+    // with an automatic swap — moving one player out of Tier B without also
+    // moving someone else in leaves B short and the destination tier long.
+    // That's surfaced via tiersBalanced() below rather than auto-corrected,
+    // since silently shuffling a second player to compensate would hide what
+    // the admin actually asked for.
+    function buildTiersWithOverrides(sortedPlayers, teamSize, numTeams, overrides) {
+      const base = buildTiers(sortedPlayers, teamSize, numTeams);
+      if (!overrides || !Object.keys(overrides).length) return base;
+
+      const tiers = Array.from({ length: teamSize }, () => []);
+      base.forEach((tier, ti) => {
+        tier.forEach(p => {
+          const dest = overrides[p.name.toLowerCase()];
+          const destTier = (dest !== undefined && dest >= 0 && dest < teamSize) ? dest : ti;
+          tiers[destTier].push(p);
+        });
+      });
+      return tiers;
+    }
+
+    // Every tier must end up with exactly numTeams players — the tiered
+    // generator picks one player per tier per team (see generateOnce below),
+    // so an uneven tier can't be drawn from at all.
+    function tiersBalanced(tiers, numTeams) {
+      return tiers.every(t => t.length === numTeams);
+    }
+
     function shuffle(arr) {
       const a = [...arr];
       for (let i = a.length - 1; i > 0; i--) {
@@ -481,11 +519,16 @@
 
     // ── Optimized generation (random restart, keep best) ─────
 
-    function generateOnce(players, teamSize, numTeams, mode) {
+    // `tiers`, when given, is used as-is (already shuffled per attempt below)
+    // instead of recomputing natural rank-based tiers — this is how a manual
+    // tier override actually reaches the generator, since otherwise every
+    // attempt would just rebuild tiers from handicap rank and silently
+    // discard the override.
+    function generateOnce(players, teamSize, numTeams, mode, tiers) {
       if (mode === 'tiered' && teamSize > 1) {
-        const tiers = buildTiers(players, teamSize, numTeams).map(t => shuffle(t));
+        const useTiers = (tiers || buildTiers(players, teamSize, numTeams)).map(t => shuffle(t));
         return Array.from({ length: numTeams }, (_, i) =>
-          tiers.map(tier => tier[i].name)
+          useTiers.map(tier => tier[i].name)
         );
       } else {
         const shuffled = shuffle(players.slice(0, numTeams * teamSize));
@@ -495,12 +538,12 @@
       }
     }
 
-    function generateBestTeams(players, teamSize, numTeams, mode, partnerships) {
+    function generateBestTeams(players, teamSize, numTeams, mode, partnerships, tiers) {
       let bestTeams     = null;
       let bestConflicts = Infinity;
 
       for (let i = 0; i < ATTEMPTS; i++) {
-        const teams     = generateOnce(players, teamSize, numTeams, mode);
+        const teams     = generateOnce(players, teamSize, numTeams, mode, tiers);
         const conflicts = countConflicts(teams, partnerships);
         if (conflicts < bestConflicts) {
           bestConflicts = conflicts;
@@ -530,6 +573,7 @@
       const results = document.getElementById('rt-results');
       rtLastTeams    = [];
       rtPartnerships = {};
+      rtTierOverrides = {};
       manualState    = { teams: [], selectedPlayer: null };
       results.classList.add('hidden');
       results.innerHTML = '';
@@ -620,24 +664,75 @@
 
     function renderTierBreakdown(players, teamSize, numTeams) {
       const el = document.getElementById('rt-tiers');
+      const genBtn = document.getElementById('rt-generate-btn');
       if (!el) return;
-      if (rtMode !== 'tiered' || teamSize < 2) { el.innerHTML = ''; return; }
+      if (rtMode !== 'tiered' || teamSize < 2) {
+        el.innerHTML = '';
+        if (genBtn) { genBtn.disabled = false; genBtn.classList.remove('opacity-40', 'cursor-not-allowed'); }
+        return;
+      }
 
-      const tiers = buildTiers(players, teamSize, numTeams);
-      el.innerHTML = tiers.map((tier, i) => `
-        <div class="border rounded-lg p-3 ${TIER_STYLES[i] || 'border-border/40 bg-surface'}">
-          <div class="text-[10px] font-heading font-600 tracking-widest uppercase mb-2 opacity-80">
-            Tier ${TIER_NAMES[i]} — ${tier.length} players
-            ${i === 0 ? '<span class="opacity-50 normal-case font-body tracking-normal ml-1">(lowest handicaps)</span>' : ''}
-            ${i === tiers.length - 1 ? '<span class="opacity-50 normal-case font-body tracking-normal ml-1">(highest handicaps)</span>' : ''}
-          </div>
-          <div class="flex flex-wrap gap-1.5">
-            ${tier.map(p => `
-              <span class="text-xs font-body px-2 py-0.5 rounded bg-black/20">
-                ${p.name}<span class="opacity-50 ml-1">${p.cap !== null ? p.cap : '—'}</span>
-              </span>`).join('')}
-          </div>
-        </div>`).join('');
+      rtTierPlayers  = players;
+      rtTierTeamSize = teamSize;
+      rtTierNumTeams = numTeams;
+
+      const tiers = buildTiersWithOverrides(players, teamSize, numTeams, rtTierOverrides);
+      const balanced = tiersBalanced(tiers, numTeams);
+      const hasOverrides = Object.keys(rtTierOverrides).length > 0;
+
+      el.innerHTML = `
+        ${tiers.map((tier, i) => `
+          <div class="border rounded-lg p-3 ${TIER_STYLES[i] || 'border-border/40 bg-surface'}">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-[10px] font-heading font-600 tracking-widest uppercase opacity-80">
+                Tier ${TIER_NAMES[i]}
+                ${i === 0 ? '<span class="opacity-50 normal-case font-body tracking-normal ml-1">(lowest handicaps)</span>' : ''}
+                ${i === tiers.length - 1 ? '<span class="opacity-50 normal-case font-body tracking-normal ml-1">(highest handicaps)</span>' : ''}
+              </div>
+              <span class="text-[10px] font-heading font-700 ${tier.length === numTeams ? 'text-emerald-500' : 'text-yellow-500'}">${tier.length}/${numTeams}</span>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              ${tier.map(p => `
+                <span class="flex items-center gap-1 text-xs font-body pl-2 pr-0.5 py-0.5 rounded bg-black/20">
+                  ${p.name}<span class="opacity-50">${p.cap !== null ? p.cap : '—'}</span>
+                  <select data-player="${p.name}"
+                    class="tier-move-select bg-transparent text-[10px] text-gray-400 border-l border-border/60 pl-1 py-0.5 focus:outline-none focus:text-flame cursor-pointer"
+                    title="Move ${p.name} to a different tier">
+                    ${TIER_NAMES.slice(0, teamSize).map((letter, ti) =>
+                      `<option value="${ti}" ${ti === i ? 'selected' : ''}>${letter}</option>`).join('')}
+                  </select>
+                </span>`).join('')}
+            </div>
+          </div>`).join('')}
+        <div class="flex items-center justify-between gap-3 flex-wrap mt-1">
+          <span class="text-xs font-body ${balanced ? 'text-emerald-500' : 'text-yellow-500'}">
+            ${balanced
+              ? '✓ Tiers are balanced and ready to draw.'
+              : `⚠ Each tier needs exactly ${numTeams} players before you can generate — move players between tiers until they balance.`}
+          </span>
+          ${hasOverrides
+            ? `<button type="button" id="rt-tier-reset-btn" class="text-xs text-gray-600 hover:text-flame font-heading font-600 tracking-wider" style="transition:color 0.12s">↺ Reset to handicap order</button>`
+            : ''}
+        </div>`;
+
+      el.querySelectorAll('.tier-move-select').forEach(sel => {
+        sel.addEventListener('change', () => {
+          rtTierOverrides[sel.dataset.player.toLowerCase()] = parseInt(sel.value, 10);
+          renderTierBreakdown(rtTierPlayers, rtTierTeamSize, rtTierNumTeams);
+        });
+      });
+
+      const resetBtn = document.getElementById('rt-tier-reset-btn');
+      if (resetBtn) resetBtn.addEventListener('click', () => {
+        rtTierOverrides = {};
+        renderTierBreakdown(rtTierPlayers, rtTierTeamSize, rtTierNumTeams);
+      });
+
+      if (genBtn) {
+        genBtn.disabled = !balanced;
+        genBtn.classList.toggle('opacity-40', !balanced);
+        genBtn.classList.toggle('cursor-not-allowed', !balanced);
+      }
     }
 
     // ── Generate & display results ────────────────────────────
@@ -650,7 +745,20 @@
       const players  = getSortedPlayers(event.season);
       const numTeams = Math.floor(players.length / teamSize);
 
-      const { teams, conflicts } = generateBestTeams(players, teamSize, numTeams, rtMode, rtPartnerships);
+      const tiers = (rtMode === 'tiered' && teamSize > 1)
+        ? buildTiersWithOverrides(players, teamSize, numTeams, rtTierOverrides)
+        : null;
+
+      // Belt-and-suspenders: the Generate button is already disabled while
+      // unbalanced (see renderTierBreakdown), but don't trust that alone —
+      // a stale disabled state or a direct call shouldn't be able to draw
+      // from a tier that's missing or doubling up a player.
+      if (tiers && !tiersBalanced(tiers, numTeams)) {
+        showStatus('Tiers are unbalanced — move players between tiers until each has the same number before generating.', 'error');
+        return;
+      }
+
+      const { teams, conflicts } = generateBestTeams(players, teamSize, numTeams, rtMode, rtPartnerships, tiers);
       rtLastTeams = teams;
       renderTeamResults(teams, teamSize, conflicts);
     }
@@ -784,7 +892,12 @@
       document.getElementById('rt-mode-desc').textContent =
         'All players shuffled together — pure luck of the draw.';
       document.getElementById('rt-tiers').innerHTML = '';
-      document.getElementById('rt-generate-btn').classList.remove('hidden');
+      const genBtn = document.getElementById('rt-generate-btn');
+      genBtn.classList.remove('hidden');
+      // A prior tiered draw may have left Generate disabled over an
+      // unbalanced tier split — that restriction is specific to tiered mode.
+      genBtn.disabled = false;
+      genBtn.classList.remove('opacity-40', 'cursor-not-allowed');
       document.getElementById('rt-manual').classList.add('hidden');
     });
 
