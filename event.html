@@ -2377,9 +2377,10 @@
     // record added after the event wraps up.
     // Drive/Approach/Putt of the Week — three field-wide superlatives
     // computed server-side from SGT's own per-shot data (fetch-weekly-
-    // superlatives.yml). A stat's array can hold more than one entry when
-    // the field genuinely ties (same distance to the hundredth) — shown as
-    // co-winners rather than picking one arbitrarily.
+    // superlatives.yml), now the top 3 by that stat rather than just the
+    // winner. A tie can still land more than one entry in the same ranked
+    // slot, and the same player can legitimately appear twice (e.g. the
+    // week's longest AND third-longest drive) — both are real, not a bug.
     function buildSuperlativesHtml(superlatives, isProvisional = false) {
       if (!superlatives) return '';
       const { driveOfWeek = [], approachOfWeek = [], puttOfWeek = [] } = superlatives;
@@ -2387,14 +2388,18 @@
 
       const statCard = (icon, title, subtitle, entries, valueFn) => {
         if (!entries.length) return '';
-        // Only exists for a winner who's linked a stream (directly, or via
-        // a teammate MashUp's own data proves they share one with) — see
-        // fetch-weekly-superlatives.yml. Missing just means no icon, not
-        // an error, since most of the field hasn't linked anything.
-        const rows = entries.map(e => `
+        // Video only exists for an entry whose player has linked a stream
+        // (directly, or via a teammate MashUp's own data proves they share
+        // one with) — see fetch-weekly-superlatives.yml. Missing just means
+        // no icon, not an error, since most of the field hasn't linked one.
+        const rows = entries.map((e, i) => `
           <div class="flex items-center justify-between gap-3">
-            <span class="font-medium text-white text-sm truncate">${e.player}</span>
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-[10px] text-gray-600 font-mono shrink-0">${i + 1}.</span>
+              <span class="font-medium text-white text-sm truncate">${e.player}</span>
+            </div>
             <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs text-gray-400 whitespace-nowrap">${valueFn(e)}</span>
               ${e.video ? `<a href="${e.video}" target="_blank" rel="noopener" title="Watch the shot on YouTube" class="flex items-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}</a>` : ''}
               <span class="text-xs text-gray-500 whitespace-nowrap">Hole ${e.hole}</span>
             </div>
@@ -2403,7 +2408,7 @@
           <div class="bg-card border border-border rounded-xl p-4 flex flex-col">
             <div class="text-center mb-2">
               <div class="font-display text-2xl text-flame leading-none">${icon} ${valueFn(entries[0])}</div>
-              <div class="text-[11px] text-gray-500 uppercase tracking-widest mt-1">${title}${entries.length > 1 ? ' · Co-winners' : ''}</div>
+              <div class="text-[11px] text-gray-500 uppercase tracking-widest mt-1">${title}</div>
               ${subtitle ? `<div class="text-[10px] text-gray-600 mt-0.5">${subtitle}</div>` : ''}
             </div>
             <div class="flex flex-col gap-1.5 mt-1">${rows}</div>

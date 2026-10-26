@@ -1,6 +1,6 @@
 {
   "tournamentId": 78306,
-  "generatedAt": "2026-10-26T08:25:25Z",
+  "generatedAt": "2026-10-26T13:28:55Z",
   "driveOfWeek": [
     {
       "player": "toursauce86",
@@ -8,6 +8,22 @@
       "par": 5,
       "distanceYds": 350.0,
       "shotNum": 1
+    },
+    {
+      "player": "cloverlinksgolf",
+      "hole": 9,
+      "par": 5,
+      "distanceYds": 345.0,
+      "shotNum": 1,
+      "video": "https://www.youtube.com/watch?v=rSFmmMspAbw&t=2094s"
+    },
+    {
+      "player": "boilertimmay",
+      "hole": 14,
+      "par": 4,
+      "distanceYds": 334.0,
+      "shotNum": 1,
+      "video": "https://www.youtube.com/watch?v=mxnEO5nsxmI&t=4552s"
     }
   ],
   "approachOfWeek": [
@@ -18,6 +34,20 @@
       "proximityFt": 1.0,
       "shotNum": 2,
       "video": "https://www.youtube.com/watch?v=sf5V78__lfQ&t=1318s"
+    },
+    {
+      "player": "Tztop",
+      "hole": 18,
+      "par": 4,
+      "proximityFt": 2.0,
+      "shotNum": 2
+    },
+    {
+      "player": "magic",
+      "hole": 12,
+      "par": 4,
+      "proximityFt": 3.0,
+      "shotNum": 2
     }
   ],
   "puttOfWeek": [
@@ -26,6 +56,18 @@
       "hole": 1,
       "lengthFt": 37.0,
       "shotNum": 3
+    },
+    {
+      "player": "magic",
+      "hole": 3,
+      "lengthFt": 35.0,
+      "shotNum": 2
+    },
+    {
+      "player": "salfrado",
+      "hole": 7,
+      "lengthFt": 33.0,
+      "shotNum": 2
     }
   ]
 }

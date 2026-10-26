@@ -198,13 +198,18 @@ jobs:
             rm -f "$fragments"
 
             jq '
-              def bestBy(f; pick): (map(f) | pick) as $best | map(select(f == $best));
+              # Top 3 by the stat, best first. Ties can still push the same
+              # value into more than one of the 3 slots, and the same player
+              # can legitimately occupy more than one slot (e.g. the week'"'"'s
+              # longest AND third-longest drive) — both reflect the real data
+              # rather than being collapsed away.
+              def top3(f; desc): (sort_by(f) | if desc then reverse else . end | .[0:3]);
               {
                 tournamentId: '"$tid"',
                 generatedAt: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
-                driveOfWeek:    (.drives     | bestBy(.distanceYds; max)),
-                approachOfWeek: (.approaches | bestBy(.proximityFt; min)),
-                puttOfWeek:     (.putts      | bestBy(.lengthFt;    max))
+                driveOfWeek:    (.drives     | top3(.distanceYds; true)),
+                approachOfWeek: (.approaches | top3(.proximityFt; false)),
+                puttOfWeek:     (.putts      | top3(.lengthFt;    true))
               }
             ' "data/superlatives/${tid}.raw.json" > "data/superlatives/${tid}.json"
             rm -f "data/superlatives/${tid}.raw.json"
