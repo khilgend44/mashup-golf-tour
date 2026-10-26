@@ -708,29 +708,61 @@ function calcDevilsDraw(scorecards, format, event) {
   for (const h of (event.devilsDraw['1bb']  ?? [])) holeCount[h] = 1;
   for (const h of (event.devilsDraw['zero'] ?? [])) holeCount[h] = 0;
 
-  const kvTeamMap = buildKvTeamMap(event);
+  const teamSize = format.teamSize || 3;
+  // Switched to buildTeamRoster (2026-10) — the hand-rolled version here only
+  // ever learned about a team once every one of its scorecards was complete,
+  // so a week with zero finished rounds yet (freshly active event, or just a
+  // slow week) showed NO teams at all instead of the greyed-out "nobody's
+  // teed off" rows every other team format already gets via buildTeamRoster
+  // pre-seeding from event.teams. Confirmed live: S10W6 (3-man Devil's Draw)
+  // showed an empty leaderboard the moment it went active, before any
+  // scorecard existed.
+  const teams = buildTeamRoster(scorecards, event, teamSize);
 
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
+
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      // Provisional to-par: best-`count`-of-whoever-has-real-data on each
+      // hole, same selection rule as the real scoring below, just capped to
+      // however many members actually have a score on that hole so far (a
+      // live member's already-played holes count alongside completed
+      // members', same "settled data" reasoning used elsewhere). A "zero"
+      // hole never counts toward anyone's score, complete or not.
+      let provisionalToPar = null;
+      if (team.pars) {
+        let provTotal = 0, provPar = 0;
+        for (let h = 0; h < 18; h++) {
+          const count = holeCount[h + 1] ?? 1;
+          if (count === 0) continue;
+          const available = members.map(m => m.net?.[h]).filter(n => n != null);
+          if (!available.length) continue;
+          const countN = Math.min(count, available.length);
+          const sorted = [...available].sort((a, b) => a - b);
+          provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
+          provPar += team.pars[h] * countN;
+        }
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        teamSize,
+        pars: team.pars,
+        indices: team.indices,
+        total: null,
+        toPar: provisionalToPar,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
     }
-    teams[key].players.push({
-      name: card.player_name,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
-      totalNet: card.total_net,
-    });
-  }
 
-  const results = Object.values(teams).map(team => {
     const adjPars = Array.from({ length: 18 }, (_, i) => {
       const count = holeCount[i + 1] ?? 1;
       return team.pars[i] * count;
@@ -740,13 +772,13 @@ function calcDevilsDraw(scorecards, format, event) {
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
       const count = holeCount[h + 1] ?? 1;
       if (count === 0) {
-        countingPlayers.push(new Array(team.players.length).fill(false));
+        countingPlayers.push(new Array(completePlayers.length).fill(false));
         return 0;
       }
-      const ranked = team.players
+      const ranked = completePlayers
         .map((p, idx) => ({ idx, score: p.net[h] }))
         .sort((a, b) => a.score - b.score);
-      const counting = new Array(team.players.length).fill(false);
+      const counting = new Array(completePlayers.length).fill(false);
       let total = 0;
       for (let i = 0; i < Math.min(count, ranked.length); i++) {
         counting[ranked[i].idx] = true;
@@ -762,12 +794,12 @@ function calcDevilsDraw(scorecards, format, event) {
     const inPar  = adjPars.slice(9).reduce((a, b) => a + b, 0);
     const total  = out + inn;
     const totalPar = outPar + inPar;
-    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       holeCount,
       teamHoleScores,
       countingPlayers,
@@ -778,20 +810,23 @@ function calcDevilsDraw(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate,
       prize: null,
-    };
+    });
+  }
+
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
   });
 
-  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
-  }
-  return results;
+  return [...ranked, ...unranked];
 }
 
 // ─── 3-Man Modified Stableford ──────────────────────────────────────────────
@@ -937,29 +972,51 @@ function calcDevilsDraw4Man(scorecards, format, event) {
   for (const h of (event.devilsDraw['1bb']  ?? [])) holeCount[h] = 1;
   for (const h of (event.devilsDraw['zero'] ?? [])) holeCount[h] = 0;
 
-  const kvTeamMap = buildKvTeamMap(event);
+  const teamSize = format.teamSize || 4;
+  // See calcDevilsDraw's identical fix above — buildTeamRoster pre-seeds
+  // every team from event.teams so the leaderboard shows greyed-out,
+  // nobody's-teed-off rows immediately instead of nothing until a full
+  // scorecard exists.
+  const teams = buildTeamRoster(scorecards, event, teamSize);
 
-  const teams = {};
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
+
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      let provisionalToPar = null;
+      if (team.pars) {
+        let provTotal = 0, provPar = 0;
+        for (let h = 0; h < 18; h++) {
+          const count = holeCount[h + 1] ?? 1;
+          if (count === 0) continue;
+          const available = members.map(m => m.net?.[h]).filter(n => n != null);
+          if (!available.length) continue;
+          const countN = Math.min(count, available.length);
+          const sorted = [...available].sort((a, b) => a - b);
+          provTotal += sorted.slice(0, countN).reduce((a, b) => a + b, 0);
+          provPar += team.pars[h] * countN;
+        }
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        teamSize,
+        pars: team.pars,
+        indices: team.indices,
+        total: null,
+        toPar: provisionalToPar,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
     }
-    teams[key].players.push({
-      name: card.player_name,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
-      totalNet: card.total_net,
-    });
-  }
 
-  const results = Object.values(teams).map(team => {
     const adjPars = Array.from({ length: 18 }, (_, i) => {
       const count = holeCount[i + 1] ?? 1;
       return team.pars[i] * count;
@@ -969,13 +1026,13 @@ function calcDevilsDraw4Man(scorecards, format, event) {
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
       const count = holeCount[h + 1] ?? 1;
       if (count === 0) {
-        countingPlayers.push(new Array(team.players.length).fill(false));
+        countingPlayers.push(new Array(completePlayers.length).fill(false));
         return 0;
       }
-      const ranked = team.players
+      const ranked = completePlayers
         .map((p, idx) => ({ idx, score: p.net[h] }))
         .sort((a, b) => a.score - b.score);
-      const counting = new Array(team.players.length).fill(false);
+      const counting = new Array(completePlayers.length).fill(false);
       let total = 0;
       for (let i = 0; i < Math.min(count, ranked.length); i++) {
         counting[ranked[i].idx] = true;
@@ -991,12 +1048,12 @@ function calcDevilsDraw4Man(scorecards, format, event) {
     const inPar  = adjPars.slice(9).reduce((a, b) => a + b, 0);
     const total  = out + inn;
     const totalPar = outPar + inPar;
-    const aggregate = team.players.reduce((s, p) => s + p.totalNet, 0);
+    const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       holeCount,
       teamHoleScores,
       countingPlayers,
@@ -1007,20 +1064,23 @@ function calcDevilsDraw4Man(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate,
       prize: null,
-    };
+    });
+  }
+
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
+
+  ranked.forEach((curr, i) => {
+    if (i === 0) { curr.position = 1; curr.tied = false; return; }
+    const prev = ranked[i - 1];
+    const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
+    curr.position = trulyTied ? prev.position : i + 1;
+    curr.tied = trulyTied;
+    if (trulyTied) prev.tied = true;
   });
 
-  results.sort((a, b) => a.total !== b.total ? a.total - b.total : a.aggregate - b.aggregate);
-
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0) {
-      const prev = results[i - 1], curr = results[i];
-      const trulyTied = curr.total === prev.total && curr.aggregate === prev.aggregate;
-      curr.position = trulyTied ? prev.position : i + 1;
-      if (trulyTied) { curr.tied = true; prev.tied = true; }
-    } else results[0].position = 1;
-  }
-  return results;
+  return [...ranked, ...unranked];
 }
 
 // ─── Best 2, Worst 2, All 3 ─────────────────────────────────────────────────

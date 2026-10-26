@@ -432,7 +432,24 @@
           return m;
         })();
 
+        const teamSize = is4Man ? 4 : 3;
+
+        // Pre-seed every team from event.teams — same fix as calcDevilsDraw in
+        // scoring.js (2026-10): building this map from scorecards alone meant
+        // a week with zero completed rounds yet showed NO teams at all, not
+        // even a roster. This table's rooting-guide math genuinely needs a
+        // FULL set of net scores to mean anything (it compares every team's
+        // per-hole numbers against the top-6 average), so a team short of
+        // teamSize complete rounds still can't get that analysis — but it can
+        // at least show its roster and who's posted so far, same grey-dot
+        // convention the rest of the site uses for "hasn't played yet."
         const teamsMap = {};
+        if (event.teams?.length) {
+          for (const t of event.teams) {
+            const key = t.map(p => p.toLowerCase()).sort().join('|');
+            teamsMap[key] = { displayMembers: [...t], players: [], pars: null, indices: null };
+          }
+        }
         for (const card of scorecards) {
           if (!isCardComplete(card)) continue;
           const sgtFields = (is4Man
@@ -448,12 +465,11 @@
           const members = kv ? kv.displayMembers : sgtFields;
           const key = kv ? kv.key : members.map(p => p.toLowerCase()).sort().join('|');
           if (!teamsMap[key]) {
-            teamsMap[key] = {
-              displayMembers: [...members],
-              players: [],
-              pars:    Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-              indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-            };
+            teamsMap[key] = { displayMembers: [...members], players: [], pars: null, indices: null };
+          }
+          if (!teamsMap[key].pars) {
+            teamsMap[key].pars    = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
+            teamsMap[key].indices = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]);
           }
           teamsMap[key].players.push({
             name:     card.player_name,
@@ -462,7 +478,13 @@
           });
         }
 
-        const preDrawTeams = Object.values(teamsMap)
+        const allTeams = Object.values(teamsMap);
+        // Only a team with every teammate's round in can get a real aggregate
+        // + rooting analysis — a partial team's numbers would silently mix in
+        // NaN once computeRootingAnalysis hits a hole nobody's finished yet.
+        const notStartedTeams = allTeams.filter(t => t.players.length < teamSize);
+        const preDrawTeams = allTeams
+          .filter(t => t.players.length >= teamSize)
           .map(t => ({ ...t, aggregate: t.players.reduce((s, p) => s + p.totalNet, 0) }))
           .sort((a, b) => a.aggregate - b.aggregate);
 
@@ -470,7 +492,7 @@
         const rootingByHole = computeRootingAnalysis(preDrawTeams);
         const rootingByTeam = preDrawTeams.map((_, ti) => rootingByHole.map(h => h[ti]));
 
-        renderHeader(event, format, preDrawTeams.length * (is4Man ? 4 : 3), scorecards);
+        renderHeader(event, format, allTeams.length * teamSize, scorecards);
         document.getElementById('breadcrumb').innerHTML =
           `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
 
@@ -492,6 +514,27 @@
             </tr>`;
         }).join('');
 
+        // Teams short of a full round in: roster + who's posted so far, no
+        // rank (nothing to rank by yet) and no expand (no rooting guide
+        // without every teammate's score). Same grey-dot-for-not-started
+        // language as the rest of the site's team leaderboards.
+        const notStartedRows = notStartedTeams.map(t => {
+          const doneNames = new Set(t.players.map(p => p.name.toLowerCase()));
+          const memberHtml = t.displayMembers.map(name => {
+            const done = doneNames.has(name.toLowerCase());
+            return `<span class="inline-flex items-center gap-1 text-xs ${done ? 'text-gray-300' : 'text-gray-600'}">
+              <span class="${done ? 'text-emerald-400' : 'text-gray-700'}">●</span>${name}
+            </span>`;
+          }).join(' ');
+          return `
+            <tr class="border-t border-border">
+              <td class="px-3 py-3 text-center text-gray-700">—</td>
+              <td class="px-4 py-3 leading-snug"><div class="flex flex-wrap gap-x-3 gap-y-1">${memberHtml}</div></td>
+              <td class="px-4 py-3 text-right text-xs text-gray-600 whitespace-nowrap">Not started</td>
+              <td class="px-3 py-3"></td>
+            </tr>`;
+        }).join('');
+
         document.getElementById('app').innerHTML = `
           <div class="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mb-5 text-xs text-amber-400/80">
             <span class="mt-0.5 shrink-0">⚠</span>
@@ -499,7 +542,7 @@
           </div>
           <div class="flex items-center justify-between mb-4">
             <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Pre-Draw Rankings</h2>
-            <span class="text-xs text-gray-600">${preDrawTeams.length} teams &nbsp;·&nbsp; click to expand</span>
+            <span class="text-xs text-gray-600">${preDrawTeams.length} of ${allTeams.length} teams in &nbsp;·&nbsp; click a ranked row to expand</span>
           </div>
           <div class="card-shadow rounded-xl overflow-hidden border border-border">
             <div class="overflow-x-auto">
@@ -512,7 +555,7 @@
                     <th class="px-3 py-3"></th>
                   </tr>
                 </thead>
-                <tbody>${rows}</tbody>
+                <tbody>${rows}${notStartedRows}</tbody>
               </table>
             </div>
           </div>`;
