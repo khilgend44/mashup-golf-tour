@@ -392,6 +392,23 @@
 
       const breadcrumb = `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
 
+      // #stream-form-container is its own section, independent of #app/#loading
+      // (see the markup above) — resolved once here, right after the format is
+      // known and before ANY leaderboard-view branch below, so a format/view
+      // that `return`s early (like the Devil's Draw pre-draw ranking view,
+      // which did exactly this and shipped with no stream box at all until
+      // 2026-10-26) can't accidentally skip it again. Don't move this call
+      // below a branch — add new branches below THIS instead.
+      const season = seasons.find(s => s.id === event.season);
+      let streams = {};
+      if (event.status !== 'completed') {
+        try {
+          const sr = await fetch(`/api/get-streams?eventId=${event.id}`);
+          if (sr.ok) streams = await sr.json();
+        } catch { /* stream icons just won't show */ }
+        renderStreamForm(event, season?.players || [], format, streams);
+      }
+
       // Invitational: no scorecards — show final results only
       if (format.type === 'invitational') {
         renderHeader(event, format, event.payouts.length);
@@ -578,19 +595,10 @@
         return;
       }
 
-      // Season roster (used by solo formats to show not-yet-started players
-      // — see calcRinger's event.players handling — and by the stream form
-      // below), so this needs to be resolved before applyFormat runs.
-      const season = seasons.find(s => s.id === event.season);
+      // season/streams already resolved above (used by solo formats to show
+      // not-yet-started players — see calcRinger's event.players handling).
       const results = applyFormat(scorecards, format, { ...event, players: season?.players });
       applyPayouts(results, event.payouts);
-
-      // Fetch stream links (non-fatal if unavailable)
-      let streams = {};
-      try {
-        const sr = await fetch(`/api/get-streams?eventId=${event.id}`);
-        if (sr.ok) streams = await sr.json();
-      } catch { /* stream icons just won't show */ }
 
       // Live closest-to-pin standings — best-effort, see js/api.js fetchCtp
       const ctpLive = await fetchCtp(event.tournamentId);
@@ -623,10 +631,6 @@
 
       renderHeader(event, format, results.length, scorecards, season?.players?.length);
       renderLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive, superlatives);
-
-      if (event.status !== 'completed') {
-        renderStreamForm(event, season?.players || [], format, streams);
-      }
 
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
