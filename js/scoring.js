@@ -468,7 +468,7 @@ function sortInProgress(unranked) {
 //   { name, status: 'not-started' }
 //   { name, status: 'live', holesPlayed }
 //   { name, status: 'complete', isSub, net: number[18], totalNet }
-function buildTeamRoster(scorecards, event, teamSize) {
+export function buildTeamRoster(scorecards, event, teamSize) {
   const cardsByPlayer = {};
   for (const card of scorecards) {
     if (isCardComplete(card)) cardsByPlayer[card.player_name.toLowerCase()] = card;

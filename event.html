@@ -347,7 +347,7 @@
 
   <script type="module">
     import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
-    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback, rankSidePotField } from './js/scoring.js?v=20261019b';
+    import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback, rankSidePotField, buildTeamRoster } from './js/scoring.js?v=20261019b';
 
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -421,6 +421,29 @@
 
       const scorecards = await fetchScorecards(event.tournamentId);
 
+      // CTP/superlatives data depends only on the event's tournamentId, not on
+      // which leaderboard view ends up rendering — fetched once here, before
+      // ANY view branch (including the Devil's Draw pre-draw/reveal branches
+      // below), same reasoning as the stream-form hoist above: a branch that
+      // builds its own one-off page instead of calling renderLeaderboard()
+      // can't skip this if it was never given the choice. See
+      // renderEventFurniture(), which every branch below should call to
+      // actually render these into the page.
+      const ctpLive = await fetchCtp(event.tournamentId);
+      let ctpVideoLive = new Map();
+      try {
+        const cvr = await fetch(`/data/ctp-video/${event.tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
+        if (cvr.ok) {
+          const list = await cvr.json();
+          ctpVideoLive = new Map(list.map(v => [`${v.round}:${v.hole}:${v.player.toLowerCase()}`, v.video]));
+        }
+      } catch { /* icon just won't show */ }
+      let superlatives = null;
+      try {
+        const sr2 = await fetch(`/data/superlatives/${event.tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
+        if (sr2.ok) superlatives = await sr2.json();
+      } catch { /* section just won't show */ }
+
       // Devil's Draw live-entry / reveal mode (?reveal=true) — takes priority over pre-draw view
       const isDevilsDrawFormat = format.type === 'devils-draw' || format.type === 'devils-draw-4man';
       const revealMode = params.get('reveal') === 'true';
@@ -438,71 +461,39 @@
       // Devil's Draw: show pre-draw aggregate leaderboard if draw hasn't happened yet
       if (isDevilsDrawFormat && !event.devilsDraw) {
         const is4Man = format.type === 'devils-draw-4man';
-        // Build KV fallback map for pre-draw grouping
-        const kvFallback = (() => {
-          if (!event.teams?.length) return null;
-          const m = {};
-          for (const t of event.teams) {
-            const k = t.map(p => p.toLowerCase()).sort().join('|');
-            for (const p of t) m[p.toLowerCase()] = { key: k, displayMembers: [...t] };
-          }
-          return m;
-        })();
-
         const teamSize = is4Man ? 4 : 3;
 
-        // Pre-seed every team from event.teams — same fix as calcDevilsDraw in
-        // scoring.js (2026-10): building this map from scorecards alone meant
-        // a week with zero completed rounds yet showed NO teams at all, not
-        // even a roster. This table's rooting-guide math genuinely needs a
-        // FULL set of net scores to mean anything (it compares every team's
-        // per-hole numbers against the top-6 average), so a team short of
-        // teamSize complete rounds still can't get that analysis — but it can
-        // at least show its roster and who's posted so far, same grey-dot
-        // convention the rest of the site uses for "hasn't played yet."
-        const teamsMap = {};
-        if (event.teams?.length) {
-          for (const t of event.teams) {
-            const key = t.map(p => p.toLowerCase()).sort().join('|');
-            teamsMap[key] = { displayMembers: [...t], players: [], pars: null, indices: null };
-          }
-        }
-        for (const card of scorecards) {
-          if (!isCardComplete(card)) continue;
-          const sgtFields = (is4Man
-            ? [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3, card.TeamPlayer4]
-            : [card.TeamPlayer1, card.TeamPlayer2, card.TeamPlayer3]
-          ).filter(p => p);
-          // Admin-defined teams are authoritative; SGT fields fragment a team
-          // when slots come back blank. Fall back to SGT only for non-roster subs.
-          let kv = kvFallback?.[card.player_name.toLowerCase()];
-          if (!kv && kvFallback) {
-            for (const p of sgtFields) { const m = kvFallback[p.toLowerCase()]; if (m) { kv = m; break; } }
-          }
-          const members = kv ? kv.displayMembers : sgtFields;
-          const key = kv ? kv.key : members.map(p => p.toLowerCase()).sort().join('|');
-          if (!teamsMap[key]) {
-            teamsMap[key] = { displayMembers: [...members], players: [], pars: null, indices: null };
-          }
-          if (!teamsMap[key].pars) {
-            teamsMap[key].pars    = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]);
-            teamsMap[key].indices = Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]);
-          }
-          teamsMap[key].players.push({
-            name:     card.player_name,
-            totalNet: card.total_net,
-            net:      Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-          });
-        }
+        // Same roster-building helper calcDevilsDraw itself uses once the
+        // draw has happened (2026-10 fix) — pre-seeds every team from
+        // event.teams (so a week with zero completed rounds still shows a
+        // full roster) and tracks each member's own status (not-started /
+        // live / complete) with real per-hole data for a live round, not
+        // just a name. This view's rooting-guide math still needs every
+        // teammate's full 18 holes (it compares each team's numbers against
+        // the top-6 average), so a short-handed team still can't get that
+        // analysis — but reusing this instead of a hand-rolled, completed-
+        // cards-only map (as this used to be) means a partially-done team
+        // can expand to see whoever HAS posted, the same as every other
+        // team format already allows. Confirmed missing live 2026-10-26:
+        // bdc5e's team had one round in for S10W6 and had no way to see it.
+        const teams = buildTeamRoster(scorecards, event, teamSize);
+        const allTeams = Object.values(teams).map(t => ({
+          displayMembers: t.displayMembers,
+          members: [...t.memberStatus.values()],
+          pars: t.pars,
+          indices: t.indices,
+        }));
 
-        const allTeams = Object.values(teamsMap);
         // Only a team with every teammate's round in can get a real aggregate
         // + rooting analysis — a partial team's numbers would silently mix in
         // NaN once computeRootingAnalysis hits a hole nobody's finished yet.
-        const notStartedTeams = allTeams.filter(t => t.players.length < teamSize);
+        const notStartedTeams = allTeams.filter(t => t.members.filter(m => m.status === 'complete').length < teamSize);
         const preDrawTeams = allTeams
-          .filter(t => t.players.length >= teamSize)
-          .map(t => ({ ...t, aggregate: t.players.reduce((s, p) => s + p.totalNet, 0) }))
+          .filter(t => t.members.filter(m => m.status === 'complete').length >= teamSize)
+          .map(t => {
+            const players = t.members.filter(m => m.status === 'complete');
+            return { ...t, players, aggregate: players.reduce((s, p) => s + p.totalNet, 0) };
+          })
           .sort((a, b) => a.aggregate - b.aggregate);
 
         // [holeIdx][teamIdx] → transpose to [teamIdx][holeIdx]
@@ -532,24 +523,46 @@
         }).join('');
 
         // Teams short of a full round in: roster + who's posted so far, no
-        // rank (nothing to rank by yet) and no expand (no rooting guide
-        // without every teammate's score). Same grey-dot-for-not-started
-        // language as the rest of the site's team leaderboards.
-        const notStartedRows = notStartedTeams.map(t => {
-          const doneNames = new Set(t.players.map(p => p.name.toLowerCase()));
-          const memberHtml = t.displayMembers.map(name => {
-            const done = doneNames.has(name.toLowerCase());
-            return `<span class="inline-flex items-center gap-1 text-xs ${done ? 'text-gray-300' : 'text-gray-600'}">
-              <span class="${done ? 'text-emerald-400' : 'text-gray-700'}">●</span>${name}
-            </span>`;
+        // rank (nothing to rank by yet — the rooting guide needs every
+        // teammate's full 18 holes). But anyone who HAS completed, or is
+        // mid-round, can still have their own scorecard expanded, same
+        // "Team In Progress" card every other team format shows via
+        // buildTeamProgressScorecardHTML — this just couldn't reach that
+        // path before because this view never fetched live/complete member
+        // data for a short-handed team (fixed 2026-10-26 via buildTeamRoster).
+        const notStartedRows = notStartedTeams.map((t, i) => {
+          const doneCount = t.members.filter(m => m.status === 'complete').length;
+          const canExpand = t.members.some(m => m.status === 'complete' || m.status === 'live');
+          const memberHtml = t.members.map(m => {
+            if (m.status === 'complete') {
+              return `<span class="inline-flex items-center gap-1 text-xs text-gray-300"><span class="text-emerald-400">●</span>${m.name}</span>`;
+            }
+            if (m.status === 'live') {
+              return `<span class="inline-flex items-center gap-1 text-xs text-gray-300"><span class="text-amber-400" style="animation:pulse 2s infinite">●</span>${m.name} <span class="text-gray-500">(thru ${m.holesPlayed})</span></span>`;
+            }
+            return `<span class="inline-flex items-center gap-1 text-xs text-gray-600"><span class="text-gray-700">●</span>${m.name}</span>`;
           }).join(' ');
+          const statusCell = canExpand
+            ? `<span class="chip chip-live"><span class="pulse-dot"></span>${doneCount}/${teamSize} IN</span>`
+            : 'Not started';
           return `
-            <tr class="border-t border-border">
+            <tr class="border-t border-border ${canExpand ? 'lb-row cursor-pointer select-none' : ''}" ${canExpand ? `data-partial-idx="${i}"` : ''}>
               <td class="px-3 py-3 text-center text-gray-700">—</td>
               <td class="px-4 py-3 leading-snug"><div class="flex flex-wrap gap-x-3 gap-y-1">${memberHtml}</div></td>
-              <td class="px-4 py-3 text-right text-xs text-gray-600 whitespace-nowrap">Not started</td>
-              <td class="px-3 py-3"></td>
-            </tr>`;
+              <td class="px-4 py-3 text-right text-xs text-gray-600 whitespace-nowrap">${statusCell}</td>
+              <td class="px-3 py-3 text-right text-xs text-gray-600 whitespace-nowrap">${canExpand ? 'expand ›' : ''}</td>
+            </tr>
+            ${canExpand ? `
+            <tr id="partial-detail-${i}" class="hidden">
+              <td colspan="99" class="p-0 border-b border-border">
+                <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+                  <div class="text-xs font-heading tracking-wider text-gray-500 mb-3 uppercase">
+                    Team In Progress — ${t.displayMembers.join(' / ')}
+                  </div>
+                  ${buildTeamProgressScorecardHTML({ members: t.members, pars: t.pars, indices: t.indices, teamSize }, format, event)}
+                </div>
+              </td>
+            </tr>` : ''}`;
         }).join('');
 
         document.getElementById('app').innerHTML = `
@@ -575,7 +588,11 @@
                 <tbody>${rows}${notStartedRows}</tbody>
               </table>
             </div>
-          </div>`;
+          </div>
+          <div id="ctp-live-section"></div>
+          <div id="superlatives-section"></div>
+          <div id="side-section"></div>
+          <div id="ctp-section"></div>`;
 
         document.querySelectorAll('[data-team-idx]').forEach(row => {
           row.addEventListener('click', () => {
@@ -589,45 +606,33 @@
             if (chevron) chevron.textContent = opening ? 'collapse ↑' : 'expand ›';
           });
         });
+        document.querySelectorAll('[data-partial-idx]').forEach(row => {
+          row.addEventListener('click', () => {
+            const idx = row.dataset.partialIdx;
+            const detail = document.getElementById(`partial-detail-${idx}`);
+            if (!detail) return;
+            const opening = detail.classList.contains('hidden');
+            detail.classList.toggle('hidden');
+            row.classList.toggle('expanded', opening);
+            const chevron = row.querySelector('td:last-child');
+            if (chevron) chevron.textContent = opening ? 'collapse ↑' : 'expand ›';
+          });
+        });
+
+        // Same CTP/Superlatives/side-pot furniture every other leaderboard
+        // view gets — this view used to skip it entirely (fixed 2026-10-26).
+        renderEventFurniture(event, format, null, ctpLive, ctpVideoLive, superlatives, { preDraw: true });
 
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         return;
       }
 
-      // season/streams already resolved above (used by solo formats to show
-      // not-yet-started players — see calcRinger's event.players handling).
+      // season/streams/ctpLive/ctpVideoLive/superlatives already resolved
+      // above (used by solo formats to show not-yet-started players — see
+      // calcRinger's event.players handling).
       const results = applyFormat(scorecards, format, { ...event, players: season?.players });
       applyPayouts(results, event.payouts);
-
-      // Live closest-to-pin standings — best-effort, see js/api.js fetchCtp
-      const ctpLive = await fetchCtp(event.tournamentId);
-
-      // Timestamped YouTube links for whoever's currently leading a CTP
-      // hole, resolved server-side (fetch-scorecards.yml) from SGT's own
-      // "jump to this hole" offset for players who've linked their stream
-      // through SGT directly — only exists for the few who've done that,
-      // so an empty/missing file here just means no icon shows yet, not
-      // an error. Keyed by round:hole:player so it survives a leader
-      // changing hole/round without ever matching the wrong shot.
-      let ctpVideoLive = new Map();
-      try {
-        const cvr = await fetch(`/data/ctp-video/${event.tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
-        if (cvr.ok) {
-          const list = await cvr.json();
-          ctpVideoLive = new Map(list.map(v => [`${v.round}:${v.hole}:${v.player.toLowerCase()}`, v.video]));
-        }
-      } catch { /* icon just won't show */ }
-
-      // Drive/Approach/Putt of the Week — computed server-side (see
-      // fetch-weekly-superlatives.yml) from SGT's own per-shot data across
-      // the whole field. Best-effort: an event this hasn't run for yet
-      // (or one with no shot data resolvable) just shows nothing.
-      let superlatives = null;
-      try {
-        const sr2 = await fetch(`/data/superlatives/${event.tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
-        if (sr2.ok) superlatives = await sr2.json();
-      } catch { /* section just won't show */ }
 
       renderHeader(event, format, results.length, scorecards, season?.players?.length);
       renderLeaderboard(results, event, format, streams, ctpLive, ctpVideoLive, superlatives);
@@ -1726,9 +1731,37 @@
         tbody.appendChild(cardTr);
       });
 
+      renderEventFurniture(event, format, results, ctpLive, ctpVideoLive, superlatives);
+    }
+
+    // Side pots / CTP / CTP-live / Superlatives — shared by every leaderboard
+    // view that has the four placeholder divs (#side-section, #ctp-section,
+    // #ctp-live-section, #superlatives-section) in its template. Pulled out
+    // on its own (2026-10-26) so the Devil's Draw pre-draw view — which
+    // builds its own one-off leaderboard markup instead of going through
+    // renderTeamLeaderboard — can call the exact same function instead of
+    // needing its own copy that's easy to forget to update. If a future
+    // format needs a fifth piece of event furniture, add it here once
+    // instead of in every renderXxxLeaderboard function.
+    //
+    // `preDraw: true` means there's no real ranking yet (Devil's Draw's own
+    // category-based scoring only exists once the live hole draw has run) —
+    // CTP and Superlatives are independent of that ranking and still show,
+    // but a configured side pot ("not on winning team") genuinely can't be
+    // resolved without knowing who the winning team actually is, so it shows
+    // a pending notice instead of a guess.
+    function renderEventFurniture(event, format, results, ctpLive, ctpVideoLive, superlatives, { preDraw = false } = {}) {
       if (event.sidePots?.length) {
-        document.getElementById('side-section').innerHTML = buildSidePotHtml(results, event, format);
-        wireSidePotAnalysisToggle();
+        if (preDraw) {
+          document.getElementById('side-section').innerHTML = `
+            <div class="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 mt-6 text-xs text-amber-400/80">
+              <span class="mt-0.5 shrink-0">⚠</span>
+              <span><strong>Side Pots Pending</strong> — "not on winning team" can only be resolved once the live hole draw has run and final standings are known.</span>
+            </div>`;
+        } else {
+          document.getElementById('side-section').innerHTML = buildSidePotHtml(results, event, format);
+          wireSidePotAnalysisToggle();
+        }
       } else if (event.payouts?.length) {
         document.getElementById('side-section').innerHTML = buildSidePotsHtml(event.payouts);
       }
