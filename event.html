@@ -505,9 +505,16 @@
           `<a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}</a> <span class="mx-1">›</span> <span class="text-gray-300">${event.name}</span>`;
 
         const rows = preDrawTeams.map((t, i) => {
-          const memberHtml = t.players.map(p =>
-            `<div class="text-xs text-gray-300">${p.name} <span class="text-gray-500 font-mono">(${p.totalNet})</span></div>`
-          ).join('');
+          // Same per-player YouTube icon every other team leaderboard shows
+          // next to a member's name (see renderTeamLeaderboard's memberHtml)
+          // — this view built its own roster markup from scratch and never
+          // wired `streams` in, so it's the one place on the whole site a
+          // linked stream never got an icon. Fixed 2026-10-28.
+          const memberHtml = t.players.map(p => {
+            const ps = getPlayerStreams(streams, p.name);
+            const icon = `<span onclick="event.stopPropagation()">${streamIconCell(ps, false)}</span>`;
+            return `<div class="flex items-center gap-1.5 text-xs text-gray-300">${icon}<span>${p.name} <span class="text-gray-500 font-mono">(${p.totalNet})</span></span></div>`;
+          }).join('');
           return `
             <tr class="lb-row cursor-pointer select-none border-t border-border" data-team-idx="${i}">
               <td class="px-3 py-3 text-center font-heading font-700 text-sm ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
@@ -534,13 +541,15 @@
           const doneCount = t.members.filter(m => m.status === 'complete').length;
           const canExpand = t.members.some(m => m.status === 'complete' || m.status === 'live');
           const memberHtml = t.members.map(m => {
+            const ps = getPlayerStreams(streams, m.name);
+            const icon = `<span onclick="event.stopPropagation()">${streamIconCell(ps, false)}</span>`;
             if (m.status === 'complete') {
-              return `<span class="inline-flex items-center gap-1 text-xs text-gray-300"><span class="text-emerald-400">●</span>${m.name}</span>`;
+              return `<span class="inline-flex items-center gap-1 text-xs text-gray-300">${icon}<span class="text-emerald-400">●</span>${m.name}</span>`;
             }
             if (m.status === 'live') {
-              return `<span class="inline-flex items-center gap-1 text-xs text-gray-300"><span class="text-amber-400" style="animation:pulse 2s infinite">●</span>${m.name} <span class="text-gray-500">(thru ${m.holesPlayed})</span></span>`;
+              return `<span class="inline-flex items-center gap-1 text-xs text-gray-300">${icon}<span class="text-amber-400" style="animation:pulse 2s infinite">●</span>${m.name} <span class="text-gray-500">(thru ${m.holesPlayed})</span></span>`;
             }
-            return `<span class="inline-flex items-center gap-1 text-xs text-gray-600"><span class="text-gray-700">●</span>${m.name}</span>`;
+            return `<span class="inline-flex items-center gap-1 text-xs text-gray-600">${icon}<span class="text-gray-700">●</span>${m.name}</span>`;
           }).join(' ');
           const statusCell = canExpand
             ? `<span class="chip chip-live"><span class="pulse-dot"></span>${doneCount}/${teamSize} IN</span>`
