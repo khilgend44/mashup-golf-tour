@@ -2901,13 +2901,20 @@
       const bPar  = team.pars.slice(9).reduce((a, b) => a + b, 0);
 
       const playerRows = team.players.map(p => {
+        // Handicap "pop" dots (see strokeDotsHtml) — this view built its own
+        // score cells separately from buildTeamScorecardHTML/
+        // buildTeamProgressScorecardHTML and never passed gross through, so
+        // a fully-posted pre-draw team showed no dots while a short-handed
+        // one (routed through buildTeamProgressScorecardHTML instead) did.
+        // Confirmed live 2026-10-28: jboettner/adamw19/mesky (first team to
+        // finish all 3 rounds) had none, while every still-partial team did.
         const fc = front.map(h => {
           const cls = holeScoreClass(p.net[h], team.pars[h]);
-          return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${p.net[h]}</span></td>`;
+          return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${p.net[h]}${strokeDotsHtml(p.gross?.[h], p.net[h])}</span></td>`;
         }).join('');
         const bc = back.map(h => {
           const cls = holeScoreClass(p.net[h], team.pars[h]);
-          return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${p.net[h]}</span></td>`;
+          return `<td class="${cls}" style="padding:3px 4px"><span class="sc-score">${p.net[h]}${strokeDotsHtml(p.gross?.[h], p.net[h])}</span></td>`;
         }).join('');
         const fo = front.reduce((s, h) => s + p.net[h], 0);
         const bi = back.reduce((s, h) => s + p.net[h], 0);
