@@ -299,17 +299,19 @@ jobs:
               # page's "Closest to the Pin — Live" cards, while a hole's
               # winner isn't recorded in admin's ctp[] at all yet (that
               # only gets written when the admin completes the event). The
-              # candidates here are each round's current hole leader
-              # (leaders[0] — already sorted closest-first by parse_ctp.py),
-              # matching exactly what resolveCtpLeaders (js/api.js) picks
-              # as the current leader client-side. Unlike the admin ctp[]
-              # step above, this file is fully regenerated every run (same
-              # as data/ctp/*.json itself) rather than merged, since it's
-              # just a live snapshot of who's leading right now, not a
-              # permanent record — keyed by round:hole:player so a leader
-              # change can never show a stale shot's video by mistake.
+              # candidates here are EVERY player on each hole's leaders[]
+              # list, not just leaders[0] (the current leader) — event.html
+              # shows the full mini-leaderboard per hole, and any entry on
+              # it can carry its own video if that player (or a teammate)
+              # has linked a stream, same as the current leader always
+              # could. Unlike the admin ctp[] step above, this file is
+              # fully regenerated every run (same as data/ctp/*.json
+              # itself) rather than merged, since it's just a live snapshot
+              # of who's leading right now, not a permanent record — keyed
+              # by round:hole:player so a leader change can never show a
+              # stale shot's video by mistake.
               mkdir -p data/ctp-video
-              LIVE_CANDIDATES=$(jq -c '[.rounds[]? | .round as $r | .holes[]? | select(.leaders | length > 0) | {round: $r, hole, player: .leaders[0].player}]' "data/ctp/${tid}.json" 2>/dev/null || echo "[]")
+              LIVE_CANDIDATES=$(jq -c '[.rounds[]? | .round as $r | .holes[]? | select(.leaders | length > 0) | .hole as $h | .leaders[] | {round: $r, hole: $h, player: .player}]' "data/ctp/${tid}.json" 2>/dev/null || echo "[]")
               lc=$(echo "$LIVE_CANDIDATES" | jq 'length')
 
               if [ "$lc" != "0" ]; then
