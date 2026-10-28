@@ -1,6 +1,6 @@
 {
   "tournamentId": 78307,
-  "generatedAt": "2026-10-28T00:54:53Z",
+  "generatedAt": "2026-10-28T06:33:45Z",
   "driveOfWeek": [
     {
       "player": "winch99",
@@ -18,12 +18,12 @@
       "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=135s"
     },
     {
-      "player": "bdc5e",
-      "hole": 13,
+      "player": "jboettner",
+      "hole": 15,
       "par": 4,
-      "distanceYds": 319.0,
+      "distanceYds": 332.0,
       "shotNum": 1,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=2052s"
+      "video": "https://www.youtube.com/watch?v=q00Zei7XTZ8&t=5095s"
     }
   ],
   "approachOfWeek": [
@@ -39,7 +39,8 @@
       "hole": 6,
       "par": 4,
       "proximityFt": 7.0,
-      "shotNum": 2
+      "shotNum": 2,
+      "video": "https://www.youtube.com/watch?v=e-bjWnDvu9w&t=753s"
     },
     {
       "player": "bdc5e",
@@ -55,20 +56,21 @@
       "player": "EZPass",
       "hole": 1,
       "lengthFt": 35.0,
+      "shotNum": 3,
+      "video": "https://www.youtube.com/watch?v=e-bjWnDvu9w&t=133s"
+    },
+    {
+      "player": "jboettner",
+      "hole": 10,
+      "lengthFt": 24.0,
       "shotNum": 3
     },
     {
-      "player": "EZPass",
-      "hole": 11,
-      "lengthFt": 13.0,
-      "shotNum": 4
-    },
-    {
-      "player": "bdc5e",
-      "hole": 6,
-      "lengthFt": 12.0,
+      "player": "adamw19",
+      "hole": 3,
+      "lengthFt": 17.0,
       "shotNum": 3,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=1090s"
+      "video": "https://www.youtube.com/watch?v=q00Zei7XTZ8&t=1320s"
     }
   ]
 }
