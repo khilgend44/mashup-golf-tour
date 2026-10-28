@@ -1,6 +1,6 @@
 {
   "tournamentId": 78307,
-  "generatedAt": "2026-10-28T19:16:20Z",
+  "generatedAt": "2026-10-28T23:49:22Z",
   "driveOfWeek": [
     {
       "player": "winch99",
@@ -60,15 +60,15 @@
       "video": "https://www.youtube.com/watch?v=e-bjWnDvu9w&t=133s"
     },
     {
+      "player": "mrsnowman",
+      "hole": 13,
+      "lengthFt": 31.0,
+      "shotNum": 4
+    },
+    {
       "player": "jboettner",
       "hole": 10,
       "lengthFt": 24.0,
-      "shotNum": 3
-    },
-    {
-      "player": "adamw19",
-      "hole": 3,
-      "lengthFt": 17.0,
       "shotNum": 3
     }
   ]
