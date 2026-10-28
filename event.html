@@ -2478,10 +2478,10 @@
               <span class="text-[10px] text-gray-600 font-mono shrink-0">${i + 1}.</span>
               <span class="font-medium text-white text-sm truncate">${e.player}</span>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
-              ${e.video ? `<a href="${e.video}" target="_blank" rel="noopener" title="Watch the shot on YouTube" class="flex items-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}</a>` : ''}
-              <span class="text-xs text-gray-400 whitespace-nowrap">${valueFn(e)}</span>
-              <span class="text-xs text-gray-500 whitespace-nowrap">Hole ${e.hole}</span>
+            <div class="grid items-center shrink-0" style="grid-template-columns:16px 48px 44px; column-gap:8px">
+              <span class="flex items-center justify-center">${e.video ? `<a href="${e.video}" target="_blank" rel="noopener" title="Watch the shot on YouTube" class="flex items-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}</a>` : ''}</span>
+              <span class="text-xs text-gray-400 whitespace-nowrap text-right num">${valueFn(e)}</span>
+              <span class="text-xs text-gray-500 whitespace-nowrap text-right num">Hole ${e.hole}</span>
             </div>
           </div>`).join('');
         return `
