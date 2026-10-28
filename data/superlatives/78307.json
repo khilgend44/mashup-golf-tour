@@ -1,7 +1,14 @@
 {
   "tournamentId": 78307,
-  "generatedAt": "2026-10-27T21:43:51Z",
+  "generatedAt": "2026-10-28T00:54:53Z",
   "driveOfWeek": [
+    {
+      "player": "winch99",
+      "hole": 1,
+      "par": 4,
+      "distanceYds": 351.0,
+      "shotNum": 1
+    },
     {
       "player": "bdc5e",
       "hole": 1,
@@ -17,17 +24,23 @@
       "distanceYds": 319.0,
       "shotNum": 1,
       "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=2052s"
-    },
-    {
-      "player": "bdc5e",
-      "hole": 8,
-      "par": 5,
-      "distanceYds": 308.0,
-      "shotNum": 1,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=1194s"
     }
   ],
   "approachOfWeek": [
+    {
+      "player": "winch99",
+      "hole": 5,
+      "par": 4,
+      "proximityFt": 3.0,
+      "shotNum": 2
+    },
+    {
+      "player": "EZPass",
+      "hole": 6,
+      "par": 4,
+      "proximityFt": 7.0,
+      "shotNum": 2
+    },
     {
       "player": "bdc5e",
       "hole": 17,
@@ -35,45 +48,27 @@
       "proximityFt": 8.0,
       "shotNum": 2,
       "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=2831s"
-    },
-    {
-      "player": "bdc5e",
-      "hole": 6,
-      "par": 4,
-      "proximityFt": 12.0,
-      "shotNum": 2,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=1051s"
-    },
-    {
-      "player": "bdc5e",
-      "hole": 10,
-      "par": 4,
-      "proximityFt": 15.0,
-      "shotNum": 2,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=1662s"
     }
   ],
   "puttOfWeek": [
+    {
+      "player": "EZPass",
+      "hole": 1,
+      "lengthFt": 35.0,
+      "shotNum": 3
+    },
+    {
+      "player": "EZPass",
+      "hole": 11,
+      "lengthFt": 13.0,
+      "shotNum": 4
+    },
     {
       "player": "bdc5e",
       "hole": 6,
       "lengthFt": 12.0,
       "shotNum": 3,
       "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=1090s"
-    },
-    {
-      "player": "bdc5e",
-      "hole": 5,
-      "lengthFt": 9.0,
-      "shotNum": 6,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=937s"
-    },
-    {
-      "player": "bdc5e",
-      "hole": 14,
-      "lengthFt": 8.0,
-      "shotNum": 5,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=2382s"
     }
   ]
 }
