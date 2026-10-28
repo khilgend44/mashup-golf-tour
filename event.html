@@ -2479,8 +2479,8 @@
               <span class="font-medium text-white text-sm truncate">${e.player}</span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <span class="text-xs text-gray-400 whitespace-nowrap">${valueFn(e)}</span>
               ${e.video ? `<a href="${e.video}" target="_blank" rel="noopener" title="Watch the shot on YouTube" class="flex items-center hover:opacity-80" style="transition:opacity 0.15s">${ytIconSvg(true)}</a>` : ''}
+              <span class="text-xs text-gray-400 whitespace-nowrap">${valueFn(e)}</span>
               <span class="text-xs text-gray-500 whitespace-nowrap">Hole ${e.hole}</span>
             </div>
           </div>`).join('');
