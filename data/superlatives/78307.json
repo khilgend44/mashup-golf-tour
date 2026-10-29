@@ -1,6 +1,6 @@
 {
   "tournamentId": 78307,
-  "generatedAt": "2026-10-29T10:49:52Z",
+  "generatedAt": "2026-10-29T17:16:55Z",
   "driveOfWeek": [
     {
       "player": "winch99",
@@ -10,20 +10,19 @@
       "shotNum": 1
     },
     {
+      "player": "Tigerstew84",
+      "hole": 15,
+      "par": 4,
+      "distanceYds": 345.0,
+      "shotNum": 1
+    },
+    {
       "player": "bdc5e",
       "hole": 1,
       "par": 4,
       "distanceYds": 343.0,
       "shotNum": 1,
       "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=135s"
-    },
-    {
-      "player": "jboettner",
-      "hole": 15,
-      "par": 4,
-      "distanceYds": 332.0,
-      "shotNum": 1,
-      "video": "https://www.youtube.com/watch?v=q00Zei7XTZ8&t=5095s"
     }
   ],
   "approachOfWeek": [
@@ -35,20 +34,19 @@
       "shotNum": 2
     },
     {
+      "player": "Tigerstew84",
+      "hole": 9,
+      "par": 4,
+      "proximityFt": 6.0,
+      "shotNum": 2
+    },
+    {
       "player": "EZPass",
       "hole": 6,
       "par": 4,
       "proximityFt": 7.0,
       "shotNum": 2,
       "video": "https://www.youtube.com/watch?v=e-bjWnDvu9w&t=753s"
-    },
-    {
-      "player": "bdc5e",
-      "hole": 17,
-      "par": 4,
-      "proximityFt": 8.0,
-      "shotNum": 2,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=2831s"
     }
   ],
   "puttOfWeek": [
