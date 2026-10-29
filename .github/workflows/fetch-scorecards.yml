@@ -72,17 +72,32 @@ jobs:
           # The stream-gap check below calls MashUp's get-streams endpoint,
           # which does a KV "list" operation — a much lower daily cap (1,000)
           # than reads, and the one that actually tripped Cloudflare's
-          # usage-cap warning (2026-10). The live-score fetch above has no KV
-          # cost and keeps running every 10 minutes; this just thins out how
-          # often the stream check itself runs, to roughly every 30 minutes
-          # (checked against the run's own UTC clock minute, so it's not tied
-          # to whenever the workflow happened to first be enabled).
-          MINUTE=$(date -u +%M)
-          if [ $((10#$MINUTE % 30)) -eq 0 ]; then
+          # usage-cap warning (2026-10). This thins out how often the stream
+          # check itself runs, to roughly every 25 minutes.
+          #
+          # Used to gate on the run's own UTC clock minute being an exact
+          # multiple of 30 — assumed this workflow is only ever ticked by
+          # its own `*/10 * * * *` schedule, landing on a predictable
+          # minute. Confirmed broken live 2026-10-29: whatever's actually
+          # triggering these runs (every run this whole day showed up as
+          # workflow_dispatch, not schedule — see `gh run list`, cause
+          # unconfirmed) lands at arbitrary minute offsets, so the exact-
+          # minute match missed on all 100+ runs that day. Net effect: the
+          # SGT-side stream-gap import silently never ran for a full day,
+          # which is exactly how cloverlinksgolf's SGT-native stream link
+          # went undetected despite parse_streams.py/stream_gaps.py both
+          # correctly finding it the moment they were run by hand. A
+          # persisted last-checked timestamp is immune to this regardless
+          # of what ends up calling the workflow or how often.
+          STREAM_CHECK_STATE="data/.stream-check-state"
+          NOW_TS=$(date -u +%s)
+          LAST_TS=$(cat "$STREAM_CHECK_STATE" 2>/dev/null || echo 0)
+          if [ $((NOW_TS - LAST_TS)) -ge 1500 ]; then
             CHECK_STREAMS=1
+            echo "$NOW_TS" > "$STREAM_CHECK_STATE"
           else
             CHECK_STREAMS=0
-            echo "Skipping the stream-gap check this run (only checked every 30 min)."
+            echo "Skipping the stream-gap check this run (last checked $(( (NOW_TS - LAST_TS) / 60 )) min ago)."
           fi
 
           echo "$TOURNAMENT_IDS" | while read tid; do
@@ -391,7 +406,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/scorecards/ data/ctp/ data/ctp-video/
+          git add data/scorecards/ data/ctp/ data/ctp-video/ data/.stream-check-state
           if git diff --staged --quiet; then
             echo "No scorecard changes — skipping commit."
           else
