@@ -1,7 +1,15 @@
 {
   "tournamentId": 78307,
-  "generatedAt": "2026-10-29T17:16:55Z",
+  "generatedAt": "2026-10-29T22:21:49Z",
   "driveOfWeek": [
+    {
+      "player": "cloverlinksgolf",
+      "hole": 1,
+      "par": 4,
+      "distanceYds": 375.0,
+      "shotNum": 1,
+      "video": "https://www.youtube.com/watch?v=A95Fq5Un_CU&t=113s"
+    },
     {
       "player": "winch99",
       "hole": 1,
@@ -15,14 +23,6 @@
       "par": 4,
       "distanceYds": 345.0,
       "shotNum": 1
-    },
-    {
-      "player": "bdc5e",
-      "hole": 1,
-      "par": 4,
-      "distanceYds": 343.0,
-      "shotNum": 1,
-      "video": "https://www.youtube.com/watch?v=NHHJZHOtXCI&t=135s"
     }
   ],
   "approachOfWeek": [
@@ -41,12 +41,12 @@
       "shotNum": 2
     },
     {
-      "player": "EZPass",
-      "hole": 6,
-      "par": 4,
-      "proximityFt": 7.0,
-      "shotNum": 2,
-      "video": "https://www.youtube.com/watch?v=e-bjWnDvu9w&t=753s"
+      "player": "stevemac",
+      "hole": 14,
+      "par": 5,
+      "proximityFt": 6.0,
+      "shotNum": 3,
+      "video": "https://www.youtube.com/watch?v=oQ_quiZbIlg&t=2966s"
     }
   ],
   "puttOfWeek": [
@@ -58,16 +58,17 @@
       "video": "https://www.youtube.com/watch?v=e-bjWnDvu9w&t=133s"
     },
     {
+      "player": "cloverlinksgolf",
+      "hole": 12,
+      "lengthFt": 32.0,
+      "shotNum": 2,
+      "video": "https://www.youtube.com/watch?v=A95Fq5Un_CU&t=1543s"
+    },
+    {
       "player": "mrsnowman",
       "hole": 13,
       "lengthFt": 31.0,
       "shotNum": 4
-    },
-    {
-      "player": "jboettner",
-      "hole": 10,
-      "lengthFt": 24.0,
-      "shotNum": 3
     }
   ]
 }
