@@ -1,9 +1,12 @@
 name: Fetch Live Scorecards
 
 on:
-  schedule:
-    - cron: '*/10 * * * *'   # every 10 minutes
-  workflow_dispatch:        # also allows manual run from GitHub UI
+  # Scheduling lives on the Cloudflare side now (Worker "mashup-scorecard-trigger",
+  # cron trigger every 11 min, calling this workflow's dispatch API) — more
+  # reliable than GitHub's own `schedule:`, which was landing at arbitrary
+  # minute offsets instead of its declared */10 (see 2026-10-29 stream-check
+  # investigation). Keeping both was harmless but redundant.
+  workflow_dispatch:        # also allows manual run from GitHub UI, or the Cloudflare Worker
 
 permissions:
   contents: write
