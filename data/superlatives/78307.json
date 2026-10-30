@@ -1,6 +1,6 @@
 {
   "tournamentId": 78307,
-  "generatedAt": "2026-10-29T22:21:49Z",
+  "generatedAt": "2026-10-30T02:21:27Z",
   "driveOfWeek": [
     {
       "player": "cloverlinksgolf",
@@ -27,6 +27,13 @@
   ],
   "approachOfWeek": [
     {
+      "player": "jarhead",
+      "hole": 15,
+      "par": 4,
+      "proximityFt": 2.0,
+      "shotNum": 2
+    },
+    {
       "player": "winch99",
       "hole": 5,
       "par": 4,
@@ -39,14 +46,6 @@
       "par": 4,
       "proximityFt": 6.0,
       "shotNum": 2
-    },
-    {
-      "player": "stevemac",
-      "hole": 14,
-      "par": 5,
-      "proximityFt": 6.0,
-      "shotNum": 3,
-      "video": "https://www.youtube.com/watch?v=oQ_quiZbIlg&t=2966s"
     }
   ],
   "puttOfWeek": [
