@@ -1,6 +1,6 @@
 {
   "tournamentId": 78307,
-  "generatedAt": "2026-11-01T09:58:39Z",
+  "generatedAt": "2026-11-01T16:40:14Z",
   "driveOfWeek": [
     {
       "player": "cloverlinksgolf",
@@ -42,11 +42,11 @@
       "shotNum": 2
     },
     {
-      "player": "jarhead",
+      "player": "garyn2732",
       "hole": 1,
       "par": 4,
       "proximityFt": 6.0,
-      "shotNum": 2
+      "shotNum": 3
     }
   ],
   "puttOfWeek": [
@@ -58,17 +58,17 @@
       "video": "https://www.youtube.com/watch?v=e-bjWnDvu9w&t=133s"
     },
     {
+      "player": "garyn2732",
+      "hole": 10,
+      "lengthFt": 33.0,
+      "shotNum": 3
+    },
+    {
       "player": "cloverlinksgolf",
       "hole": 12,
       "lengthFt": 32.0,
       "shotNum": 2,
       "video": "https://www.youtube.com/watch?v=A95Fq5Un_CU&t=1543s"
-    },
-    {
-      "player": "mrsnowman",
-      "hole": 13,
-      "lengthFt": 31.0,
-      "shotNum": 4
     }
   ]
 }
