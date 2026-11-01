@@ -1000,10 +1000,15 @@
       manualEl.innerHTML = `
         <div class="space-y-4">
           ${teamSize === 2 ? `
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
             <button type="button" id="import-pairs-btn"
               class="px-3 py-1.5 rounded-lg border border-flame/40 text-flame text-xs font-heading font-600 tracking-wider hover:bg-flame/10"
               style="transition:background 0.12s">⤓ Import Self-Signed Pairs</button>
+            <label class="flex items-center gap-1.5 text-xs font-body text-gray-500">
+              from week
+              <input type="number" id="import-pairs-week" value="${event.week ?? ''}"
+                class="w-16 px-2 py-1 rounded border border-border bg-[#0c0c0c] text-gray-200 text-xs" />
+            </label>
             <span id="import-pairs-status" class="text-xs font-body text-gray-600"></span>
           </div>` : ''}
           <div>
@@ -1076,19 +1081,26 @@
       });
 
       document.getElementById('import-pairs-btn')?.addEventListener('click', () =>
-        importSignedPairs(event, allPlayers, numTeams, teamSize));
+        importSignedPairs(event, allPlayers, numTeams, teamSize,
+          document.getElementById('import-pairs-week')?.value));
     }
 
     // Pulls locked-in pairs from the public team-signup tool (team-signup.html,
     // keyed by season+week since that event may not have existed yet when
     // players signed up) and seeds them into the manual builder. The admin
     // still reviews and clicks Save Teams as normal — this only pre-fills.
-    async function importSignedPairs(event, allPlayers, numTeams, teamSize) {
+    // `weekOverride` lets the admin pull from a different signup week than the
+    // event's own `week` field — needed for things like the Member-Member
+    // event, whose signups are deliberately collected under a sentinel week
+    // (e.g. 45) that doesn't collide with the real weekly schedule, separate
+    // from whatever week number the actual SGT event(s) end up tagged with.
+    async function importSignedPairs(event, allPlayers, numTeams, teamSize, weekOverride) {
       const statusEl = document.getElementById('import-pairs-status');
-      if (!event.week) { statusEl.textContent = 'This event has no week number set.'; return; }
+      const week = weekOverride || event.week;
+      if (!week) { statusEl.textContent = 'No week number set — enter one in the "from week" field.'; return; }
       statusEl.textContent = 'Loading…';
       try {
-        const res = await fetch(`/api/team-signup?season=${encodeURIComponent(event.season)}&week=${event.week}`);
+        const res = await fetch(`/api/team-signup?season=${encodeURIComponent(event.season)}&week=${week}`);
         const d = await res.json();
         if (!res.ok) throw new Error(d.error || 'Could not load signups.');
 
