@@ -470,7 +470,7 @@
         // live / complete) with real per-hole data for a live round, not
         // just a name. This view's rooting-guide math still needs every
         // teammate's full 18 holes (it compares each team's numbers against
-        // the top-6 average), so a short-handed team still can't get that
+        // the top-4 average), so a short-handed team still can't get that
         // analysis — but reusing this instead of a hand-rolled, completed-
         // cards-only map (as this used to be) means a partially-done team
         // can expand to see whoever HAS posted, the same as every other
@@ -2856,10 +2856,13 @@
     // ── Devil's Draw rooting analysis ───────────────────────────────────────
 
     // Returns [holeIdx][teamIdx]: { adv, best, worst, par, nets }
-    // adv = strokes better than top-6 average per category (positive = good for team)
-    // preDrawTeams must be sorted best-first (lowest aggregate first)
+    // adv = strokes better than top-4 average per category (positive = good for team)
+    // preDrawTeams must be sorted best-first (lowest aggregate first). Top 4,
+    // not the whole field, on the reasoning that only a handful of teams are
+    // realistically in contention for 1st — a wide average dilutes the
+    // comparison with teams that aren't actually part of the race.
     function computeRootingAnalysis(preDrawTeams) {
-      const TOP_N = Math.min(6, preDrawTeams.length);
+      const TOP_N = Math.min(4, preDrawTeams.length);
       return Array.from({ length: 18 }, (_, h) => {
         const hd = preDrawTeams.map(team => {
           const nets = team.players.map(p => p.net[h]);
@@ -2875,7 +2878,7 @@
             tp_4bb: has4 ? (s[0] + s[1] + s[2] + s[3]) - par * 4 : null,
           };
         });
-        // Averages computed from top-6 contenders only
+        // Averages computed from top-4 contenders only
         const top = hd.slice(0, TOP_N);
         const has4Man = top[0]?.tp_4bb !== null && top[0]?.tp_4bb !== undefined;
         const avg1 = top.reduce((s, t) => s + t.tp_1bb, 0) / TOP_N;
@@ -2919,7 +2922,7 @@
         const n    = Math.round(d.best.val);
         const adv  = n > 0 ? `+${n}` : n < 0 ? `${n}` : '—';
         const ac   = n > 0 ? '#4ade80' : n < 0 ? '#f87171' : '#6b7280';
-        const tip  = `H${h+1} vs top-6 avg: ${is4Man && d.adv['4bb'] != null ? `4BB${d.adv['4bb']>=0?'+':''}${Math.round(d.adv['4bb'])} | ` : ''}3BB${d.adv['3bb']>=0?'+':''}${Math.round(d.adv['3bb'])} | 2BB${d.adv['2bb']>=0?'+':''}${Math.round(d.adv['2bb'])} | 1BB${d.adv['1bb']>=0?'+':''}${Math.round(d.adv['1bb'])}`;
+        const tip  = `H${h+1} vs top-4 avg: ${is4Man && d.adv['4bb'] != null ? `4BB${d.adv['4bb']>=0?'+':''}${Math.round(d.adv['4bb'])} | ` : ''}3BB${d.adv['3bb']>=0?'+':''}${Math.round(d.adv['3bb'])} | 2BB${d.adv['2bb']>=0?'+':''}${Math.round(d.adv['2bb'])} | 1BB${d.adv['1bb']>=0?'+':''}${Math.round(d.adv['1bb'])}`;
         return `<div title="${tip}" style="width:36px;height:52px;flex-shrink:0;background:${info.bg};
                   border:1px solid ${info.border};border-radius:6px;
                   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
@@ -2966,7 +2969,7 @@
       return `
         <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
           <div class="text-xs font-heading font-600 tracking-wider text-flame uppercase mb-0.5">Rooting Guide</div>
-          <div class="text-xs text-gray-600 mb-3">Best draw category per hole vs. top 6 teams — hover a tile for full breakdown</div>
+          <div class="text-xs text-gray-600 mb-3">Best draw category per hole vs. top 4 teams — hover a tile for full breakdown</div>
 
           <div class="text-[10px] font-heading tracking-widest text-gray-600 uppercase mb-1">Front 9</div>
           <div class="flex flex-wrap gap-1.5 mb-3">${front9}</div>
@@ -2979,7 +2982,7 @@
             <span style="color:#fbbf24;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700">2BB</span><span>Root for best 2</span>
             <span style="color:#60a5fa;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700">1BB</span><span>Root for best 1</span>
             <span style="color:#6b7280;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700">ZERO</span><span>Root for it not to count</span>
-            <span class="w-full text-gray-700 mt-0.5">+number = strokes better than top-6 average under that category</span>
+            <span class="w-full text-gray-700 mt-0.5">+number = strokes better than top-4 average under that category</span>
           </div>
 
           <div class="text-xs font-heading font-600 tracking-wider text-gray-500 uppercase mb-2">Net Scorecard</div>
