@@ -236,8 +236,22 @@ def cmd_shotoffset(stream_fragment_html_path, hole, shot_num, expected_value):
         if count != shot_num:
             continue
         offset, end, main_text, detail_text = m.group(1), m.group(2), m.group(3), m.group(4)
-        made_putt_m = re.match(r"Made\s+([\d.]+)\s*ft putt$", main_text.strip())
-        actual = float(made_putt_m.group(1)) if made_putt_m else _parse_remaining_ft(detail_text)
+        main_stripped = main_text.strip()
+        made_putt_m = re.match(r"Made\s+([\d.]+)\s*ft putt$", main_stripped)
+        # "Holed out" / "from {N} yds" — a non-putt shot holed from off the
+        # green (see parse_shots.py's identical case) reads 0 ft remaining
+        # by definition, but its detail text has no "N ft/yds left" for
+        # _parse_remaining_ft to match, so it fell through to None and this
+        # verification could never confirm a holed approach's own expected
+        # 0.0 — silently withholding a real timestamp rather than a wrong
+        # one, same failure shape as the parse_shots.py bug, just in this
+        # file's own separate copy of the same parsing logic.
+        if made_putt_m:
+            actual = float(made_putt_m.group(1))
+        elif main_stripped == 'Holed out':
+            actual = 0.0
+        else:
+            actual = _parse_remaining_ft(detail_text)
         if actual is not None and abs(actual - expected) < 0.5:
             print((int(offset) + int(end)) // 2)
         return
