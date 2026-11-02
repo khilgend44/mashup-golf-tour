@@ -554,11 +554,37 @@
           const statusCell = canExpand
             ? `<span class="chip chip-live"><span class="pulse-dot"></span>${doneCount}/${teamSize} IN</span>`
             : 'Not started';
+
+          // Current aggregate for a short-handed team — a complete member
+          // contributes their real totalNet, a live member contributes the
+          // sum of only the holes they've actually played so far (their
+          // `net` array is null past holesPlayed, see buildTeamRoster), a
+          // not-started member contributes nothing. Lets the user gauge
+          // where an unfinished team stands relative to the ranked ones
+          // without waiting for every teammate to post — explicitly partial,
+          // so it's labeled with how many combined holes it's built from
+          // rather than shown as if it were a real, comparable aggregate.
+          const partialHoles = t.members.reduce((s, m) =>
+            s + (m.status === 'complete' ? 18 : m.status === 'live' ? m.holesPlayed : 0), 0);
+          const partialNet = t.members.reduce((s, m) => {
+            if (m.status === 'complete') return s + m.totalNet;
+            if (m.status === 'live') return s + m.net.filter(n => n != null).reduce((a, n) => a + n, 0);
+            return s;
+          }, 0);
+          const aggregateCell = partialHoles > 0
+            ? `<div class="font-mono text-gray-300 text-sm">${partialNet}</div>
+               <div class="text-[10px] text-gray-600 mt-0.5 whitespace-nowrap">thru ${partialHoles}/${teamSize * 18} holes</div>`
+            : `<span class="text-xs text-gray-700">—</span>`;
+
+          // The expand/collapse click handler below replaces this row's
+          // last <td>'s textContent wholesale (same as the ranked-teams
+          // rows do) — the status chip has to live in the Aggregate column
+          // instead of sharing that cell, or it'd get wiped out on toggle.
           return `
             <tr class="border-t border-border ${canExpand ? 'lb-row cursor-pointer select-none' : ''}" ${canExpand ? `data-partial-idx="${i}"` : ''}>
               <td class="px-3 py-3 text-center text-gray-700">—</td>
               <td class="px-4 py-3 leading-snug"><div class="flex flex-wrap gap-x-3 gap-y-1">${memberHtml}</div></td>
-              <td class="px-4 py-3 text-right text-xs text-gray-600 whitespace-nowrap">${statusCell}</td>
+              <td class="px-4 py-3 text-right whitespace-nowrap">${aggregateCell}<div class="mt-1">${statusCell}</div></td>
               <td class="px-3 py-3 text-right text-xs text-gray-600 whitespace-nowrap">${canExpand ? 'expand ›' : ''}</td>
             </tr>
             ${canExpand ? `
