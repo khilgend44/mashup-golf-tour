@@ -119,11 +119,108 @@
       return { event, format, teams: complete };
     }
 
-    // Hole-by-hole head-to-head, same scoring as the season grid's
-    // computeSeasonGrid (1 pt per hole won, 0.5 each if tied) — just
-    // applied to each TEAM's own computed net score per hole instead of an
-    // individual player's, and across exactly these two events' holes
-    // (36 total) rather than a whole season's.
+    // ── Tiebreakers (admin's explicit 4-level rule, 2026-11) ──────────────
+    const roundPts = n => Math.round(n * 10) / 10;
+
+    // Groups `list` into consecutive runs of equal (rounded) `keyFn` value.
+    function groupByValue(list, keyFn, direction = 'desc') {
+      const sorted = [...list].sort((a, b) => direction === 'desc' ? keyFn(b) - keyFn(a) : keyFn(a) - keyFn(b));
+      const groups = [];
+      for (const item of sorted) {
+        const k = roundPts(keyFn(item));
+        const last = groups[groups.length - 1];
+        if (last && roundPts(keyFn(last[0])) === k) last.push(item);
+        else groups.push([item]);
+      }
+      return groups;
+    }
+
+    // Same idea, but groups by comparator-equality (cmp(a,b) === 0) instead
+    // of a scalar key — needed for the index-countback level, which can
+    // only say "equal or not" pairwise, not produce a single sortable
+    // number. Only ever called on a group already identical on every
+    // earlier level, so transitivity within the group holds.
+    function groupByComparator(list, cmp) {
+      const sorted = [...list].sort(cmp);
+      const groups = [];
+      for (const item of sorted) {
+        const last = groups[groups.length - 1];
+        if (last && cmp(last[0], item) === 0) last.push(item);
+        else groups.push([item]);
+      }
+      return groups;
+    }
+
+    // 4th tiebreaker: interleaved stroke-index countback across BOTH Week 1
+    // events — BB's hardest hole (stroke index #1), then Scramble's hardest
+    // hole (index #1), then BB's 2nd-hardest, Scramble's 2nd-hardest, and so
+    // on through index #18 — rather than countback within just one event.
+    // Explicit admin instruction, not a guess at which event should "count
+    // more." Compares each team's own teamHoleScores (lower wins).
+    function mmIndexCountback(a, b) {
+      if (!a.bb || !a.scramble || !b.bb || !b.scramble) return 0; // missing data — can't resolve further
+      const bbOrder = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.bb.indices[x] - a.bb.indices[y]);
+      const scrOrder = Array.from({ length: 18 }, (_, i) => i).sort((x, y) => a.scramble.indices[x] - a.scramble.indices[y]);
+      for (let i = 0; i < 18; i++) {
+        const bbH = bbOrder[i];
+        const d1 = a.bb.teamHoleScores[bbH] - b.bb.teamHoleScores[bbH];
+        if (d1 !== 0) return d1;
+        const scrH = scrOrder[i];
+        const d2 = a.scramble.teamHoleScores[scrH] - b.scramble.teamHoleScores[scrH];
+        if (d2 !== 0) return d2;
+      }
+      return 0;
+    }
+
+    let tieGroupCounter = 0;
+    // Resolves a group of teams tied on total grid points into a final
+    // order, per the admin's explicit 4-level tiebreak:
+    //   1. Head-to-head points earned directly between just those two teams
+    //      — ONLY applies to an exact 2-way tie. A 3+ way tie has no single
+    //      "head to head" outcome, so this level is skipped entirely for
+    //      those (explicit admin instruction) and falls straight through
+    //      to level 2.
+    //   2. Combined to-par across all 36 holes (both events), lower wins.
+    //   3. Team aggregate net score on the Best Ball event specifically
+    //      (not the combined total, not Scramble), lower wins.
+    //   4. Interleaved stroke-index countback (see mmIndexCountback above).
+    // Recurses at each level — same cascading pattern as the per-event
+    // Match Play Grid's own tiebreak (js/scoring.js, resolveGridTieGroup):
+    // a group that partially resolves only re-resolves whatever's still
+    // tied, not the whole original group. Anything still identical after
+    // all four levels is tagged with a shared `_tieGroup` id (used to
+    // assign a shared position afterward) rather than inventing a 5th rule.
+    function resolveMMTieGroup(group) {
+      if (group.length <= 1) return group;
+      const out = [];
+      const pushIrreducible = g => {
+        const id = tieGroupCounter++;
+        g.forEach(t => { t._tieGroup = g.length > 1 ? id : null; });
+        out.push(...g);
+      };
+
+      let h2hGroups = [group];
+      if (group.length === 2) {
+        const [x, y] = group;
+        const pts = t => t === x ? (x.vsOthers[y.key] ?? 0) : (y.vsOthers[x.key] ?? 0);
+        h2hGroups = groupByValue(group, pts, 'desc');
+      }
+
+      for (const hg of h2hGroups) {
+        if (hg.length <= 1) { pushIrreducible(hg); continue; }
+        const toParGroups = groupByValue(hg, t => t.toPar, 'asc');
+        for (const tpg of toParGroups) {
+          if (tpg.length <= 1) { pushIrreducible(tpg); continue; }
+          const bbGroups = groupByValue(tpg, t => t.bb?.total ?? Infinity, 'asc');
+          for (const bg of bbGroups) {
+            if (bg.length <= 1) { pushIrreducible(bg); continue; }
+            for (const cg of groupByComparator(bg, mmIndexCountback)) pushIrreducible(cg);
+          }
+        }
+      }
+      return out;
+    }
+
     function computeMMGrid(eventTeamSets) {
       const byKey = new Map(); // key -> { displayMembers, vsOthers: {key: pts}, holesPlayed }
       const ensure = (key, displayMembers) => {
@@ -131,7 +228,14 @@
         return byKey.get(key);
       };
 
-      for (const { teams } of eventTeamSets) {
+      for (const { format, teams } of eventTeamSets) {
+        // Tag each team's row with its per-hole data for THIS specific
+        // event (BB vs Scramble), independently of row.toPar (combined
+        // across both events) — tiebreakers 3 and 4 below need the BB
+        // event's own numbers specifically, and both events' indices for
+        // the interleaved countback, not just the combined total.
+        const isBB = format.type === 'best-ball-2man';
+        const isScramble = format.type === 'scramble-2man';
         for (let i = 0; i < teams.length; i++) {
           for (let j = i + 1; j < teams.length; j++) {
             const a = teams[i], b = teams[j];
@@ -155,6 +259,9 @@
           row.holesPlayed += t.teamHoleScores.filter(v => v != null).length;
           row.toPar = (row.toPar || 0) + (t.toPar || 0);
           row.eventsPlayed = (row.eventsPlayed || 0) + 1;
+          const perEvent = { teamHoleScores: t.teamHoleScores, indices: t.indices, total: t.total };
+          if (isBB) row.bb = perEvent;
+          if (isScramble) row.scramble = perEvent;
         }
       }
 
@@ -163,16 +270,19 @@
         totalPoints: Object.values(row.vsOthers).reduce((a, b) => a + b, 0),
       }));
 
-      results.sort((a, b) => b.totalPoints - a.totalPoints);
-      results.forEach((curr, i) => {
+      const topGroups = groupByValue(results, t => t.totalPoints, 'desc');
+      const final = [];
+      for (const g of topGroups) final.push(...resolveMMTieGroup(g));
+
+      final.forEach((curr, i) => {
         if (i === 0) { curr.position = 1; curr.tied = false; return; }
-        const prev = results[i - 1];
-        const tied = curr.totalPoints === prev.totalPoints;
-        curr.position = tied ? prev.position : i + 1;
-        curr.tied = tied;
-        if (tied) prev.tied = true;
+        const prev = final[i - 1];
+        const sameGroup = curr._tieGroup != null && curr._tieGroup === prev._tieGroup;
+        curr.position = sameGroup ? prev.position : i + 1;
+        curr.tied = sameGroup;
+        if (sameGroup) prev.tied = true;
       });
-      return results;
+      return final;
     }
 
     async function init() {
