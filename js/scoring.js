@@ -1083,6 +1083,86 @@ function calcDevilsDraw4Man(scorecards, format, event) {
   return [...ranked, ...unranked];
 }
 
+// ─── Devil's Draw: Ideal (Best-Case) Score ──────────────────────────────────
+// A team's score CEILING if the hole→category assignment were chosen to
+// uniquely favor just this team, subject to the format's fixed quotas (how
+// many holes get each category — a rule of the format, same for every team,
+// not something derived from the field). Answerable the moment a team's own
+// 3 (or 4) teammates have all posted complete rounds — it needs no other
+// team's data, since the quota counts don't depend on anyone else's scores.
+// It's a ceiling, not a prediction: the real draw applies ONE shared
+// hole→category map across the whole field, so it can't land "ideal" for
+// every team's own holes at once.
+//
+// On any one hole, a team's contribution under category count N is the sum
+// of their N best (lowest) net scores among teammates, so for that hole
+// alone, contribution only grows as N grows (0 ≤ 1BB ≤ 2BB ≤ 3BB/4BB,
+// always — scores are non-negative). But which holes get which count is
+// still a real combinatorial choice: the quotas apply across all 18 holes
+// at once, so "give the team's 2 worst holes the zero treatment" isn't
+// guaranteed optimal by itself (a hole's best-ball-only savings and its
+// zero-everything savings don't rank the same way hole-to-hole). Solved
+// exactly via a small dynamic program over (hole index, holes already used
+// per category) rather than a greedy heuristic — the state space is tiny
+// (at most ~6×7×6×3 = 756 states for the 3-man case), so there's no
+// approximation risk.
+export const DEVILS_DRAW_QUOTAS = {
+  3: { 3: 5, 2: 6, 1: 5, 0: 2 },        // 3-man: 5 holes @ 3BB, 6 @ 2BB, 5 @ 1BB, 2 @ zero
+  4: { 4: 4, 3: 4, 2: 4, 1: 4, 0: 2 },  // 4-man: 4 holes @ 4BB, 4 @ 3BB, 4 @ 2BB, 4 @ 1BB, 2 @ zero
+};
+
+export function calcIdealDevilsDraw(completePlayers, pars, teamSize = 3) {
+  const quotas = DEVILS_DRAW_QUOTAS[teamSize];
+  if (!quotas || completePlayers.length < teamSize || !pars) return null;
+
+  const counts = Object.keys(quotas).map(Number).sort((a, b) => b - a); // e.g. [3,2,1,0]
+
+  // holeValues[h][count] = sum of the `count` best net scores on hole h
+  const holeValues = Array.from({ length: 18 }, (_, h) => {
+    const sorted = completePlayers.map(p => p.net[h]).sort((a, b) => a - b);
+    const prefix = [0];
+    for (const v of sorted) prefix.push(prefix[prefix.length - 1] + v);
+    return prefix; // index 0..teamSize
+  });
+
+  const stateKey = (h, used) => h + '|' + counts.map(c => used[c]).join(',');
+  const memo = new Map();
+  function solve(h, used) {
+    if (h === 18) {
+      const complete = counts.every(c => used[c] === quotas[c]);
+      return { total: complete ? 0 : Infinity, choice: null };
+    }
+    const key = stateKey(h, used);
+    if (memo.has(key)) return memo.get(key);
+    let best = { total: Infinity, choice: null };
+    for (const c of counts) {
+      if (used[c] >= quotas[c]) continue;
+      const rest = solve(h + 1, { ...used, [c]: used[c] + 1 });
+      const total = holeValues[h][c] + rest.total;
+      if (total < best.total) best = { total, choice: c };
+    }
+    memo.set(key, best);
+    return best;
+  }
+
+  const zeroUsed = Object.fromEntries(counts.map(c => [c, 0]));
+  const result = solve(0, zeroUsed);
+  if (!isFinite(result.total)) return null; // quotas always sum to 18 — shouldn't happen
+
+  // Re-walk the memoized choices to reconstruct which count each hole got.
+  const assignment = [];
+  let used = { ...zeroUsed };
+  for (let h = 0; h < 18; h++) {
+    const { choice } = memo.get(stateKey(h, used));
+    assignment.push(choice);
+    used = { ...used, [choice]: used[choice] + 1 };
+  }
+
+  const totalPar = assignment.reduce((s, c, h) => s + pars[h] * c, 0);
+
+  return { total: result.total, totalPar, toPar: result.total - totalPar, assignment };
+}
+
 // ─── Best 2, Worst 2, All 3 ─────────────────────────────────────────────────
 
 function calcBest2Worst2All3(scorecards, format, event) {
