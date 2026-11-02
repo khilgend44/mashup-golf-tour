@@ -90,6 +90,7 @@ def parse_remaining_ft(detail_text):
 
 
 MADE_PUTT_RE = re.compile(r"Made\s+([\d.]+)\s*ft putt$")
+HOLED_OUT_RE = re.compile(r"Holed out$")
 
 
 def parse(html):
@@ -126,6 +127,23 @@ def parse(html):
                     putts.append({"player": player, "hole": hole, "lengthFt": float(made_putt_m.group(1)), "shotNum": shot_num})
                     break  # holing out always ends the hole — nothing follows
 
+                # "Holed out" / "from {N} yds" — a non-putt shot holed from
+                # off the green (the case this bug is about: a holed-out
+                # approach is, by definition, the single best possible
+                # approach result, 0 ft from the pin). `parse_main` only
+                # recognizes a measured "{N} yds" / "Putt {N} ft" main
+                # value, not this text, so distance_yds comes back None —
+                # fine for Drive of the Week (which genuinely needs a real
+                # distance), but was also wrongly gating Approach of the
+                # Week out, even though proximityFt (what actually ranks an
+                # approach) comes from remaining_ft, computed independently
+                # via parse_remaining_ft's own holed/gimme fallback and
+                # never touches distance_yds at all. Confirmed live:
+                # salfrado's S10W6 hole 8 (194-yard holed approach, see
+                # ARCHITECTURE.md/commit history) silently never became an
+                # Approach of the Week candidate because of this.
+                is_holed_out = HOLED_OUT_RE.match(main_text.strip()) is not None
+
                 distance_yds = parse_main(main_text)
                 remaining_ft = parse_remaining_ft(detail_text)
 
@@ -136,8 +154,10 @@ def parse(html):
                     not is_first_shot and par in (4, 5) and
                     prior_remaining_yds is not None and prior_remaining_yds > 100
                 )
-                if is_eligible_approach and distance_yds is not None:
+                if is_eligible_approach and (distance_yds is not None or is_holed_out):
                     approaches.append({"player": player, "hole": hole, "par": par, "proximityFt": remaining_ft, "shotNum": shot_num})
+                    if is_holed_out:
+                        break  # holing out always ends the hole — nothing follows
 
                 prior_remaining_yds = remaining_ft / 3.0
 
