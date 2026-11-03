@@ -46,14 +46,18 @@ jobs:
           # had — KV alone doesn't survive a total Cloudflare account loss).
           KV_NAMESPACE_ID="a6cbb9bc3e784be88136dbffe9f9796f"
           urlenc() { jq -rn --arg s "$1" '$s|@uri'; }
-          kv_put() { # kv_put <key> <file> — best-effort, never fails the run
-            resp=$(curl -s -o /tmp/kv_put_body -w "%{http_code}" -X PUT \
+          kv_put() { # kv_put <key> <file> — best-effort, never fails the run.
+            # Surfaces the real HTTP status on failure rather than swallowing
+            # it silently — confirmed necessary live: the first run after
+            # this was added failed every single kv_put with no visible
+            # reason until this was added, which revealed CLOUDFLARE_API_TOKEN
+            # itself was rejecting with 401 (see get-streams.js's own header
+            # comment for the same lesson learned the first time, 2026-10).
+            resp=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
               "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/$(urlenc "$1")" \
               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: text/plain" \
               --data-binary "@$2")
-            if [ "$resp" != "200" ]; then
-              echo "  → KV put failed for $1 (HTTP $resp, non-fatal): $(cat /tmp/kv_put_body)"
-            fi
+            [ "$resp" = "200" ] || echo "  → KV put failed for $1 (HTTP $resp, non-fatal)"
           }
           kv_get() { # kv_get <key> -> stdout, empty on miss/error
             curl -sf \
