@@ -221,7 +221,13 @@ function calcRinger(scorecards, format, event) {
   const seenInProgress = new Set();
   let ringerImproved = false;
   for (const card of scorecards) {
-    if (card.status !== 'Pending' || isCardComplete(card) || !cardHasStarted(card)) continue;
+    // Used to also require card.status === 'Pending' — confirmed live that
+    // SGT reports a genuinely live round as 'In Progress' too (not just
+    // 'Pending'), which that exact-string check silently treated as not
+    // worth showing. isCardComplete + cardHasStarted alone are enough to
+    // tell "live" from "not started" and from "done" without caring which
+    // of SGT's own non-final status words got used.
+    if (isCardComplete(card) || !cardHasStarted(card)) continue;
     const key = card.player_name.toLowerCase();
     if (seenInProgress.has(key)) continue; // only one in-progress round shown per player
     seenInProgress.add(key);
@@ -515,7 +521,14 @@ export function buildTeamRoster(scorecards, event, teamSize) {
         gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
         totalNet: card.total_net,
       });
-    } else if (card.status === 'Pending' && cardHasStarted(card)) {
+    } else if (cardHasStarted(card)) {
+      // Used to also require card.status === 'Pending' — confirmed live
+      // (S10MM 2-Man Scramble, jboettner/ryanlane10's own cards) that SGT
+      // reports a real live round as 'In Progress' too, not only 'Pending',
+      // which this check silently treated as "not started" instead of
+      // "live" — the team never got a (thru N) badge even mid-round.
+      // cardHasStarted alone (we're already past the isCardComplete check
+      // above) is enough, regardless of which non-final word SGT used.
       // Same shape as calcRinger's live-round handling below: a played
       // hole is real, settled data (null for everything at/after
       // activeHole, never the SGT 0-placeholder) — this used to only
@@ -1622,31 +1635,58 @@ function calcScramble2Man(scorecards, format, event) {
 }
 
 function calcAltShot2Man(scorecards, format, event) {
-  const kvTeamMap = buildKvTeamMap(event);
-  const teams = {};
+  const teamSize = format.teamSize || 2;
+  const teams = buildTeamRoster(scorecards, event, teamSize);
 
-  for (const card of scorecards) {
-    if (!isCardComplete(card)) continue;
-    const { key, displayMembers } = resolveTeamKey(card, [card.TeamPlayer1, card.TeamPlayer2], kvTeamMap);
-    if (!teams[key]) {
-      teams[key] = {
-        displayMembers: [...displayMembers],
-        players: [],
-        pars: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_Par`]),
-        indices: Array.from({ length: 18 }, (_, i) => card[`h${i + 1}_index`]),
-      };
+  const results = [];
+  for (const team of Object.values(teams)) {
+    const members = [...team.memberStatus.values()];
+    const completePlayers = members.filter(m => m.status === 'complete');
+
+    // Short-handed (one or both teammates not done yet) — same "show the
+    // roster, no real total yet" treatment as every other live-tracked team
+    // format (Shamble/Lone Ranger/etc). Used to simply never appear at all:
+    // this function originally skipped any incomplete card outright, so a
+    // team mid-round had no entry in `teams` and vanished from the
+    // leaderboard entirely instead of showing as in-progress.
+    if (completePlayers.length < teamSize || members.length < teamSize) {
+      let provisionalToPar = null;
+      if (team.pars) {
+        let provTotal = 0, provPar = 0;
+        for (let h = 0; h < 18; h++) {
+          // One shared ball — take whichever teammate has a real (non-zero)
+          // value on this hole, not a best-of-two comparison (there's only
+          // one score to find, same as the completed-team case below).
+          let holeScore = null;
+          for (const m of members) {
+            const v = m.net?.[h];
+            if (v) { holeScore = v; break; }
+          }
+          if (holeScore == null) continue;
+          provTotal += holeScore;
+          provPar += team.pars[h];
+        }
+        provisionalToPar = provPar > 0 ? provTotal - provPar : null;
+      }
+      results.push({
+        isTeam: true,
+        inProgress: true,
+        position: null,
+        displayMembers: team.displayMembers,
+        members,
+        teamSize,
+        pars: team.pars,
+        indices: team.indices,
+        total: null,
+        toPar: provisionalToPar,
+        aggregate: null,
+        prize: null,
+      });
+      continue;
     }
-    teams[key].players.push({
-      name: card.player_name,
-      net: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_net`]),
-      gross: Array.from({ length: 18 }, (_, i) => card[`hole${i + 1}_gross`]),
-      totalNet: card.total_net,
-    });
-  }
 
-  const results = Object.values(teams).map(team => {
     const teamHoleScores = Array.from({ length: 18 }, (_, h) => {
-      for (const p of team.players) {
+      for (const p of completePlayers) {
         const v = p.net?.[h];
         if (v) return v;
       }
@@ -1668,12 +1708,12 @@ function calcAltShot2Man(scorecards, format, event) {
     // format to decide whether to dim a cell — leaving this unset threw
     // "Cannot read properties of undefined (reading '0')" the moment anyone
     // expanded a completed scramble/alt-shot team's scorecard row.
-    const countingPlayers = teamHoleScores.map(() => team.players.map(() => true));
+    const countingPlayers = teamHoleScores.map(() => completePlayers.map(() => true));
 
-    return {
+    results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
-      players: team.players,
+      players: completePlayers,
       teamHoleScores,
       countingPlayers,
       pars: team.pars,
@@ -1683,19 +1723,21 @@ function calcAltShot2Man(scorecards, format, event) {
       toPar: total - totalPar,
       aggregate: total,
       prize: null,
-    };
-  });
+    });
+  }
 
-  results.sort((a, b) => a.total !== b.total ? a.total - b.total : teamIndexCountback(a, b));
-  results.forEach((curr, i) => {
+  const ranked = results.filter(r => !r.inProgress);
+  const unranked = results.filter(r => r.inProgress);
+  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : teamIndexCountback(a, b));
+  ranked.forEach((curr, i) => {
     if (i === 0) { curr.position = 1; curr.tied = false; return; }
-    const prev = results[i - 1];
+    const prev = ranked[i - 1];
     const trulyTied = curr.total === prev.total && teamIndexCountback(curr, prev) === 0;
     curr.position = trulyTied ? prev.position : i + 1;
     curr.tied = trulyTied;
     if (trulyTied) prev.tied = true;
   });
-  return results;
+  return [...ranked, ...sortInProgress(unranked)];
 }
 
 // ─── 2-Man Modified Nassau ──────────────────────────────────────────────────
@@ -2210,7 +2252,9 @@ function calcMatchPlayGrid(scorecards, format, event) {
   const resultsByKey = new Map(ordered.map(r => [r.key, r]));
   const seenInProgress = new Set();
   for (const card of scorecards) {
-    if (card.status !== 'Pending' || isCardComplete(card) || !cardHasStarted(card)) continue;
+    // Same relaxed check as Ringer's own version above — SGT's live-round
+    // status string isn't always 'Pending' (confirmed 'In Progress' too).
+    if (isCardComplete(card) || !cardHasStarted(card)) continue;
     const key = card.player_name.toLowerCase();
     if (resultsByKey.has(key) || seenInProgress.has(key)) continue;
     seenInProgress.add(key);
