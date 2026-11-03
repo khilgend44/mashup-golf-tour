@@ -400,12 +400,16 @@
       // 2026-10-26) can't accidentally skip it again. Don't move this call
       // below a branch — add new branches below THIS instead.
       const season = seasons.find(s => s.id === event.season);
+      // Fetch streams unconditionally — the leaderboard's own stream icons
+      // need this for a completed event too (KV data outlives the event),
+      // even though the submission FORM below still only makes sense while
+      // the event is still open.
       let streams = {};
+      try {
+        const sr = await fetch(`/api/get-streams?eventId=${event.id}`);
+        if (sr.ok) streams = await sr.json();
+      } catch { /* stream icons just won't show */ }
       if (event.status !== 'completed') {
-        try {
-          const sr = await fetch(`/api/get-streams?eventId=${event.id}`);
-          if (sr.ok) streams = await sr.json();
-        } catch { /* stream icons just won't show */ }
         renderStreamForm(event, season?.players || [], format, streams);
       }
 
