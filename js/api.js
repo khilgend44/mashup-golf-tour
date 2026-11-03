@@ -1,31 +1,47 @@
-// Scorecards are cached locally in data/scorecards/{id}.json at event creation time.
-// This avoids CORS issues and keeps the API key off the client.
-// cache-bust: force a fresh Cloudflare response so the new no-cache header
-// (see _headers) attaches to a genuine 200, not a stale revalidated 304.
-
-export async function fetchScorecards(tournamentId) {
+// Scorecards/CTP/CTP-video are read live from Cloudflare KV while an event
+// is active (functions/api/live-data.js — written directly by
+// fetch-scorecards.yml, not by a git commit, since 2026-11), falling back
+// to the git-committed data/{type}/{id}.json file on a miss. A historical
+// event never gets a live-data key at all (it's cleared the moment the
+// workflow finalizes it back to a static file on completion), so this
+// falls straight through to the static fetch for every old event — same
+// request shape, same result, as before live-data.js existed.
+//
+// cache: 'no-store' on both legs, not just Cloudflare's own Cache-Control
+// header: mobile Safari/WebKit has a long history of caching more
+// aggressively than the header asks for — confirmed 2026-09, a score
+// stayed missing on mobile Safari well after it showed up on desktop and
+// mobile Chrome for the same URL. The static leg also still cache-busts
+// with a query param for the same reason.
+//
+// Absolute paths throughout, not relative — this module is imported from
+// pages at different depths (site root, but also /admin/*), and a relative
+// `data/...` resolves against the *calling page's* URL, not the site root.
+// Confirmed 2026-09: `/admin/events.html` importing this got
+// `/admin/data/scorecards/...` (real path is `/data/scorecards/...`),
+// 404ing silently every time.
+async function fetchLiveOrStatic(type, tournamentId, staticPath, emptyValue) {
   try {
-    // Cloudflare serves this with `Cache-Control: max-age=0, must-revalidate`,
-    // which Chrome honors correctly (revalidates via ETag every time) but
-    // mobile Safari/WebKit has a long history of caching more aggressively
-    // than the header asks for — confirmed 2026-09, a score stayed missing
-    // on mobile Safari well after it showed up on desktop and mobile Chrome
-    // for the same URL. `cache: 'no-store'` plus a cache-busting query param
-    // sidesteps relying on Safari to interpret the header correctly at all.
-    // Absolute path, not relative — this module is imported from pages at
-    // different depths (site root, but also /admin/*), and a relative
-    // `data/...` resolves against the *calling page's* URL, not the site
-    // root. Confirmed 2026-09: `/admin/events.html` importing this got
-    // `/admin/data/scorecards/...` (real path is `/data/scorecards/...`),
-    // 404ing silently every time.
-    const res = await fetch(`/data/scorecards/${tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) return [];
+    const liveRes = await fetch(`/api/live-data?type=${type}&tid=${tournamentId}`, { cache: 'no-store' });
+    if (liveRes.ok) {
+      const text = await liveRes.text();
+      if (text.trim()) return JSON.parse(text);
+    }
+  } catch { /* fall through to the static file below */ }
+
+  try {
+    const res = await fetch(`${staticPath}?_=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return emptyValue;
     const text = await res.text();
-    if (!text.trim()) return [];
+    if (!text.trim()) return emptyValue;
     return JSON.parse(text);
   } catch {
-    return [];
+    return emptyValue;
   }
+}
+
+export async function fetchScorecards(tournamentId) {
+  return fetchLiveOrStatic('scorecards', tournamentId, `/data/scorecards/${tournamentId}.json`, []);
 }
 
 // Closest-to-pin (CTP) standings, refreshed by the same GitHub Action/cadence
@@ -35,19 +51,15 @@ export async function fetchScorecards(tournamentId) {
 // changed and broke the scraper) — always treat an empty/missing result as
 // "nothing to show" rather than an error.
 export async function fetchCtp(tournamentId) {
-  try {
-    // Absolute path — see the same note on fetchScorecards above. This was
-    // the actual bug behind admin/events.html's CTP suggestions never
-    // showing up: fetchCtp silently 404'd from that page's directory, so
-    // resolveCtpLeaders always got an empty { rounds: [] } to work with.
-    const res = await fetch(`/data/ctp/${tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) return { rounds: [] };
-    const text = await res.text();
-    if (!text.trim()) return { rounds: [] };
-    return JSON.parse(text);
-  } catch {
-    return { rounds: [] };
-  }
+  return fetchLiveOrStatic('ctp', tournamentId, `/data/ctp/${tournamentId}.json`, { rounds: [] });
+}
+
+// CTP video deep links for the live "Closest to the Pin" hole cards —
+// previously a one-off inline fetch in event.html instead of a shared
+// function here; pulled in alongside fetchScorecards/fetchCtp so it gets
+// the same live-first-then-static treatment without duplicating it.
+export async function fetchCtpVideo(tournamentId) {
+  return fetchLiveOrStatic('ctp-video', tournamentId, `/data/ctp-video/${tournamentId}.json`, []);
 }
 
 // Resolves the single cross-round CTP leader per hole from raw fetchCtp()

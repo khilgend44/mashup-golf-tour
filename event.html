@@ -346,7 +346,7 @@
   </footer>
 
   <script type="module">
-    import { fetchScorecards, fetchCtp, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20260929a';
+    import { fetchScorecards, fetchCtp, fetchCtpVideo, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20261103a';
     import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback, rankSidePotField, buildTeamRoster } from './js/scoring.js?v=20261026a';
 
     const params = new URLSearchParams(window.location.search);
@@ -441,11 +441,8 @@
       const ctpLive = await fetchCtp(event.tournamentId);
       let ctpVideoLive = new Map();
       try {
-        const cvr = await fetch(`/data/ctp-video/${event.tournamentId}.json?_=${Date.now()}`, { cache: 'no-store' });
-        if (cvr.ok) {
-          const list = await cvr.json();
-          ctpVideoLive = new Map(list.map(v => [`${v.round}:${v.hole}:${v.player.toLowerCase()}`, v.video]));
-        }
+        const list = await fetchCtpVideo(event.tournamentId);
+        ctpVideoLive = new Map(list.map(v => [`${v.round}:${v.hole}:${v.player.toLowerCase()}`, v.video]));
       } catch { /* icon just won't show */ }
       let superlatives = null;
       try {

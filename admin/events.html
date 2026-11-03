@@ -575,7 +575,7 @@
   <script type="module">
     import { applyFormat, applyPayouts, resolveSidePots } from '/js/scoring.js?v=20261026a';
     import { buildEventSummary } from '/js/event-summary.js?v=20261026a';
-    import { fetchCtp, resolveCtpLeaders } from '/js/api.js?v=20260929a';
+    import { fetchCtp, fetchScorecards, resolveCtpLeaders } from '/js/api.js?v=20261103a';
     const API      = '/api/events-admin';   // public reads (list/scrape)
     const API_WRITE = '/admin/api/events';   // Access-protected writes
     const FORMATS_STATIC_URL = '/data/formats.json';
@@ -947,15 +947,6 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
     }
 
     // ── Results → Discord ─────────────────────────────────────
-    async function fetchScorecardsLocal(tid) {
-      try {
-        const r = await fetch(`/data/scorecards/${tid}.json`);
-        if (!r.ok) return [];
-        const t = await r.text();
-        return t.trim() ? JSON.parse(t) : [];
-      } catch { return []; }
-    }
-
     const fmtMoney = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const medal    = p => p === 1 ? '🥇' : p === 2 ? '🥈' : p === 3 ? '🥉' : '';
     // Named ordinalSuffix (not ordinal) — a same-named function already
@@ -987,7 +978,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         if (ov[event.id]) ev = { ...event, ...ov[event.id] };
       } catch { /* no overrides */ }
 
-      const scorecards = await fetchScorecardsLocal(ev.tournamentId);
+      const scorecards = await fetchScorecards(ev.tournamentId);
       let results = [];
       try {
         results = applyFormat(scorecards, format, ev);
@@ -1298,7 +1289,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         return true;
       });
       const [scorecards, pRes] = await Promise.all([
-        ev.tournamentId ? fetchScorecardsLocal(ev.tournamentId) : Promise.resolve([]),
+        ev.tournamentId ? fetchScorecards(ev.tournamentId) : Promise.resolve([]),
         fetch('/admin/api/players'),
       ]);
       const started = new Set(scorecards.map(c => String(c.player_name || '').toLowerCase()));

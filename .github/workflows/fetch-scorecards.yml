@@ -22,7 +22,61 @@ jobs:
         env:
           SGT_API_KEY: ${{ secrets.SGT_API_KEY }}
           STREAM_IMPORT_SECRET: ${{ secrets.STREAM_IMPORT_SECRET }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
+          # Live scorecard/CTP/CTP-video data now goes to Cloudflare KV
+          # instead of a git-committed file (added 2026-11) — a routine
+          # refresh used to `git commit && push` every ~11 minutes, and
+          # Cloudflare Pages redeploys the WHOLE static site on every push
+          # to main, regardless of what changed. That made every single
+          # data refresh pay for a full site deployment, and Pages only
+          # processes one deployment at a time per project, so a single
+          # stuck/slow build (confirmed happening more than once) blocked
+          # every deploy behind it — including real code pushes — for as
+          # long as it stayed stuck. Reusing the same
+          # CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_API_TOKEN secrets already
+          # documented for this in ARCHITECTURE.md (previously unused by
+          # any workflow) and the same KV namespace every functions/api/*.js
+          # file already writes to. See functions/api/live-data.js for the
+          # read side the browser actually calls, and the "Finalize
+          # completed events" step near the end of this script for how a
+          # completed event's data still ends up permanently in git (same
+          # disaster-recovery property data/scorecards/*.json has always
+          # had — KV alone doesn't survive a total Cloudflare account loss).
+          KV_NAMESPACE_ID="a6cbb9bc3e784be88136dbffe9f9796f"
+          urlenc() { jq -rn --arg s "$1" '$s|@uri'; }
+          kv_put() { # kv_put <key> <file> — best-effort, never fails the run
+            curl -sf -X PUT \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/$(urlenc "$1")" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: text/plain" \
+              --data-binary "@$2" > /dev/null || echo "  → KV put failed for $1 (non-fatal)"
+          }
+          kv_get() { # kv_get <key> -> stdout, empty on miss/error
+            curl -sf \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/$(urlenc "$1")" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" 2>/dev/null || true
+          }
+          kv_delete() { # kv_delete <key> — best-effort cleanup, never fails the run
+            curl -sf -X DELETE \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/$(urlenc "$1")" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" > /dev/null 2>&1 || true
+          }
+
+          # Load every event (static + KV merge) up front, unconditionally —
+          # needed both for the season-scoped live fetch below AND the
+          # finalize sweep at the very end, which must run even when NO
+          # season is currently active (a just-completed event's last bit
+          # of KV-only data still needs finalizing during an off-season gap
+          # between two seasons, not just while a season is active).
+          STATIC_EVENTS=$(cat data/events.json)
+          KV_EVENTS=$(curl -sf "https://mashup-golf-tour.pages.dev/api/events-admin?type=events" || echo "[]")
+          echo "KV events fetched: $(echo "$KV_EVENTS" | jq 'length') events"
+          ALL_EVENTS=$(jq -n \
+            --argjson static "$STATIC_EVENTS" \
+            --argjson kv "$KV_EVENTS" \
+            '($static + $kv) | reduce .[] as $e ({}; .[$e.id] = $e) | to_entries | map(.value)')
+
           # Find the active season ID — merge static file + KV (KV takes precedence)
           STATIC_SEASONS=$(cat data/seasons.json)
           KV_SEASONS=$(curl -sf "https://mashup-golf-tour.pages.dev/api/seasons" || echo "[]")
@@ -32,44 +86,28 @@ jobs:
             '($static + $kv) | reduce .[] as $s ({}; .[$s.id] = $s) | to_entries | map(.value)')
           ACTIVE_SEASON=$(echo "$ALL_SEASONS" | jq -r '.[] | select(.status == "active") | .id' | head -1)
 
+          TOURNAMENT_IDS=""
           if [ -z "$ACTIVE_SEASON" ]; then
-            echo "No active season found — nothing to fetch."
-            exit 0
+            echo "No active season found — skipping live scorecard fetch (finalize sweep still runs below)."
+          else
+            echo "Active season: $ACTIVE_SEASON"
+            # Get tournament IDs to fetch for the active season: every active
+            # event, plus any completed one that still has a recorded CTP
+            # winner with no video link yet — a player can link their stream
+            # on SGT any time, including after their event closes, so this
+            # stays in scope only until the gap is filled (then the completed
+            # event naturally drops out of this list on its own next run).
+            TOURNAMENT_IDS=$(echo "$ALL_EVENTS" | jq -r \
+              --arg season "$ACTIVE_SEASON" \
+              '.[] | select(.season == $season and (
+                  .status == "active" or
+                  (.status == "completed" and ([.ctp[]? | select((.video // "") == "")] | length) > 0)
+                )) | .tournamentId')
           fi
-
-          echo "Active season: $ACTIVE_SEASON"
-
-          # Load static events from repo
-          STATIC_EVENTS=$(cat data/events.json)
-
-          # Load admin-created events from Cloudflare KV via deployed API
-          KV_EVENTS=$(curl -sf "https://mashup-golf-tour.pages.dev/api/events-admin?type=events" || echo "[]")
-          echo "KV events fetched: $(echo "$KV_EVENTS" | jq 'length') events"
-
-          # Merge both arrays, deduplicate by id (KV takes precedence over static)
-          ALL_EVENTS=$(jq -n \
-            --argjson static "$STATIC_EVENTS" \
-            --argjson kv "$KV_EVENTS" \
-            '($static + $kv) | reduce .[] as $e ({}; .[$e.id] = $e) | to_entries | map(.value)')
-
-          # Get tournament IDs to fetch for the active season: every active
-          # event, plus any completed one that still has a recorded CTP
-          # winner with no video link yet — a player can link their stream
-          # on SGT any time, including after their event closes, so this
-          # stays in scope only until the gap is filled (then the completed
-          # event naturally drops out of this list on its own next run).
-          TOURNAMENT_IDS=$(echo "$ALL_EVENTS" | jq -r \
-            --arg season "$ACTIVE_SEASON" \
-            '.[] | select(.season == $season and (
-                .status == "active" or
-                (.status == "completed" and ([.ctp[]? | select((.video // "") == "")] | length) > 0)
-              )) | .tournamentId')
 
           if [ -z "$TOURNAMENT_IDS" ]; then
-            echo "No events with status=active to fetch for $ACTIVE_SEASON."
-            exit 0
-          fi
-
+            echo "No events with status=active to fetch for ${ACTIVE_SEASON:-<none>}."
+          else
           echo "Tournaments to fetch: $(echo "$TOURNAMENT_IDS" | tr '\n' ' ')"
 
           # The stream-gap check below calls MashUp's get-streams endpoint,
@@ -92,12 +130,13 @@ jobs:
           # correctly finding it the moment they were run by hand. A
           # persisted last-checked timestamp is immune to this regardless
           # of what ends up calling the workflow or how often.
-          STREAM_CHECK_STATE="data/.stream-check-state"
           NOW_TS=$(date -u +%s)
-          LAST_TS=$(cat "$STREAM_CHECK_STATE" 2>/dev/null || echo 0)
+          LAST_TS=$(kv_get "meta:stream-check-last")
+          LAST_TS=${LAST_TS:-0}
           if [ $((NOW_TS - LAST_TS)) -ge 1500 ]; then
             CHECK_STREAMS=1
-            echo "$NOW_TS" > "$STREAM_CHECK_STATE"
+            echo -n "$NOW_TS" > /tmp/stream-check-ts
+            kv_put "meta:stream-check-last" /tmp/stream-check-ts
           else
             CHECK_STREAMS=0
             echo "Skipping the stream-gap check this run (last checked $(( (NOW_TS - LAST_TS) / 60 )) min ago)."
@@ -108,7 +147,8 @@ jobs:
             curl -sf \
               "https://simulatorgolftour.com/sgt-api/mashup/tournaments/${tid}/scorecards?key=${SGT_API_KEY}&noTruncate" \
               -o "data/scorecards/${tid}.json"
-            echo "  → saved data/scorecards/${tid}.json"
+            kv_put "scorecards:${tid}" "data/scorecards/${tid}.json"
+            echo "  → saved data/scorecards/${tid}.json → KV"
           done
 
           # Closest-to-pin (CTP). No official endpoint exists for this like
@@ -133,7 +173,8 @@ jobs:
               -o "$rawhtml" || { echo "  → CTP fetch failed for $tid, skipping"; rm -f "$cookiejar" "$rawhtml"; continue; }
 
             python3 .github/scripts/parse_ctp.py "$rawhtml" > "data/ctp/${tid}.json"
-            echo "  → saved data/ctp/${tid}.json"
+            kv_put "ctp:${tid}" "data/ctp/${tid}.json"
+            echo "  → saved data/ctp/${tid}.json → KV"
 
             # Streams some players post directly on SGT's own tournament
             # page instead of MashUp's submission form — same session
@@ -394,9 +435,11 @@ jobs:
                   LIVE_VIDEOS=$(echo "$LIVE_VIDEOS" | jq -c --argjson round "$round" --argjson hole "$hole" --arg player "$player" --arg video "$video" '. + [{round: $round, hole: $hole, player: $player, video: $video}]')
                 done
                 echo "$LIVE_VIDEOS" > "data/ctp-video/${tid}.json"
-                echo "  → saved data/ctp-video/${tid}.json ($(echo "$LIVE_VIDEOS" | jq 'length') link(s))"
+                kv_put "ctp-video:${tid}" "data/ctp-video/${tid}.json"
+                echo "  → saved data/ctp-video/${tid}.json → KV ($(echo "$LIVE_VIDEOS" | jq 'length') link(s))"
               else
                 echo "[]" > "data/ctp-video/${tid}.json"
+                kv_put "ctp-video:${tid}" "data/ctp-video/${tid}.json"
               fi
             else
               echo "  → leaderboard fetch failed for $tid, skipping stream check"
@@ -404,15 +447,59 @@ jobs:
 
             rm -f "$cookiejar" "$rawhtml" "$lbhtml" "$sgt_streams" "$mashup_streams"
           done
+          fi
+
+          # Finalize completed events' live data back to git — runs every
+          # run, regardless of whether a season is currently active (see
+          # the note at the top of this script). Once an event's status
+          # flips to 'completed', its scorecard/CTP/CTP-video data stops
+          # changing forever, so this is the one point where it's worth
+          # paying for a real commit (and the resulting single deploy) to
+          # restore the same disaster-recovery property data/scorecards/*.json
+          # has always had: it survives a total loss of the Cloudflare
+          # account, KV alone doesn't (ARCHITECTURE.md's Backup & Disaster
+          # Recovery section). Guarded on the static file not already
+          # existing, so this is naturally idempotent and self-skipping on
+          # every run after the first — no separate "already finalized"
+          # flag needed. A completed event with nothing in KV (predates
+          # this change, or simply never had a live round) is left
+          # untouched — there's nothing to finalize.
+          FINALIZED_FILES=""
+          COMPLETED_IDS=$(echo "$ALL_EVENTS" | jq -r '.[] | select(.status == "completed") | .tournamentId // empty')
+          for tid in $COMPLETED_IDS; do
+            [ -f "data/scorecards/${tid}.json" ] && continue
+            sc=$(kv_get "scorecards:${tid}")
+            [ -z "$sc" ] && continue
+            echo "Finalizing completed event $tid to git..."
+            mkdir -p data/ctp data/ctp-video
+            echo "$sc" > "data/scorecards/${tid}.json"
+            FINALIZED_FILES="$FINALIZED_FILES data/scorecards/${tid}.json"
+            ctp=$(kv_get "ctp:${tid}")
+            if [ -n "$ctp" ]; then
+              echo "$ctp" > "data/ctp/${tid}.json"
+              FINALIZED_FILES="$FINALIZED_FILES data/ctp/${tid}.json"
+            fi
+            cv=$(kv_get "ctp-video:${tid}")
+            if [ -n "$cv" ]; then
+              echo "$cv" > "data/ctp-video/${tid}.json"
+              FINALIZED_FILES="$FINALIZED_FILES data/ctp-video/${tid}.json"
+            fi
+            kv_delete "scorecards:${tid}"
+            kv_delete "ctp:${tid}"
+            kv_delete "ctp-video:${tid}"
+          done
+          echo "FINALIZED_FILES=$FINALIZED_FILES" >> "$GITHUB_ENV"
 
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/scorecards/ data/ctp/ data/ctp-video/ data/.stream-check-state
+          if [ -n "$FINALIZED_FILES" ]; then
+            git add $FINALIZED_FILES
+          fi
           if git diff --staged --quiet; then
-            echo "No scorecard changes — skipping commit."
+            echo "Nothing to finalize — skipping commit."
           else
-            git commit -m "chore: refresh live scorecards + CTP $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git commit -m "chore: finalize completed event scorecards $(date -u '+%Y-%m-%d %H:%M UTC')"
             git push
           fi
