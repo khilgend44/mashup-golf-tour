@@ -1,6 +1,6 @@
 {
   "tournamentId": 78307,
-  "generatedAt": "2026-11-02T17:42:40Z",
+  "generatedAt": "2026-11-03T00:23:10Z",
   "driveOfWeek": [
     {
       "player": "cloverlinksgolf",
@@ -61,8 +61,7 @@
       "player": "EZPass",
       "hole": 1,
       "lengthFt": 35.0,
-      "shotNum": 3,
-      "video": "https://www.youtube.com/watch?v=e-bjWnDvu9w&t=133s"
+      "shotNum": 3
     },
     {
       "player": "garyn2732",

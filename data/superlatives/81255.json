@@ -1,0 +1,70 @@
+{
+  "tournamentId": 81255,
+  "generatedAt": "2026-11-03T00:23:16Z",
+  "driveOfWeek": [
+    {
+      "player": "winch99",
+      "hole": 10,
+      "par": 4,
+      "distanceYds": 314.0,
+      "shotNum": 1
+    },
+    {
+      "player": "winch99",
+      "hole": 7,
+      "par": 5,
+      "distanceYds": 313.0,
+      "shotNum": 1
+    },
+    {
+      "player": "winch99",
+      "hole": 13,
+      "par": 4,
+      "distanceYds": 307.0,
+      "shotNum": 1
+    }
+  ],
+  "approachOfWeek": [
+    {
+      "player": "winch99",
+      "hole": 13,
+      "par": 4,
+      "proximityFt": 3.0,
+      "shotNum": 2
+    },
+    {
+      "player": "winch99",
+      "hole": 4,
+      "par": 4,
+      "proximityFt": 6.0,
+      "shotNum": 2
+    },
+    {
+      "player": "winch99",
+      "hole": 14,
+      "par": 4,
+      "proximityFt": 15.0,
+      "shotNum": 2
+    }
+  ],
+  "puttOfWeek": [
+    {
+      "player": "winch99",
+      "hole": 15,
+      "lengthFt": 25.0,
+      "shotNum": 3
+    },
+    {
+      "player": "winch99",
+      "hole": 18,
+      "lengthFt": 21.0,
+      "shotNum": 3
+    },
+    {
+      "player": "winch99",
+      "hole": 2,
+      "lengthFt": 14.0,
+      "shotNum": 3
+    }
+  ]
+}
