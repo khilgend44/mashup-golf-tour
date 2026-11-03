@@ -167,16 +167,39 @@ jobs:
           # correctly finding it the moment they were run by hand. A
           # persisted last-checked timestamp is immune to this regardless
           # of what ends up calling the workflow or how often.
+          #
+          # Reads the raw HTTP status here instead of going through kv_get's
+          # swallow-everything-to-empty behavior — confirmed live 2026-11-03
+          # that a plain empty-on-any-failure read is dangerous for THIS
+          # specific value: when CLOUDFLARE_API_TOKEN was briefly invalid,
+          # every read came back empty, which looked identical to "never
+          # checked before" and defaulted to 0 — so the gate below fired on
+          # every single run instead of every ~25 minutes, for ~90 minutes,
+          # and blew list operations (the lowest-capped KV op, 1,000/day)
+          # past 50% of the daily cap by itself. 404 (the key genuinely
+          # doesn't exist yet — a real first-ever run) is the only case
+          # that's actually safe to treat as "never checked, go ahead and
+          # check." Any other failure (401, 5xx, network) skips this run
+          # instead — worst case the check runs one cycle later than ideal,
+          # never a cascade, and it never overwrites the last known-good
+          # timestamp with a guess.
           NOW_TS=$(date -u +%s)
-          LAST_TS=$(kv_get "meta:stream-check-last")
-          LAST_TS=${LAST_TS:-0}
-          if [ $((NOW_TS - LAST_TS)) -ge 1500 ]; then
-            CHECK_STREAMS=1
-            echo -n "$NOW_TS" > /tmp/stream-check-ts
-            kv_put "meta:stream-check-last" /tmp/stream-check-ts
+          last_status=$(curl -s -o /tmp/last_check_ts -w "%{http_code}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/$(urlenc "meta:stream-check-last")" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          CHECK_STREAMS=0
+          if [ "$last_status" = "200" ] || [ "$last_status" = "404" ]; then
+            LAST_TS=0
+            [ "$last_status" = "200" ] && LAST_TS=$(cat /tmp/last_check_ts)
+            if [ $((NOW_TS - LAST_TS)) -ge 1500 ]; then
+              CHECK_STREAMS=1
+              echo -n "$NOW_TS" > /tmp/stream-check-ts
+              kv_put "meta:stream-check-last" /tmp/stream-check-ts
+            else
+              echo "Skipping the stream-gap check this run (last checked $(( (NOW_TS - LAST_TS) / 60 )) min ago)."
+            fi
           else
-            CHECK_STREAMS=0
-            echo "Skipping the stream-gap check this run (last checked $(( (NOW_TS - LAST_TS) / 60 )) min ago)."
+            echo "  → couldn't read stream-check timestamp (HTTP $last_status, non-fatal) — skipping the stream-gap check this run to be safe"
           fi
 
           echo "$TOURNAMENT_IDS" | while read tid; do
