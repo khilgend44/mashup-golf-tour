@@ -2118,11 +2118,26 @@
       // actually played it. teamHoleScores[h] stays null until then (one
       // teammate could still beat the "best so far" once they get there).
       const isShamble = format?.type === 'shamble-2man';
+      // Same one-shared-ball reasoning as buildTeamScorecardHTML's isScrambleAltShot
+      // (below) — and the same SGT quirk applies mid-round too: only one
+      // teammate's own card reliably carries the real per-hole value, the
+      // other's reads a literal 0 for holes it didn't carry. Pick whichever
+      // teammate has a real (truthy) value per hole, same fallback
+      // calcAltShot2Man uses once the round is fully complete.
+      const isScrambleAltShot = format?.type === 'scramble-2man' || format?.type === 'alt-shot-2man';
       let teamHoleScores = null;
       if (isShamble) {
         teamHoleScores = Array.from({ length: 18 }, (_, h) => {
           const scores = team.members.map(m => m.net?.[h]).filter(n => n != null);
           return scores.length >= (team.teamSize || 2) ? Math.min(...scores) : null;
+        });
+      } else if (isScrambleAltShot) {
+        teamHoleScores = Array.from({ length: 18 }, (_, h) => {
+          for (const m of team.members) {
+            const v = m.net?.[h];
+            if (v) return v;
+          }
+          return null;
         });
       }
 
@@ -2166,7 +2181,7 @@
         }
       }
 
-      const memberRows = orderedMembers.map(m => {
+      const memberRows = isScrambleAltShot ? '' : orderedMembers.map(m => {
         if (m.status === 'not-started') {
           return `<tr class="score-row" style="opacity:0.45">
             <td class="name-cell">${m.name}</td>
@@ -2242,21 +2257,24 @@
                 <td class="sub-cell"></td>
               </tr>
               ${memberRows}
-              ${isShamble ? teamProgressRowHtml() : ''}
+              ${(isShamble || isScrambleAltShot) ? teamProgressRowHtml() : ''}
             </tbody>
           </table>
         </div>
         <p class="text-xs text-gray-600 mt-3">${isShamble
           ? 'TEAM row shows the lower of the two net scores on any hole both teammates have already played — holes still waiting on one of them show as "–".'
+          : isScrambleAltShot
+          ? 'One shared score per hole — both teammates play every shot and take the better result, so there\'s no separate "each player\'s own score" to show. Holes neither teammate has reached yet show as "–".'
           : `Full team scoring isn't available until all ${team.teamSize} teammates have a completed round — this just shows each player's own card so far.${team.slots ? ' Underlined score = that hole\'s mandatory Lone Ranger slot · dimmed = already beaten by a teammate, won\'t count.' : ''}`}</p>
       `;
 
       function teamProgressRowHtml() {
-        // Shamble's adjusted par is just the real par (only one score
-        // counts per hole), so the team's hole score is directly comparable
-        // to par the exact same way an individual's is — reuse scoreCell
-        // (same eagle/birdie/par/bogey/double chip as the player rows
-        // above) instead of a separate under/over/even scheme.
+        // Shamble's and scramble/alt-shot's adjusted par is just the real
+        // par (only one score counts per hole either way), so the team's
+        // hole score is directly comparable to par the exact same way an
+        // individual's is — reuse scoreCell (same eagle/birdie/par/bogey/
+        // double chip as the player rows above) instead of a separate
+        // under/over/even scheme.
         const teamCell = h => scoreCell(teamHoleScores[h], pars[h]);
         const nOut = sum(teamHoleScores, front), nIn = sum(teamHoleScores, back);
         const confirmedThru = teamHoleScores.findIndex(s => s == null);
@@ -2286,6 +2304,16 @@
       const isDevilsDraw   = format?.type === 'devils-draw' || format?.type === 'devils-draw-4man';
       const isStableford   = format?.type === 'stableford-3man';
       const isEscalator    = format?.type === 'escalator-doom';
+      // Scramble/alt-shot share one ball per hole — there's no real
+      // "each player's own score" to show, and SGT's API confirmed only
+      // reliably populates ONE teammate's individual card for the back 9
+      // (the other's reads a literal 0, not null, for every hole it
+      // didn't carry — e.g. trock's S10MM Week 7 card) rather than the
+      // real shared result. calcAltShot2Man already works around this at
+      // the scoring level (falls through to whichever teammate has a
+      // nonzero value per hole), but showing BOTH raw player rows here
+      // would surface that misleading 0 directly. Single team row instead.
+      const isScrambleAltShot = format?.type === 'scramble-2man' || format?.type === 'alt-shot-2man';
 
       // Segment label for a hole index (0-based)
       function segLabel(h) {
@@ -2423,7 +2451,7 @@
                 ${back.map(i=>`<td>${team.indices[i]}</td>`).join('')}
                 <td class="sub-cell"></td><td class="sub-cell"></td><td></td>
               </tr>
-              ${team.players.map((p, pi) => `
+              ${isScrambleAltShot ? '' : team.players.map((p, pi) => `
               <tr class="score-row">
                 <td class="name-cell">${p.name}</td>
                 ${front.map(h => playerCell(pi, h)).join('')}
@@ -2453,6 +2481,8 @@
           <span class="text-gray-500 font-heading font-600 text-[10px] tracking-widest">1</span> <span>Bogey</span>
           <span class="text-red-500/60 font-heading font-600 text-[10px] tracking-widest">0</span> <span>Double+</span>
           <span class="text-gray-700 w-full mt-0.5">Team = top 2 stableford points per hole · Dimmed = doesn't count · Agg = all 3 players' individual totals</span>
+          ` : isScrambleAltShot ? `
+          <span class="text-gray-700">One shared score per hole — both teammates play every shot and take the better result, so there's no separate "each player's own score" to show.</span>
           ` : isShamble || isNassau ? `
           <span class="text-gray-700">Team score = best net ball per hole · Dimmed score didn't count${isNassau ? ' · F9 Agg: ' + (team.f9Agg ?? 'pending') + ' · B9 Agg: ' + (team.b9Agg ?? 'pending') : ''}</span>
           ` : isDevilsDraw ? `
@@ -2482,7 +2512,7 @@
           <span class="text-flame font-heading font-600 text-[10px] tracking-widest">ALL</span> <span>Holes 13–18: all 3 scores</span>
           <span class="ml-2 text-gray-700">Dimmed scores don't count toward team total</span>
           ` : ''}
-          ${hasAdjust ? `<span class="text-flame w-full mt-0.5"><span class="adj" style="margin-right:8px"></span>manually adjusted score</span>` : ''}
+          ${hasAdjust && !isScrambleAltShot ? `<span class="text-flame w-full mt-0.5"><span class="adj" style="margin-right:8px"></span>manually adjusted score</span>` : ''}
         </div>`;
     }
 
