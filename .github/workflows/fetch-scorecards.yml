@@ -46,7 +46,30 @@ jobs:
           # had — KV alone doesn't survive a total Cloudflare account loss).
           KV_NAMESPACE_ID="a6cbb9bc3e784be88136dbffe9f9796f"
           urlenc() { jq -rn --arg s "$1" '$s|@uri'; }
+          kv_get() { # kv_get <key> -> stdout, empty on miss/error
+            curl -sf \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/$(urlenc "$1")" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" 2>/dev/null || true
+          }
           kv_put() { # kv_put <key> <file> — best-effort, never fails the run.
+            # Reads the current value first and skips the write entirely if
+            # it's byte-identical to what we're about to write — the KV
+            # equivalent of the old git-commit design's implicit
+            # `git diff --staged --quiet` skip (a byte-identical file never
+            # actually got committed). Required, not a nice-to-have:
+            # Cloudflare's free-tier KV write cap is only 1,000/day, and a
+            # real run was confirmed to have 8 tournament ids in scope at
+            # once (events stay in TOURNAMENT_IDS indefinitely while they
+            # have an unresolved CTP video gap, long after their own
+            # scorecard data is permanently frozen) — writing all three
+            # types unconditionally for all of them, every ~11-minute run,
+            # works out to ~24 writes/run × ~131 runs/day ≈ 3,100+/day,
+            # over 3x the cap. A comparison read costs nothing by contrast
+            # (100,000 reads/day cap, nowhere close to being touched even
+            # with one extra read per write attempt).
+            if [ "$(kv_get "$1")" = "$(cat "$2")" ]; then
+              return 0
+            fi
             # Surfaces the real HTTP status on failure rather than swallowing
             # it silently — confirmed necessary live: the first run after
             # this was added failed every single kv_put with no visible
@@ -58,11 +81,6 @@ jobs:
               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: text/plain" \
               --data-binary "@$2")
             [ "$resp" = "200" ] || echo "  → KV put failed for $1 (HTTP $resp, non-fatal)"
-          }
-          kv_get() { # kv_get <key> -> stdout, empty on miss/error
-            curl -sf \
-              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/$(urlenc "$1")" \
-              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" 2>/dev/null || true
           }
           kv_delete() { # kv_delete <key> — best-effort cleanup, never fails the run
             curl -sf -X DELETE \
