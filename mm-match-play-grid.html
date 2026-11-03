@@ -172,6 +172,12 @@
       return 0;
     }
 
+    // Short column labels for the per-event points breakdown — resolved
+    // once in init() from whichever of set1/set2 is actually BB vs.
+    // Scramble (format.type, not e1/e2 order), so the columns stay correct
+    // even if the two event ids are ever passed in the opposite order.
+    let bbLabel = 'BB', scrambleLabel = 'Scramble';
+
     let tieGroupCounter = 0;
     // Resolves a group of teams tied on total grid points into a final
     // order, per the admin's explicit 4-level tiebreak:
@@ -252,6 +258,13 @@
             }
             aRow.vsOthers[bKey] = (aRow.vsOthers[bKey] || 0) + aPts;
             bRow.vsOthers[aKey] = (bRow.vsOthers[aKey] || 0) + bPts;
+            // Per-event breakdown (BB points vs Scramble points) alongside
+            // the combined vsOthers total above — same per-hole points,
+            // just kept separate by which event they came from so the
+            // standings table can show each event's contribution, not only
+            // the combined total.
+            if (isBB) { aRow.bbPoints = (aRow.bbPoints || 0) + aPts; bRow.bbPoints = (bRow.bbPoints || 0) + bPts; }
+            if (isScramble) { aRow.scramblePoints = (aRow.scramblePoints || 0) + aPts; bRow.scramblePoints = (bRow.scramblePoints || 0) + bPts; }
           }
         }
         for (const t of teams) {
@@ -300,6 +313,11 @@
           loadEventTeams(e2Id, formats, allEvents),
         ]);
 
+        const bbSet = [set1, set2].find(s => s.format.type === 'best-ball-2man');
+        const scrambleSet = [set1, set2].find(s => s.format.type === 'scramble-2man');
+        if (bbSet) bbLabel = bbSet.format.shortName || bbSet.format.name;
+        if (scrambleSet) scrambleLabel = scrambleSet.format.shortName || scrambleSet.format.name;
+
         document.getElementById('page-title').textContent = 'MEMBER-MEMBER MATCH PLAY GRID';
         document.getElementById('page-sub').textContent =
           `${set1.event.name} (${set1.format.shortName || set1.format.name}) + ${set2.event.name} (${set2.format.shortName || set2.format.name}) — ` +
@@ -334,11 +352,13 @@
           <table class="lb-table w-full text-sm" style="table-layout:fixed">
             <thead>
               <tr class="bg-surface">
-                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:8%">Pos</th>
-                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:38%">Team</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:16%" title="Sum of hole-by-hole points earned against every other team, across both Week 1 events">Points</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:14%">Events</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:24%">To Par (combined)</th>
+                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:7%">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:27%">Team</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:12%" title="Sum of hole-by-hole points earned against every other team, across both Week 1 events">Points</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:12%" title="Points earned within the ${esc(bbLabel)} event only">${esc(bbLabel)} Pts</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:12%" title="Points earned within the ${esc(scrambleLabel)} event only">${esc(scrambleLabel)} Pts</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:10%">Events</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:20%">To Par (combined)</th>
               </tr>
             </thead>
             <tbody id="lb-body"></tbody>
@@ -367,6 +387,8 @@
             ${advancing ? '<span class="ml-2 text-[10px] font-heading font-700 tracking-widest text-emerald-400 uppercase">Advancing</span>' : ''}
           </td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num text-flame">${fmtPts(team.totalPoints)}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${fmtPts(team.bbPoints)}</td>
+          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${fmtPts(team.scramblePoints)}</td>
           <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${team.eventsPlayed}</td>
           <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
         `;
