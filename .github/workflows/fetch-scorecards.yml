@@ -67,7 +67,15 @@ jobs:
             # over 3x the cap. A comparison read costs nothing by contrast
             # (100,000 reads/day cap, nowhere close to being touched even
             # with one extra read per write attempt).
+            # The log line is printed HERE, not by the caller, so it's never
+            # able to lie about whether a write actually happened — a
+            # caller-side unconditional "→ saved" after calling this masked
+            # exactly the bug this whole function exists to avoid, the first
+            # time this shipped (every run logged "saved" for all 8
+            # tournaments regardless of whether the skip-if-unchanged path
+            # below actually fired).
             if [ "$(kv_get "$1")" = "$(cat "$2")" ]; then
+              echo "  → $1 unchanged, skipped KV write"
               return 0
             fi
             # Surfaces the real HTTP status on failure rather than swallowing
@@ -80,7 +88,11 @@ jobs:
               "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/$(urlenc "$1")" \
               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: text/plain" \
               --data-binary "@$2")
-            [ "$resp" = "200" ] || echo "  → KV put failed for $1 (HTTP $resp, non-fatal)"
+            if [ "$resp" = "200" ]; then
+              echo "  → $1 → KV"
+            else
+              echo "  → KV put failed for $1 (HTTP $resp, non-fatal)"
+            fi
           }
           kv_delete() { # kv_delete <key> — best-effort cleanup, never fails the run
             curl -sf -X DELETE \
@@ -173,7 +185,6 @@ jobs:
               "https://simulatorgolftour.com/sgt-api/mashup/tournaments/${tid}/scorecards?key=${SGT_API_KEY}&noTruncate" \
               -o "data/scorecards/${tid}.json"
             kv_put "scorecards:${tid}" "data/scorecards/${tid}.json"
-            echo "  → saved data/scorecards/${tid}.json → KV"
           done
 
           # Closest-to-pin (CTP). No official endpoint exists for this like
@@ -199,7 +210,6 @@ jobs:
 
             python3 .github/scripts/parse_ctp.py "$rawhtml" > "data/ctp/${tid}.json"
             kv_put "ctp:${tid}" "data/ctp/${tid}.json"
-            echo "  → saved data/ctp/${tid}.json → KV"
 
             # Streams some players post directly on SGT's own tournament
             # page instead of MashUp's submission form — same session
@@ -460,8 +470,8 @@ jobs:
                   LIVE_VIDEOS=$(echo "$LIVE_VIDEOS" | jq -c --argjson round "$round" --argjson hole "$hole" --arg player "$player" --arg video "$video" '. + [{round: $round, hole: $hole, player: $player, video: $video}]')
                 done
                 echo "$LIVE_VIDEOS" > "data/ctp-video/${tid}.json"
+                echo "  → $(echo "$LIVE_VIDEOS" | jq 'length') CTP video link(s) resolved this run"
                 kv_put "ctp-video:${tid}" "data/ctp-video/${tid}.json"
-                echo "  → saved data/ctp-video/${tid}.json → KV ($(echo "$LIVE_VIDEOS" | jq 'length') link(s))"
               else
                 echo "[]" > "data/ctp-video/${tid}.json"
                 kv_put "ctp-video:${tid}" "data/ctp-video/${tid}.json"
