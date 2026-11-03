@@ -51,6 +51,16 @@ export async function onRequestGet(context) {
   const eventId = url.searchParams.get('eventId');
   if (!eventId) return new Response('Missing eventId', { status: 400 });
   const debug = url.searchParams.get('debug') === '1';
+  // Caller-supplied hint, not looked up here — event.html already knows the
+  // event's status and passes this when it's 'completed'. A completed
+  // event's stream links are frozen (the submission form is hidden once an
+  // event completes), so there's no freshness to trade away by caching much
+  // longer — unlike an active event, where a new submission can land
+  // anytime and a short cache is the right call. Worst case of a wrong hint
+  // is just a cache-duration mistake, never stale-vs-live data divergence,
+  // since every cache miss still re-reads KV directly.
+  const completed = url.searchParams.get('completed') === '1';
+  const maxAge = completed ? 86400 : 45;
 
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken  = env.CLOUDFLARE_API_TOKEN;
@@ -60,17 +70,22 @@ export async function onRequestGet(context) {
       : Response.json({});
   }
 
-  // Short edge cache (2026-10) so a burst of visitors loading the same event
-  // within a few seconds of each other — or of the 10-minute cron's own
-  // stream-gap check — share one KV list+bulk-get instead of each paying for
-  // its own. KV "list" operations have a MUCH lower daily cap (1,000) than
-  // reads (100,000), and list is what this endpoint uses to find an event's
-  // stream keys, so it was the one that actually tripped Cloudflare's
-  // usage-cap warning, not reads. Never applied to ?debug=1 (always wants a
-  // live result), and never applied to the error/empty-config paths below —
-  // only an actual successful lookup gets cached, so a transient failure is
-  // never frozen in the cache past its own occurrence (see the no-store
-  // history above, from the 2026-09 outage this endpoint was hardened for).
+  // Edge cache (2026-10, extended 2026-11 for completed events) so a burst of
+  // visitors loading the same event within a few seconds of each other — or
+  // of the 10-minute cron's own stream-gap check — share one KV list+bulk-get
+  // instead of each paying for its own. KV "list" operations have a MUCH
+  // lower daily cap (1,000) than reads (100,000), and list is what this
+  // endpoint uses to find an event's stream keys, so it was the one that
+  // actually tripped Cloudflare's usage-cap warning, not reads. A completed
+  // event gets a full day instead of 45s (see `maxAge` above) — its data
+  // can't change again, so there's nothing to lose by holding it, and the
+  // leaderboard now fetches this for completed events too (previously it
+  // never did), which is pure new list-op volume this cache offsets. Never
+  // applied to ?debug=1 (always wants a live result), and never applied to
+  // the error/empty-config paths below — only an actual successful lookup
+  // gets cached, so a transient failure is never frozen in the cache past
+  // its own occurrence (see the no-store history above, from the 2026-09
+  // outage this endpoint was hardened for).
   const cache = caches.default;
   const cacheKey = new Request(url.toString(), request);
   if (!debug) {
@@ -81,7 +96,7 @@ export async function onRequestGet(context) {
   try {
     const keys = await kvList(accountId, apiToken, `${eventId}:`);
     if (!keys.length) {
-      const res = Response.json({}, { headers: { 'Cache-Control': 'public, max-age=45' } });
+      const res = Response.json({}, { headers: { 'Cache-Control': `public, max-age=${maxAge}` } });
       if (!debug) context.waitUntil(cache.put(cacheKey, res.clone()));
       return res;
     }
@@ -97,7 +112,7 @@ export async function onRequestGet(context) {
       if (!result[player]) result[player] = {};
       result[player][round] = values[keyObj.name] ?? null;
     }
-    const res = Response.json(result, { headers: { 'Cache-Control': 'public, max-age=45' } });
+    const res = Response.json(result, { headers: { 'Cache-Control': `public, max-age=${maxAge}` } });
     if (!debug) context.waitUntil(cache.put(cacheKey, res.clone()));
     return res;
   } catch (e) {

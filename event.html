@@ -406,7 +406,12 @@
       // the event is still open.
       let streams = {};
       try {
-        const sr = await fetch(`/api/get-streams?eventId=${event.id}`);
+        // completed=1 tells the endpoint it can cache this lookup far
+        // longer than a still-open event's — once an event is completed,
+        // its stream links are frozen (the submission form above is
+        // already hidden), so there's no freshness to trade away.
+        const completedFlag = event.status === 'completed' ? '&completed=1' : '';
+        const sr = await fetch(`/api/get-streams?eventId=${event.id}${completedFlag}`);
         if (sr.ok) streams = await sr.json();
       } catch { /* stream icons just won't show */ }
       if (event.status !== 'completed') {
