@@ -1660,11 +1660,22 @@ function calcAltShot2Man(scorecards, format, event) {
     const total    = out + inn;
     const totalPar = outPar + inPar;
 
+    // Scramble/alt-shot report one shared score per hole (one ball, both
+    // teammates hit every shot) — there's no "whose score counted" selection
+    // the way best-ball formats have, so every player always counts. Needed
+    // because buildTeamScorecardHTML's playerCell() (event.html) reads
+    // team.countingPlayers[hole][player] unconditionally for every team
+    // format to decide whether to dim a cell — leaving this unset threw
+    // "Cannot read properties of undefined (reading '0')" the moment anyone
+    // expanded a completed scramble/alt-shot team's scorecard row.
+    const countingPlayers = teamHoleScores.map(() => team.players.map(() => true));
+
     return {
       isTeam: true,
       displayMembers: team.displayMembers,
       players: team.players,
       teamHoleScores,
+      countingPlayers,
       pars: team.pars,
       adjPars: team.pars,
       indices: team.indices,
