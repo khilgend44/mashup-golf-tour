@@ -2135,6 +2135,12 @@
       // calcAltShot2Man uses once the round is fully complete.
       const isScrambleAltShot = format?.type === 'scramble-2man' || format?.type === 'alt-shot-2man';
       let teamHoleScores = null;
+      // Paired gross for the shared-ball TEAM row's handicap-pop dots —
+      // only scramble/alt-shot needs this (Shamble still shows each
+      // teammate's own row, with its own dots, above the TEAM row; scramble/
+      // alt-shot hides those rows entirely since there's only one real ball,
+      // so the TEAM row is the only place dots can show at all).
+      let teamHoleGross = null;
       if (isShamble) {
         teamHoleScores = Array.from({ length: 18 }, (_, h) => {
           const scores = team.members.map(m => m.net?.[h]).filter(n => n != null);
@@ -2145,6 +2151,12 @@
           for (const m of team.members) {
             const v = m.net?.[h];
             if (v) return v;
+          }
+          return null;
+        });
+        teamHoleGross = Array.from({ length: 18 }, (_, h) => {
+          for (const m of team.members) {
+            if (m.net?.[h]) return m.gross?.[h] ?? null;
           }
           return null;
         });
@@ -2284,7 +2296,7 @@
         // individual's is — reuse scoreCell (same eagle/birdie/par/bogey/
         // double chip as the player rows above) instead of a separate
         // under/over/even scheme.
-        const teamCell = h => scoreCell(teamHoleScores[h], pars[h]);
+        const teamCell = h => scoreCell(teamHoleScores[h], pars[h], teamHoleGross?.[h] ?? null);
         const nOut = sum(teamHoleScores, front), nIn = sum(teamHoleScores, back);
         const confirmedThru = teamHoleScores.findIndex(s => s == null);
         const thru = confirmedThru === -1 ? 18 : confirmedThru;
@@ -2416,6 +2428,16 @@
         if (isShamble) {
           const scoreCls = holeScoreClass(score, adjPar);
           return `<td class="${scoreCls}" style="padding:3px 4px"><span class="sc-score font-semibold">${score}</span></td>`;
+        }
+        // Same reasoning as Shamble just above — one real ball, directly
+        // comparable to the hole's own par — PLUS handicap-pop dots, since
+        // scramble/alt-shot hides the per-player rows entirely (one shared
+        // ball, no separate "each player's own score" to show), so the TEAM
+        // row is the only place a hole's stroke dots can appear at all.
+        if (isScrambleAltShot) {
+          const scoreCls = holeScoreClass(score, adjPar);
+          const grossVal = team.teamHoleGross?.[holeIdx] ?? null;
+          return `<td class="${scoreCls}" style="padding:3px 4px"><span class="sc-score font-semibold">${score}${strokeDotsHtml(grossVal, score)}</span></td>`;
         }
         const diff   = score - adjPar;
         const cls    = diff < 0 ? 'under' : diff > 0 ? 'over' : 'even';

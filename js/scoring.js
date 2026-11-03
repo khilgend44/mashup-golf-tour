@@ -1692,6 +1692,18 @@ function calcAltShot2Man(scorecards, format, event) {
       }
       return 0;
     });
+    // Paired gross for each hole's selected net value above — needed so the
+    // UI's handicap-pop dots (gross minus net) use the SAME teammate's
+    // numbers that actually produced that hole's shared score, not an
+    // arbitrary one. There are no separate per-player rows for this format
+    // (one shared ball — see countingPlayers below), so this is the only
+    // place a hole's stroke dots can be computed at all.
+    const teamHoleGross = Array.from({ length: 18 }, (_, h) => {
+      for (const p of completePlayers) {
+        if (p.net?.[h]) return p.gross?.[h] ?? null;
+      }
+      return null;
+    });
 
     const out      = teamHoleScores.slice(0, 9).reduce((a, b) => a + b, 0);
     const inn      = teamHoleScores.slice(9).reduce((a, b) => a + b, 0);
@@ -1715,6 +1727,7 @@ function calcAltShot2Man(scorecards, format, event) {
       displayMembers: team.displayMembers,
       players: completePlayers,
       teamHoleScores,
+      teamHoleGross,
       countingPlayers,
       pars: team.pars,
       adjPars: team.pars,
