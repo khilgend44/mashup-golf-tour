@@ -3158,16 +3158,42 @@
         return _rootingCache;
       }
 
+      function teamKeyOf(members) { return members.map(m => m.toLowerCase()).sort().join('|'); }
+
+      // Current standing, most-helped-by-nothing-yet to least: before any
+      // hole is locked in, the live Devil Score is meaningless (every team
+      // ties at 0, since an unassigned hole scores zero for everyone), so
+      // that first draw orders by raw aggregate instead — same number the
+      // pre-draw page itself leads with. Once at least one hole is in,
+      // order follows the live Devil Score standings exactly.
+      function getStandingOrder() {
+        const { teams } = getRootingData();
+        if (totalAssigned() === 0) {
+          return [...teams]
+            .sort((a, b) => a.players.reduce((s, p) => s + p.totalNet, 0) - b.players.reduce((s, p) => s + p.totalNet, 0))
+            .map(t => teamKeyOf(t.displayMembers));
+        }
+        const results = applyFormat(scorecards, format, { ...event, devilsDraw: buildScoringDraw() });
+        return results.filter(r => !r.inProgress).map(r => teamKeyOf(r.displayMembers));
+      }
+
       // "Who wants what" for one hole — each team's strokes-better/worse
       // than the top-4 average under every category, so you can see what
       // every team is rooting for right before the category wheel spins.
+      // Rows are ordered by current standing (see getStandingOrder) so the
+      // team in 1st is always on top, not whatever order the roster
+      // happened to build in.
       function buildHoleRootingHtml(hole) {
         const { teams, analysis } = getRootingData();
         const holeAnalysis = analysis[hole - 1];
         if (!teams.length) {
           return `<div class="text-center text-gray-600 text-sm py-6">No completed teams to show yet.</div>`;
         }
-        const rows = teams.map((t, i) => {
+        const byKey = new Map(teams.map((t, i) => [teamKeyOf(t.displayMembers), i]));
+        const order = getStandingOrder().map(k => byKey.get(k)).filter(i => i !== undefined);
+        for (let i = 0; i < teams.length; i++) if (!order.includes(i)) order.push(i); // defensive: never drop a team
+        const rows = order.map((i, rank) => {
+          const t = teams[i];
           const d = holeAnalysis[i];
           const pills = Object.keys(d.adv).map(cat => {
             const info = catInfo[cat];
@@ -3185,12 +3211,15 @@
           }).join('');
           return `
             <div class="flex items-center justify-between gap-2 py-2 border-t border-border/40 first:border-t-0">
-              <div class="text-xs text-gray-300 text-left leading-snug pr-2">${t.displayMembers.join(' / ')}</div>
+              <div class="text-xs text-gray-300 text-left leading-snug pr-2 flex items-start gap-2">
+                <span class="text-gray-600 font-mono shrink-0">${rank + 1}.</span>
+                <span>${t.displayMembers.join(' / ')}</span>
+              </div>
               <div class="flex gap-1.5 shrink-0">${pills}</div>
             </div>`;
         }).join('');
         return `
-          <div class="text-[10px] text-gray-600 mb-2">+ = strokes better than top-4 average under that category · ring = what they're rooting for</div>
+          <div class="text-[10px] text-gray-600 mb-2">${totalAssigned() === 0 ? 'Ordered by aggregate (nothing drawn yet)' : 'Ordered by current Devil Score standing'} · + = strokes better than top-4 average · ring = what they're rooting for</div>
           <div class="max-h-[360px] overflow-y-auto">${rows}</div>`;
       }
 
