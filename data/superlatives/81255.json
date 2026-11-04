@@ -1,27 +1,30 @@
 {
   "tournamentId": 81255,
-  "generatedAt": "2026-11-04T01:50:36Z",
+  "generatedAt": "2026-11-04T08:29:08Z",
   "driveOfWeek": [
     {
-      "player": "winch99",
+      "player": "jboettner",
+      "hole": 1,
+      "par": 5,
+      "distanceYds": 323.0,
+      "shotNum": 1,
+      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=100s"
+    },
+    {
+      "player": "jboettner",
       "hole": 10,
       "par": 4,
-      "distanceYds": 314.0,
-      "shotNum": 1
+      "distanceYds": 318.0,
+      "shotNum": 1,
+      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=973s"
     },
     {
-      "player": "winch99",
-      "hole": 7,
-      "par": 5,
-      "distanceYds": 313.0,
-      "shotNum": 1
-    },
-    {
-      "player": "winch99",
+      "player": "jboettner",
       "hole": 13,
       "par": 4,
-      "distanceYds": 307.0,
-      "shotNum": 1
+      "distanceYds": 315.0,
+      "shotNum": 1,
+      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=1351s"
     }
   ],
   "approachOfWeek": [
@@ -33,37 +36,41 @@
       "shotNum": 2
     },
     {
-      "player": "winch99",
+      "player": "jboettner",
       "hole": 4,
       "par": 4,
-      "proximityFt": 6.0,
-      "shotNum": 2
+      "proximityFt": 4.0,
+      "shotNum": 2,
+      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=479s"
     },
     {
-      "player": "winch99",
-      "hole": 14,
+      "player": "jboettner",
+      "hole": 13,
       "par": 4,
-      "proximityFt": 15.0,
-      "shotNum": 2
+      "proximityFt": 4.0,
+      "shotNum": 2,
+      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=1430s"
     }
   ],
   "puttOfWeek": [
     {
+      "player": "jboettner",
+      "hole": 9,
+      "lengthFt": 47.0,
+      "shotNum": 3,
+      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=956s"
+    },
+    {
+      "player": "jboettner",
+      "hole": 10,
+      "lengthFt": 26.0,
+      "shotNum": 3,
+      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=1082s"
+    },
+    {
       "player": "winch99",
       "hole": 15,
       "lengthFt": 25.0,
-      "shotNum": 3
-    },
-    {
-      "player": "winch99",
-      "hole": 18,
-      "lengthFt": 21.0,
-      "shotNum": 3
-    },
-    {
-      "player": "winch99",
-      "hole": 2,
-      "lengthFt": 14.0,
       "shotNum": 3
     }
   ]
