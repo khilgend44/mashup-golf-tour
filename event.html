@@ -225,6 +225,40 @@
     .dd-tile.next-up .dd-hnum { color: #c2530f; }
     .dd-cat-lbl   { font-family: 'Bebas Neue', cursive; font-size: 15px; letter-spacing: 0.04em; line-height: 1; }
     .dd-hnum-back { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; color: rgba(255,255,255,0.3); }
+
+    /* Devil's Draw — live wheel */
+    .wheel-backdrop {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(10,10,10,0.88); backdrop-filter: blur(3px);
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+      opacity: 0; transition: opacity 0.2s ease-out;
+    }
+    .wheel-backdrop.shown { opacity: 1; }
+    .wheel-panel {
+      width: 100%; max-width: 420px; background: #141414; border: 1px solid #2a2a2a;
+      border-radius: 16px; padding: 24px 20px 28px; text-align: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .wheel-pointer-wrap { position: relative; width: 300px; height: 300px; margin: 0 auto 18px; }
+    .wheel-pointer {
+      position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+      width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent;
+      border-top: 18px solid #f4f4f4; z-index: 2; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+    }
+    #wheel-canvas { display: block; border-radius: 50%; box-shadow: 0 0 0 4px #0c0c0c, 0 0 0 5px #2a2a2a; }
+    #wheel-canvas.spin-anim { transition: transform 4.2s cubic-bezier(0.12, 0.67, 0.1, 1); }
+    .wheel-hub {
+      position: absolute; top: 50%; left: 50%; width: 28px; height: 28px;
+      margin: -14px 0 0 -14px; border-radius: 50%; background: #1a1a1a;
+      border: 2px solid #3a3a3a; z-index: 2;
+    }
+    .wheel-result-cat { font-family: 'Bebas Neue', cursive; font-size: 34px; letter-spacing: 0.03em; }
+    .wheel-btn {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; border-radius: 10px; transition: background-color 0.12s, border-color 0.12s, opacity 0.12s;
+    }
+    .wheel-btn:focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
+    .wheel-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
@@ -3089,12 +3123,15 @@
         ? { '4bb': 4, '3bb': 4, '2bb': 4, '1bb': 4, 'zero': 2 }
         : { '3bb': 5, '2bb': 6, '1bb': 5, 'zero': 2 };
 
+      // rgb/border reused as-is from the tile-back colors above (dd-cat-*)
+      // so the wheel's segments are the same brand colors as the flipped
+      // tiles, not a separately-invented palette.
       const catInfo = {
-        ...(is4Man ? { '4bb': { label: '4BB', textCls: 'text-violet-400', catCls: 'dd-cat-4bb' } } : {}),
-        '3bb':  { label: '3BB',  textCls: 'text-flame',     catCls: 'dd-cat-3bb'  },
-        '2bb':  { label: '2BB',  textCls: 'text-amber-400', catCls: 'dd-cat-2bb'  },
-        '1bb':  { label: '1BB',  textCls: 'text-blue-400',  catCls: 'dd-cat-1bb'  },
-        'zero': { label: 'ZERO', textCls: 'text-gray-500',  catCls: 'dd-cat-zero' },
+        ...(is4Man ? { '4bb': { label: '4BB', textCls: 'text-violet-400', catCls: 'dd-cat-4bb', rgb: '167,139,250', border: 'rgba(167,139,250,0.9)' } } : {}),
+        '3bb':  { label: '3BB',  textCls: 'text-flame',     catCls: 'dd-cat-3bb',  rgb: '249,115,22',  border: 'rgba(249,115,22,0.9)'  },
+        '2bb':  { label: '2BB',  textCls: 'text-amber-400', catCls: 'dd-cat-2bb',  rgb: '251,191,36',  border: 'rgba(251,191,36,0.9)'  },
+        '1bb':  { label: '1BB',  textCls: 'text-blue-400',  catCls: 'dd-cat-1bb',  rgb: '59,130,246',  border: 'rgba(59,130,246,0.9)'  },
+        'zero': { label: 'ZERO', textCls: 'text-gray-500',  catCls: 'dd-cat-zero', rgb: '110,110,110', border: 'rgba(140,140,140,0.9)' },
       };
 
       function loadState() {
@@ -3125,6 +3162,10 @@
 
       function remaining(cat) { return MAX[cat] - state.draw[cat].length; }
       function totalAssigned() { return Object.values(state.draw).flat().length; }
+      function firstUnassignedHole() {
+        for (let h = 1; h <= 18; h++) if (!getHoleCat(h)) return h;
+        return null;
+      }
 
       function assignHole(hole, cat) {
         for (const c of Object.keys(state.draw)) state.draw[c] = state.draw[c].filter(h => h !== hole);
@@ -3149,6 +3190,166 @@
           if (!getHoleCat(h)) partial['zero'].push(h);
         }
         return partial;
+      }
+
+      // ── Live wheel (replaces an outside "wheel of names" style tool) ──
+      // One deck-of-cards draw: each category's REMAINING quota becomes a
+      // proportional slice, so the odds exactly match drawing a random
+      // not-yet-used slot from the real quota (5×3BB/6×2BB/5×1BB/2×ZERO for
+      // 3-man) — same fairness as the manual flow, just visualized.
+      function buildWheelSectors() {
+        const cats = Object.keys(catInfo).filter(c => remaining(c) > 0);
+        const total = cats.reduce((sum, c) => sum + remaining(c), 0);
+        let acc = 0;
+        return cats.map(cat => {
+          const sweep = (remaining(cat) / total) * 360;
+          const sector = { cat, info: catInfo[cat], startDeg: acc, endDeg: acc + sweep };
+          acc += sweep;
+          return sector;
+        });
+      }
+
+      function drawWheelFace(canvas, sectors) {
+        const dpr  = window.devicePixelRatio || 1;
+        const size = 300;
+        canvas.width  = size * dpr;
+        canvas.height = size * dpr;
+        canvas.style.width  = size + 'px';
+        canvas.style.height = size + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const cx = size / 2, cy = size / 2, r = size / 2 - 3;
+        ctx.clearRect(0, 0, size, size);
+        sectors.forEach(s => {
+          const a0 = s.startDeg * Math.PI / 180;
+          const a1 = s.endDeg   * Math.PI / 180;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, r, a0, a1);
+          ctx.closePath();
+          ctx.fillStyle = `rgba(${s.info.rgb},0.88)`;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = s.info.border;
+          ctx.stroke();
+
+          // Label along the slice's spoke — flip to upright on the left
+          // half of the wheel so it never reads upside-down on stream.
+          const mid = (a0 + a1) / 2;
+          const normMid = ((mid % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+          const flip = normMid > Math.PI / 2 && normMid < 3 * Math.PI / 2;
+          const labelR = r * 0.62;
+          ctx.save();
+          ctx.translate(cx + Math.cos(mid) * labelR, cy + Math.sin(mid) * labelR);
+          ctx.rotate(flip ? mid + Math.PI : mid);
+          ctx.fillStyle = '#fff';
+          ctx.font = "700 17px 'Barlow Condensed', sans-serif";
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(s.info.label, 0, 0);
+          ctx.restore();
+        });
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#0c0c0c';
+        ctx.stroke();
+      }
+
+      // Pointer is fixed at screen-top (12 o'clock = 270° in canvas's
+      // clockwise-from-east convention). Picking one uniform angle on the
+      // wheel both chooses the category (whichever slice contains it) AND
+      // gives the exact rest angle, so there's one random draw per spin,
+      // not a pick-then-separately-animate-to-it.
+      function spinWheel(canvas, sectors, onLanded) {
+        const p = Math.random() * 360;
+        const landed = sectors.find(s => p >= s.startDeg && p < s.endDeg) || sectors[sectors.length - 1];
+        const restAngle = ((270 - p) % 360 + 360) % 360;
+        const finalDeg  = restAngle + 360 * 6; // extra full turns for drama
+
+        canvas.classList.remove('spin-anim');
+        canvas.style.transform = 'rotate(0deg)';
+        void canvas.offsetWidth; // force reflow so the reset above isn't animated
+        canvas.classList.add('spin-anim');
+        requestAnimationFrame(() => { canvas.style.transform = `rotate(${finalDeg}deg)`; });
+
+        const handleEnd = (e) => {
+          if (e.target !== canvas || e.propertyName !== 'transform') return;
+          canvas.removeEventListener('transitionend', handleEnd);
+          onLanded(landed.cat);
+        };
+        canvas.addEventListener('transitionend', handleEnd);
+      }
+
+      function openWheel(hole) {
+        const sectors = buildWheelSectors();
+        if (!sectors.length) return;
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'wheel-backdrop';
+        backdrop.innerHTML = `
+          <div class="wheel-panel">
+            <div class="text-xs font-heading tracking-widest text-gray-500 uppercase mb-1">Devil's Draw — Spin</div>
+            <div class="text-lg font-heading font-700 text-white mb-4">Hole <span class="text-flame">${hole}</span></div>
+            <div class="wheel-pointer-wrap">
+              <div class="wheel-pointer"></div>
+              <canvas id="wheel-canvas"></canvas>
+              <div class="wheel-hub"></div>
+            </div>
+            <div id="wheel-result" class="h-[46px] flex items-center justify-center mb-3"></div>
+            <div class="flex gap-2 justify-center">
+              <button id="wheel-spin-btn" class="wheel-btn bg-flame/90 hover:bg-flame text-white text-sm px-6 py-3">🎡 Spin</button>
+              <button id="wheel-cancel-btn" class="wheel-btn bg-transparent border border-border text-gray-500 hover:text-gray-300 text-sm px-4 py-3">Cancel</button>
+            </div>
+          </div>`;
+        document.body.appendChild(backdrop);
+        requestAnimationFrame(() => backdrop.classList.add('shown'));
+
+        const canvas = backdrop.querySelector('#wheel-canvas');
+        drawWheelFace(canvas, sectors);
+
+        const spinBtn   = backdrop.querySelector('#wheel-spin-btn');
+        const cancelBtn = backdrop.querySelector('#wheel-cancel-btn');
+        const resultEl  = backdrop.querySelector('#wheel-result');
+        let landedCat = null;
+
+        function close() {
+          document.removeEventListener('keydown', onKey);
+          backdrop.classList.remove('shown');
+          setTimeout(() => backdrop.remove(), 200);
+        }
+        function onKey(e) { if (e.key === 'Escape') close(); }
+        document.addEventListener('keydown', onKey);
+
+        cancelBtn.addEventListener('click', close);
+        backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
+
+        spinBtn.addEventListener('click', () => {
+          if (landedCat !== null) {
+            // Second click = lock in the already-landed result
+            assignHole(hole, landedCat);
+            close();
+            render();
+            const tile = document.getElementById(`tile-${hole}`);
+            if (tile) {
+              tile.classList.remove('flipped', 'no-transition');
+              void tile.offsetWidth;
+              tile.classList.add('flipped');
+            }
+            return;
+          }
+          spinBtn.disabled = true;
+          cancelBtn.disabled = true;
+          resultEl.innerHTML = '';
+          spinWheel(canvas, sectors, (cat) => {
+            landedCat = cat;
+            const info = catInfo[cat];
+            resultEl.innerHTML = `<span class="wheel-result-cat ${info.textCls}">${info.label}</span>`;
+            spinBtn.textContent = '✓ Lock It In';
+            spinBtn.disabled = false;
+            cancelBtn.disabled = false;
+          });
+        });
       }
 
       function renderLeaderboard(done) {
@@ -3334,12 +3535,18 @@
                     <button data-deselect class="text-xs text-gray-600 hover:text-gray-400 font-heading tracking-wider uppercase" style="transition:color 0.12s">Cancel</button>
                   </div>
                 </div>
+                ${!curCat ? `
+                  <button data-spin-hole="${selectedHole}" class="wheel-btn w-full bg-flame/90 hover:bg-flame text-white text-sm px-4 py-3 mb-3">🎡 Spin the Wheel for Hole ${selectedHole}</button>
+                  <div class="text-center text-[10px] text-gray-600 uppercase tracking-widest mb-2">or assign manually</div>
+                ` : ''}
                 <div class="flex flex-wrap gap-2">${catBtns}</div>
               </div>`;
           } else {
+            const nextHole = firstUnassignedHole();
             assignHtml = `
-              <div class="border border-border border-dashed rounded-xl px-5 py-4 mb-5 text-center text-xs text-gray-600">
-                Click any hole tile above, then assign its category
+              <div class="border border-border border-dashed rounded-xl px-5 py-4 mb-5 text-center">
+                <button data-spin-hole="${nextHole}" class="wheel-btn bg-flame/90 hover:bg-flame text-white text-sm px-6 py-3 mb-2">🎡 Spin the Wheel — Hole ${nextHole}</button>
+                <div class="text-xs text-gray-600">or click any hole tile above to pick a specific one, then assign manually</div>
               </div>`;
           }
         }
@@ -3413,6 +3620,14 @@
             selectedHole = (selectedHole === hole) ? null : hole;
             render();
           });
+        });
+
+        // Spin the wheel for a hole (header shortcut or per-hole panel button)
+        document.querySelector('[data-spin-hole]')?.addEventListener('click', e => {
+          const hole = parseInt(e.currentTarget.dataset.spinHole);
+          if (!hole) return;
+          selectedHole = null;
+          openWheel(hole);
         });
 
         // Cancel selection
