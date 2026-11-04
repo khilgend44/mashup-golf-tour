@@ -1,6 +1,6 @@
 {
   "tournamentId": 81255,
-  "generatedAt": "2026-11-04T16:46:32Z",
+  "generatedAt": "2026-11-04T22:21:58Z",
   "driveOfWeek": [
     {
       "player": "jboettner",
@@ -11,20 +11,19 @@
       "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=100s"
     },
     {
+      "player": "ryanlane10",
+      "hole": 13,
+      "par": 4,
+      "distanceYds": 318.0,
+      "shotNum": 1
+    },
+    {
       "player": "jboettner",
       "hole": 10,
       "par": 4,
       "distanceYds": 318.0,
       "shotNum": 1,
-      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=973s"
-    },
-    {
-      "player": "jboettner",
-      "hole": 13,
-      "par": 4,
-      "distanceYds": 315.0,
-      "shotNum": 1,
-      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=1351s"
+      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=1009s"
     }
   ],
   "approachOfWeek": [
@@ -61,17 +60,17 @@
       "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=956s"
     },
     {
+      "player": "ryanlane10",
+      "hole": 8,
+      "lengthFt": 29.0,
+      "shotNum": 2
+    },
+    {
       "player": "jboettner",
       "hole": 10,
       "lengthFt": 26.0,
       "shotNum": 3,
       "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=1082s"
-    },
-    {
-      "player": "winch99",
-      "hole": 15,
-      "lengthFt": 25.0,
-      "shotNum": 3
     }
   ]
 }
