@@ -239,6 +239,7 @@
       border-radius: 16px; padding: 24px 20px 28px; text-align: center;
       box-shadow: 0 24px 60px rgba(0,0,0,0.5);
     }
+    .wheel-panel.wheel-panel-wide { max-width: 580px; }
     .wheel-pointer-wrap { position: relative; width: 300px; height: 300px; margin: 0 auto 18px; }
     .wheel-pointer {
       position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
@@ -3134,6 +3135,65 @@
         'zero': { label: 'ZERO', textCls: 'text-gray-500',  catCls: 'dd-cat-zero', rgb: '110,110,110', border: 'rgba(140,140,140,0.9)' },
       };
 
+      // Same team roster + rooting-vs-top-4-average math the pre-draw
+      // (before any holes are revealed) view already uses — reused here so
+      // "who wants what" during live entry can never disagree with it.
+      // Memoized: scorecards/event don't change mid-reveal, and
+      // computeRootingAnalysis does a real 18-hole pass over every team.
+      let _rootingCache = null;
+      function getRootingData() {
+        if (_rootingCache) return _rootingCache;
+        const teamSize = is4Man ? 4 : 3;
+        const teams = buildTeamRoster(scorecards, event, teamSize);
+        const allTeams = Object.values(teams).map(t => ({
+          displayMembers: t.displayMembers,
+          members: [...t.memberStatus.values()],
+          pars: t.pars,
+          indices: t.indices,
+        }));
+        const rootingTeams = allTeams
+          .filter(t => t.members.filter(m => m.status === 'complete').length >= teamSize)
+          .map(t => ({ ...t, players: t.members.filter(m => m.status === 'complete') }));
+        _rootingCache = { teams: rootingTeams, analysis: computeRootingAnalysis(rootingTeams) };
+        return _rootingCache;
+      }
+
+      // "Who wants what" for one hole — each team's strokes-better/worse
+      // than the top-4 average under every category, so you can see what
+      // every team is rooting for right before the category wheel spins.
+      function buildHoleRootingHtml(hole) {
+        const { teams, analysis } = getRootingData();
+        const holeAnalysis = analysis[hole - 1];
+        if (!teams.length) {
+          return `<div class="text-center text-gray-600 text-sm py-6">No completed teams to show yet.</div>`;
+        }
+        const rows = teams.map((t, i) => {
+          const d = holeAnalysis[i];
+          const pills = Object.keys(d.adv).map(cat => {
+            const info = catInfo[cat];
+            if (!info) return '';
+            const isBest = cat === d.best.cat;
+            const n = Math.round(d.adv[cat]);
+            const label = n > 0 ? `+${n}` : n < 0 ? `${n}` : '—';
+            const valCls = n > 0 ? 'text-emerald-400' : n < 0 ? 'text-red-400' : 'text-gray-500';
+            return `
+              <div class="px-2 py-1.5 rounded text-center ${isBest ? 'ring-1 ring-white/50' : 'opacity-45'}"
+                   style="background:rgba(${info.rgb},0.16);border:1px solid ${info.border};min-width:44px">
+                <div class="font-heading font-700 text-[10px] ${info.textCls}">${info.label}</div>
+                <div class="font-heading font-700 text-[11px] ${valCls}">${label}</div>
+              </div>`;
+          }).join('');
+          return `
+            <div class="flex items-center justify-between gap-2 py-2 border-t border-border/40 first:border-t-0">
+              <div class="text-xs text-gray-300 text-left leading-snug pr-2">${t.displayMembers.join(' / ')}</div>
+              <div class="flex gap-1.5 shrink-0">${pills}</div>
+            </div>`;
+        }).join('');
+        return `
+          <div class="text-[10px] text-gray-600 mb-2">+ = strokes better than top-4 average under that category · ring = what they're rooting for</div>
+          <div class="max-h-[360px] overflow-y-auto">${rows}</div>`;
+      }
+
       function loadState() {
         try {
           const s = localStorage.getItem(lsKey);
@@ -3317,14 +3377,15 @@
         const backdrop = document.createElement('div');
         backdrop.className = 'wheel-backdrop';
         backdrop.innerHTML = `
-          <div class="wheel-panel">
+          <div class="wheel-panel" id="wheel-panel">
             <div id="wheel-phase-label" class="text-xs font-heading tracking-widest text-gray-500 uppercase mb-1">Devil's Draw — Spin for Hole</div>
             <div id="wheel-title" class="text-lg font-heading font-700 text-white mb-4">Which hole?</div>
-            <div class="wheel-pointer-wrap">
+            <div id="wheel-pointer-wrap" class="wheel-pointer-wrap">
               <div class="wheel-pointer"></div>
               <canvas id="wheel-canvas"></canvas>
               <div class="wheel-hub"></div>
             </div>
+            <div id="wheel-rooting" class="hidden text-left mb-4"></div>
             <div id="wheel-result" class="h-[46px] flex items-center justify-center mb-3"></div>
             <div class="flex gap-2 justify-center">
               <button id="wheel-spin-btn" class="wheel-btn bg-flame/90 hover:bg-flame text-white text-sm px-6 py-3">🎡 Spin</button>
@@ -3334,14 +3395,17 @@
         document.body.appendChild(backdrop);
         requestAnimationFrame(() => backdrop.classList.add('shown'));
 
-        const canvas    = backdrop.querySelector('#wheel-canvas');
-        const spinBtn   = backdrop.querySelector('#wheel-spin-btn');
-        const cancelBtn = backdrop.querySelector('#wheel-cancel-btn');
-        const resultEl  = backdrop.querySelector('#wheel-result');
-        const phaseLbl  = backdrop.querySelector('#wheel-phase-label');
-        const titleEl   = backdrop.querySelector('#wheel-title');
+        const panelEl    = backdrop.querySelector('#wheel-panel');
+        const canvas     = backdrop.querySelector('#wheel-canvas');
+        const wheelWrap  = backdrop.querySelector('#wheel-pointer-wrap');
+        const rootingEl  = backdrop.querySelector('#wheel-rooting');
+        const spinBtn    = backdrop.querySelector('#wheel-spin-btn');
+        const cancelBtn  = backdrop.querySelector('#wheel-cancel-btn');
+        const resultEl   = backdrop.querySelector('#wheel-result');
+        const phaseLbl   = backdrop.querySelector('#wheel-phase-label');
+        const titleEl    = backdrop.querySelector('#wheel-title');
 
-        let phase        = 'hole'; // 'hole' -> 'category'
+        let phase        = 'hole'; // 'hole' -> 'rooting' -> 'category'
         let chosenHole    = null;
         let sectors       = null;
         let landedSector  = null;
@@ -3359,6 +3423,10 @@
         function setupHolePhase() {
           phase = 'hole';
           landedSector = null;
+          panelEl.classList.remove('wheel-panel-wide');
+          wheelWrap.classList.remove('hidden');
+          rootingEl.classList.add('hidden');
+          rootingEl.innerHTML = '';
           phaseLbl.textContent = "Devil's Draw — Spin for Hole";
           titleEl.innerHTML = 'Which hole?';
           resultEl.innerHTML = '';
@@ -3367,9 +3435,28 @@
           drawWheelFace(canvas, sectors);
         }
 
+        // Pause between the two wheels to show what every team is rooting
+        // for on this hole, before the category gets spun.
+        function setupRootingPhase() {
+          phase = 'rooting';
+          landedSector = null;
+          panelEl.classList.add('wheel-panel-wide');
+          wheelWrap.classList.add('hidden');
+          resultEl.innerHTML = '';
+          phaseLbl.innerHTML = `Devil's Draw — Hole <span class="text-flame">${chosenHole}</span>`;
+          titleEl.innerHTML = 'Who wants what?';
+          rootingEl.classList.remove('hidden');
+          rootingEl.innerHTML = buildHoleRootingHtml(chosenHole);
+          spinBtn.textContent = '🎡 Spin for Category';
+        }
+
         function setupCategoryPhase() {
           phase = 'category';
           landedSector = null;
+          panelEl.classList.remove('wheel-panel-wide');
+          rootingEl.classList.add('hidden');
+          rootingEl.innerHTML = '';
+          wheelWrap.classList.remove('hidden');
           phaseLbl.innerHTML = `Devil's Draw — Hole <span class="text-flame">${chosenHole}</span>`;
           titleEl.innerHTML = 'Spin for the category';
           resultEl.innerHTML = '';
@@ -3381,11 +3468,15 @@
         setupHolePhase();
 
         spinBtn.addEventListener('click', () => {
+          if (phase === 'rooting') {
+            setupCategoryPhase();
+            return;
+          }
           if (landedSector !== null) {
             // Second click on this phase = lock in and advance
             if (phase === 'hole') {
               chosenHole = landedSector.hole;
-              setupCategoryPhase();
+              setupRootingPhase();
             } else {
               assignHole(chosenHole, landedSector.cat);
               close();
@@ -3425,6 +3516,13 @@
         const results = applyFormat(scorecards, format, { ...event, devilsDraw: buildScoringDraw() });
         if (done) applyPayouts(results, event.payouts);
 
+        // Every team row expands to its live scorecard — not just once the
+        // draw is done — so a hole can be narrated right after it's
+        // revealed ("why did Team X jump? hole 7 just flipped to 1BB and
+        // only Mike's birdie counts now"). buildTeamScorecardHTML already
+        // reads the current (possibly still-partial) devilsDraw map for its
+        // per-hole BB-count labels, so an undrawn hole just shows ZERO —
+        // exactly what it's worth right now.
         const rows = results.map((team, ri) => {
           const posStr   = team.tied ? `T${team.position}` : team.position;
           const toParStr = formatToPar(team.toPar);
@@ -3432,11 +3530,12 @@
           const isLeader = team.position === 1;
           const memberHtml = team.displayMembers.map(m => `<div class="text-xs text-gray-300">${m}</div>`).join('');
 
-          if (done) {
-            const scHtml = buildTeamScorecardHTML(team, format, event);
-            const prizeStr = team.prize != null ? `$${fmtPrize(team.prize)}` : '—';
+          // A short-handed team (not every teammate posted yet) has no
+          // teamHoleScores/holeCount for buildTeamScorecardHTML to read —
+          // same plain, non-expandable row every other format gives one.
+          if (team.inProgress) {
             return `
-              <tr class="lb-row border-t border-border cursor-pointer select-none ${isLeader ? 'leader' : ''}" data-lb-row="${ri}">
+              <tr class="lb-row border-t border-border ${isLeader ? 'leader' : ''}">
                 <td class="px-3 py-2.5 text-center">
                   ${team.position <= 3
                     ? `<span class="rank-medal medal-${team.position}">${posStr}</span>`
@@ -3445,29 +3544,14 @@
                 <td class="px-4 py-2.5 leading-snug">${memberHtml}</td>
                 <td class="px-3 py-2.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
                 <td class="px-3 py-2.5 text-center text-gray-400 font-mono text-xs num hidden sm:table-cell">${team.aggregate}</td>
-                <td class="px-4 py-2.5 text-center whitespace-nowrap">${team.prize != null ? `<span class="prize-pill">$${fmtPrize(team.prize)}</span>` : '<span class="text-gray-700">—</span>'}</td>
-              </tr>
-              <tr id="lb-sc-${ri}" class="hidden">
-                <td colspan="99" class="p-0 border-b border-border">
-                  <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
-                    <div class="text-xs font-heading tracking-wider text-gray-500 uppercase mb-3">Team Scorecard — ${team.displayMembers.join(' / ')}</div>
-                    ${scHtml}
-                    <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
-                      ${team.displayMembers.map(m => `
-                        <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
-                           class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
-                           style="transition:color 0.15s">
-                          <img src="brand_assets/sgt_emblem.svg" class="h-3.5 w-auto opacity-50" />
-                          ${m} <span class="text-[#d03f25]">→</span>
-                        </a>`).join('')}
-                    </div>
-                  </div>
-                </td>
+                ${done ? `<td class="px-4 py-2.5 text-center whitespace-nowrap text-gray-700">—</td>` : ''}
               </tr>`;
           }
 
+          const scHtml = buildTeamScorecardHTML(team, format, event);
+
           return `
-            <tr class="lb-row border-t border-border ${isLeader ? 'leader' : ''}">
+            <tr class="lb-row border-t border-border cursor-pointer select-none ${isLeader ? 'leader' : ''}" data-lb-row="${ri}">
               <td class="px-3 py-2.5 text-center">
                 ${team.position <= 3
                   ? `<span class="rank-medal medal-${team.position}">${posStr}</span>`
@@ -3476,6 +3560,24 @@
               <td class="px-4 py-2.5 leading-snug">${memberHtml}</td>
               <td class="px-3 py-2.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
               <td class="px-3 py-2.5 text-center text-gray-400 font-mono text-xs num hidden sm:table-cell">${team.aggregate}</td>
+              ${done ? `<td class="px-4 py-2.5 text-center whitespace-nowrap">${team.prize != null ? `<span class="prize-pill">$${fmtPrize(team.prize)}</span>` : '<span class="text-gray-700">—</span>'}</td>` : ''}
+            </tr>
+            <tr id="lb-sc-${ri}" class="hidden">
+              <td colspan="99" class="p-0 border-b border-border">
+                <div class="bg-[#111] px-4 py-4 border-t border-[rgba(249,115,22,0.15)]">
+                  <div class="text-xs font-heading tracking-wider text-gray-500 uppercase mb-3">Team Scorecard — ${team.displayMembers.join(' / ')}</div>
+                  ${scHtml}
+                  <div class="mt-4 pt-3 border-t border-border flex flex-wrap gap-4">
+                    ${team.displayMembers.map(m => `
+                      <a href="https://simulatorgolftour.com/profile/${m}" target="_blank" rel="noopener"
+                         class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-[#d03f25]"
+                         style="transition:color 0.15s">
+                        <img src="brand_assets/sgt_emblem.svg" class="h-3.5 w-auto opacity-50" />
+                        ${m} <span class="text-[#d03f25]">→</span>
+                      </a>`).join('')}
+                  </div>
+                </div>
+              </td>
             </tr>`;
         }).join('');
 
@@ -3502,14 +3604,14 @@
         if (done) {
           if (event.sidePots?.length) { lbEl.insertAdjacentHTML('beforeend', buildSidePotHtml(results, event, format)); wireSidePotAnalysisToggle(); }
           if (event.ctp?.length) lbEl.insertAdjacentHTML('beforeend', buildCtpHtml(event.ctp));
-          lbEl.querySelectorAll('[data-lb-row]').forEach(row => {
-            row.addEventListener('click', () => {
-              const ri = row.dataset.lbRow;
-              const sc = document.getElementById(`lb-sc-${ri}`);
-              if (sc) { sc.classList.toggle('hidden'); row.classList.toggle('expanded', !sc.classList.contains('hidden')); }
-            });
-          });
         }
+        lbEl.querySelectorAll('[data-lb-row]').forEach(row => {
+          row.addEventListener('click', () => {
+            const ri = row.dataset.lbRow;
+            const sc = document.getElementById(`lb-sc-${ri}`);
+            if (sc) { sc.classList.toggle('hidden'); row.classList.toggle('expanded', !sc.classList.contains('hidden')); }
+          });
+        });
       }
 
       function render() {
