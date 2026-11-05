@@ -809,6 +809,12 @@ function calcDevilsDraw(scorecards, format, event) {
     const totalPar = outPar + inPar;
     const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
+    // Best-case ceiling for THIS team's own scorecards under the format's
+    // fixed quotas — independent of the actual draw (see calcIdealDevilsDraw),
+    // so it's knowable the moment the team itself is complete. Surfaced on
+    // the finished leaderboard as "how much was left on the table."
+    const ideal = calcIdealDevilsDraw(completePlayers, team.pars, teamSize);
+
     results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
@@ -822,6 +828,7 @@ function calcDevilsDraw(scorecards, format, event) {
       out, inn, outPar, inPar, total, totalPar,
       toPar: total - totalPar,
       aggregate,
+      ideal,
       prize: null,
     });
   }
@@ -1063,6 +1070,12 @@ function calcDevilsDraw4Man(scorecards, format, event) {
     const totalPar = outPar + inPar;
     const aggregate = completePlayers.reduce((s, p) => s + p.totalNet, 0);
 
+    // Best-case ceiling for THIS team's own scorecards under the format's
+    // fixed quotas — independent of the actual draw (see calcIdealDevilsDraw),
+    // so it's knowable the moment the team itself is complete. Surfaced on
+    // the finished leaderboard as "how much was left on the table."
+    const ideal = calcIdealDevilsDraw(completePlayers, team.pars, teamSize);
+
     results.push({
       isTeam: true,
       displayMembers: team.displayMembers,
@@ -1076,6 +1089,7 @@ function calcDevilsDraw4Man(scorecards, format, event) {
       out, inn, outPar, inPar, total, totalPar,
       toPar: total - totalPar,
       aggregate,
+      ideal,
       prize: null,
     });
   }
