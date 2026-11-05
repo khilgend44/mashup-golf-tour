@@ -1581,10 +1581,64 @@
       }
     }
 
+    // Devil's Draw — static per-hole category strip for the regular
+    // (non-reveal) leaderboard, once the live draw has been saved to the
+    // event. Reuses the same palette as the reveal wheel/tiles (dd-cat-*
+    // colors) so the two views never disagree, but as a lightweight
+    // read-only strip rather than the interactive flip-tile grid (that
+    // one's scoped inside renderDevilsDrawReveal and needs live state).
+    function buildDevilsDrawSummaryHtml(event, format) {
+      if (!event.devilsDraw) return '';
+      const is4Man = format?.type === 'devils-draw-4man';
+      const catMeta = {
+        ...(is4Man ? { '4bb': { label: '4BB', textCls: 'text-violet-400', rgb: '167,139,250', border: 'rgba(167,139,250,0.9)' } } : {}),
+        '3bb':  { label: '3BB',  textCls: 'text-flame',     rgb: '249,115,22',  border: 'rgba(249,115,22,0.9)'  },
+        '2bb':  { label: '2BB',  textCls: 'text-amber-400', rgb: '251,191,36',  border: 'rgba(251,191,36,0.9)'  },
+        '1bb':  { label: '1BB',  textCls: 'text-blue-400',  rgb: '59,130,246',  border: 'rgba(59,130,246,0.9)'  },
+        'zero': { label: 'ZERO', textCls: 'text-gray-500',  rgb: '110,110,110', border: 'rgba(140,140,140,0.9)' },
+      };
+      const holeCat = {};
+      for (const cat of Object.keys(catMeta)) {
+        for (const h of (event.devilsDraw[cat] ?? [])) holeCat[h] = cat;
+      }
+
+      const tiles = Array.from({ length: 18 }, (_, i) => {
+        const hole = i + 1;
+        const info = catMeta[holeCat[hole]];
+        if (!info) {
+          return `
+            <div class="flex flex-col items-center gap-1 px-1.5 py-2 rounded-md bg-white/[0.02] border border-border/40 min-w-[38px]">
+              <div class="text-[9px] text-gray-600 font-mono">${hole}</div>
+              <div class="text-[9px] text-gray-700">—</div>
+            </div>`;
+        }
+        return `
+          <div class="flex flex-col items-center gap-1 px-1.5 py-2 rounded-md min-w-[38px]"
+               style="background:rgba(${info.rgb},0.14);border:1px solid ${info.border}">
+            <div class="text-[9px] text-gray-500 font-mono">${hole}</div>
+            <div class="font-heading font-700 text-[11px] ${info.textCls}">${info.label}</div>
+          </div>`;
+      }).join('');
+
+      const legend = Object.values(catMeta).map(info =>
+        `<span class="inline-flex items-center gap-1 text-[10px] text-gray-500"><span class="w-2 h-2 rounded-full inline-block" style="background:rgba(${info.rgb},0.9)"></span>${info.label}</span>`
+      ).join('');
+
+      return `
+        <div class="card-shadow rounded-xl border border-border px-4 py-4 mb-5">
+          <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">The Draw</h2>
+            <div class="flex items-center gap-3 flex-wrap">${legend}</div>
+          </div>
+          <div class="flex gap-1.5 flex-wrap">${tiles}</div>
+        </div>`;
+    }
+
     // ── Team event leaderboard ───────────────────────────────────────────────
     function renderTeamLeaderboard(results, event, format, streams = {}, ctpLive = null, ctpVideoLive = new Map(), superlatives = null) {
       const isStableford = format?.type === 'stableford-3man';
       const isLoneRanger = format?.type === 'lone-ranger';
+      const isDevilsDraw  = format?.type === 'devils-draw' || format?.type === 'devils-draw-4man';
       const hasPrizes = results.some(r => r.prize);
       const app = document.getElementById('app');
 
@@ -1593,9 +1647,11 @@
              <span class="mt-0.5 shrink-0">⚠</span><span>${event.notes}</span>
            </div>`
         : '';
+      const drawSummaryHtml = isDevilsDraw ? buildDevilsDrawSummaryHtml(event, format) : '';
 
       app.innerHTML = `
         ${notesHtml}
+        ${drawSummaryHtml}
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">NET Leaderboard</h2>
           <span class="text-xs text-gray-600">${results.length} teams &nbsp;·&nbsp; Click a row to expand scorecard</span>
