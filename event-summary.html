@@ -142,8 +142,17 @@
         ? loneRangerTeams.map(team => ({ team, best: bestLoneRangerSlotOrder(team.players) }))
         : null;
 
+      // Devil's Draw only: each completed team's best-possible total under
+      // the format's fixed quotas, already computed by applyFormat/
+      // calcIdealDevilsDraw (scoring.js) and attached as `.ideal` — this
+      // just pulls the completed teams out, same filter shape as Lone
+      // Ranger's `.players` check above.
+      const devilsDrawTeams = (format.type === 'devils-draw' || format.type === 'devils-draw-4man')
+        ? applyFormat(scorecards, format, event).filter(t => t.players && t.ideal)
+        : null;
+
       const season = seasons.find(s => s.id === event.season);
-      render(event, format, season, summary, loneRangerTeams, loneRangerOptimal);
+      render(event, format, season, summary, loneRangerTeams, loneRangerOptimal, devilsDrawTeams);
 
       $('loading').classList.add('hidden');
       $('app').classList.remove('hidden');
@@ -557,7 +566,40 @@
         </div>`;
     }
 
-    function render(event, format, season, summary, loneRangerTeams, loneRangerOptimal) {
+    // For each team, the lowest total their own scores could've produced
+    // under ANY valid hole→category draw (fixed quotas, see
+    // calcIdealDevilsDraw in scoring.js) — independent of the one draw that
+    // actually happened, so it's a clean "how much was left on the table"
+    // readout for the whole field at once, not just whichever team you
+    // happen to expand on the leaderboard.
+    function devilsDrawIdealHtml(devilsDrawTeams) {
+      if (!devilsDrawTeams || !devilsDrawTeams.length) return '';
+      const cards = devilsDrawTeams.map(team => {
+        const diff = team.total - team.ideal.total;
+        const isIdeal = diff <= 0;
+        return `
+          <div class="stat-tile">
+            <div class="lbl mb-2">${teamName(team.displayMembers)}</div>
+            <div class="text-xs text-gray-500">Actual</div>
+            <div class="text-white font-heading font-600 text-lg mt-0.5">${team.total} <span class="text-gray-500 text-xs font-body">(${formatToPar(team.toPar)})</span></div>
+            ${isIdeal
+              ? `<div class="text-emerald-400 text-xs font-heading font-600 tracking-wide mt-2">✓ Got the ideal draw</div>`
+              : `<div class="text-amber-400 text-xs font-heading font-600 tracking-wide mt-2">${diff} stroke${diff === 1 ? '' : 's'} left on the table</div>
+                 <div class="text-[11px] text-gray-500 mt-1">Best-case: <span class="text-gray-400">${team.ideal.total}</span> (${formatToPar(team.ideal.toPar)})</div>`}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="mt-10">
+          <h2 class="section-head mb-4">Best-Case Draw</h2>
+          <p class="text-xs text-gray-600 mb-4 max-w-2xl">For each team, the lowest total their own scores could've produced under any valid hole→category assignment — independent of the actual live draw.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${cards}
+          </div>
+        </div>`;
+    }
+
+    function render(event, format, season, summary, loneRangerTeams, loneRangerOptimal, devilsDrawTeams) {
       const { eventStats, playerStats, teamStats, meta } = summary;
       const seasonWeekLabel = `${event.season.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}${event.week ? ` · Week ${event.week}` : ''}`;
 
@@ -616,6 +658,8 @@
         ${loneRangerContributionsHtml(loneRangerTeams)}
 
         ${optimalSlotOrderHtml(loneRangerOptimal)}
+
+        ${devilsDrawIdealHtml(devilsDrawTeams)}
 
         <div id="pace-section" class="mt-10 hidden"></div>
         <div id="sgt-section" class="mt-10 hidden"></div>
