@@ -138,8 +138,18 @@
         // philosophy (which shows a growing provisional total) — the
         // user explicitly wanted the SEASON view to default to final-only,
         // with live/in-progress as an opt-in view instead of the default.
+        //
+        // Member-Member is a postseason-style event, not a regular season
+        // week — it shouldn't count toward season standings at all, in
+        // either final or live mode (explicit admin instruction, 2026-11:
+        // "I don't want to include the MM in the season grid"). There's no
+        // stored flag distinguishing regular-season from postseason events,
+        // so this matches the admin's own naming convention instead: every
+        // regular week is named "...S<season>W<week> - ...", Member-Member
+        // is "...S<season>MM - ..." (no "W"). `/S\d+MM\b/i` only matches
+        // the latter.
         const allSeasonEvents = events
-          .filter(e => e.season === season.id && e.tournamentId && formats[e.format] && formats[e.format].type !== 'invitational')
+          .filter(e => e.season === season.id && e.tournamentId && formats[e.format] && formats[e.format].type !== 'invitational' && !/S\d+MM\b/i.test(e.name || ''))
           .sort((a, b) => (a.week || 0) - (b.week || 0));
         const seasonEvents = showLive ? allSeasonEvents : allSeasonEvents.filter(e => e.status === 'completed');
 
