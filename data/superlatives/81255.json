@@ -1,6 +1,6 @@
 {
   "tournamentId": 81255,
-  "generatedAt": "2026-11-06T07:35:35Z",
+  "generatedAt": "2026-11-06T15:36:02Z",
   "driveOfWeek": [
     {
       "player": "toursauce86",
@@ -38,8 +38,7 @@
       "hole": 14,
       "par": 4,
       "proximityFt": 3.0,
-      "shotNum": 2,
-      "video": "https://www.youtube.com/watch?v=JvCMX9bHxzA&t=1722s"
+      "shotNum": 2
     },
     {
       "player": "jboettner",
@@ -66,11 +65,11 @@
       "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=956s"
     },
     {
-      "player": "bdc5e",
-      "hole": 6,
-      "lengthFt": 30.0,
-      "shotNum": 2,
-      "video": "https://www.youtube.com/watch?v=jYi3Gq84c5k&t=957s"
+      "player": "jonty",
+      "hole": 9,
+      "lengthFt": 36.0,
+      "shotNum": 4,
+      "video": "https://www.youtube.com/watch?v=5RsmcGLWbIw&t=1079s"
     }
   ]
 }
