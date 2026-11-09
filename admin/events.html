@@ -1555,11 +1555,13 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
 
     // ── Budget reference + copy-from-past-event ────────────────
     // Per-player weekly allocations from rules.html's Cost & Entry Fee table:
-    // $9 that week's pot, $4 CTPs, $2 flexible payouts. "Approved" (not paid)
-    // player count is used deliberately — early in a season people register
-    // before they pay, and the admin wants the budget ceiling to reflect who's
-    // actually going to play, not who's settled up yet.
-    const WEEKLY_RATES = { pot: 9, ctp: 4, flex: 2 };
+    // $10 that week's pot, $4 CTPs, $1 flexible payouts (Season 11 — pot
+    // raised from $9 and flexible cut from $2, since only 1 side pot gets
+    // paid out this season). "Approved" (not paid) player count is used
+    // deliberately — early in a season people register before they pay, and
+    // the admin wants the budget ceiling to reflect who's actually going to
+    // play, not who's settled up yet.
+    const WEEKLY_RATES = { pot: 10, ctp: 4, flex: 1 };
 
     function seasonPlayerCount(seasonId) {
       const s = state.allSeasons.find(s => s.id === seasonId);
