@@ -37,7 +37,10 @@
     <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
       <div>
         <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Registrations</h1>
-        <p class="text-gray-500 text-sm mt-2"><span id="season-label">Season 10</span> · review and approve signups</p>
+        <p class="text-gray-500 text-sm mt-2 flex items-center gap-2 flex-wrap">
+          <select id="season-select" class="bg-surface border border-border rounded-lg px-2 py-1 text-sm text-gray-200 font-heading font-600 tracking-wide focus:outline-none focus:border-flame"></select>
+          <span>· review and approve signups</span>
+        </p>
       </div>
       <div id="counts" class="flex items-center gap-4 text-sm font-heading font-600 tracking-wider"></div>
     </div>
@@ -101,7 +104,7 @@
     const SEASONS_WRITE  = '/admin/api/seasons';    // Access-protected writes
     const PLAYERS_WRITE  = '/admin/api/players';    // Access-protected writes
     const params = new URLSearchParams(location.search);
-    const SEASON = params.get('season') || 'season-10';
+    const SEASON = params.get('season') || 'season-11';
     const state = { regs: [], meta: {}, tab: 'pending', seasonPlayers: new Set(), seasonExists: false, discord: {} };
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -113,6 +116,23 @@
       el.textContent = msg;
       el.className = `rounded-lg px-4 py-3 text-sm font-body mb-4 ${kind === 'error' ? 'bg-red-900/30 border border-red-800/40 text-red-300' : 'bg-emerald-900/30 border border-emerald-800/40 text-emerald-300'}`;
       el.classList.remove('hidden');
+    }
+
+    // Sorted newest-first by the trailing season number (season-11, then
+    // season-10, season-8, ...) rather than whatever order the API happens
+    // to return — reads more predictably as a dropdown than insertion
+    // order. Navigating just reloads with a new ?season= — SEASON is a
+    // top-level const baked into every fetch call below, so a live
+    // re-render without a reload isn't worth the churn for an admin-only
+    // page that's reloaded rarely.
+    function populateSeasonSelect(seasons) {
+      const list = Array.isArray(seasons) ? [...seasons] : [];
+      if (!list.some(s => s.id === SEASON)) list.push({ id: SEASON, name: SEASON.replace('season-', 'Season ') });
+      list.sort((a, b) => (parseInt(b.id.replace('season-', ''), 10) || 0) - (parseInt(a.id.replace('season-', ''), 10) || 0));
+      $('season-select').innerHTML = list.map(s => `<option value="${esc(s.id)}" ${s.id === SEASON ? 'selected' : ''}>${esc(s.name || s.id.replace('season-', 'Season '))}</option>`).join('');
+      $('season-select').addEventListener('change', e => {
+        location.href = `?season=${encodeURIComponent(e.target.value)}`;
+      });
     }
 
     async function load() {
@@ -136,7 +156,7 @@
         state.seasonExists  = !!season;
         state.seasonPlayers = new Set((season?.players || []).map(p => p.toLowerCase()));
 
-        $('season-label').textContent = (SEASON.replace('season-', 'Season '));
+        populateSeasonSelect(seasons);
         render();
       } catch (e) {
         $('list').innerHTML = `<div class="text-center py-16 text-red-400 text-sm">${esc(e.message)}</div>`;
