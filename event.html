@@ -706,8 +706,11 @@
 
       // season/streams/ctpLive/ctpVideoLive/superlatives already resolved
       // above (used by solo formats to show not-yet-started players — see
-      // calcRinger's event.players handling).
-      const results = applyFormat(scorecards, format, { ...event, players: season?.players });
+      // calcRinger's event.players handling). ctpData feeds alt-shot/
+      // scramble's 3rd-level tiebreak (closest CTP shot on a par-3,
+      // js/scoring.js's closestCtpDistance) — same already-fetched ctpLive
+      // payload the CTP furniture below uses, just also handed to scoring.
+      const results = applyFormat(scorecards, format, { ...event, players: season?.players, ctpData: ctpLive });
       applyPayouts(results, event.payouts);
 
       renderHeader(event, format, results.length, scorecards, season?.players?.length);

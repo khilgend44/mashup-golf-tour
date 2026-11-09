@@ -410,6 +410,23 @@ function groupByValue(list, keyFn, direction = 'desc') {
   return groups;
 }
 
+// Same idea as groupByValue, but groups by comparator-equality (cmp(a,b)
+// === 0) instead of a scalar key — needed for a tri-state comparator (like
+// teamIndexCountback) that can only say "equal or not" pairwise, not
+// produce one sortable number. Only ever called on a group already
+// identical on every earlier tiebreak level, so transitivity within the
+// group holds.
+function groupByComparator(list, cmp) {
+  const sorted = [...list].sort(cmp);
+  const groups = [];
+  for (const item of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && cmp(last[0], item) === 0) last.push(item);
+    else groups.push([item]);
+  }
+  return groups;
+}
+
 // Resolves a group of players tied on Match Play Grid's overall point total
 // into a final order, per the format's 3-level tiebreak:
 //   1. Mini round-robin — re-sum grid points earned ONLY against the other
@@ -1630,6 +1647,85 @@ function calcShamble2Man(scorecards, format, event) {
   return [...ranked, ...sortInProgress(unranked)];
 }
 
+// ─── 2-Man Alternate Shot / Scramble tiebreakers ───────────────────────────
+// Admin's explicit 3-level tiebreak for alt-shot-2man and scramble-2man
+// (2026-11, built for the S10MM Final/Championship round):
+//   1. Head-to-head match play score between the tied teams — 1 pt per hole
+//      won, 0.5 split on a tied hole. ONLY applies to an exact 2-way tie; a
+//      3+ way tie has no single head-to-head outcome, so this level is
+//      skipped entirely for those (same rule as the MM Match Play Grid's
+//      own tiebreak, mm-match-play-grid.html's resolveMMTieGroup) and falls
+//      straight through to level 2.
+//   2. Scorecard countback from index hole 1 (teamIndexCountback).
+//   3. Closest single recorded CTP distance on a par-3, among either tied
+//      team's own players.
+let altShotTieGroupCounter = 0;
+
+function altShotHeadToHead(a, b) {
+  let aPts = 0, bPts = 0;
+  for (let h = 0; h < 18; h++) {
+    const av = a.teamHoleScores[h], bv = b.teamHoleScores[h];
+    if (av == null || bv == null) continue;
+    if (av < bv) aPts += 1;
+    else if (av > bv) bPts += 1;
+    else { aPts += 0.5; bPts += 0.5; }
+  }
+  return bPts - aPts; // negative: a won more holes, sorts first
+}
+
+// SGT's CTP feed only ever records the closest handful of shots on a hole
+// (`leaders`, capped at 2-3 — not every player who played it, see
+// data/ctp/*.json), so this can only resolve a tie when one of the tied
+// teams' own players actually shows up in that capped list on a par-3;
+// otherwise there's no distance to compare for that team (Infinity) and the
+// tie is left standing rather than inventing a 4th tiebreaker. `ctpData` is
+// the `{ rounds: [{ holes: [{ hole, leaders }] }] }` shape js/api.js's
+// fetchCtp() already returns — threaded in via `event.ctpData`, the same
+// pattern event.devilsDraw uses, so callers that don't pass it (most do
+// not) simply can't resolve this level and the tie stays a tie.
+function closestCtpDistance(team, ctpData) {
+  if (!ctpData?.rounds?.length) return Infinity;
+  const names = new Set(team.players.map(p => p.name.toLowerCase()));
+  let best = Infinity;
+  for (const round of ctpData.rounds) {
+    for (const h of (round.holes || [])) {
+      if (team.pars && team.pars[h.hole - 1] !== 3) continue;
+      for (const l of (h.leaders || [])) {
+        if (names.has((l.player || '').toLowerCase()) && l.distance_ft < best) best = l.distance_ft;
+      }
+    }
+  }
+  return best;
+}
+
+function resolveAltShotTieGroup(group, ctpData) {
+  if (group.length <= 1) return group;
+  const out = [];
+  const pushIrreducible = g => {
+    const id = altShotTieGroupCounter++;
+    g.forEach(t => { t._tieGroup = g.length > 1 ? id : null; });
+    out.push(...g);
+  };
+
+  let h2hGroups = [group];
+  if (group.length === 2) {
+    const [x, y] = group;
+    const d = altShotHeadToHead(x, y);
+    h2hGroups = d < 0 ? [[x], [y]] : d > 0 ? [[y], [x]] : [[x, y]];
+  }
+
+  for (const hg of h2hGroups) {
+    if (hg.length <= 1) { pushIrreducible(hg); continue; }
+    const cbGroups = groupByComparator(hg, teamIndexCountback);
+    for (const cg of cbGroups) {
+      if (cg.length <= 1) { pushIrreducible(cg); continue; }
+      const ctpGroups = groupByValue(cg, t => -closestCtpDistance(t, ctpData), 'desc');
+      for (const pg of ctpGroups) pushIrreducible(pg);
+    }
+  }
+  return out;
+}
+
 // ─── 2-Man Alternate Shot ───────────────────────────────────────────────────
 // One ball per team per hole — SGT already computes the single shared score
 // and reports it identically on both teammates' own cards, so no per-hole
@@ -1753,16 +1849,17 @@ function calcAltShot2Man(scorecards, format, event) {
     });
   }
 
-  const ranked = results.filter(r => !r.inProgress);
   const unranked = results.filter(r => r.inProgress);
-  ranked.sort((a, b) => a.total !== b.total ? a.total - b.total : teamIndexCountback(a, b));
+  const totalGroups = groupByValue(results.filter(r => !r.inProgress), t => t.total, 'asc');
+  const ranked = [];
+  for (const g of totalGroups) ranked.push(...resolveAltShotTieGroup(g, event?.ctpData));
   ranked.forEach((curr, i) => {
     if (i === 0) { curr.position = 1; curr.tied = false; return; }
     const prev = ranked[i - 1];
-    const trulyTied = curr.total === prev.total && teamIndexCountback(curr, prev) === 0;
-    curr.position = trulyTied ? prev.position : i + 1;
-    curr.tied = trulyTied;
-    if (trulyTied) prev.tied = true;
+    const sameGroup = curr._tieGroup != null && curr._tieGroup === prev._tieGroup;
+    curr.position = sameGroup ? prev.position : i + 1;
+    curr.tied = sameGroup;
+    if (sameGroup) prev.tied = true;
   });
   return [...ranked, ...sortInProgress(unranked)];
 }
