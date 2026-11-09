@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Money Tracker — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .field { background: #141414; border: 1px solid #2c2c2c; border-radius: 0.4rem; padding: 0.3rem 0.5rem; color: #e5e7eb; font-size: 0.8rem; }
+    .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
+    .adj-row td { background: rgba(249,115,22,0.03); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="https://mashupgolf.com/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Site</a>
+      <span class="text-border">/</span>
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Admin</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">Admin Money Tracker</span>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 w-full flex-1">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+      <div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Admin Money Tracker</h1>
+        <p class="text-gray-500 text-sm mt-2 max-w-2xl">The league's own operating fund — admin fees collected each season, minus one-off spending (Easter Egg prizes, evicted-player refunds, HIO pot donations, etc). Separate from player dues/payouts, which track money moving between the league and individual players.</p>
+      </div>
+      <div class="text-right">
+        <div class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">Admin Fee Bank</div>
+        <div id="bank-total" class="font-display text-4xl text-flame leading-none">—</div>
+      </div>
+    </div>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+    <div id="seed-bar" class="hidden mb-4"></div>
+
+    <!-- ADD SEASON ROW -->
+    <details class="mb-4 card-shadow bg-card border border-border rounded-xl">
+      <summary class="cursor-pointer select-none px-5 py-4 font-heading font-600 tracking-wide text-flame">+ Add Season Row</summary>
+      <div class="px-5 pb-5 flex flex-wrap items-end gap-3">
+        <div><label class="block text-[10px] text-gray-500 uppercase mb-1">Label</label><input id="ns-label" class="field" placeholder="Season 11" style="width:9rem" /></div>
+        <div><label class="block text-[10px] text-gray-500 uppercase mb-1"># of Players</label><input id="ns-players" type="number" class="field" style="width:6rem" /></div>
+        <div><label class="block text-[10px] text-gray-500 uppercase mb-1">Fee / Player</label><input id="ns-fee" type="number" step="0.01" class="field" style="width:6.5rem" /></div>
+        <div><label class="block text-[10px] text-gray-500 uppercase mb-1">Easter Egg</label><input id="ns-egg" type="number" step="0.01" class="field" style="width:6.5rem" placeholder="0" /></div>
+        <div><label class="block text-[10px] text-gray-500 uppercase mb-1">Evicted Fees</label><input id="ns-evicted" type="number" step="0.01" class="field" style="width:6.5rem" placeholder="0" /></div>
+        <button id="ns-add-btn" class="px-4 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim" style="transition:background .15s">Add</button>
+      </div>
+    </details>
+
+    <!-- ADD ADJUSTMENT ROW -->
+    <details class="mb-6 card-shadow bg-card border border-border rounded-xl">
+      <summary class="cursor-pointer select-none px-5 py-4 font-heading font-600 tracking-wide text-gray-400">+ Add Adjustment (donation, misc expense, one-off income)</summary>
+      <div class="px-5 pb-5 flex flex-wrap items-end gap-3">
+        <div><label class="block text-[10px] text-gray-500 uppercase mb-1">Label</label><input id="na-label" class="field" placeholder="HIO Donation S11" style="width:12rem" /></div>
+        <div><label class="block text-[10px] text-gray-500 uppercase mb-1">Amount (negative = money out)</label><input id="na-amount" type="number" step="0.01" class="field" style="width:8rem" placeholder="-150" /></div>
+        <div class="flex-1 min-w-[10rem]"><label class="block text-[10px] text-gray-500 uppercase mb-1">Note</label><input id="na-note" class="field w-full" placeholder="optional" /></div>
+        <button id="na-add-btn" class="px-4 py-2 rounded-lg border border-border text-gray-300 hover:text-white text-sm font-heading font-600 tracking-wider" style="transition:color .12s">Add</button>
+      </div>
+    </details>
+
+    <!-- TABLE -->
+    <div class="card-shadow bg-card border border-border rounded-xl overflow-hidden">
+      <div class="overflow-auto" style="max-height: calc(100vh - 24rem)">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Entry</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase"># Players</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Fee / Player</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Total Fees</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Easter Egg</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Evicted Fees</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Net</th>
+              <th class="px-2 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script>
+    const API = '/admin/api/money-tracker';
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const $ = id => document.getElementById(id);
+    const money = n => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const state = { entries: [] };
+
+    function setStatus(msg, kind) {
+      const el = $('status');
+      if (!msg) { el.classList.add('hidden'); return; }
+      el.textContent = msg;
+      el.className = `rounded-lg px-4 py-3 text-sm font-body mb-4 ${kind === 'error' ? 'bg-red-900/30 border border-red-800/40 text-red-300' : 'bg-emerald-900/30 border border-emerald-800/40 text-emerald-300'}`;
+      el.classList.remove('hidden');
+    }
+
+    function netOf(e) {
+      return e.kind === 'adjustment'
+        ? Number(e.amount) || 0
+        : (Number(e.players) || 0) * (Number(e.feePerPlayer) || 0) - (Number(e.easterEgg) || 0) - (Number(e.evictedFees) || 0);
+    }
+
+    // Historical ledger as provided by the admin (pre-2026-11 seasons), plus
+    // Season 10's admin fee ($13/player x 30 players, per rules.html's Cost
+    // & Entry Fee table). One-time seed — only offered while the ledger is
+    // still empty, never re-run automatically.
+    const SEED_SEASONS = [
+      { label: 'Season 0',  players: 36, feePerPlayer: 6.00,  easterEgg: 50, evictedFees: 0 },
+      { label: 'Season 1',  players: 42, feePerPlayer: 9.00,  easterEgg: 40, evictedFees: 0 },
+      { label: 'Season 2',  players: 36, feePerPlayer: 11.25, easterEgg: 20, evictedFees: 17 },
+      { label: 'Season 3',  players: 24, feePerPlayer: 6.60,  easterEgg: 0,  evictedFees: 0 },
+      { label: 'Season 4',  players: 30, feePerPlayer: 9.60,  easterEgg: 0,  evictedFees: 0 },
+      { label: 'Season 5',  players: 27, feePerPlayer: 9.80,  easterEgg: 0,  evictedFees: 0 },
+      { label: 'Season 6',  players: 36, feePerPlayer: 9.80,  easterEgg: 0,  evictedFees: 0 },
+      { label: 'Season 7',  players: 32, feePerPlayer: 9.80,  easterEgg: 0,  evictedFees: 0 },
+      { label: 'Season 8',  players: 36, feePerPlayer: 13.00, easterEgg: 35, evictedFees: 0 },
+      { label: 'Season 9',  players: 42, feePerPlayer: 13.00, easterEgg: 0,  evictedFees: 0 },
+      { label: 'Season 10', players: 30, feePerPlayer: 13.00, easterEgg: 0,  evictedFees: 0 },
+    ].map(s => ({ kind: 'season', ...s }));
+    const SEED_ADJUSTMENTS = [
+      { kind: 'adjustment', label: 'HIO Donation S1', amount: -150, note: 'Donated to the Hole-in-One pot' },
+      { kind: 'adjustment', label: 'HIO Donation S6', amount: -100, note: 'Donated to the Hole-in-One pot' },
+    ];
+
+    function renderSeedBar() {
+      const bar = $('seed-bar');
+      if (state.entries.length) { bar.classList.add('hidden'); return; }
+      bar.classList.remove('hidden');
+      bar.innerHTML = `<div class="card-shadow bg-amber-500/10 border border-amber-500/40 rounded-xl px-5 py-4 flex items-center justify-between flex-wrap gap-3">
+        <p class="text-sm text-amber-100">No entries yet. Seed the historical ledger (Season 0–10, plus the two HIO donations) to get started?</p>
+        <button id="seed-btn" class="px-4 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim shrink-0" style="transition:background .15s">Seed Historical Data</button>
+      </div>`;
+      $('seed-btn').addEventListener('click', async () => {
+        if (!confirm('Add Season 0–10 and both HIO donation adjustments to the ledger?')) return;
+        try {
+          const res = await fetch(API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add-entries', entries: [...SEED_SEASONS, ...SEED_ADJUSTMENTS] }),
+          });
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Seed failed');
+          const d = await res.json();
+          state.entries = d.entries;
+          render();
+          setStatus('Historical ledger seeded.', 'success');
+        } catch (e) { setStatus(e.message, 'error'); }
+      });
+    }
+
+    function render() {
+      renderSeedBar();
+      const bank = state.entries.reduce((s, e) => s + netOf(e), 0);
+      $('bank-total').textContent = money(bank);
+
+      const tb = $('tbody');
+      if (!state.entries.length) {
+        tb.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 text-sm">No entries yet.</td></tr>`;
+        return;
+      }
+      tb.innerHTML = state.entries.map(e => {
+        const net = netOf(e);
+        const netCls = net < 0 ? 'text-red-400' : 'text-flame';
+        if (e.kind === 'adjustment') {
+          return `<tr class="border-b border-border/50 adj-row" data-id="${esc(e.id)}">
+            <td class="px-4 py-2.5"><input class="field edit-label" value="${esc(e.label)}" style="width:12rem" /><div class="text-[11px] text-gray-600 mt-1"><input class="field edit-note w-full" value="${esc(e.note || '')}" placeholder="note" /></div></td>
+            <td class="px-4 py-2.5 text-right text-gray-700">—</td>
+            <td class="px-4 py-2.5 text-right text-gray-700">—</td>
+            <td class="px-4 py-2.5 text-right text-gray-700">—</td>
+            <td class="px-4 py-2.5 text-right text-gray-700">—</td>
+            <td class="px-4 py-2.5 text-right text-gray-700">—</td>
+            <td class="px-4 py-2.5 text-right"><input type="number" step="0.01" class="field edit-amount text-right ${netCls}" value="${e.amount}" style="width:7rem" /></td>
+            <td class="px-2 py-2.5"><button type="button" class="delete-btn text-gray-700 hover:text-red-400" title="Delete">×</button></td>
+          </tr>`;
+        }
+        const total = (Number(e.players) || 0) * (Number(e.feePerPlayer) || 0);
+        return `<tr class="border-b border-border/50" data-id="${esc(e.id)}">
+          <td class="px-4 py-2.5"><input class="field edit-label font-heading font-600 text-white" value="${esc(e.label)}" style="width:9rem" /></td>
+          <td class="px-4 py-2.5 text-right"><input type="number" class="field edit-players text-right" value="${e.players}" style="width:5rem" /></td>
+          <td class="px-4 py-2.5 text-right"><input type="number" step="0.01" class="field edit-fee text-right" value="${e.feePerPlayer}" style="width:6rem" /></td>
+          <td class="px-4 py-2.5 text-right text-gray-400 font-mono">${money(total)}</td>
+          <td class="px-4 py-2.5 text-right"><input type="number" step="0.01" class="field edit-egg text-right" value="${e.easterEgg || 0}" style="width:6rem" /></td>
+          <td class="px-4 py-2.5 text-right"><input type="number" step="0.01" class="field edit-evicted text-right" value="${e.evictedFees || 0}" style="width:6rem" /></td>
+          <td class="px-4 py-2.5 text-right font-mono ${netCls}">${money(net)}</td>
+          <td class="px-2 py-2.5"><button type="button" class="delete-btn text-gray-700 hover:text-red-400" title="Delete">×</button></td>
+        </tr>`;
+      }).join('');
+
+      tb.querySelectorAll('tr[data-id]').forEach(tr => {
+        const id = tr.dataset.id;
+        const entry = state.entries.find(e => e.id === id);
+        const save = () => updateEntry(id, {
+          kind: entry.kind,
+          label: tr.querySelector('.edit-label')?.value,
+          note: tr.querySelector('.edit-note')?.value,
+          amount: tr.querySelector('.edit-amount')?.value,
+          players: tr.querySelector('.edit-players')?.value,
+          feePerPlayer: tr.querySelector('.edit-fee')?.value,
+          easterEgg: tr.querySelector('.edit-egg')?.value,
+          evictedFees: tr.querySelector('.edit-evicted')?.value,
+        });
+        tr.querySelectorAll('input').forEach(inp => inp.addEventListener('change', save));
+        tr.querySelector('.delete-btn')?.addEventListener('click', () => deleteEntry(id, entry.label));
+      });
+    }
+
+    async function updateEntry(id, entry) {
+      try {
+        const res = await fetch(API, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-entry', id, entry }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+        const d = await res.json();
+        state.entries = d.entries;
+        render();
+        setStatus('Entry updated.', 'success');
+      } catch (e) { setStatus(e.message, 'error'); }
+    }
+
+    async function deleteEntry(id, label) {
+      if (!confirm(`Delete "${label}" from the ledger? This can't be undone.`)) return;
+      try {
+        const res = await fetch(API, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete-entry', id }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Delete failed');
+        const d = await res.json();
+        state.entries = d.entries;
+        render();
+        setStatus(`Deleted "${label}".`, 'success');
+      } catch (e) { setStatus(e.message, 'error'); }
+    }
+
+    $('ns-add-btn').addEventListener('click', async () => {
+      const label = $('ns-label').value.trim();
+      if (!label) return setStatus('Label is required.', 'error');
+      const entry = {
+        kind: 'season', label,
+        players: $('ns-players').value, feePerPlayer: $('ns-fee').value,
+        easterEgg: $('ns-egg').value || 0, evictedFees: $('ns-evicted').value || 0,
+      };
+      try {
+        const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add-entry', entry }) });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Add failed');
+        const d = await res.json();
+        state.entries = d.entries;
+        render();
+        setStatus(`Added "${label}".`, 'success');
+        ['ns-label', 'ns-players', 'ns-fee', 'ns-egg', 'ns-evicted'].forEach(id => $(id).value = '');
+      } catch (e) { setStatus(e.message, 'error'); }
+    });
+
+    $('na-add-btn').addEventListener('click', async () => {
+      const label = $('na-label').value.trim();
+      if (!label) return setStatus('Label is required.', 'error');
+      const entry = { kind: 'adjustment', label, amount: $('na-amount').value || 0, note: $('na-note').value };
+      try {
+        const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add-entry', entry }) });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Add failed');
+        const d = await res.json();
+        state.entries = d.entries;
+        render();
+        setStatus(`Added "${label}".`, 'success');
+        ['na-label', 'na-amount', 'na-note'].forEach(id => $(id).value = '');
+      } catch (e) { setStatus(e.message, 'error'); }
+    });
+
+    async function init() {
+      try {
+        const res = await fetch(API);
+        if (!res.ok) throw new Error(res.status === 302 || res.status === 401 || res.status === 403 ? 'Not signed in — open /admin and log in.' : `Load failed (${res.status})`);
+        const d = await res.json();
+        state.entries = d.entries || [];
+        render();
+      } catch (e) {
+        $('tbody').innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
+      }
+    }
+    init();
+  </script>
+</body>
+</html>

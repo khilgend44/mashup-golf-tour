@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payouts — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .field { background: #141414; border: 1px solid #2c2c2c; border-radius: 0.4rem; padding: 0.3rem 0.5rem; color: #e5e7eb; font-size: 0.8rem; }
+    .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
+    tr.unpaid-row { background: rgba(239,68,68,0.055); box-shadow: inset 3px 0 0 rgba(239,68,68,0.55); }
+    tr.unpaid-row:hover td { background: rgba(239,68,68,0.03); }
+    tr.excluded-row { opacity: 0.45; }
+    .breakdown-row td { background: #141414; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="https://mashupgolf.com/" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Site</a>
+      <span class="text-border">/</span>
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">Admin</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">Payouts</span>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 w-full flex-1">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+      <div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Payouts</h1>
+        <p class="text-gray-500 text-sm mt-2 max-w-xl">Money owed <span class="text-white">out</span> to winners — the mirror of Player Data's dues tracker. "Owed" is computed live from the real scoring engine (payouts + side pots + CTP); mark a player Paid once they've actually been sent money, which freezes the amount as a permanent record.</p>
+      </div>
+      <span id="count" class="text-sm font-heading font-600 tracking-wider text-gray-500"></span>
+    </div>
+
+    <div class="flex items-center gap-3 mb-4 flex-wrap">
+      <label class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">Season</label>
+      <select id="season-select" class="field" style="width:auto"></select>
+      <label class="flex items-center gap-1.5 text-xs font-heading font-600 tracking-widest text-gray-500 uppercase cursor-pointer select-none">
+        <input type="checkbox" id="unpaid-only" class="accent-[#ef4444]" />
+        Unpaid Only
+      </label>
+      <label class="flex items-center gap-1.5 text-xs font-heading font-600 tracking-widest text-gray-500 uppercase cursor-pointer select-none" title="Hide players with $0 computed earnings">
+        <input type="checkbox" id="hide-zero" class="accent-[#f97316]" checked />
+        Hide $0
+      </label>
+      <span id="summary" class="text-xs text-gray-500 font-body"></span>
+    </div>
+
+    <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
+
+    <div class="card-shadow bg-card border border-border rounded-xl overflow-hidden">
+      <div class="overflow-auto" style="max-height: calc(100vh - 18rem)">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Owed (computed)</th>
+              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Paid</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Date Paid</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Paid Via</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Amount Paid</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Notes</th>
+              <th class="px-2 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script type="module">
+    import { loadEvents, loadFormats, loadSeasons } from '/js/api.js?v=20261103a';
+    import { buildPlayerStats } from '/js/stats.js?v=20261103a';
+
+    const API = '/admin/api/payouts';
+    const PAY_OPTIONS = ['', 'Venmo', 'PayPal', 'Other'];
+    const params = new URLSearchParams(location.search);
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const $ = id => document.getElementById(id);
+    const money = n => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const state = { season: params.get('season') || 'season-10', allSeasons: [], statsMap: {}, payouts: {}, unpaidOnly: false, hideZero: true };
+    const writeQueues = new Map();
+
+    function setStatus(msg, kind) {
+      const el = $('status');
+      if (!msg) { el.classList.add('hidden'); return; }
+      el.textContent = msg;
+      el.className = `rounded-lg px-4 py-3 text-sm font-body mb-4 ${kind === 'error' ? 'bg-red-900/30 border border-red-800/40 text-red-300' : 'bg-emerald-900/30 border border-emerald-800/40 text-emerald-300'}`;
+      el.classList.remove('hidden');
+    }
+
+    function queueWrite(username, task) {
+      const key = String(username).toLowerCase();
+      const prev = writeQueues.get(key) || Promise.resolve();
+      const next = prev.then(task, task);
+      writeQueues.set(key, next);
+      return next;
+    }
+
+    async function setPayoutField(username, field, value) {
+      return queueWrite(username, async () => {
+        try {
+          const res = await fetch(API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set', season: state.season, username, field, value }),
+          });
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+          const d = await res.json();
+          state.payouts[username.toLowerCase()] = d.player;
+          updateSummary();
+          setStatus(`${username}: payout updated.`, 'success');
+        } catch (e) { setStatus(e.message, 'error'); }
+      });
+    }
+
+    function updateSummary() {
+      const season = state.allSeasons.find(s => s.id === state.season);
+      const rosterSet = season ? new Set((season.players || []).map(n => String(n).toLowerCase())) : new Set();
+      let paidCount = 0, paidTotal = 0, owedTotal = 0;
+      for (const key of rosterSet) {
+        const owed = (state.statsMap[key]?.earnings || 0) + (state.statsMap[key]?.ctpEarnings || 0);
+        owedTotal += owed;
+        const p = state.payouts[key];
+        if (p?.paid) { paidCount++; paidTotal += Number(p.amount) || 0; }
+      }
+      $('summary').textContent = `${paidCount} paid · ${money(paidTotal)} paid out of ${money(owedTotal)} computed owed`;
+    }
+
+    function breakdownText(rec) {
+      if (!rec?.breakdown?.length) return 'No recorded earnings this season.';
+      return rec.breakdown.filter(b => b.total).map(b =>
+        `${b.name} (wk${b.week ?? '—'}): payout ${money(b.payout)} · side pot ${money(b.sidePot)} · CTP ${money(b.ctp)} = ${money(b.total)}`
+      ).join('\n');
+    }
+
+    function render() {
+      const season = state.allSeasons.find(s => s.id === state.season);
+      const rosterNames = season ? [...season.players] : [];
+      rosterNames.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+      let rows = rosterNames.map(name => {
+        const key = name.toLowerCase();
+        const rec = state.statsMap[key];
+        const owed = (rec?.earnings || 0) + (rec?.ctpEarnings || 0);
+        return { name, key, owed, rec, p: state.payouts[key] || {} };
+      });
+
+      if (state.hideZero) rows = rows.filter(r => r.owed > 0 || r.p.paid);
+      if (state.unpaidOnly) rows = rows.filter(r => !r.p.paid);
+
+      $('count').textContent = season ? `${rows.length} players (${season.name})` : `${rows.length} players`;
+      const tb = $('tbody');
+      if (!rows.length) {
+        tb.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 text-sm">Nothing to show for this filter.</td></tr>`;
+        updateSummary();
+        return;
+      }
+
+      tb.innerHTML = rows.map(r => {
+        const unpaid = !r.p.paid;
+        return `<tr class="border-b border-border/50${unpaid && r.owed > 0 ? ' unpaid-row' : ''}" data-row-user="${esc(r.name)}">
+        <td class="px-4 py-2.5 font-heading font-600 tracking-wider text-white">${esc(r.name)}</td>
+        <td class="px-4 py-2.5 text-right font-mono ${r.owed ? 'text-flame' : 'text-gray-600'}">${money(r.owed)}</td>
+        <td class="px-4 py-2.5 text-center"><input type="checkbox" class="paid-check accent-[#f97316]" data-user="${esc(r.name)}" ${r.p.paid ? 'checked' : ''} /></td>
+        <td class="px-4 py-2.5"><input type="date" class="field date-paid-input" data-user="${esc(r.name)}" value="${esc(r.p.datePaid || '')}" style="width:9.5rem" /></td>
+        <td class="px-4 py-2.5">
+          <select class="field paidvia-select" data-user="${esc(r.name)}">
+            ${PAY_OPTIONS.map(o => `<option value="${o}"${(r.p.service || '') === o ? ' selected' : ''}>${o || '—'}</option>`).join('')}
+          </select>
+        </td>
+        <td class="px-4 py-2.5"><input type="number" step="0.01" min="0" class="field amount-input" data-user="${esc(r.name)}" value="${r.p.amount != null ? r.p.amount : (r.owed || '')}" placeholder="0.00" style="width:6.5rem" /></td>
+        <td class="px-4 py-2.5"><input class="field notes-input" data-user="${esc(r.name)}" value="${esc(r.p.notes || '')}" placeholder="—" style="width:10rem" /></td>
+        <td class="px-2 py-2.5"><button type="button" class="details-toggle text-gray-600 hover:text-flame text-xs" data-user="${esc(r.name)}">▸</button></td>
+      </tr>
+      <tr class="breakdown-row hidden" data-breakdown-for="${esc(r.name)}"><td colspan="8" class="px-6 py-3 text-xs text-gray-400 font-mono whitespace-pre-line">${esc(breakdownText(r.rec))}</td></tr>`;
+      }).join('');
+
+      tb.querySelectorAll('.paid-check').forEach(cb => {
+        cb.addEventListener('change', async () => {
+          await setPayoutField(cb.dataset.user, 'paid', cb.checked);
+          const tr = cb.closest('tr');
+          if (cb.checked) {
+            const dateInput = tr.querySelector('.date-paid-input');
+            if (dateInput && !dateInput.value) {
+              const today = new Date().toISOString().slice(0, 10);
+              dateInput.value = today;
+              await setPayoutField(cb.dataset.user, 'datePaid', today);
+            }
+            const amountInput = tr.querySelector('.amount-input');
+            if (amountInput && amountInput.value) await setPayoutField(cb.dataset.user, 'amount', amountInput.value);
+          }
+          tr.classList.toggle('unpaid-row', !cb.checked);
+        });
+      });
+      tb.querySelectorAll('.date-paid-input').forEach(inp => {
+        inp.addEventListener('change', () => setPayoutField(inp.dataset.user, 'datePaid', inp.value));
+      });
+      tb.querySelectorAll('.paidvia-select').forEach(sel => {
+        sel.addEventListener('change', () => setPayoutField(sel.dataset.user, 'service', sel.value));
+      });
+      tb.querySelectorAll('.amount-input').forEach(inp => {
+        inp.addEventListener('change', () => setPayoutField(inp.dataset.user, 'amount', inp.value));
+      });
+      tb.querySelectorAll('.notes-input').forEach(inp => {
+        inp.addEventListener('change', () => setPayoutField(inp.dataset.user, 'notes', inp.value));
+      });
+      tb.querySelectorAll('.details-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const row = tb.querySelector(`[data-breakdown-for="${CSS.escape(btn.dataset.user)}"]`);
+          if (!row) return;
+          const opening = row.classList.contains('hidden');
+          row.classList.toggle('hidden');
+          btn.textContent = opening ? '▾' : '▸';
+        });
+      });
+
+      updateSummary();
+    }
+
+    async function loadForSeason() {
+      $('tbody').innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>`;
+      const [events, formats, payoutsRes] = await Promise.all([
+        loadEvents(), loadFormats(),
+        fetch(`${API}?season=${encodeURIComponent(state.season)}`),
+      ]);
+      state.payouts = payoutsRes.ok ? ((await payoutsRes.json()).payouts || {}) : {};
+
+      const seasonEvents = events.filter(e => e.season === state.season && e.status === 'completed');
+      state.statsMap = await buildPlayerStats(seasonEvents, formats);
+      render();
+    }
+
+    async function init() {
+      const seasons = await loadSeasons();
+      state.allSeasons = seasons;
+      const sorted = [...seasons].sort((a, b) => (parseInt(b.id.replace('season-', ''), 10) || 0) - (parseInt(a.id.replace('season-', ''), 10) || 0));
+      if (!sorted.some(s => s.id === state.season)) sorted.unshift({ id: state.season, name: state.season.replace('season-', 'Season ') });
+      $('season-select').innerHTML = sorted.map(s => `<option value="${esc(s.id)}" ${s.id === state.season ? 'selected' : ''}>${esc(s.name || s.id.replace('season-', 'Season '))}</option>`).join('');
+      $('season-select').addEventListener('change', e => { location.href = `?season=${encodeURIComponent(e.target.value)}`; });
+
+      $('unpaid-only').addEventListener('change', e => { state.unpaidOnly = e.target.checked; render(); });
+      $('hide-zero').addEventListener('change', e => { state.hideZero = e.target.checked; render(); });
+
+      await loadForSeason();
+    }
+
+    init().catch(e => {
+      $('tbody').innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
+    });
+  </script>
+</body>
+</html>
