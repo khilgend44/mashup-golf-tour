@@ -15,10 +15,17 @@
 // live on every read — an audit trail should record what was actually paid
 // at the time, not a number that could silently drift if scoring logic
 // ever changes later.
+//
+// `rolledAmount` (added 2026-11) is the cumulative amount of this season's
+// winnings applied as a credit toward next season's dues instead of a cash
+// payout (admin/payouts.html's "Roll Fwd" action), capped at that season's
+// dues cost — a player who earned more than one season's dues keeps the
+// rest owed in cash rather than silently absorbing it all as credit.
+// Separate from `amount`, which is the cash portion actually paid.
 import { CORS, kvGet, kvPut, kvList, requireAccess } from './_lib.js';
 
-const FIELDS = ['paid', 'datePaid', 'service', 'amount', 'notes'];
-const NUMERIC_FIELDS = ['amount'];
+const FIELDS = ['paid', 'datePaid', 'service', 'amount', 'notes', 'rolledAmount'];
+const NUMERIC_FIELDS = ['amount', 'rolledAmount'];
 
 function payoutKey(season, username) {
   return `payouts:${season}:${String(username).toLowerCase()}`;

@@ -169,50 +169,103 @@
       return d.player;
     }
 
+    // Default season dues cost — there's no structured per-season "dues
+    // amount" stored anywhere (rules.html/registration.html just carry it
+    // as prose), so this is confirmed/editable per roll rather than trusted
+    // silently forever. $142 matches both pages as of Season 11.
+    const DEFAULT_DUES_AMOUNT = 142;
+
     // Rolls a player's computed winnings forward as a credit toward next
-    // season's dues instead of a cash payment — adds to (not replaces) any
-    // existing creditBalance, since a player could already be carrying one
-    // forward from an earlier season. Uses the exact same players:meta
-    // creditBalance field admin/player-data.html's dues tracker already
-    // reads and clears, so it shows up there automatically once that
-    // season's dues collection starts.
-    async function rollToNextSeason(username, owed) {
+    // season's dues instead of a cash payment — capped at one season's dues
+    // cost. A player who earned more than that keeps the rest owed in cash
+    // (rolling it all forward would mean the league never actually collects
+    // their dues AND still owes them money). `rolledAmount` accumulates
+    // across multiple rolls in case this is clicked more than once for the
+    // same player/season, so the cap is cumulative, not per-click.
+    // creditBalance itself is additive too, since a player could already be
+    // carrying a credit forward from an earlier season. Uses the exact same
+    // players:meta creditBalance field admin/player-data.html's dues
+    // tracker already reads and clears, so it shows up there automatically
+    // once that season's dues collection starts.
+    async function rollToNextSeason(username, remainingOwed) {
+      const key = username.toLowerCase();
       const target = nextSeasonLabel();
-      if (!confirm(`Roll ${username}'s ${money(owed)} forward as a credit toward ${target}'s dues, instead of a cash payout?`)) return;
+      const alreadyRolled = Number(state.payouts[key]?.rolledAmount) || 0;
+
+      const input = prompt(`${target}'s dues amount (caps how much of this gets rolled as credit — the rest stays owed in cash):`, DEFAULT_DUES_AMOUNT);
+      if (input == null) return; // cancelled
+      const duesAmount = Number(input);
+      if (!Number.isFinite(duesAmount) || duesAmount < 0) return setStatus('Enter a valid dues amount.', 'error');
+
+      const capacity = Math.max(0, duesAmount - alreadyRolled);
+      const rollAmount = Math.min(remainingOwed, capacity);
+      if (rollAmount <= 0) {
+        return setStatus(`${username} has already had ${money(alreadyRolled)} rolled forward — that's this season's dues amount. Any remainder has to be paid in cash.`, 'error');
+      }
+      const remainder = remainingOwed - rollAmount;
+
+      const msg = remainder > 0
+        ? `Roll ${money(rollAmount)} of ${username}'s ${money(remainingOwed)} owed forward as a credit toward ${target}'s dues (dues cap reached). The remaining ${money(remainder)} stays owed in cash. Continue?`
+        : `Roll ${username}'s ${money(rollAmount)} forward as a credit toward ${target}'s dues, instead of a cash payout?`;
+      if (!confirm(msg)) return;
+
       return queueWrite(username, async () => {
         try {
-          const key = username.toLowerCase();
           const currentCredit = Number(state.meta[key]?.creditBalance) || 0;
-          await postCreditBalance(username, currentCredit + owed);
+          await postCreditBalance(username, currentCredit + rollAmount);
 
           const prevNotes = state.payouts[key]?.notes || '';
-          const note = `Rolled forward to ${target} dues`;
+          const note = remainder > 0
+            ? `Rolled ${money(rollAmount)} forward to ${target} dues (dues cap) — ${money(remainder)} still owed in cash`
+            : `Rolled ${money(rollAmount)} forward to ${target} dues`;
           const notes = prevNotes ? `${prevNotes}; ${note}` : note;
           const today = new Date().toISOString().slice(0, 10);
 
-          await postPayoutField(username, 'paid', true);
+          await postPayoutField(username, 'rolledAmount', alreadyRolled + rollAmount);
           await postPayoutField(username, 'service', 'Credit Roll-Forward');
           await postPayoutField(username, 'datePaid', today);
-          await postPayoutField(username, 'amount', owed);
           await postPayoutField(username, 'notes', notes);
-          setStatus(`${username}: ${money(owed)} rolled forward to ${target} dues.`, 'success');
+          if (remainder <= 0) {
+            // Fully covered by credit — nothing left owed, so this is "paid"
+            // the same as a cash payout would be.
+            await postPayoutField(username, 'paid', true);
+            await postPayoutField(username, 'amount', rollAmount);
+          }
+          setStatus(remainder > 0
+            ? `${username}: ${money(rollAmount)} rolled forward, ${money(remainder)} still owed in cash.`
+            : `${username}: ${money(rollAmount)} rolled forward to ${target} dues.`, 'success');
           updateSummary();
           render();
         } catch (e) { setStatus(e.message, 'error'); }
       });
     }
 
+    // Gross = total actually won this season (the real, unchanging scoring-
+    // engine number). Remaining = gross minus whatever's already been
+    // rolled forward as credit — the real outstanding cash liability, which
+    // is what "owed" means everywhere in this page's UI after a partial
+    // roll (see rollToNextSeason above).
+    function remainingOwedFor(key) {
+      const rec = state.statsMap[key];
+      const gross = (rec?.earnings || 0) + (rec?.ctpEarnings || 0);
+      const rolled = Number(state.payouts[key]?.rolledAmount) || 0;
+      return { gross, rolled, remaining: Math.max(0, gross - rolled) };
+    }
+
     function updateSummary() {
       const season = state.allSeasons.find(s => s.id === state.season);
       const rosterSet = season ? new Set((season.players || []).map(n => String(n).toLowerCase())) : new Set();
-      let paidCount = 0, paidTotal = 0, owedTotal = 0;
+      let paidCount = 0, paidTotal = 0, rolledTotal = 0, owedTotal = 0;
       for (const key of rosterSet) {
-        const owed = (state.statsMap[key]?.earnings || 0) + (state.statsMap[key]?.ctpEarnings || 0);
-        owedTotal += owed;
+        const { rolled, remaining } = remainingOwedFor(key);
+        owedTotal += remaining;
+        rolledTotal += rolled;
         const p = state.payouts[key];
         if (p?.paid) { paidCount++; paidTotal += Number(p.amount) || 0; }
       }
-      $('summary').textContent = `${paidCount} paid · ${money(paidTotal)} paid out of ${money(owedTotal)} computed owed`;
+      $('summary').textContent = `${paidCount} paid · ${money(paidTotal)} paid`
+        + (rolledTotal ? ` · ${money(rolledTotal)} rolled to dues` : '')
+        + ` · ${money(owedTotal)} still owed in cash`;
     }
 
     function breakdownText(rec) {
@@ -229,12 +282,11 @@
 
       let rows = rosterNames.map(name => {
         const key = name.toLowerCase();
-        const rec = state.statsMap[key];
-        const owed = (rec?.earnings || 0) + (rec?.ctpEarnings || 0);
-        return { name, key, owed, rec, p: state.payouts[key] || {} };
+        const { gross, rolled, remaining } = remainingOwedFor(key);
+        return { name, key, gross, rolled, owed: remaining, rec: state.statsMap[key], p: state.payouts[key] || {} };
       });
 
-      if (state.hideZero) rows = rows.filter(r => r.owed > 0 || r.p.paid);
+      if (state.hideZero) rows = rows.filter(r => r.gross > 0 || r.p.paid);
       if (state.unpaidOnly) rows = rows.filter(r => !r.p.paid);
 
       $('count').textContent = season ? `${rows.length} players (${season.name})` : `${rows.length} players`;
@@ -249,7 +301,7 @@
         const unpaid = !r.p.paid;
         return `<tr class="border-b border-border/50${unpaid && r.owed > 0 ? ' unpaid-row' : ''}" data-row-user="${esc(r.name)}">
         <td class="px-4 py-2.5 font-heading font-600 tracking-wider text-white">${esc(r.name)}</td>
-        <td class="px-4 py-2.5 text-right font-mono ${r.owed ? 'text-flame' : 'text-gray-600'}">${money(r.owed)}</td>
+        <td class="px-4 py-2.5 text-right font-mono ${r.owed ? 'text-flame' : 'text-gray-600'}">${money(r.owed)}${r.rolled ? `<div class="text-[10px] text-gray-600 font-sans">(${money(r.rolled)} rolled)</div>` : ''}</td>
         <td class="px-4 py-2.5 text-center"><input type="checkbox" class="paid-check accent-[#f97316]" data-user="${esc(r.name)}" ${r.p.paid ? 'checked' : ''} /></td>
         <td class="px-4 py-2.5"><input type="date" class="field date-paid-input" data-user="${esc(r.name)}" value="${esc(r.p.datePaid || '')}" style="width:9.5rem" /></td>
         <td class="px-4 py-2.5">
