@@ -43,7 +43,7 @@
     <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
       <div>
         <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Payouts</h1>
-        <p class="text-gray-500 text-sm mt-2 max-w-xl">Money owed <span class="text-white">out</span> to winners — the mirror of Player Data's dues tracker. "Owed" is computed live from the real scoring engine (payouts + side pots + CTP); mark a player Paid once they've actually been sent money, which freezes the amount as a permanent record.</p>
+        <p class="text-gray-500 text-sm mt-2 max-w-xl">Money owed <span class="text-white">out</span> to winners — the mirror of Player Data's dues tracker. "Owed" is computed live from the real scoring engine (payouts + side pots + CTP); mark a player Paid once they've actually been sent money, which freezes the amount as a permanent record. Instead of a cash payment, you can also roll a player's winnings forward as a credit toward next season's dues.</p>
       </div>
       <span id="count" class="text-sm font-heading font-600 tracking-wider text-gray-500"></span>
     </div>
@@ -76,11 +76,12 @@
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Paid Via</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Amount Paid</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Notes</th>
+              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase" title="Current players:meta credit balance — money already rolled forward from a prior season, not yet applied to a season's dues">Credit Bal</th>
               <th class="px-2 py-3"></th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+            <tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -96,14 +97,24 @@
     import { buildPlayerStats } from '/js/stats.js?v=20261103a';
 
     const API = '/admin/api/payouts';
-    const PAY_OPTIONS = ['', 'Venmo', 'PayPal', 'Other'];
+    const META_API = '/admin/api/player-meta';
+    const PAY_OPTIONS = ['', 'Venmo', 'PayPal', 'Other', 'Credit Roll-Forward'];
     const params = new URLSearchParams(location.search);
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     const $ = id => document.getElementById(id);
     const money = n => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-    const state = { season: params.get('season') || 'season-10', allSeasons: [], statsMap: {}, payouts: {}, unpaidOnly: false, hideZero: true };
+    const state = { season: params.get('season') || 'season-10', allSeasons: [], statsMap: {}, payouts: {}, meta: {}, unpaidOnly: false, hideZero: true };
     const writeQueues = new Map();
+
+    // "Next season" for roll-forward purposes is just this season's number + 1
+    // — the literal next dues cycle a credit would apply to, not a claim
+    // about chronological order (season numbers aren't chronological by
+    // recency across this league's history, see ARCHITECTURE.md).
+    function nextSeasonLabel() {
+      const n = parseInt(state.season.replace('season-', ''), 10);
+      return Number.isFinite(n) ? `Season ${n + 1}` : 'next season';
+    }
 
     function setStatus(msg, kind) {
       const el = $('status');
@@ -121,18 +132,72 @@
       return next;
     }
 
+    // Raw POST, no queuing — queueWrite is applied once by each public
+    // caller below. setPayoutField calling itself (indirectly, via
+    // queueWrite) from inside an already-queued task for the same username
+    // would deadlock: the outer task would be awaiting a write that's
+    // queued to run only after the outer task finishes.
+    async function postPayoutField(username, field, value) {
+      const res = await fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set', season: state.season, username, field, value }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+      const d = await res.json();
+      state.payouts[username.toLowerCase()] = d.player;
+      return d.player;
+    }
+
     async function setPayoutField(username, field, value) {
       return queueWrite(username, async () => {
         try {
-          const res = await fetch(API, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'set', season: state.season, username, field, value }),
-          });
-          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
-          const d = await res.json();
-          state.payouts[username.toLowerCase()] = d.player;
+          await postPayoutField(username, field, value);
           updateSummary();
           setStatus(`${username}: payout updated.`, 'success');
+        } catch (e) { setStatus(e.message, 'error'); }
+      });
+    }
+
+    async function postCreditBalance(username, value) {
+      const res = await fetch(META_API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set', username, field: 'creditBalance', value }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Credit balance save failed');
+      const d = await res.json();
+      state.meta[username.toLowerCase()] = d.player;
+      return d.player;
+    }
+
+    // Rolls a player's computed winnings forward as a credit toward next
+    // season's dues instead of a cash payment — adds to (not replaces) any
+    // existing creditBalance, since a player could already be carrying one
+    // forward from an earlier season. Uses the exact same players:meta
+    // creditBalance field admin/player-data.html's dues tracker already
+    // reads and clears, so it shows up there automatically once that
+    // season's dues collection starts.
+    async function rollToNextSeason(username, owed) {
+      const target = nextSeasonLabel();
+      if (!confirm(`Roll ${username}'s ${money(owed)} forward as a credit toward ${target}'s dues, instead of a cash payout?`)) return;
+      return queueWrite(username, async () => {
+        try {
+          const key = username.toLowerCase();
+          const currentCredit = Number(state.meta[key]?.creditBalance) || 0;
+          await postCreditBalance(username, currentCredit + owed);
+
+          const prevNotes = state.payouts[key]?.notes || '';
+          const note = `Rolled forward to ${target} dues`;
+          const notes = prevNotes ? `${prevNotes}; ${note}` : note;
+          const today = new Date().toISOString().slice(0, 10);
+
+          await postPayoutField(username, 'paid', true);
+          await postPayoutField(username, 'service', 'Credit Roll-Forward');
+          await postPayoutField(username, 'datePaid', today);
+          await postPayoutField(username, 'amount', owed);
+          await postPayoutField(username, 'notes', notes);
+          setStatus(`${username}: ${money(owed)} rolled forward to ${target} dues.`, 'success');
+          updateSummary();
+          render();
         } catch (e) { setStatus(e.message, 'error'); }
       });
     }
@@ -175,7 +240,7 @@
       $('count').textContent = season ? `${rows.length} players (${season.name})` : `${rows.length} players`;
       const tb = $('tbody');
       if (!rows.length) {
-        tb.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 text-sm">Nothing to show for this filter.</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 text-sm">Nothing to show for this filter.</td></tr>`;
         updateSummary();
         return;
       }
@@ -194,9 +259,13 @@
         </td>
         <td class="px-4 py-2.5"><input type="number" step="0.01" min="0" class="field amount-input" data-user="${esc(r.name)}" value="${r.p.amount != null ? r.p.amount : (r.owed || '')}" placeholder="0.00" style="width:6.5rem" /></td>
         <td class="px-4 py-2.5"><input class="field notes-input" data-user="${esc(r.name)}" value="${esc(r.p.notes || '')}" placeholder="—" style="width:10rem" /></td>
-        <td class="px-2 py-2.5"><button type="button" class="details-toggle text-gray-600 hover:text-flame text-xs" data-user="${esc(r.name)}">▸</button></td>
+        <td class="px-4 py-2.5 text-right font-mono ${Number(state.meta[r.key]?.creditBalance) ? 'text-flame' : 'text-gray-700'}">${Number(state.meta[r.key]?.creditBalance) ? money(state.meta[r.key].creditBalance) : '—'}</td>
+        <td class="px-2 py-2.5 flex items-center gap-2 justify-end">
+          ${!r.p.paid && r.owed > 0 ? `<button type="button" class="roll-forward-btn text-gray-600 hover:text-flame text-[11px] font-heading font-600 tracking-wide whitespace-nowrap" data-user="${esc(r.name)}" data-owed="${r.owed}" title="Roll this amount forward as a credit toward next season's dues, instead of a cash payout">↷ Roll Fwd</button>` : ''}
+          <button type="button" class="details-toggle text-gray-600 hover:text-flame text-xs" data-user="${esc(r.name)}">▸</button>
+        </td>
       </tr>
-      <tr class="breakdown-row hidden" data-breakdown-for="${esc(r.name)}"><td colspan="8" class="px-6 py-3 text-xs text-gray-400 font-mono whitespace-pre-line">${esc(breakdownText(r.rec))}</td></tr>`;
+      <tr class="breakdown-row hidden" data-breakdown-for="${esc(r.name)}"><td colspan="9" class="px-6 py-3 text-xs text-gray-400 font-mono whitespace-pre-line">${esc(breakdownText(r.rec))}</td></tr>`;
       }).join('');
 
       tb.querySelectorAll('.paid-check').forEach(cb => {
@@ -237,17 +306,22 @@
           btn.textContent = opening ? '▾' : '▸';
         });
       });
+      tb.querySelectorAll('.roll-forward-btn').forEach(btn => {
+        btn.addEventListener('click', () => rollToNextSeason(btn.dataset.user, Number(btn.dataset.owed)));
+      });
 
       updateSummary();
     }
 
     async function loadForSeason() {
-      $('tbody').innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>`;
-      const [events, formats, payoutsRes] = await Promise.all([
+      $('tbody').innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>`;
+      const [events, formats, payoutsRes, metaRes] = await Promise.all([
         loadEvents(), loadFormats(),
         fetch(`${API}?season=${encodeURIComponent(state.season)}`),
+        fetch(META_API),
       ]);
       state.payouts = payoutsRes.ok ? ((await payoutsRes.json()).payouts || {}) : {};
+      state.meta = metaRes.ok ? ((await metaRes.json()).meta || {}) : {};
 
       const seasonEvents = events.filter(e => e.season === state.season && e.status === 'completed');
       state.statsMap = await buildPlayerStats(seasonEvents, formats);
@@ -269,7 +343,7 @@
     }
 
     init().catch(e => {
-      $('tbody').innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
+      $('tbody').innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
     });
   </script>
 </body>
