@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Season 10 Registration — MashUp Golf Tour</title>
+  <title>Season 11 Registration — MashUp Golf Tour</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png" />
@@ -51,13 +51,13 @@
          next season's launch. -->
     <div id="closed-state" class="hidden">
       <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Registration Is Closed</h1>
-      <p class="text-gray-500 text-sm mt-2 max-w-xl">Season 10 of the MashUp Golf Tour has started and registration is now closed. Leave your name and email below and we'll reach out when Season 11 opens — no commitment, just a heads-up.</p>
+      <p class="text-gray-500 text-sm mt-2 max-w-xl">Season 11 of the MashUp Golf Tour has started and registration is now closed. Leave your name and email below and we'll reach out when Season 12 opens — no commitment, just a heads-up.</p>
 
       <!-- INTEREST SUCCESS -->
       <div id="interest-success" class="hidden card-shadow bg-card border border-emerald-800/40 rounded-xl px-6 py-10 mt-8 text-center">
         <div class="text-4xl mb-3">👋</div>
         <h2 class="font-display text-3xl tracking-wider text-white">You're on the list</h2>
-        <p class="text-gray-400 text-sm mt-2 max-w-md mx-auto">Thanks, <span id="interest-success-name" class="text-flame"></span> — we'll reach out when Season 11 registration opens.</p>
+        <p class="text-gray-400 text-sm mt-2 max-w-md mx-auto">Thanks, <span id="interest-success-name" class="text-flame"></span> — we'll reach out when Season 12 registration opens.</p>
       </div>
 
       <!-- INTEREST FORM -->
@@ -75,27 +75,44 @@
           <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="interest-note">Note <span class="text-gray-600 normal-case tracking-normal">(optional)</span></label>
           <input id="interest-note" class="field" autocomplete="off" placeholder="anything we should know" />
         </div>
-        <button type="submit" id="interest-submit-btn" class="w-full py-3 rounded-lg bg-flame text-white font-heading font-700 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Notify Me for Season 11</button>
+        <button type="submit" id="interest-submit-btn" class="w-full py-3 rounded-lg bg-flame text-white font-heading font-700 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Notify Me for Season 12</button>
       </form>
     </div>
 
     <!-- OPEN STATE — the real registration flow. -->
     <div id="open-state">
-      <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Season 10 Registration</h1>
-      <p class="text-gray-500 text-sm mt-2 max-w-xl">Sign up to play Season 10 of the MashUp Golf Tour, starting <span class="text-gray-300">Monday, September 21</span>. The season costs <span class="text-gray-300">$142</span>, due in full before Week 1 — full breakdown and rules are on the <a href="rules.html" class="text-gray-400 hover:text-white underline underline-offset-2" style="transition:color 0.12s">rules page</a>. Your registration is reviewed by an admin before you're added to the season.</p>
+      <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Season 11 Registration</h1>
+      <p class="text-gray-500 text-sm mt-2 max-w-xl">Sign up to play Season 11 of the MashUp Golf Tour, starting <span class="text-gray-300">Monday, November 23</span>. The season costs <span class="text-gray-300">$142</span>, due in full before Week 1 — full breakdown and rules are on the <a href="rules.html" class="text-gray-400 hover:text-white underline underline-offset-2" style="transition:color 0.12s">rules page</a>. Your registration is reviewed by an admin before you're added to the season.</p>
+
+      <!-- SCHEDULE NOTE — Season 11-specific: Week 1 and Week 4 both run two
+           full weeks instead of one, around Thanksgiving and Christmas/New
+           Year's. Not a toggleable banner like the waitlist one below —
+           this is just season-specific schedule copy, remove/rewrite for
+           future seasons as needed. -->
+      <div class="card-shadow bg-card border border-border rounded-xl px-5 py-4 mt-6">
+        <div class="flex gap-3">
+          <span class="text-flame text-xl leading-none">🗓</span>
+          <p class="text-sm text-gray-300 leading-relaxed">
+            <span class="font-heading font-700 tracking-wide text-flame uppercase">Heads up:</span>
+            Two weeks this season run <span class="text-white">two full weeks</span> instead of one, to work around the holidays —
+            <span class="text-white">Week 1</span> (Thanksgiving) and <span class="text-white">Week 4</span> (Christmas &amp; New Year's).
+            Every other week runs the usual one-week window.
+          </p>
+        </div>
+      </div>
 
       <!-- WAITLIST ALERT — off by default; flip WAITLIST_BANNER_ENABLED in the
-           script below once Season 10 hits 30 approved players. Preview without
+           script below once Season 11 hits 30 approved players. Preview without
            activating: append ?previewWaitlistBanner=1 to this page's URL. -->
       <div id="waitlist-banner" class="hidden card-shadow bg-amber-500/10 border border-amber-500/40 rounded-xl px-5 py-4 mt-6">
         <div class="flex gap-3">
           <span class="text-amber-400 text-xl leading-none">⚠</span>
           <p class="text-sm text-amber-100 leading-relaxed">
             <span class="font-heading font-700 tracking-wide text-amber-300 uppercase">Alert:</span>
-            MashUp Season 10 has now reached an ideal number of players. Registration at this point will put you on a
+            MashUp Season 11 has now reached an ideal number of players. Registration at this point will put you on a
             <span class="text-flame font-700">waitlist</span>. If we can secure <span class="text-flame font-700">6 more players</span>
-            on the waitlist, we will allow all 6 players in. So if you have a high interest in playing in Season 10, go
-            recruit some friends. If we don't get 6 more, we'll be happy to have you in Season 11.
+            on the waitlist, we will allow all 6 players in. So if you have a high interest in playing in Season 11, go
+            recruit some friends. If we don't get 6 more, we'll be happy to have you in Season 12.
           </p>
         </div>
       </div>
@@ -191,7 +208,7 @@
   </footer>
 
   <script>
-    const SEASON = 'season-10';
+    const SEASON = 'season-11';
     const state = { returning: false, alreadyRegistered: false, changed: null, checked: false };
     const $ = id => document.getElementById(id);
 
@@ -199,7 +216,7 @@
 
     // Registration close switch — flip to false and update the copy above
     // (title, SEASON, intro paragraph) to reopen for the next season.
-    const REGISTRATION_CLOSED = true;
+    const REGISTRATION_CLOSED = false;
     show($('closed-state'), REGISTRATION_CLOSED);
     show($('open-state'), !REGISTRATION_CLOSED);
     if (REGISTRATION_CLOSED) document.title = 'Registration Closed — MashUp Golf Tour';
@@ -250,7 +267,7 @@
         const note = $('username-note');
         if (state.alreadyRegistered) {
           note.className = 'text-xs mt-1.5 text-amber-400';
-          note.textContent = '✓ This username is already registered for Season 10.';
+          note.textContent = '✓ This username is already registered for Season 11.';
           show(note, true);
         } else if (state.returning) {
           note.className = 'text-xs mt-1.5 text-emerald-400';
@@ -309,7 +326,7 @@
       const username = $('username').value.trim();
       if (!username) return setStatus('Please enter your SGT username.', 'error');
       if (!state.checked) { await checkUsername(); }
-      if (state.alreadyRegistered) return setStatus('This username is already registered for Season 10.', 'error');
+      if (state.alreadyRegistered) return setStatus('This username is already registered for Season 11.', 'error');
 
       if (!($('ag-livestream').checked && $('ag-openapi').checked && $('ag-handicap').checked && $('ag-payment').checked))
         return setStatus('Please accept all four agreements.', 'error');
@@ -391,7 +408,7 @@
       try {
         const res = await fetch('/api/interest', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bucket: 'season-11', name, email, note }),
+          body: JSON.stringify({ bucket: 'season-12', name, email, note }),
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.message || d.error || 'Submission failed.');
