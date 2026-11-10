@@ -28,6 +28,13 @@
     .big-input::-webkit-outer-spin-button, .big-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .big-input[type="number"] { -moz-appearance: textfield; }
     .saved-pill { font-size: 0.65rem; letter-spacing: 0.08em; }
+    .wind-toggle-btn {
+      flex: 1; background: #141414; border: 1px solid #2c2c2c; border-radius: 0.6rem;
+      padding: 0.65rem 0.5rem; color: #9ca3af; font-size: 0.85rem; font-weight: 600;
+      font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.02em; text-align: center;
+      transition: border-color .12s, background .12s, color .12s;
+    }
+    .wind-toggle-btn.active { border-color: rgba(249,115,22,0.6); background: rgba(249,115,22,0.1); color: #fff; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
@@ -43,7 +50,7 @@
   <main class="max-w-md mx-auto px-4 py-8 w-full flex-1 flex flex-col gap-6">
     <div>
       <h1 class="font-display text-4xl tracking-wider text-white leading-none">Elevation Calc</h1>
-      <p class="text-gray-500 text-sm mt-2 leading-relaxed">Adjusts a target yardage for altitude. For every 1,000 ft of elevation, the ball plays 2% shorter — set elevation once, then run as many target distances as you need.</p>
+      <p class="text-gray-500 text-sm mt-2 leading-relaxed">Adjusts a target yardage for altitude and wind. For every 1,000 ft of elevation, the ball plays 2% shorter — set elevation once, then run as many target distances as you need.</p>
     </div>
 
     <!-- Elevation (persists across visits) -->
@@ -62,6 +69,17 @@
       <input id="target" type="number" inputmode="decimal" step="1" class="big-input" placeholder="e.g. 100" autofocus />
     </div>
 
+    <!-- Wind -->
+    <div class="card-shadow bg-card border border-border rounded-xl p-5">
+      <label for="wind" class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase block mb-2">Wind (mph)</label>
+      <input id="wind" type="number" inputmode="decimal" step="1" min="0" class="big-input" placeholder="e.g. 8" />
+      <div class="flex gap-2 mt-3">
+        <button type="button" id="wind-hurt" class="wind-toggle-btn active" data-dir="hurt">Hurt (+1%/mph)</button>
+        <button type="button" id="wind-help" class="wind-toggle-btn" data-dir="help">Help (−0.5%/mph)</button>
+      </div>
+      <p class="text-[11px] text-gray-600 mt-2">Optional — leave at 0 to ignore wind entirely.</p>
+    </div>
+
     <!-- Result -->
     <div class="card-shadow bg-gradient-to-b from-[#241408] to-card border border-flame/25 rounded-xl p-6 text-center">
       <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Adjusted Raw Yardage</div>
@@ -78,15 +96,28 @@
     const STORAGE_KEY = 'mashup.elevationCalc.elevation';
     const elevationInput = document.getElementById('elevation');
     const targetInput = document.getElementById('target');
+    const windInput = document.getElementById('wind');
+    const windHurtBtn = document.getElementById('wind-hurt');
+    const windHelpBtn = document.getElementById('wind-help');
     const result = document.getElementById('result');
     const resultDetail = document.getElementById('result-detail');
     const savedIndicator = document.getElementById('saved-indicator');
 
-    // 2% shorter per 1,000 ft, scaling linearly — e.g. 1500 ft cuts 3%
-    // (1500/1000 * 2), so a 100 yd target plays like 97.
-    function adjustedYardage(elevationFt, targetYds) {
-      const pct = (elevationFt / 1000) * 2;
-      return { adjusted: targetYds * (1 - pct / 100), pct };
+    let windDirection = 'hurt'; // 'hurt' (headwind) or 'help' (tailwind) — doesn't matter while wind is 0
+
+    // Elevation: 2% shorter per 1,000 ft, scaling linearly — e.g. 1500 ft
+    // cuts 3% (1500/1000 * 2), so a 100 yd target plays like 97.
+    // Wind: Hurt (headwind) adds 1%/mph (needs more club); Help (tailwind)
+    // subtracts 0.5%/mph (needs less) — tailwind help is intentionally half
+    // the headwind hurt, same real-world asymmetry golfers already expect.
+    // Both scale against the raw target distance and combine additively
+    // into one net percentage, so elevation-only or wind-only (the other
+    // left at 0) behaves exactly like a single-factor calculator.
+    function adjustedYardage(elevationFt, targetYds, windMph, direction) {
+      const elevPct = (elevationFt / 1000) * 2; // positive = shorter
+      const windPct = direction === 'hurt' ? windMph : -(windMph * 0.5); // positive = longer
+      const netPct = windPct - elevPct;
+      return { adjusted: targetYds * (1 + netPct / 100), elevPct, windPct, netPct };
     }
 
     function flashSaved() {
@@ -95,9 +126,18 @@
       flashSaved._t = setTimeout(() => { savedIndicator.style.opacity = '0'; }, 1200);
     }
 
+    function setWindDirection(dir) {
+      windDirection = dir;
+      windHurtBtn.classList.toggle('active', dir === 'hurt');
+      windHelpBtn.classList.toggle('active', dir === 'help');
+      render();
+    }
+
     function render() {
       const elevation = parseFloat(elevationInput.value);
       const target = parseFloat(targetInput.value);
+      let windMph = parseFloat(windInput.value);
+      if (!Number.isFinite(windMph) || windMph < 0) windMph = 0;
 
       if (!Number.isFinite(elevation) || !Number.isFinite(target)) {
         result.textContent = '—';
@@ -105,15 +145,20 @@
         return;
       }
 
-      const { adjusted, pct } = adjustedYardage(elevation, target);
+      const { adjusted, elevPct, windPct, netPct } = adjustedYardage(elevation, target, windMph, windDirection);
       const rounded = Math.round(adjusted);
       const delta = rounded - Math.round(target);
 
       result.textContent = `${rounded} yds`;
       const sign = delta > 0 ? '+' : '';
-      resultDetail.textContent = delta === 0
-        ? 'No change at this elevation'
-        : `${sign}${delta} yds (${pct.toFixed(1)}% ${delta < 0 ? 'shorter' : 'longer'})`;
+      if (delta === 0) {
+        resultDetail.textContent = 'No change at these conditions';
+        return;
+      }
+      const main = `${sign}${delta} yds (${Math.abs(netPct).toFixed(1)}% ${netPct < 0 ? 'shorter' : 'longer'})`;
+      resultDetail.textContent = windMph > 0
+        ? `${main} — elevation ${elevPct.toFixed(1)}% shorter, wind ${windPct >= 0 ? '+' : ''}${windPct.toFixed(1)}% ${windPct >= 0 ? 'longer' : 'shorter'}`
+        : main;
     }
 
     try {
@@ -126,6 +171,9 @@
       try { localStorage.setItem(STORAGE_KEY, elevationInput.value); flashSaved(); } catch { /* best-effort */ }
     });
     targetInput.addEventListener('input', render);
+    windInput.addEventListener('input', render);
+    windHurtBtn.addEventListener('click', () => setWindDirection('hurt'));
+    windHelpBtn.addEventListener('click', () => setWindDirection('help'));
 
     render();
   </script>
