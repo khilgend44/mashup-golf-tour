@@ -77,11 +77,12 @@
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Amount Paid</th>
               <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Notes</th>
               <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase" title="Current players:meta credit balance — money already rolled forward from a prior season, not yet applied to a season's dues">Credit Bal</th>
+              <th class="text-left px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase" title="Pay service on file from Player Data (players:meta.payService) — for reference only, not necessarily what they'll use for this payout">Reg. Service</th>
               <th class="px-2 py-3"></th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+            <tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -292,7 +293,7 @@
       $('count').textContent = season ? `${rows.length} players (${season.name})` : `${rows.length} players`;
       const tb = $('tbody');
       if (!rows.length) {
-        tb.innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 text-sm">Nothing to show for this filter.</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 text-sm">Nothing to show for this filter.</td></tr>`;
         updateSummary();
         return;
       }
@@ -300,7 +301,7 @@
       tb.innerHTML = rows.map(r => {
         const unpaid = !r.p.paid;
         return `<tr class="border-b border-border/50${unpaid && r.owed > 0 ? ' unpaid-row' : ''}" data-row-user="${esc(r.name)}">
-        <td class="px-4 py-2.5 font-heading font-600 tracking-wider text-white">${esc(r.name)}</td>
+        <td class="px-4 py-2.5 font-heading font-600 tracking-wider text-white">${esc(r.name)}${state.meta[r.key]?.name ? `<div class="text-[11px] text-gray-500 font-sans font-normal tracking-normal normal-case">${esc(state.meta[r.key].name)}</div>` : ''}</td>
         <td class="px-4 py-2.5 text-right font-mono ${r.owed ? 'text-flame' : 'text-gray-600'}">${money(r.owed)}${r.rolled ? `<div class="text-[10px] text-gray-600 font-sans">(${money(r.rolled)} rolled)</div>` : ''}</td>
         <td class="px-4 py-2.5 text-center"><input type="checkbox" class="paid-check accent-[#f97316]" data-user="${esc(r.name)}" ${r.p.paid ? 'checked' : ''} /></td>
         <td class="px-4 py-2.5"><input type="date" class="field date-paid-input" data-user="${esc(r.name)}" value="${esc(r.p.datePaid || '')}" style="width:9.5rem" /></td>
@@ -312,12 +313,13 @@
         <td class="px-4 py-2.5"><input type="number" step="0.01" min="0" class="field amount-input" data-user="${esc(r.name)}" value="${r.p.amount != null ? r.p.amount : (r.owed || '')}" placeholder="0.00" style="width:6.5rem" /></td>
         <td class="px-4 py-2.5"><input class="field notes-input" data-user="${esc(r.name)}" value="${esc(r.p.notes || '')}" placeholder="—" style="width:10rem" /></td>
         <td class="px-4 py-2.5 text-right font-mono ${Number(state.meta[r.key]?.creditBalance) ? 'text-flame' : 'text-gray-700'}">${Number(state.meta[r.key]?.creditBalance) ? money(state.meta[r.key].creditBalance) : '—'}</td>
+        <td class="px-4 py-2.5 text-gray-400">${esc(state.meta[r.key]?.payService || '—')}</td>
         <td class="px-2 py-2.5 flex items-center gap-2 justify-end">
           ${!r.p.paid && r.owed > 0 ? `<button type="button" class="roll-forward-btn text-gray-600 hover:text-flame text-[11px] font-heading font-600 tracking-wide whitespace-nowrap" data-user="${esc(r.name)}" data-owed="${r.owed}" title="Roll this amount forward as a credit toward next season's dues, instead of a cash payout">↷ Roll Fwd</button>` : ''}
           <button type="button" class="details-toggle text-gray-600 hover:text-flame text-xs" data-user="${esc(r.name)}">▸</button>
         </td>
       </tr>
-      <tr class="breakdown-row hidden" data-breakdown-for="${esc(r.name)}"><td colspan="9" class="px-6 py-3 text-xs text-gray-400 font-mono whitespace-pre-line">${esc(breakdownText(r.rec))}</td></tr>`;
+      <tr class="breakdown-row hidden" data-breakdown-for="${esc(r.name)}"><td colspan="10" class="px-6 py-3 text-xs text-gray-400 font-mono whitespace-pre-line">${esc(breakdownText(r.rec))}</td></tr>`;
       }).join('');
 
       tb.querySelectorAll('.paid-check').forEach(cb => {
@@ -366,7 +368,7 @@
     }
 
     async function loadForSeason() {
-      $('tbody').innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>`;
+      $('tbody').innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>`;
       const [events, formats, payoutsRes, metaRes] = await Promise.all([
         loadEvents(), loadFormats(),
         fetch(`${API}?season=${encodeURIComponent(state.season)}`),
@@ -395,7 +397,7 @@
     }
 
     init().catch(e => {
-      $('tbody').innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
+      $('tbody').innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-red-400 text-sm">${esc(e.message)}</td></tr>`;
     });
   </script>
 </body>
