@@ -105,19 +105,22 @@
 
     let windDirection = 'hurt'; // 'hurt' (headwind) or 'help' (tailwind) — doesn't matter while wind is 0
 
-    // Elevation: 2% shorter per 1,000 ft, scaling linearly — e.g. 1500 ft
-    // cuts 3% (1500/1000 * 2), so a 100 yd target plays like 97.
+    // Sequential, not additive: wind applies to the raw target distance
+    // first, THEN elevation applies to that wind-adjusted number — the two
+    // factors compound rather than summing as flat percentages.
     // Wind: Hurt (headwind) adds 1%/mph (needs more club); Help (tailwind)
     // subtracts 0.5%/mph (needs less) — tailwind help is intentionally half
     // the headwind hurt, same real-world asymmetry golfers already expect.
-    // Both scale against the raw target distance and combine additively
-    // into one net percentage, so elevation-only or wind-only (the other
-    // left at 0) behaves exactly like a single-factor calculator.
+    // Elevation: 2% shorter per 1,000 ft, scaling linearly — e.g. 1500 ft
+    // cuts 3% (1500/1000 * 2), so a 100 yd target plays like 97.
+    // Either factor left at 0 reduces to a single-factor calculation.
     function adjustedYardage(elevationFt, targetYds, windMph, direction) {
       const elevPct = (elevationFt / 1000) * 2; // positive = shorter
       const windPct = direction === 'hurt' ? windMph : -(windMph * 0.5); // positive = longer
-      const netPct = windPct - elevPct;
-      return { adjusted: targetYds * (1 + netPct / 100), elevPct, windPct, netPct };
+      const windAdjusted = targetYds * (1 + windPct / 100);
+      const adjusted = windAdjusted * (1 - elevPct / 100);
+      const netPct = targetYds ? (adjusted / targetYds - 1) * 100 : 0;
+      return { adjusted, elevPct, windPct, netPct, windAdjusted };
     }
 
     function flashSaved() {
