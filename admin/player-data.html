@@ -114,6 +114,13 @@
     const state = { meta: {}, parsed: [], dues: {}, season: '', allSeasons: [], unpaidOnly: false };
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    // Local calendar date, not toISOString().slice(0,10) — that reads UTC,
+    // which rolls over to tomorrow's date for anyone west of UTC once it's
+    // evening locally.
+    function todayLocal() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
 
     function setStatus(msg, kind) {
       const el = $('status');
@@ -311,7 +318,7 @@
           if (cb.checked) {
             const dateInput = cb.closest('tr').querySelector('.date-paid-input');
             if (dateInput && !dateInput.value) {
-              const today = new Date().toISOString().slice(0, 10);
+              const today = todayLocal();
               dateInput.value = today;
               await setDuesField(cb.dataset.user, 'datePaid', today);
             }
