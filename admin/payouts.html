@@ -104,6 +104,14 @@
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     const $ = id => document.getElementById(id);
     const money = n => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    // Local calendar date, not toISOString().slice(0,10) — that reads UTC,
+    // which rolls over to tomorrow's date for anyone west of UTC once it's
+    // evening locally (confirmed: showed Nov 10 while it was still Nov 9
+    // in-browser).
+    function todayLocal() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
 
     const state = { season: params.get('season') || 'season-10', allSeasons: [], statsMap: {}, payouts: {}, meta: {}, unpaidOnly: false, hideZero: true };
     const writeQueues = new Map();
@@ -220,7 +228,7 @@
             ? `Rolled ${money(rollAmount)} forward to ${target} dues (dues cap) — ${money(remainder)} still owed in cash`
             : `Rolled ${money(rollAmount)} forward to ${target} dues`;
           const notes = prevNotes ? `${prevNotes}; ${note}` : note;
-          const today = new Date().toISOString().slice(0, 10);
+          const today = todayLocal();
 
           await postPayoutField(username, 'rolledAmount', alreadyRolled + rollAmount);
           await postPayoutField(username, 'service', 'Credit Roll-Forward');
@@ -329,7 +337,7 @@
           if (cb.checked) {
             const dateInput = tr.querySelector('.date-paid-input');
             if (dateInput && !dateInput.value) {
-              const today = new Date().toISOString().slice(0, 10);
+              const today = todayLocal();
               dateInput.value = today;
               await setPayoutField(cb.dataset.user, 'datePaid', today);
             }
