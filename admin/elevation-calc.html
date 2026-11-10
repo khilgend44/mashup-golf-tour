@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Elevation Calc — MashUp Golf Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { flame: '#f97316', 'flame-dim': '#c2530f', surface: '#141414', card: '#1e1e1e', border: '#2c2c2c' },
+      fontFamily: { display: ['"Bebas Neue"','cursive'], heading: ['"Barlow Condensed"','sans-serif'], body: ['"Inter"','sans-serif'] },
+    } } };
+  </script>
+  <style>
+    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
+    .text-flame { color: #f97316; }
+    .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
+    .big-input {
+      background: #141414; border: 1px solid #2c2c2c; border-radius: 0.75rem;
+      padding: 0.9rem 1rem; color: #fff; font-size: 1.5rem; font-weight: 600;
+      width: 100%; -webkit-appearance: none; appearance: none;
+    }
+    .big-input::placeholder { color: #4b5563; font-weight: 400; }
+    .big-input:focus { outline: none; border-color: rgba(249,115,22,0.6); box-shadow: 0 0 0 3px rgba(249,115,22,0.12); }
+    /* Hide number spinners — thumb-typed on a phone, spinners just eat tap area */
+    .big-input::-webkit-outer-spin-button, .big-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .big-input[type="number"] { -moz-appearance: textfield; }
+    .saved-pill { font-size: 0.65rem; letter-spacing: 0.08em; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+
+  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-md mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="index.html" class="text-gray-500 hover:text-gray-300 font-heading font-semibold tracking-wider text-sm" style="transition:color .12s">← Admin</a>
+      <span class="text-border">/</span>
+      <span class="font-heading font-semibold tracking-wider text-sm text-flame">Elevation Calc</span>
+    </div>
+  </nav>
+
+  <main class="max-w-md mx-auto px-4 py-8 w-full flex-1 flex flex-col gap-6">
+    <div>
+      <h1 class="font-display text-4xl tracking-wider text-white leading-none">Elevation Calc</h1>
+      <p class="text-gray-500 text-sm mt-2 leading-relaxed">Adjusts a target yardage for altitude. For every 1,000 ft of elevation, the ball plays 2% shorter — set elevation once, then run as many target distances as you need.</p>
+    </div>
+
+    <!-- Elevation (persists across visits) -->
+    <div class="card-shadow bg-card border border-border rounded-xl p-5">
+      <div class="flex items-center justify-between mb-2">
+        <label for="elevation" class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase">Elevation (ft)</label>
+        <span id="saved-indicator" class="saved-pill font-heading font-600 tracking-widest text-gray-600 uppercase opacity-0" style="transition:opacity .4s">Saved</span>
+      </div>
+      <input id="elevation" type="number" inputmode="decimal" step="1" class="big-input" placeholder="e.g. 1500" />
+      <p class="text-[11px] text-gray-600 mt-2">Stays set for next time — this is the course, not the shot.</p>
+    </div>
+
+    <!-- Target Distance -->
+    <div class="card-shadow bg-card border border-border rounded-xl p-5">
+      <label for="target" class="text-xs font-heading font-600 tracking-widest text-gray-500 uppercase block mb-2">Target Distance (yds)</label>
+      <input id="target" type="number" inputmode="decimal" step="1" class="big-input" placeholder="e.g. 100" autofocus />
+    </div>
+
+    <!-- Result -->
+    <div class="card-shadow bg-gradient-to-b from-[#241408] to-card border border-flame/25 rounded-xl p-6 text-center">
+      <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-2">Adjusted Raw Yardage</div>
+      <div id="result" class="font-display text-6xl tracking-wider text-white leading-none">—</div>
+      <div id="result-detail" class="text-sm text-gray-500 mt-2 font-body">Enter elevation and target distance</div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border py-5 mt-auto">
+    <div class="max-w-md mx-auto px-4 text-xs text-gray-700 font-body">MashUp Golf Tour — Admin</div>
+  </footer>
+
+  <script>
+    const STORAGE_KEY = 'mashup.elevationCalc.elevation';
+    const elevationInput = document.getElementById('elevation');
+    const targetInput = document.getElementById('target');
+    const result = document.getElementById('result');
+    const resultDetail = document.getElementById('result-detail');
+    const savedIndicator = document.getElementById('saved-indicator');
+
+    // 2% shorter per 1,000 ft, scaling linearly — e.g. 1500 ft cuts 3%
+    // (1500/1000 * 2), so a 100 yd target plays like 97.
+    function adjustedYardage(elevationFt, targetYds) {
+      const pct = (elevationFt / 1000) * 2;
+      return { adjusted: targetYds * (1 - pct / 100), pct };
+    }
+
+    function flashSaved() {
+      savedIndicator.style.opacity = '1';
+      clearTimeout(flashSaved._t);
+      flashSaved._t = setTimeout(() => { savedIndicator.style.opacity = '0'; }, 1200);
+    }
+
+    function render() {
+      const elevation = parseFloat(elevationInput.value);
+      const target = parseFloat(targetInput.value);
+
+      if (!Number.isFinite(elevation) || !Number.isFinite(target)) {
+        result.textContent = '—';
+        resultDetail.textContent = 'Enter elevation and target distance';
+        return;
+      }
+
+      const { adjusted, pct } = adjustedYardage(elevation, target);
+      const rounded = Math.round(adjusted);
+      const delta = rounded - Math.round(target);
+
+      result.textContent = `${rounded} yds`;
+      const sign = delta > 0 ? '+' : '';
+      resultDetail.textContent = delta === 0
+        ? 'No change at this elevation'
+        : `${sign}${delta} yds (${pct.toFixed(1)}% ${delta < 0 ? 'shorter' : 'longer'})`;
+    }
+
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved != null) elevationInput.value = saved;
+    } catch { /* private browsing / blocked storage — just starts blank */ }
+
+    elevationInput.addEventListener('input', () => {
+      render();
+      try { localStorage.setItem(STORAGE_KEY, elevationInput.value); flashSaved(); } catch { /* best-effort */ }
+    });
+    targetInput.addEventListener('input', render);
+
+    render();
+  </script>
+</body>
+</html>

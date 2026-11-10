@@ -43,6 +43,7 @@ SimulatorGolfTour API  (provides live scorecard data)
   - `/admin/registrations.html` — review Season N signups (see **10. Season Registration** below)
   - `/admin/payouts.html` — track money paid out to winners (see **13. Payouts & Admin Money Tracker** below)
   - `/admin/money-tracker.html` — the league's own operating-fund ledger (see **13. Payouts & Admin Money Tracker** below)
+  - `/admin/elevation-calc.html` — mobile-optimized altitude yardage calculator, no KV/API involved (see **14. Elevation Calc** below)
   - `/admin/player-data.html` — the persistent player record (name, Discord, email, launch monitor, region, usual pay service) plus a season-scoped **dues tracker**: per season, mark each player Paid, the date, which service they used, and the amount — with a live "X paid · $Y collected" summary. Season selector defaults to the active season. Distinct from the "Pay Service" column, which just records a player's usual payment app, not a specific season's payment status.
   - `/admin/events.html` — create/manage seasons and events
     - SGT Event URL must be entered first — it unlocks the rest of the form and auto-populates event name, dates, rounds, and week number
@@ -315,6 +316,13 @@ Two independent admin panels, built together but tracking different money. Neith
   - `kind: 'season'` — `{ label, players, feePerPlayer, easterEgg, evictedFees }`, net = `players × feePerPlayer − easterEgg − evictedFees`.
   - `kind: 'adjustment'` — `{ label, amount, note }`, net = `amount` as entered (negative = money out, e.g. an HIO donation).
   The **Admin Fee Bank** total shown at the top is just the sum of every entry's net, computed client-side from the full list — never stored separately, so it can't drift from the entries themselves. Every field is inline-editable (plain `<input>`s, saved via `update-entry` on change) and rows can be deleted; a **"Seed Historical Data"** button (hardcoded `SEED_SEASONS`/`SEED_ADJUSTMENTS` arrays in the page, posted via one `add-entries` bulk call) only shows while the ledger is still empty, covering the admin's own historical spreadsheet: Season 0 through Season 9, **Season 10 added new** ($13/player × 30 players, matching `rules.html`'s Cost & Entry Fee table's SGT Admin Fee line), plus the two known HIO donations (S1: -$150, S6: -$100). Verified the historical math against the admin's own spreadsheet before building: summing all 10 season-row nets gives exactly $3,228.40, minus the two donations gives exactly $2,978.40 — both matched the spreadsheet's own subtotal/total cells.
+
+### 14. Elevation Calc (added 2026-11)
+
+- **`admin/elevation-calc.html`** — a mobile-optimized calculator for adjusting a target yardage for altitude. No KV, no API calls, no backend at all — pure client-side math, entirely self-contained in one page (same class as `hole-in-one.html`'s "deliberately not wired to KV" choice, just simpler: there's nothing here to persist server-side).
+- **Formula:** for every 1,000 ft of elevation, the adjusted yardage is 2% less than the target distance, scaling linearly: `pct = (elevationFt / 1000) * 2`, `adjusted = targetYds * (1 - pct / 100)`, rounded to the nearest whole yard. Negative elevation (below sea level) falls out of the same formula naturally — it lengthens the adjusted yardage instead of shortening it. Verified against the spec example: 1,500 ft + 100 yd target → 97 yds.
+- **Elevation is the "static" field** — set once for a course and read repeatedly while running many target distances through it, so it's persisted to `localStorage` (`mashup.elevationCalc.elevation`) and restored on load; Target Distance is the one that changes shot-to-shot, so it isn't persisted. Both recompute the result live on `input`, no submit button. `localStorage` read/write is wrapped in try/catch (private browsing, blocked storage) — the page still works, it just won't remember elevation next time.
+- Linked as a portal tile on `admin/index.html` (Season & Reference grid). Layout is single-column, capped at `max-w-md`, with large tap-friendly inputs (`inputmode="decimal"`, spinner arrows hidden) — built for use on a phone mid-round, not a desktop admin session like the rest of the portal.
 
 ---
 
