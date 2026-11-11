@@ -1,6 +1,6 @@
 {
   "tournamentId": 81255,
-  "generatedAt": "2026-11-11T12:22:05Z",
+  "generatedAt": "2026-11-11T19:58:45Z",
   "driveOfWeek": [
     {
       "player": "toursauce86",
@@ -59,8 +59,7 @@
       "player": "jboettner",
       "hole": 9,
       "lengthFt": 47.0,
-      "shotNum": 3,
-      "video": "https://www.youtube.com/watch?v=JfTd_nwJ80Y&t=956s"
+      "shotNum": 3
     },
     {
       "player": "boilertimmay",
