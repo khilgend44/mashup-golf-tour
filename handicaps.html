@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Handicaps — MashUp Golf Tour</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -43,70 +44,98 @@
     details > summary::-webkit-details-marker { display: none; }
     .dd-chev { display: inline-block; transition: transform 0.15s; }
     details[open] .dd-chev { transform: rotate(90deg); }
-    tr:hover td { background: rgba(255,255,255,0.025); }
+    @media (hover: hover) { tr:hover td { background: rgba(255,255,255,0.025); } }
     tr.baseline-row td { background: rgba(249,115,22,0.07); }
     tr.baseline-row td:first-child { border-left: 2px solid rgba(249,115,22,0.6); }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
 
-  <!-- HEADER -->
-  <header class="border-b border-border">
-    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <span class="font-display text-2xl tracking-wider text-white">MASHUP GOLF TOUR</span>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Handicaps</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
-      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color 0.12s">← Back to Site</a>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
 
-    <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
-      <div>
+  <main class="max-w-5xl mx-auto px-4 pt-5 sm:pt-8 pb-12 w-full flex-1">
+
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-5">
+      <div class="min-w-0">
         <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">MashCAP Handicaps</h1>
-        <p class="text-gray-500 text-sm mt-2 max-w-xl">A player's MashCAP is the average of the best <span class="text-gray-300">40%</span> of the rounds in their SGT Combo log. <span class="text-gray-300">Adjusted</span> is relative to the lowest player in the season and is used for each weeks' handicap application.</p>
+        <p class="text-gray-400 text-sm mt-2 max-w-xl">A player's MashCAP is the average of the best <span class="text-gray-200">40%</span> of the rounds in their SGT Combo log. <span class="text-gray-200">Adjusted</span> is relative to the lowest player in the season and is used for each weeks' handicap application.</p>
       </div>
       <select id="season-select"
-        class="bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-lg tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer">
+        class="w-full sm:w-auto min-h-[44px] bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-lg tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer">
       </select>
     </div>
 
-    <details class="mb-6 rounded-lg border border-border bg-card">
-      <summary class="cursor-pointer select-none px-5 py-4 flex items-start gap-3 font-heading font-600 tracking-wide text-flame hover:text-flame-dim" style="transition:color 0.12s">
-        <span class="dd-chev text-gray-500 mt-0.5">▶</span>
+    <details class="mb-5 rounded-lg border border-border bg-card">
+      <summary class="cursor-pointer select-none px-4 sm:px-5 py-3 min-h-[48px] flex items-start gap-3 font-heading font-600 tracking-wide text-base text-flame" style="transition:color 0.12s">
+        <span class="dd-chev text-gray-400 mt-1">▶</span>
         <span>Why does MashUp use a unique MashCAP instead of the COMBO handicap?</span>
       </summary>
-      <div class="px-5 pb-5 pt-1 text-sm text-gray-400 font-body leading-relaxed space-y-3 max-w-3xl">
+      <div class="px-4 sm:px-5 pb-5 pt-1 text-sm text-gray-400 font-body leading-relaxed space-y-3 max-w-3xl">
         <p>The aim of MashUp has always been to create a fair playing field in Simulator Golf using <span class="text-gray-200">NET scoring</span>. Over time there have been multiple changes to the way SGT calculates the COMBO handicap, and we've had to adjust each time.</p>
         <p>Currently, the COMBO handicap creates an imbalance across players depending on how many total rounds a player has played. For example, a player with <span class="text-gray-200">20 rounds</span> counts the average of their best <span class="text-gray-200">12</span> — that's <span class="text-gray-200">60%</span> of their total. A player at <span class="text-gray-200">48 rounds</span> counts the average of their best <span class="text-gray-200">16</span> — only <span class="text-gray-200">33%</span>. We believe this creates unfair handicaps.</p>
         <p>The USGA aims to keep roughly <span class="text-flame">40%</span> of total rounds as the counting average. So our <span class="text-flame font-600">MashCAP</span> formula takes each player's total rounds, finds the number that equals 40% of them, and averages those best rounds.</p>
-        <p class="text-gray-500">For example: at <span class="text-gray-300">20 rounds</span> it averages the best <span class="text-gray-300">8</span>; at <span class="text-gray-300">30 rounds</span>, the best <span class="text-gray-300">12</span>; at <span class="text-gray-300">48 rounds</span>, the best <span class="text-gray-300">19</span>.</p>
+        <p class="text-gray-400">For example: at <span class="text-gray-300">20 rounds</span> it averages the best <span class="text-gray-300">8</span>; at <span class="text-gray-300">30 rounds</span>, the best <span class="text-gray-300">12</span>; at <span class="text-gray-300">48 rounds</span>, the best <span class="text-gray-300">19</span>.</p>
       </div>
     </details>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
 
-    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
-      <div class="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
-        <h2 class="font-display text-2xl tracking-wider text-white">ROSTER <span id="player-count" class="text-gray-600 text-lg"></span></h2>
-        <span id="last-updated" class="text-xs font-body text-gray-600"></span>
+    <div class="card-shadow bg-card border border-border rounded-lg mu-clip">
+      <div class="px-4 sm:px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-display text-2xl tracking-wider text-white">ROSTER <span id="player-count" class="text-gray-400 text-lg"></span></h2>
+        <span id="last-updated" class="text-xs font-body text-gray-400"></span>
       </div>
-      <div class="overflow-auto" style="max-height: calc(100vh - 16rem)">
+      <div class="mu-tablewrap" style="--mu-cap:16rem">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-border">
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">MashCAP</th>
-              <th class="text-left  px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Adjusted</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Total Events</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Counting Events</th>
-              <th class="px-4 py-3"></th>
+              <th class="text-center px-2 sm:px-4 py-3 text-xs font-heading font-600 tracking-widest text-flame uppercase">MashCAP</th>
+              <th class="text-left  px-2 sm:px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Player</th>
+              <th class="text-center px-2 sm:px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Adjusted</th>
+              <th class="text-center px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase hidden sm:table-cell">Total Events</th>
+              <th class="text-center px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase hidden sm:table-cell">Counting Events</th>
+              <th class="px-4 py-3 hidden sm:table-cell"></th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="6" class="px-6 py-12 text-center text-gray-600 font-body text-sm">Loading…</td></tr>
+            <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400 font-body text-sm">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -171,7 +200,7 @@
       document.getElementById('player-count').textContent = `(${rows.length})`;
 
       if (rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-600 font-body text-sm">No players in this season.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400 font-body text-sm">No players in this season.</td></tr>`;
         return;
       }
 
@@ -179,16 +208,28 @@
         const hasMc = r.mc !== null;
         const adjusted = hasMc && minMc !== null ? Math.round(r.mc - minMc) : null;
         const isBaseline = hasMc && r.mc === minMc;
+        const href = `counting-events.html?player=${encodeURIComponent(r.name)}`;
+        // Desktop: its own right-hand column. Phone: a 44px-tall tap target under the name instead.
         const link = hasMc
-          ? `<a href="counting-events.html?player=${encodeURIComponent(r.name)}" class="text-xs font-heading font-600 tracking-wider text-gray-500 hover:text-flame" style="transition:color 0.12s">See Counting Events →</a>`
+          ? `<a href="${href}" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color 0.12s">See Counting Events →</a>`
           : '';
+        // Total / counting events are hidden columns on phones — fold them into one line under the name. For a
+        // player with a MashCAP that whole line is the (40px-tall) link to their counting events.
+        const statsText = `${r.rounds != null ? r.rounds : '—'} rounds · ${r.counting != null ? r.counting : '—'} counting`;
+        const phoneStats = hasMc
+          ? `<a href="${href}" class="sm:hidden block py-2.5 leading-5 whitespace-nowrap max-[389px]:whitespace-normal text-sm font-body text-gray-400">${statsText}<span class="text-flame ml-1.5" aria-hidden="true">→</span><span class="sr-only"> — see counting events</span></a>`
+          : ((r.rounds != null || r.counting != null) ? `<div class="sm:hidden text-sm font-body text-gray-400 py-1">${statsText}</div>` : '');
+        const phoneLink = '';
         return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}">
-          <td class="px-4 py-3 text-center font-body text-sm text-flame font-600 ${r.stale ? 'opacity-60' : ''}">${hasMc ? hcpDisplay(r.mc) + (r.stale ? `<span class="text-gray-500 font-normal" title="Last known — this player wasn't in the latest SGT handicap pull">*</span>` : '') : '<span class="text-gray-600">—</span>'}</td>
-          <td class="px-4 py-3 font-heading font-600 tracking-wider text-sm"><a href="player.html?name=${encodeURIComponent(r.name)}" class="text-white hover:text-flame" style="transition:color .12s">${r.name}</a></td>
-          <td class="px-4 py-3 text-center font-body text-sm text-white">${adjusted !== null ? adjusted : '<span class="text-gray-600">—</span>'}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.rounds != null ? r.rounds : '—'}</td>
-          <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.counting != null ? r.counting : '—'}</td>
-          <td class="px-4 py-3 text-right whitespace-nowrap">${link}</td>
+          <td class="px-2 sm:px-4 py-3 text-center font-body text-base sm:text-sm text-flame font-600 ${r.stale ? 'opacity-60' : ''}">${hasMc ? hcpDisplay(r.mc) + (r.stale ? `<span class="text-gray-400 font-normal" title="Last known — this player wasn't in the latest SGT handicap pull">*</span>` : '') : '<span class="text-gray-500">—</span>'}</td>
+          <td class="px-2 sm:px-4 py-3 font-heading font-600 tracking-wider text-base sm:text-sm min-w-0">
+            <a href="player.html?name=${encodeURIComponent(r.name)}" class="inline-block py-1 text-white sm:hover:text-flame break-words" style="transition:color .12s">${r.name}</a>
+            ${phoneStats}${phoneLink}
+          </td>
+          <td class="px-2 sm:px-4 py-3 text-center font-body text-base sm:text-sm text-white">${adjusted !== null ? adjusted : '<span class="text-gray-500">—</span>'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400 hidden sm:table-cell">${r.rounds != null ? r.rounds : '—'}</td>
+          <td class="px-4 py-3 text-center font-body text-sm text-gray-400 hidden sm:table-cell">${r.counting != null ? r.counting : '—'}</td>
+          <td class="px-4 py-3 text-right whitespace-nowrap hidden sm:table-cell">${link}</td>
         </tr>`;
       }).join('');
     }
@@ -232,5 +273,6 @@
 
     init();
   </script>
+  <script src="js/nav.js"></script>
 </body>
 </html>
