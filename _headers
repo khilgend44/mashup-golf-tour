@@ -9,6 +9,11 @@
 /js/*
   Cache-Control: no-cache
 
+# Same reasoning for the shared stylesheet (css/theme.css) — a visual fix
+# shouldn't sit behind a stale cached copy.
+/css/*
+  Cache-Control: no-cache
+
 # Scorecards already got no-store at the fetch call itself (js/api.js), but
 # set it here too as defense-in-depth against any cache layer that ignores
 # fetch-level cache options.

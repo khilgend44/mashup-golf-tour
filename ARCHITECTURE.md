@@ -33,6 +33,14 @@ SimulatorGolfTour API  (provides live scorecard data)
 - **Heads-up (Zscaler):** on corporate network, `mashupgolf.com` is blocked by Zscaler's *"Newly Registered and Observed Domains"* category (the page is fine — Zscaler intercepts before it reaches Cloudflare). Use `pages.dev` on the corporate network, or test from a non-corporate network; the block clears as the domain ages (~30 days) or via an InfoSec allowlist request.
 - If a deploy ever seems stuck (rare Cloudflare-side hiccup), an empty commit (`git commit --allow-empty`) re-triggers it.
 
+### 1b. Shared Theme — `css/theme.css` (added 2026-11)
+- Design tokens (`:root` custom properties: surfaces, borders, `--flame`/`--live`/`--win`/`--cold`, font stacks) plus reusable components (nav, hero, live card, event row, standings panel, chips, buttons). **Every component class is `mu-` prefixed** so it can't collide with a page's inline `<style>` or Tailwind utilities.
+- **Loaded alongside the Tailwind CDN, not instead of it.** Existing pages keep their inline styles until migrated one at a time; token values mirror each page's `tailwind.config` colors (`flame`, `surface`, `card`, `border`) — change both together.
+- **Color meaning is deliberately strict:** flame = interactive/primary/hot, live (amber) = in-progress event, win (green) = positive/completed, cold (blue) = cold form only. Game formats get **no** color — the format shows as a neutral `.mu-fmt` tag (design review picked this over per-format colors and over per-format icons).
+- **Mobile first — most players use phones.** Base rules target ~390px; wider layouts are `min-width` additions. Standing rules for every component (and any page migrated onto this file): tap targets ≥ 44px, body-ish text ≥ 13px, hover effects only inside `@media (hover: hover)` (no sticky hover after a tap), safe-area gutters (`viewport-fit=cover` in the page's viewport meta), nothing may cause horizontal scroll. On phones the layout is single-column in source order: events/results first, then the sidebar (standings/form) — a deliberate choice, results come before standings. Verify at a true 390px — headless Chrome enforces a ~500px minimum window, so render the page inside a 390px-wide `<iframe>` rather than using `--window-size=390`.
+- `_headers` sets `/css/*` to `no-cache`, same reasoning as `/js/*`.
+- Reference implementation: `mockups/home-v2-opt1.html` (static sample data, not linked from the site). **No production page uses `theme.css` yet.** Showing winners per event and a standings/form sidebar on the home page would need new data loaded there — it isn't fetched today.
+
 ### 2. Admin Portal — `/admin`
 - **URL:** https://mashup-golf-tour.pages.dev/admin
 - Protected by **Cloudflare Access** (Google SSO — only approved Google accounts can log in)

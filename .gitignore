@@ -16,3 +16,6 @@ secrets.sh
 # Temporary screenshots (local only)
 temporary screenshots/
 __pycache__/
+
+# Local design mockups (sample data uses real usernames — never deploy)
+mockups/
