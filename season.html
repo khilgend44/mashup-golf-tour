@@ -44,12 +44,14 @@
        56px nav; from sm up the table scrolls inside its own capped box. overflow must stay visible on phones,
        otherwise the wrapper becomes the sticky header's scroll container and it never pins to the viewport. */
     .st-wrap { border-radius: 12px; }
-    @media (max-width: 639px) {
+    /* "Phone" here means narrow OR short — a phone held sideways is wide but only ~390px tall, where a
+       100vh − 12rem box would be a ~200px window onto the table. Short screens page-scroll too. */
+    @media (max-width: 639px), (max-height: 699px) {
       .st-wrap thead th { top: 56px; }
       .st-wrap thead th:first-child { border-top-left-radius: 12px; }
       .st-wrap thead th:last-child  { border-top-right-radius: 12px; }
     }
-    @media (min-width: 640px) { .st-wrap { overflow: auto; max-height: calc(100vh - 12rem); } }
+    @media (min-width: 640px) and (min-height: 700px) { .st-wrap { overflow: auto; max-height: calc(100vh - 12rem); } }
     .standings-row { transition: background 0.1s; }
     .under { color: #4ade80; }
   </style>
