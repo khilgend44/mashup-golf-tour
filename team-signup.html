@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>2-Man Team Signup — MashUp Golf</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css?v=20261112a" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -40,21 +41,51 @@
 </head>
 <body class="text-gray-100 min-h-screen">
 
-  <header class="border-b border-border">
-    <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Team Signup</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-3xl mx-auto px-4 py-8">
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
+
+  <main class="max-w-3xl mx-auto px-4 pt-5 sm:pt-8 pb-12">
     <div class="flex items-center gap-3 flex-wrap mb-2">
       <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none" id="page-title">2-MAN TEAM SIGNUP</h1>
       <span id="format-chip" class="text-xs font-heading font-600 tracking-widest uppercase px-3 py-1 rounded-lg bg-flame/12 border border-flame/35 text-flame-dim" style="color:#fb923c"></span>
     </div>
-    <p class="text-gray-500 text-sm mb-4" id="page-sub">Loading…</p>
+    <p class="text-gray-400 text-sm mb-4" id="page-sub">Loading…</p>
 
     <div id="mm-warning" class="flex items-start gap-2 bg-flame/10 border border-flame/30 rounded-lg px-4 py-3 mb-6 text-sm text-flame">
       <span class="mt-0.5 shrink-0">⚠</span>
@@ -62,59 +93,60 @@
     </div>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-5"></div>
-    <div id="loading" class="text-center py-16 text-gray-600 text-sm">Loading roster…</div>
+    <div id="loading" class="text-center py-16 text-gray-400 text-sm">Loading roster…</div>
 
     <div id="app" class="hidden space-y-6">
 
       <!-- Locked pairs -->
       <section>
-        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-2">Locked In</h2>
+        <h2 class="text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-2">Locked In</h2>
         <div id="pairs-list" class="border border-border/50 rounded-lg bg-surface card-shadow divide-y divide-[#1f1f1f]"></div>
-        <p id="pairs-empty" class="text-xs text-gray-600 font-body hidden">No pairs locked in yet — be the first.</p>
+        <p id="pairs-empty" class="text-sm text-gray-400 font-body hidden">No pairs locked in yet — be the first.</p>
       </section>
 
       <!-- Looking for a partner -->
       <section>
-        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-2">Looking For a Partner</h2>
+        <h2 class="text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-2">Looking For a Partner</h2>
         <div id="solo-list" class="border border-border/50 rounded-lg bg-surface card-shadow divide-y divide-[#1f1f1f]"></div>
-        <p id="solo-empty" class="text-xs text-gray-600 font-body hidden">Nobody's looking for a partner right now.</p>
+        <p id="solo-empty" class="text-sm text-gray-400 font-body hidden">Nobody's looking for a partner right now.</p>
       </section>
 
       <!-- Not yet signed up -->
       <section>
-        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-2">Not Yet Signed Up</h2>
+        <h2 class="text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-2">Not Yet Signed Up</h2>
         <div id="open-list" class="flex flex-wrap gap-2"></div>
-        <p id="open-empty" class="text-xs text-gray-600 font-body hidden">Everyone's signed up.</p>
+        <p id="open-empty" class="text-sm text-gray-400 font-body hidden">Everyone's signed up.</p>
       </section>
 
       <!-- Sign up -->
       <section class="border border-border/50 rounded-lg bg-surface card-shadow p-5">
-        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-3">Sign Up</h2>
+        <h2 class="text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-3">Sign Up</h2>
 
-        <div class="inline-flex rounded-lg border border-border/60 overflow-hidden mb-4 text-xs font-heading font-600 tracking-wider">
-          <button type="button" id="mode-pair-btn" class="seg-btn active px-4 py-2">I have a partner</button>
-          <button type="button" id="mode-solo-btn" class="seg-btn px-4 py-2">I need a partner</button>
+        <!-- Full-width two-way switch on phones (each half 48px tall), compact from sm up. -->
+        <div class="flex sm:inline-flex rounded-lg border border-border/60 overflow-hidden mb-4 text-base font-heading font-600 tracking-wider">
+          <button type="button" id="mode-pair-btn" class="seg-btn active flex-1 sm:flex-none min-h-[48px] px-4" aria-pressed="true">I have a partner</button>
+          <button type="button" id="mode-solo-btn" class="seg-btn flex-1 sm:flex-none min-h-[48px] px-4" aria-pressed="false">I need a partner</button>
         </div>
 
         <form id="signup-form" class="space-y-3">
           <div>
-            <label class="block text-xs text-gray-500 font-body mb-1">Your name</label>
-            <select id="su-player" required class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body">
+            <label class="block text-sm text-gray-400 font-body mb-1.5">Your name</label>
+            <select id="su-player" required class="w-full min-h-[48px] border border-border/60 rounded-lg px-3 py-3 text-base text-gray-200 font-body">
               <option value="">— Select your name —</option>
             </select>
           </div>
           <div id="partner-field">
-            <label class="block text-xs text-gray-500 font-body mb-1">Partner's name</label>
-            <select id="su-partner" class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body">
+            <label class="block text-sm text-gray-400 font-body mb-1.5">Partner's name</label>
+            <select id="su-partner" class="w-full min-h-[48px] border border-border/60 rounded-lg px-3 py-3 text-base text-gray-200 font-body">
               <option value="">— Select their name —</option>
             </select>
           </div>
           <div id="note-field" class="hidden">
-            <label class="block text-xs text-gray-500 font-body mb-1">Note for others <span class="text-gray-700">(optional — availability, what you're looking for, etc.)</span></label>
+            <label class="block text-sm text-gray-400 font-body mb-1.5">Note for others <span class="text-gray-500">(optional — availability, what you're looking for, etc.)</span></label>
             <textarea id="su-note" maxlength="140" rows="2" placeholder="e.g. Only free evenings after 6pm, or I'd rather not carry the whole match myself"
-              class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body resize-none"></textarea>
+              class="w-full min-h-[48px] border border-border/60 rounded-lg px-3 py-3 text-base text-gray-200 font-body resize-none"></textarea>
           </div>
-          <button type="submit" id="su-submit" class="px-5 py-2 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background 0.15s">
+          <button type="submit" id="su-submit" class="w-full sm:w-auto min-h-[52px] px-6 rounded-lg bg-flame text-white text-lg font-heading font-700 tracking-wider active:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background 0.15s">
             Lock It In
           </button>
         </form>
@@ -122,19 +154,19 @@
 
       <!-- Withdraw -->
       <section class="border border-border/50 rounded-lg bg-surface card-shadow p-5">
-        <h2 class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-3">Changed Your Mind?</h2>
+        <h2 class="text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-3">Changed Your Mind?</h2>
         <form id="withdraw-form" class="flex flex-wrap items-end gap-3">
-          <div class="flex-1 min-w-[180px]">
-            <label class="block text-xs text-gray-500 font-body mb-1">Your name</label>
-            <select id="wd-player" class="w-full border border-border/60 rounded-lg px-3 py-2 text-sm text-gray-200 font-body">
+          <div class="flex-1 min-w-[220px]">
+            <label class="block text-sm text-gray-400 font-body mb-1.5">Your name</label>
+            <select id="wd-player" class="w-full min-h-[48px] border border-border/60 rounded-lg px-3 py-3 text-base text-gray-200 font-body">
               <option value="">— Select your name —</option>
             </select>
           </div>
-          <button type="submit" id="wd-submit" class="px-5 py-2 rounded-lg border border-red-800/50 text-red-400 text-sm font-heading font-600 tracking-wider hover:bg-red-900/20 disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background 0.15s">
+          <button type="submit" id="wd-submit" class="w-full sm:w-auto min-h-[48px] px-6 rounded-lg border border-red-800/50 text-red-400 text-base font-heading font-700 tracking-wider active:bg-red-900/20 disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background 0.15s">
             Withdraw
           </button>
         </form>
-        <p class="text-[11px] text-gray-600 font-body mt-2">Withdrawing from a locked pair frees up your partner too — they'll need to sign up again.</p>
+        <p class="text-xs text-gray-400 font-body mt-3">Withdrawing from a locked pair frees up your partner too — they'll need to sign up again.</p>
       </section>
 
     </div>
@@ -220,17 +252,17 @@
     function render() {
       const pairsEl = $('pairs-list');
       pairsEl.innerHTML = data.pairs.map(p => `
-        <div class="pair-row flex items-center justify-between px-4 py-2.5">
-          <span class="text-sm font-body text-gray-200">${p.players[0]} <span class="text-gray-600">+</span> ${p.players[1]}</span>
-          <span class="text-[10px] font-heading font-600 tracking-widest text-emerald-400 uppercase">Locked</span>
+        <div class="pair-row flex items-center justify-between gap-3 px-4 py-3">
+          <span class="text-base font-body text-gray-200 min-w-0 break-words">${p.players[0]} <span class="text-gray-500">+</span> ${p.players[1]}</span>
+          <span class="text-xs font-heading font-600 tracking-widest text-emerald-400 uppercase shrink-0">Locked</span>
         </div>`).join('');
       show($('pairs-empty'), data.pairs.length === 0);
 
       const soloEl = $('solo-list');
       soloEl.innerHTML = data.solo.map(s => `
-        <div class="px-4 py-2.5">
-          <span class="text-sm font-body text-amber-300">${escapeHtml(s.player)}</span>
-          ${s.note ? `<p class="text-xs font-body text-gray-500 mt-0.5">${escapeHtml(s.note)}</p>` : ''}
+        <div class="px-4 py-3">
+          <span class="text-base font-body text-amber-300">${escapeHtml(s.player)}</span>
+          ${s.note ? `<p class="text-sm font-body text-gray-400 mt-0.5">${escapeHtml(s.note)}</p>` : ''}
         </div>`).join('');
       show($('solo-empty'), data.solo.length === 0);
 
@@ -239,7 +271,7 @@
       const openEl = $('open-list');
       const open = data.roster.filter(n => !paired.has(n.toLowerCase()) && !solo.has(n.toLowerCase()));
       openEl.innerHTML = open.map(n => `
-        <span class="text-xs font-body px-3 py-1.5 rounded-lg border border-border/60 bg-black/20 text-gray-400">${n}</span>`).join('');
+        <span class="text-sm font-body px-3 py-1.5 rounded-lg border border-border/60 bg-black/20 text-gray-300">${n}</span>`).join('');
       show($('open-empty'), open.length === 0);
 
       // Signup form: "your name" can be anyone not already locked into a pair
@@ -261,6 +293,8 @@
       mode = 'pair';
       $('mode-pair-btn').classList.add('active');
       $('mode-solo-btn').classList.remove('active');
+      $('mode-pair-btn').setAttribute('aria-pressed', 'true');
+      $('mode-solo-btn').setAttribute('aria-pressed', 'false');
       show($('partner-field'), true);
       show($('note-field'), false);
       $('su-submit').textContent = 'Lock It In';
@@ -269,6 +303,8 @@
       mode = 'solo';
       $('mode-solo-btn').classList.add('active');
       $('mode-pair-btn').classList.remove('active');
+      $('mode-solo-btn').setAttribute('aria-pressed', 'true');
+      $('mode-pair-btn').setAttribute('aria-pressed', 'false');
       show($('partner-field'), false);
       show($('note-field'), true);
       $('su-submit').textContent = "I'm Looking for a Partner";
@@ -356,5 +392,6 @@
 
     load();
   </script>
+  <script src="js/nav.js?v=20261112a"></script>
 </body>
 </html>
