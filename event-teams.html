@@ -140,13 +140,16 @@
 
     const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
 
+    // msg and eventId can both come from the URL / a server error that echoes it — escape msg, and
+    // URL-encode eventId wherever it's put in an href (an unescaped " would break out of the attribute).
     function showError(msg) {
+      const safe = String(msg).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
       document.getElementById('app').innerHTML = `
         <div class="text-center py-20">
-          <p class="text-gray-500 text-sm">${msg}</p>
-          ${eventId ? `<a href="event.html?id=${eventId}" class="mt-4 inline-block text-xs font-heading tracking-wider text-flame hover:underline">← Back to Leaderboard</a>` : ''}
+          <p class="text-gray-400 text-sm">${safe}</p>
+          ${eventId ? `<a href="event.html?id=${encodeURIComponent(eventId)}" class="mt-4 inline-flex items-center min-h-[44px] text-sm font-heading tracking-wider text-flame">← Back to Leaderboard</a>` : ''}
         </div>`;
     }
 
@@ -254,7 +257,7 @@
       document.getElementById('breadcrumb').innerHTML = `
         <a href="season.html?id=${event.season}" class="hover:text-gray-300 transition-colors">${seasonLabel}</a>
         <span class="mx-1">›</span>
-        <a href="event.html?id=${eventId}" class="hover:text-gray-300 transition-colors">${event.name}</a>
+        <a href="event.html?id=${encodeURIComponent(eventId)}" class="hover:text-gray-300 transition-colors">${event.name}</a>
         <span class="mx-1">›</span>
         <span class="text-gray-300">Teams</span>`;
 
@@ -269,7 +272,7 @@
         <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white mt-3 mb-2">${event.name}</h1>
         <div class="flex flex-wrap items-center gap-3 mt-3">
           ${dateStr ? `<span class="text-gray-500 text-sm">${dateStr}</span>` : ''}
-          <a href="event.html?id=${eventId}"
+          <a href="event.html?id=${encodeURIComponent(eventId)}"
              class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
              style="transition:all 0.15s">← Leaderboard</a>
         </div>`;

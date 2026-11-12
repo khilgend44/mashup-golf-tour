@@ -431,11 +431,13 @@
       });
     }
 
+    // msg can contain the ?id= from the URL ("Season "<id>" not found.") — escape it (see event.html).
     function showError(msg) {
+      const safe = String(msg).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       document.getElementById('loading').innerHTML =
         `<div class="bg-red-900/20 border border-red-800 rounded-lg p-6 text-center max-w-md mx-auto">
           <p class="text-red-400 font-medium">Error</p>
-          <p class="text-gray-400 text-sm mt-1">${msg}</p>
+          <p class="text-gray-400 text-sm mt-1">${safe}</p>
         </div>`;
     }
 
