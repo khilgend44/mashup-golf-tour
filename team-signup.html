@@ -245,7 +245,7 @@
 
     function fillSelect(sel, names, placeholder) {
       const prev = sel.value;
-      sel.innerHTML = `<option value="">${placeholder}</option>` + names.map(n => `<option value="${n}">${n}</option>`).join('');
+      sel.innerHTML = `<option value="">${placeholder}</option>` + names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
       if (names.includes(prev)) sel.value = prev;
     }
 
@@ -253,7 +253,7 @@
       const pairsEl = $('pairs-list');
       pairsEl.innerHTML = data.pairs.map(p => `
         <div class="pair-row flex items-center justify-between gap-3 px-4 py-3">
-          <span class="text-base font-body text-gray-200 min-w-0 break-words">${p.players[0]} <span class="text-gray-500">+</span> ${p.players[1]}</span>
+          <span class="text-base font-body text-gray-200 min-w-0 break-words">${escapeHtml(p.players[0])} <span class="text-gray-500">+</span> ${escapeHtml(p.players[1])}</span>
           <span class="text-xs font-heading font-600 tracking-widest text-emerald-400 uppercase shrink-0">Locked</span>
         </div>`).join('');
       show($('pairs-empty'), data.pairs.length === 0);
@@ -271,7 +271,7 @@
       const openEl = $('open-list');
       const open = data.roster.filter(n => !paired.has(n.toLowerCase()) && !solo.has(n.toLowerCase()));
       openEl.innerHTML = open.map(n => `
-        <span class="text-sm font-body px-3 py-1.5 rounded-lg border border-border/60 bg-black/20 text-gray-300">${n}</span>`).join('');
+        <span class="text-sm font-body px-3 py-1.5 rounded-lg border border-border/60 bg-black/20 text-gray-300">${escapeHtml(n)}</span>`).join('');
       show($('open-empty'), open.length === 0);
 
       // Signup form: "your name" can be anyone not already locked into a pair

@@ -101,6 +101,22 @@ export async function onRequestPost(context) {
   if (launchMonitor.length > 80) return json({ error: 'Launch monitor is too long.' }, 400);
   if (email.length > 120)        return json({ error: 'Email is too long.' }, 400);
 
+  // Keep markup out at the source. Every registration passes through here, and the username ends up on rosters
+  // that many pages print (some without escaping) once an admin approves it — so reject HTML-significant characters
+  // (and control characters) now rather than trusting every future page to escape. ":" is also refused in a username
+  // because it is the KV key separator (registrations:<season>:<username>:<id>). All 83 real usernames on file use only
+  // letters, digits and "_", so this blocks no current player. Apostrophes/ampersands stay allowed in the free-text
+  // fields (O'Brien, R&B) — those are always escaped on display.
+  const UNSAFE_USERNAME = /[<>"'`&\\:\u0000-\u001f\u007f]/;
+  const UNSAFE_TEXT     = /[<>\u0000-\u001f\u007f]/;
+  const UNSAFE_EMAIL    = /[<>"\s\u0000-\u001f\u007f]/;
+  if (UNSAFE_USERNAME.test(username))
+    return json({ error: 'That username contains a character that isn\'t allowed (< > " \' ` & \\ :). Enter it exactly as it appears on SimulatorGolfTour.' }, 400);
+  if (UNSAFE_TEXT.test(discordName) || UNSAFE_TEXT.test(region) || UNSAFE_TEXT.test(launchMonitor))
+    return json({ error: 'Please remove any < or > characters from your answers.' }, 400);
+  if (email && UNSAFE_EMAIL.test(email))
+    return json({ error: 'Please enter a valid email address.' }, 400);
+
   const lc = username.toLowerCase();
   const [metaRaw, rosterRaw, seasonsRes, existingKeys, legacyRaw] = await Promise.all([
     kvGet(accountId, apiToken, 'players:meta'),
