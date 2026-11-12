@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Season 11 Registration — MashUp Golf Tour</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { theme: { extend: {
@@ -23,27 +24,65 @@
     .text-flame { color: #f97316; }
     label.req::after { content: ' *'; color: #f97316; }
     #data-block.optional label.req::after { content: ''; }  /* returning+changed: fields optional */
-    .field { width: 100%; background: #141414; border: 1px solid #2c2c2c; border-radius: 0.5rem; padding: 0.6rem 0.75rem; color: #f3f4f6; font-size: 0.9rem; }
+    /* Form controls — phone first. font-size MUST stay >= 16px: iOS Safari zooms the whole page when you focus any
+       input smaller than that (and doesn't zoom back out), which wrecked the layout of this form. */
+    .field { width: 100%; min-height: 48px; background: #141414; border: 1px solid #2c2c2c; border-radius: 0.5rem; padding: 0.7rem 0.85rem; color: #f3f4f6; font-size: 16px; }
     .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
-    select.field { appearance: none; }
-    .agree { display: flex; gap: 0.65rem; align-items: flex-start; padding: 0.85rem; border: 1px solid #2c2c2c; border-radius: 0.6rem; background: #141414; cursor: pointer; }
-    .agree:hover { border-color: rgba(249,115,22,0.35); }
-    .agree input { margin-top: 0.2rem; accent-color: #f97316; width: 1rem; height: 1rem; flex-shrink: 0; }
+    /* appearance:none removes the native arrow, which made selects look like text boxes — draw one back. */
+    select.field { appearance: none; -webkit-appearance: none; padding-right: 2.5rem; cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%239ca3af' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 0.95rem center; background-size: 12px 8px; }
+    .agree { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.95rem; min-height: 56px; border: 1px solid #2c2c2c; border-radius: 0.6rem; background: #141414; cursor: pointer; }
+    .agree:active { border-color: rgba(249,115,22,0.5); }
+    @media (hover: hover) { .agree:hover { border-color: rgba(249,115,22,0.35); } }
+    .agree input { margin-top: 0.15rem; accent-color: #f97316; width: 1.35rem; height: 1.35rem; flex-shrink: 0; }
+    .agree span { font-size: 0.95rem; line-height: 1.5; }
+    /* When the script scrolls a block into view, leave room for the sticky nav. */
+    #returning-block, #data-block, #status, #interest-status { scroll-margin-top: 76px; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
 
-  <header class="border-b border-border">
-    <div class="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Registration</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
-      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-2xl mx-auto px-4 py-8 w-full flex-1">
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
+
+  <main class="max-w-2xl mx-auto px-4 pt-5 sm:pt-8 pb-12 w-full flex-1">
 
     <!-- CLOSED STATE — shown instead of everything below when
          REGISTRATION_CLOSED is true (see script at the bottom). Swap it
@@ -51,7 +90,7 @@
          next season's launch. -->
     <div id="closed-state" class="hidden">
       <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Registration Is Closed</h1>
-      <p class="text-gray-500 text-sm mt-2 max-w-xl">Season 11 of the MashUp Golf Tour has started and registration is now closed. Leave your name and email below and we'll reach out when Season 12 opens — no commitment, just a heads-up.</p>
+      <p class="text-gray-400 text-sm mt-2 max-w-xl">Season 11 of the MashUp Golf Tour has started and registration is now closed. Leave your name and email below and we'll reach out when Season 12 opens — no commitment, just a heads-up.</p>
 
       <!-- INTEREST SUCCESS -->
       <div id="interest-success" class="hidden card-shadow bg-card border border-emerald-800/40 rounded-xl px-6 py-10 mt-8 text-center">
@@ -65,24 +104,24 @@
         <div id="interest-status" class="hidden rounded-lg px-4 py-3 text-sm font-body"></div>
         <div>
           <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="interest-name">Name / SGT Username</label>
-          <input id="interest-name" class="field" autocomplete="off" placeholder="your name or SGT username" />
+          <input id="interest-name" class="field" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="your name or SGT username" />
         </div>
         <div>
           <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="interest-email">Email</label>
-          <input id="interest-email" type="email" class="field" autocomplete="off" placeholder="where we'll reach out" />
+          <input id="interest-email" type="email" class="field" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="where we'll reach out" />
         </div>
         <div>
-          <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="interest-note">Note <span class="text-gray-600 normal-case tracking-normal">(optional)</span></label>
+          <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="interest-note">Note <span class="text-gray-400 normal-case tracking-normal">(optional)</span></label>
           <input id="interest-note" class="field" autocomplete="off" placeholder="anything we should know" />
         </div>
-        <button type="submit" id="interest-submit-btn" class="w-full py-3 rounded-lg bg-flame text-white font-heading font-700 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Notify Me for Season 12</button>
+        <button type="submit" id="interest-submit-btn" class="w-full min-h-[52px] rounded-lg bg-flame text-white text-lg font-heading font-700 tracking-wider active:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Notify Me for Season 12</button>
       </form>
     </div>
 
     <!-- OPEN STATE — the real registration flow. -->
     <div id="open-state">
       <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Season 11 Registration</h1>
-      <p class="text-gray-500 text-sm mt-2 max-w-xl">Sign up to play Season 11 of the MashUp Golf Tour, starting <span class="text-gray-300">Monday, November 23</span>. The season costs <span class="text-gray-300">$142</span>, due in full before Week 1 — full breakdown and rules are on the <a href="rules.html" class="text-gray-400 hover:text-white underline underline-offset-2" style="transition:color 0.12s">rules page</a>. Your registration is reviewed by an admin before you're added to the season.</p>
+      <p class="text-gray-400 text-sm mt-2 max-w-xl">Sign up to play Season 11 of the MashUp Golf Tour, starting <span class="text-gray-300">Monday, November 23</span>. The season costs <span class="text-gray-300">$142</span>, due in full before Week 1 — full breakdown and rules are on the <a href="rules.html" class="text-gray-400 hover:text-white underline underline-offset-2" style="transition:color 0.12s">rules page</a>. Your registration is reviewed by an admin before you're added to the season.</p>
 
       <!-- SCHEDULE NOTE — Season 11-specific: Week 1 and Week 4 both run two
            full weeks instead of one, around Thanksgiving and Christmas/New
@@ -147,18 +186,20 @@
         <div>
           <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="username">GSPro / SGT Username</label>
           <div class="flex gap-2 items-stretch">
-            <input id="username" name="username" class="field flex-1" autocomplete="off" placeholder="your SGT username" />
-            <button type="button" id="lookup-btn" class="shrink-0 px-6 rounded-lg bg-flame text-white text-sm font-heading font-600 tracking-wider hover:bg-flame-dim disabled:opacity-50" style="transition:background .15s">Continue</button>
+            <!-- Usernames are case/spelling-exact: stop the phone keyboard capitalizing the first letter or "correcting" it. -->
+            <input id="username" name="username" class="field flex-1 min-w-0" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="your SGT username" />
+            <button type="button" id="lookup-btn" class="shrink-0 px-5 sm:px-6 min-h-[48px] rounded-lg bg-flame text-white text-base font-heading font-700 tracking-wider active:bg-flame-dim disabled:opacity-50" style="transition:background .15s">Continue</button>
           </div>
           <div id="username-note" class="text-xs mt-1.5 hidden"></div>
         </div>
 
         <!-- Returning: anything changed? -->
         <div id="returning-block" class="hidden card-shadow bg-card border border-border rounded-xl p-4">
-          <div class="text-sm text-gray-300 mb-2">👋 Welcome back! We have your details on file. <span class="text-white">Has anything changed</span> since last season (launch monitor, location, email)?</div>
-          <div class="flex gap-2">
-            <button type="button" data-changed="no"  class="changed-btn flex-1 py-2 rounded-lg border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame/50" style="transition:border-color .12s">No, all the same</button>
-            <button type="button" data-changed="yes" class="changed-btn flex-1 py-2 rounded-lg border border-border text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame/50" style="transition:border-color .12s">Yes, update my info</button>
+          <div class="text-sm text-gray-300 mb-3">👋 Welcome back! We have your details on file. <span class="text-white">Has anything changed</span> since last season (launch monitor, location, email)?</div>
+          <!-- Stacked on phones (two 48px full-width buttons), side by side from sm up. -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <button type="button" data-changed="no"  class="changed-btn sm:flex-1 min-h-[48px] px-3 rounded-lg border border-border text-base font-heading font-600 tracking-wider text-gray-300 sm:hover:border-flame/50" style="transition:border-color .12s">No, all the same</button>
+            <button type="button" data-changed="yes" class="changed-btn sm:flex-1 min-h-[48px] px-3 rounded-lg border border-border text-base font-heading font-600 tracking-wider text-gray-300 sm:hover:border-flame/50" style="transition:border-color .12s">Yes, update my info</button>
           </div>
         </div>
 
@@ -189,12 +230,13 @@
           </div>
           <div>
             <label class="block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="discordName">Discord Name</label>
-            <input id="discordName" name="discordName" class="field" autocomplete="off" placeholder="only if different from your SGT username" />
+            <input id="discordName" name="discordName" class="field" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="only if different from your SGT username" />
           </div>
           <div>
             <label class="req block text-xs font-heading font-600 tracking-widest text-gray-400 uppercase mb-1.5" for="email">Email</label>
-            <input id="email" name="email" type="email" class="field" autocomplete="off" placeholder="for contact if Discord is unavailable" />
-            <div class="text-[11px] text-gray-600 mt-1">Used only to contact you about the tour — never shared or shown publicly.</div>
+            <!-- autocomplete="email": lets the phone offer the user's saved address instead of typing it on a small keyboard. -->
+            <input id="email" name="email" type="email" class="field" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="for contact if Discord is unavailable" />
+            <div class="text-xs text-gray-400 mt-1.5">Used only to contact you about the tour — never shared or shown publicly.</div>
           </div>
         </div>
 
@@ -212,7 +254,7 @@
         </div>
 
         <div id="submit-block" class="hidden pt-1">
-          <button type="submit" id="submit-btn" class="w-full py-3 rounded-lg bg-flame text-white font-heading font-700 tracking-wider hover:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Submit Registration</button>
+          <button type="submit" id="submit-btn" class="w-full min-h-[52px] rounded-lg bg-flame text-white text-lg font-heading font-700 tracking-wider active:bg-flame-dim disabled:opacity-40 disabled:cursor-not-allowed" style="transition:background .15s">Submit Registration</button>
         </div>
       </form>
     </div>
@@ -243,7 +285,11 @@
       el.className = `rounded-lg px-4 py-3 text-sm font-body ${kind === 'error'
         ? 'bg-red-900/30 border border-red-800/40 text-red-300'
         : 'bg-flame/10 border border-flame/30 text-flame'}`;
+      el.setAttribute('role', 'alert');
       show(el, true);
+      // #status is at the TOP of a long form but the Submit button is at the bottom — on a phone an error
+      // (e.g. "Please accept all four agreements") would appear off-screen and the tap would seem to do nothing.
+      if (kind === 'error') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     // Decide which sections are visible based on the returning-player state.
@@ -264,7 +310,30 @@
       show($('submit-block'), ready);
     }
 
-    async function checkUsername() {
+    // Concurrent calls share ONE lookup. On a phone, tapping "Continue" blurs the username field first (which runs
+    // the blur fallback below) and then fires the click — without this that was two simultaneous requests.
+    // opts.scroll: true when the player pressed Continue / Enter (never for the blur fallback, which fires while
+    // they tap into another field and must not yank the page around).
+    let inflightCheck = null;
+    // Why a flag instead of just opts.scroll on the click: tapping Continue first BLURS the username field, and that
+    // blur already starts the lookup — which disables the button, so the browser then swallows the click (a disabled
+    // button doesn't fire one). pointerdown fires before the blur, so it's the reliable "Continue was pressed" signal.
+    let continuePressed = false;
+    async function checkUsername(opts = {}) {
+      if (!inflightCheck) inflightCheck = runUsernameCheck().finally(() => { inflightCheck = null; });
+      await inflightCheck;
+      const wantScroll = opts.scroll || continuePressed;
+      continuePressed = false;
+      if (wantScroll) {
+        // On a phone the next step appears below the fold and the only feedback was a small note under the field —
+        // bring the next section into view so "Continue" visibly does something, and put the keyboard away.
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        const next = [$('returning-block'), $('data-block')].find(el => !el.classList.contains('hidden'));
+        if (next) next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    async function runUsernameCheck() {
       const username = $('username').value.trim();
       state.checked = false; state.returning = false; state.alreadyRegistered = false; state.changed = null;
       $('returning-block').querySelectorAll('.changed-btn').forEach(b => b.classList.remove('border-flame', 'text-white'));
@@ -321,9 +390,12 @@
       show($('launchMonitorOther'), $('launchMonitor').value === '__other__');
     });
 
-    $('lookup-btn').addEventListener('click', checkUsername);
-    $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); checkUsername(); } });
-    $('username').addEventListener('blur', () => { if ($('username').value.trim()) checkUsername(); }); // fallback
+    $('lookup-btn').addEventListener('pointerdown', () => { continuePressed = true; });
+    $('lookup-btn').addEventListener('click', () => checkUsername({ scroll: true }));
+    $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); checkUsername({ scroll: true }); } });
+    // Fallback: if they tab/tap away without pressing Continue. Skipped once this username has been checked
+    // (state.checked is reset on every keystroke), so blurring after a check doesn't re-run it.
+    $('username').addEventListener('blur', () => { if ($('username').value.trim() && !state.checked) checkUsername(); });
     $('username').addEventListener('input', () => { state.checked = false; applyVisibility(); });
 
     document.querySelectorAll('.changed-btn').forEach(btn => {
@@ -407,7 +479,9 @@
       el.className = `rounded-lg px-4 py-3 text-sm font-body ${kind === 'error'
         ? 'bg-red-900/30 border border-red-800/40 text-red-300'
         : 'bg-flame/10 border border-flame/30 text-flame'}`;
+      el.setAttribute('role', 'alert');
       show(el, true);
+      if (kind === 'error') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     $('interest-form')?.addEventListener('submit', async (e) => {
@@ -437,5 +511,6 @@
       }
     });
   </script>
+  <script src="js/nav.js"></script>
 </body>
 </html>
