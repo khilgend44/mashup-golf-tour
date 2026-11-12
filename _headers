@@ -6,6 +6,12 @@
 # pre-fix scoring.js, well within its 4h window, so it never even asked the
 # server for a fresh copy). Force revalidation on every load instead — still
 # cacheable, just never trusted without checking first.
+#
+# !! CAVEAT (found 2026-11-11): this only works on https://mashup-golf-tour.pages.dev. On the real domain
+# (mashupgolf.com) a Cloudflare zone setting — most likely Caching → Configuration → "Browser Cache TTL" —
+# rewrites these to max-age=14400 (4h), so these rules do NOT protect real visitors. Until that setting is
+# changed to "Respect Existing Headers", the `?v=` label on every js/css reference is the ONLY cache-buster:
+# bump it whenever a js/ or css/ file changes (see CLAUDE.md "Cache-busting").
 /js/*
   Cache-Control: no-cache
 

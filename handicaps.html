@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="css/theme.css?v=20261112a" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -266,7 +266,7 @@
         state.lastRefresh = pData.lastRefresh || null;
         state.seasons     = [...sMap.values()];
         if (state.seasons.length === 0) { showStatus('No seasons found.'); return; }
-        seasonLib = await import('./js/api.js?v=20261103a');
+        seasonLib = await import('./js/api.js?v=20261112a');
         buildSeasonOptions();
         render();
         updateUpdatedLabel();
@@ -277,6 +277,6 @@
 
     init();
   </script>
-  <script src="js/nav.js"></script>
+  <script src="js/nav.js?v=20261112a"></script>
 </body>
 </html>

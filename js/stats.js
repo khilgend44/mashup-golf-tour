@@ -14,7 +14,7 @@
 // itself has no bug (S10's real scoring/money data computes and renders
 // fine), so a stale cached scoring.js from before this season's format
 // fixes (Lone Ranger, Escalator, Nassau) was the next most likely cause.
-import { fetchScorecards } from './api.js?v=20261103a';
+import { fetchScorecards } from './api.js?v=20261112a';
 import { applyFormat, applyPayouts, resolveSidePots } from './scoring.js?v=20261026a';
 
 // SGT's COMBO log caps at the most-recent 48 rounds; mirror it when a stored

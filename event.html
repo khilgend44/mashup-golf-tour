@@ -17,7 +17,7 @@
        is the same flag-icons library SGT's own site uses (same "fi-xx"
        class names), so the flag codes captured off SGT map straight in. -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.2.3/css/flag-icons.min.css" />
-  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="css/theme.css?v=20261112a" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -372,7 +372,7 @@
   </footer>
 
   <script type="module">
-    import { fetchScorecards, fetchCtp, fetchCtpVideo, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20261103a';
+    import { fetchScorecards, fetchCtp, fetchCtpVideo, resolveCtpLeaders, loadEvents, loadFormats, loadSeasons } from './js/api.js?v=20261112a';
     import { applyFormat, applyPayouts, formatToPar, holeScoreClass, isCardComplete, netIndexCountback, rankSidePotField, buildTeamRoster } from './js/scoring.js?v=20261026a';
 
     const params = new URLSearchParams(window.location.search);
@@ -4047,6 +4047,6 @@
     // showing whatever was on screen the moment the tab was left.
     window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
   </script>
-  <script src="js/nav.js"></script>
+  <script src="js/nav.js?v=20261112a"></script>
 </body>
 </html>
