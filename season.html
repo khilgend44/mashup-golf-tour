@@ -38,18 +38,20 @@
     thead th { position: sticky; top: 0; z-index: 20; background: #141414; box-shadow: inset 0 -1px 0 #2c2c2c; }
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     .hero-glow { background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(34,197,94,0.12) 0%, transparent 70%); }
-    .event-card { transition: background 0.12s, transform 0.12s; }
-    .event-card:hover { background: #252525; transform: translateY(-1px); }
-    .standings-row:hover { background: rgba(255,255,255,0.03); }
+    @media (hover: hover) { .standings-row:hover { background: rgba(255,255,255,0.03); } }
+    .standings-row:active { background: rgba(255,255,255,0.05); }
+    /* Standings table: on phones the PAGE scrolls (no scroll-inside-scroll) and the header pins under the
+       56px nav; from sm up the table scrolls inside its own capped box. overflow must stay visible on phones,
+       otherwise the wrapper becomes the sticky header's scroll container and it never pins to the viewport. */
+    .st-wrap { border-radius: 12px; }
+    @media (max-width: 639px) {
+      .st-wrap thead th { top: 56px; }
+      .st-wrap thead th:first-child { border-top-left-radius: 12px; }
+      .st-wrap thead th:last-child  { border-top-right-radius: 12px; }
+    }
+    @media (min-width: 640px) { .st-wrap { overflow: auto; max-height: calc(100vh - 12rem); } }
     .standings-row { transition: background 0.1s; }
     .under { color: #4ade80; }
-    .format-badge {
-      display: inline-flex; align-items: center;
-      background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.25);
-      color: #fb923c; font-family: 'Barlow Condensed', sans-serif;
-      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-      padding: 1px 7px; border-radius: 3px;
-    }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
@@ -196,17 +198,16 @@
     function renderHeader(season, events) {
       const completed = events.filter(e => e.status === 'completed').length;
       const statusLabel = season.status === 'active' ? '● ACTIVE' : 'COMPLETED';
-      const statusColor = season.status === 'active' ? 'text-flame' : 'text-gray-500';
 
       document.getElementById('season-header').innerHTML = `
-        <div class="text-xs font-heading font-600 tracking-widest ${statusColor} uppercase mb-2">${statusLabel}</div>
-        <h1 class="font-display text-5xl tracking-wider text-white mb-2">${season.name}</h1>
-        <p class="text-gray-500 text-sm">${season.description} &nbsp;·&nbsp; ${season.year}</p>
-        <div class="flex items-center gap-4 mt-4 text-xs text-gray-600">
-          <span><b class="text-gray-300">${events.length}</b> Events</span>
-          <span><b class="text-gray-300">${completed}</b> Completed</span>
+        <div class="mu-label ${season.status === 'active' ? 'mu-label--flame' : ''} mb-2">${statusLabel}</div>
+        <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white mb-2">${season.name}</h1>
+        <p class="text-gray-400 text-sm">${season.description} &nbsp;·&nbsp; ${season.year}</p>
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-0 mt-2 text-sm text-gray-400">
+          <span><b class="text-gray-200">${events.length}</b> Events</span>
+          <span><b class="text-gray-200">${completed}</b> Completed</span>
           <a href="season-match-play-grid.html?season=${season.id}"
-             class="flex items-center gap-1.5 text-flame hover:text-flame-dim font-heading font-600 tracking-wider" style="transition:color .12s">
+             class="inline-flex items-center gap-1.5 min-h-[44px] text-flame font-heading font-600 tracking-wider">
             Season Match Play Grid <span aria-hidden="true">→</span>
           </a>
         </div>
@@ -220,32 +221,32 @@
       return `
         <!-- Season Standings — full width -->
         <section class="mb-10">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Season Standings</h2>
+          <h2 class="mu-section-title">Season Standings</h2>
           ${standings.length
             ? standingsTable(standings)
-            : `<div class="card-shadow bg-card border border-border rounded-lg p-6 text-center text-gray-600 text-sm">Standings will appear once events have payouts recorded.</div>`}
+            : `<div class="card-shadow bg-card border border-border rounded-lg p-6 text-center text-gray-400 text-sm">Standings will appear once events have payouts recorded.</div>`}
         </section>
 
         <!-- Events list — full width -->
         ${upcoming.length ? `
         <section class="mb-8">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Upcoming</h2>
-          <div class="space-y-2">${upcoming.map(e => eventCard(e)).join('')}</div>
+          <h2 class="mu-section-title">Upcoming</h2>
+          ${upcoming.map(e => eventCard(e)).join('')}
         </section>` : ''}
 
         <!-- Coming up — planned formats with no real event yet -->
         ${scheduleEntries.length ? `
         <section class="mb-8">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-1">Coming Up</h2>
-          <p class="text-xs text-gray-600 mb-3">Tentative — formats and dates are subject to change by the admin team.</p>
-          <div class="space-y-2">${scheduleEntries.map(e => scheduleCard(e)).join('')}</div>
+          <h2 class="mu-section-title">Coming Up</h2>
+          <p class="text-sm text-gray-400 mb-3">Tentative — formats and dates are subject to change by the admin team.</p>
+          ${scheduleEntries.map(e => scheduleCard(e)).join('')}
         </section>` : ''}
 
         <section>
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Results</h2>
+          <h2 class="mu-section-title">Results</h2>
           ${completed.length
-            ? `<div class="space-y-2">${completed.map(e => eventCard(e)).join('')}</div>`
-            : `<p class="text-gray-600 text-sm py-6">No completed events yet.</p>`}
+            ? completed.map(e => eventCard(e)).join('')
+            : `<p class="text-gray-400 text-sm py-6">No completed events yet.</p>`}
         </section>
       `;
     }
@@ -255,15 +256,15 @@
     // eventCard so nobody mistakes "planned" for "scheduled and locked."
     function scheduleCard(e) {
       return `
-        <div class="border border-dashed border-border/60 rounded-lg px-5 py-4 flex items-center gap-4">
-          <div class="flex-1 min-w-0">
-            <div class="font-heading font-700 text-base text-gray-300 truncate">Week ${e.week} — ${e.formatName}</div>
-            <div class="flex flex-wrap items-center gap-2 mt-1.5">
-              ${e.dateLabel ? `<span class="text-xs text-gray-500">${e.dateLabel}</span>` : ''}
-              ${e.note ? `<span class="text-xs text-gray-600">${e.note}</span>` : ''}
+        <div class="mu-ev mu-ev--planned">
+          <div>
+            <div class="mu-ev__name">Week ${e.week} — ${e.formatName}</div>
+            <div class="mu-ev__sub">
+              ${e.dateLabel ? `<span>${e.dateLabel}</span>` : ''}
+              ${e.note ? `<span style="color:var(--text-3)">${e.note}</span>` : ''}
             </div>
           </div>
-          <span class="text-xs font-heading tracking-wider text-gray-600 shrink-0 uppercase">Planned</span>
+          <span class="mu-tag">Planned</span>
         </div>`;
     }
 
@@ -272,30 +273,30 @@
         ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : 'Date TBD';
       const isCompleted = e.status === 'completed';
-      const dot = isCompleted
-        ? '<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>'
-        : '<span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse mr-1.5"></span>';
-
-      const inner = `
-        <div class="card-shadow event-card bg-card border border-border rounded-lg px-5 py-4 flex items-center gap-4">
-          <div class="flex-1 min-w-0">
-            <div class="font-heading font-700 text-base text-white truncate">${e.name}</div>
-            <div class="flex flex-wrap items-center gap-2 mt-1.5">
-              <span class="text-xs text-gray-500">${dateStr}</span>
-              <span class="format-badge">${e.format.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
-              ${e.buyIn ? `<span class="text-xs text-gray-600">$${e.buyIn} buy-in</span>` : ''}
-            </div>
-          </div>
-          <div class="flex items-center text-xs font-heading tracking-wider text-gray-500 shrink-0">
-            ${dot}${isCompleted ? 'Done' : 'Open'}
-          </div>
-          ${isCompleted ? '<span class="text-flame text-sm shrink-0">→</span>' : ''}
-        </div>`;
+      const fmt = (e.format || '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      // Same neutral row as index.html: the format is a text tag; status shows as a tag only when the
+      // event isn't finished (finished events just get the arrow).
+      const right = isCompleted
+        ? '<span style="color:var(--flame)" aria-hidden="true">→</span>'
+        : (e.status === 'active'
+            ? '<span class="mu-tag" style="color:var(--live);border-color:rgba(251,191,36,.4)">Live</span>'
+            : '<span class="mu-tag">Open</span>');
 
       // Every event links through, not just completed ones — a live/active
       // event already has a real leaderboard worth seeing, and an upcoming
       // one still has a header/format/prize-pool page to show.
-      return `<a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="block">${inner}</a>`;
+      return `
+        <a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="mu-ev">
+          <div>
+            <div class="mu-ev__name">${e.name}</div>
+            <div class="mu-ev__sub">
+              <span class="mu-fmt">${fmt}</span>
+              <span>${dateStr}</span>
+              ${e.buyIn ? `<span>$${e.buyIn} buy-in</span>` : ''}
+            </div>
+          </div>
+          ${right}
+        </a>`;
     }
 
     // Season money standings. Handles two event shapes:
@@ -326,7 +327,7 @@
       // would leave this undefined — don't let one row's missing data blank
       // the whole standings table, which is built in one `.map()` pass.
       if (!p.breakdown?.length) {
-        return `<div class="px-5 py-4 text-xs text-gray-600 font-body">No money recorded for ${p.name} this season.</div>`;
+        return `<div class="px-5 py-4 text-sm text-gray-400 font-body">No money recorded for ${p.name} this season.</div>`;
       }
       const rows = [...p.breakdown].sort((a, b) => {
         if (a.date && b.date) return a.date < b.date ? 1 : -1;
@@ -342,10 +343,10 @@
             ].filter(Boolean).join(' · ');
             const href = `event.html?id=${b.tournamentId != null ? b.tournamentId : b.eventId}`;
             return `
-              <a href="${href}" class="flex items-center gap-4 px-5 py-3 hover:bg-black/20" style="transition:background .12s">
+              <a href="${href}" class="flex items-center gap-4 px-4 sm:px-5 py-3 min-h-[48px] active:bg-black/20" style="transition:background .12s">
                 <div class="flex-1 min-w-0">
-                  <div class="font-heading font-700 text-sm text-white truncate">${b.name || 'Event'}</div>
-                  <div class="text-xs text-gray-600 truncate">${sources || '—'}</div>
+                  <div class="font-heading font-700 text-base sm:text-sm text-white truncate">${b.name || 'Event'}</div>
+                  <div class="text-xs text-gray-400 truncate">${sources || '—'}</div>
                 </div>
                 <div class="text-right shrink-0 font-mono text-sm font-semibold text-flame">$${money(b.total)}</div>
               </a>`;
@@ -355,17 +356,17 @@
 
     function standingsTable(standings) {
       return `
-        <div class="card-shadow rounded-xl overflow-auto border border-border" style="max-height: calc(100vh - 12rem)">
+        <div class="st-wrap card-shadow border border-border">
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-surface">
                 <th class="w-6 px-2 py-3"></th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase w-10">Pos</th>
-                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Player</th>
-                <th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Wins</th>
-                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">Earnings</th>
-                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase hidden sm:table-cell">CTP</th>
-                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-500 text-xs uppercase">Total</th>
+                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase w-10">Pos</th>
+                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-400 text-xs uppercase">Player</th>
+                <th class="px-4 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase">Wins</th>
+                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-400 text-xs uppercase hidden sm:table-cell">Earnings</th>
+                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-400 text-xs uppercase hidden sm:table-cell">CTP</th>
+                <th class="px-4 py-3 text-right font-heading font-600 tracking-widest text-gray-400 text-xs uppercase">Total</th>
               </tr>
             </thead>
             <tbody id="standings-tbody"></tbody>
@@ -378,13 +379,13 @@
       if (!tbody) return;
       tbody.innerHTML = standings.map((p, i) => `
         <tr class="standings-row cursor-pointer select-none border-t border-border" data-idx="${i}">
-          <td class="px-2 py-3 text-center text-gray-700 standings-chevron">▸</td>
-          <td class="px-3 py-3 text-center font-heading font-700 text-sm ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
-          <td class="px-4 py-3 font-medium"><a href="player.html?name=${encodeURIComponent(p.name)}" onclick="event.stopPropagation()" class="text-white hover:text-flame" style="transition:color .12s">${p.name}</a></td>
-          <td class="px-4 py-3 text-center text-gray-400">${p.wins > 0 ? p.wins : '—'}</td>
+          <td class="px-2 py-3 text-center text-gray-500 standings-chevron" aria-hidden="true">▸</td>
+          <td class="px-2 sm:px-3 py-3 text-center font-heading font-700 text-sm text-gray-400">${i < 3 ? `<span class="mu-medal mu-medal--${i + 1}" style="margin:0 auto">${i + 1}</span>` : i + 1}</td>
+          <td class="px-2 sm:px-4 py-3 font-medium text-base sm:text-sm"><a href="player.html?name=${encodeURIComponent(p.name)}" onclick="event.stopPropagation()" class="text-white sm:hover:text-flame" style="transition:color .12s">${p.name}</a></td>
+          <td class="px-2 sm:px-4 py-3 text-center text-gray-300">${p.wins > 0 ? p.wins : '—'}</td>
           <td class="px-4 py-3 text-right text-gray-300 font-mono text-sm hidden sm:table-cell">$${money(p.earnings)}</td>
           <td class="px-4 py-3 text-right text-gray-400 font-mono text-sm hidden sm:table-cell">${p.ctpEarnings > 0 ? '$' + money(p.ctpEarnings) : '—'}</td>
-          <td class="px-4 py-3 text-right font-semibold text-flame font-mono">$${money(p.total)}</td>
+          <td class="px-3 sm:px-4 py-3 text-right font-semibold text-flame font-mono text-base sm:text-sm">$${money(p.total)}</td>
         </tr>
         <tr class="hidden" data-detail="${i}">
           <td colspan="7" class="p-0 border-t border-border/60 bg-[#111]">
