@@ -148,6 +148,9 @@
 
   <script>
     const state = { handicaps: {}, seasons: [], selected: '', lastRefresh: null };
+    // Shared season helpers (liveSeason / sortSeasonsNewestFirst) live in an ES module; this is a classic
+    // script, so it's pulled in with a dynamic import inside init() before the picker is built.
+    let seasonLib = null;
 
     function updateUpdatedLabel() {
       const el = document.getElementById('last-updated');
@@ -237,9 +240,9 @@
     function buildSeasonOptions() {
       const sel = document.getElementById('season-select');
       // Newest first; default to the active season if present, else the first.
-      const seasons = [...state.seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
-      sel.innerHTML = seasons.map(s => `<option value="${s.id}">${s.name || s.id}</option>`).join('');
-      const active = seasons.find(s => s.status === 'active') || seasons[0];
+      const seasons = seasonLib.sortSeasonsNewestFirst(state.seasons);
+      sel.innerHTML = seasons.map(s => `<option value="${s.id}">${s.name || s.id}${s.status === 'upcoming' ? ' (upcoming)' : ''}</option>`).join('');
+      const active = seasonLib.liveSeason(seasons);
       state.selected = active ? active.id : '';
       if (state.selected) sel.value = state.selected;
       sel.addEventListener('change', e => { state.selected = e.target.value; render(); });
@@ -263,6 +266,7 @@
         state.lastRefresh = pData.lastRefresh || null;
         state.seasons     = [...sMap.values()];
         if (state.seasons.length === 0) { showStatus('No seasons found.'); return; }
+        seasonLib = await import('./js/api.js?v=20261103a');
         buildSeasonOptions();
         render();
         updateUpdatedLabel();

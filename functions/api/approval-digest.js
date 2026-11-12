@@ -48,14 +48,32 @@ export async function onRequestPost(context) {
   if (!accountId || !apiToken) return Response.json({ error: 'Storage not configured' }, { status: 500 });
   if (!webhookUrl) return Response.json({ error: 'DISCORD_ANNOUNCE_WEBHOOK_URL not configured' }, { status: 500 });
 
-  let activeSeason;
+  // Digest every season that can still be taking registrations: 'active' AND 'upcoming'. This used to be
+  // `seasons.find(s => s.status === 'active')` — only the FIRST active season — so once Season 11 was opened for
+  // registration while Season 10 was still active, the digest kept reading Season 10's registrations and never
+  // announced Season 11's. Each season has its own cursor (`digest:<season>:lastRun`), so they don't interfere.
+  let targets = [];
   try {
     const res = await fetch(new URL('/api/seasons', request.url));
     const seasons = res.ok ? await res.json() : [];
-    activeSeason = seasons.find(s => s.status === 'active');
+    targets = seasons.filter(s => s.status === 'active' || s.status === 'upcoming');
   } catch { /* falls through to the check below */ }
-  if (!activeSeason) return Response.json({ ok: true, skipped: 'no active season' });
+  if (!targets.length) return Response.json({ ok: true, skipped: 'no active or upcoming season' });
 
+  // One season failing (e.g. Discord hiccup) must not stop the others from being announced.
+  const results = [];
+  for (const s of targets) {
+    try {
+      results.push({ season: s.id, ...(await digestSeason({ activeSeason: s, env, accountId, apiToken, webhookUrl })) });
+    } catch (e) {
+      results.push({ season: s.id, error: String(e && e.message || e) });
+    }
+  }
+  const failed = results.some(r => r.error);
+  return Response.json({ ok: !failed, results }, { status: failed ? 502 : 200 });
+}
+
+async function digestSeason({ activeSeason, env, accountId, apiToken, webhookUrl }) {
   const season    = activeSeason.id;
   const cursorKey = `digest:${season}:lastRun`;
   const now = new Date().toISOString();
@@ -72,7 +90,7 @@ export async function onRequestPost(context) {
   // announcing every registration approved so far.
   if (!cursor) {
     await kvPut(accountId, apiToken, cursorKey, now);
-    return Response.json({ ok: true, seeded: true });
+    return { seeded: true };
   }
 
   const regValues = await Promise.all(regKeys.map(k => kvGet(accountId, apiToken, k.name)));
@@ -85,7 +103,7 @@ export async function onRequestPost(context) {
 
   await kvPut(accountId, apiToken, cursorKey, now);
 
-  if (!newlyApproved.length) return Response.json({ ok: true, posted: 0 });
+  if (!newlyApproved.length) return { posted: 0 };
 
   const names = newlyApproved.map(r => {
     const id = discord[stripSub(r.username)];
@@ -99,7 +117,7 @@ export async function onRequestPost(context) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content, allowed_mentions: { parse: ['users'] } }),
   });
-  if (!dres.ok) return Response.json({ error: `Discord returned ${dres.status}` }, { status: 502 });
+  if (!dres.ok) throw new Error(`Discord returned ${dres.status}`);
 
-  return Response.json({ ok: true, posted: newlyApproved.length, players: newlyApproved.map(r => r.username) });
+  return { posted: newlyApproved.length, players: newlyApproved.map(r => r.username) };
 }

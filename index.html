@@ -125,7 +125,7 @@
   </footer>
 
   <script type="module">
-    import { loadSeasons, loadEvents } from './js/api.js?v=20261103a';
+    import { loadSeasons, loadEvents, liveSeason, sortSeasonsNewestFirst } from './js/api.js?v=20261103a';
 
     async function loadSchedule(seasonId) {
       try {
@@ -139,7 +139,7 @@
 
     async function init() {
       const [seasons, events] = await Promise.all([loadSeasons(), loadEvents()]);
-      const activeSeason = seasons.find(s => s.status === 'active') || seasons[0];
+      const activeSeason = liveSeason(seasons);
       const scheduleEntries = activeSeason ? await loadSchedule(activeSeason.id) : [];
       const loading = document.getElementById('loading');
       const app = document.getElementById('app');
@@ -149,7 +149,7 @@
     }
 
     function renderApp(seasons, events, scheduleEntries) {
-      const activeSeason = seasons.find(s => s.status === 'active') || seasons[0];
+      const activeSeason = liveSeason(seasons);
       const seasonEvents = events
         .filter(e => e.season === activeSeason?.id)
         .sort((a, b) => {
@@ -185,7 +185,7 @@
         <section id="seasons" class="mb-8">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <div class="mu-label mu-label--flame mb-1">Active Season</div>
+              <div class="mu-label mu-label--flame mb-1">${activeSeason.status === 'active' ? 'Active Season' : 'Latest Season'}</div>
               <h2 class="font-display text-4xl tracking-wider text-white">${activeSeason.name}</h2>
               <p class="text-gray-400 text-sm mt-1">${activeSeason.description}</p>
             </div>
@@ -292,11 +292,11 @@
         </a>`;
     }
 
-    // Newest first (Season 11, 10, 9, 8…). loadSeasons() returns static seasons then KV ones, so
-    // the raw order is by source, not by season. Sort on the trailing number in the id (season-11).
-    function sortSeasonsNewestFirst(list) {
-      const num = s => { const m = /(\d+)\s*$/.exec(s.id || s.name || ''); return m ? parseInt(m[1], 10) : -1; };
-      return [...list].sort((a, b) => num(b) - num(a));
+    // Status tag for the All Seasons list: Active (orange), Upcoming (neutral), nothing for archived seasons.
+    function seasonTag(s) {
+      if (s.status === 'active') return '<span class="mu-tag" style="color:var(--flame);border-color:rgba(249,115,22,.4)">Active</span>';
+      if (s.status === 'upcoming') return '<span class="mu-tag">Upcoming</span>';
+      return '<span style="color:var(--flame)" aria-hidden="true">→</span>';
     }
 
     function seasonCard(s) {
@@ -306,7 +306,7 @@
             <div class="mu-ev__name">${s.name}</div>
             <div class="mu-ev__sub"><span style="white-space:normal">${s.description}</span></div>
           </div>
-          ${s.status === 'active' ? '<span class="mu-tag" style="color:var(--flame);border-color:rgba(249,115,22,.4)">Active</span>' : '<span style="color:var(--flame)" aria-hidden="true">→</span>'}
+          ${seasonTag(s)}
         </a>`;
     }
 

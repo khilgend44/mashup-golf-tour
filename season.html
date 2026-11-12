@@ -143,7 +143,7 @@
   </footer>
 
   <script type="module">
-    import { loadSeasons, loadEvents, loadFormats, fetchScorecards } from './js/api.js?v=20261103a';
+    import { loadSeasons, loadEvents, loadFormats, fetchScorecards, liveSeason } from './js/api.js?v=20261103a';
     import { applyFormat, applyPayouts, resolveSidePots } from './js/scoring.js?v=20261026a';
     import { buildPlayerStats } from './js/stats.js?v=20261103a';
 
@@ -161,7 +161,7 @@
 
     async function init() {
       const [seasons, events, formats] = await Promise.all([loadSeasons(), loadEvents(), loadFormats()]);
-      const seasonId = params.get('id') || seasons.find(s => s.status === 'active')?.id || seasons[0]?.id;
+      const seasonId = params.get('id') || liveSeason(seasons)?.id;
       const season = seasons.find(s => s.id === seasonId);
       if (!season) { showError(`Season "${seasonId}" not found.`); return; }
 
@@ -199,7 +199,22 @@
 
     function renderHeader(season, events) {
       const completed = events.filter(e => e.status === 'completed').length;
-      const statusLabel = season.status === 'active' ? '● ACTIVE' : 'COMPLETED';
+      const statusLabel = season.status === 'active' ? '● ACTIVE' : season.status === 'upcoming' ? 'UPCOMING' : 'COMPLETED';
+
+      // An upcoming season has no events or standings yet — the useful thing on this page is the way to sign up.
+      // (registration.html is the single registration page for whichever season it's currently set to.)
+      if (season.status === 'upcoming') {
+        document.getElementById('season-header').innerHTML = `
+          <div class="mu-label mb-2">${statusLabel}</div>
+          <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white mb-2">${season.name}</h1>
+          <p class="text-gray-400 text-sm">${season.description} &nbsp;·&nbsp; ${season.year}</p>
+          <div class="mt-4">
+            <a href="registration.html" class="mu-btn w-full sm:w-auto justify-center">Register for ${season.name} →</a>
+          </div>
+          <p class="text-sm text-gray-400 mt-3">${season.name} hasn't started yet. Events and standings will appear here once it begins.</p>
+        `;
+        return;
+      }
 
       document.getElementById('season-header').innerHTML = `
         <div class="mu-label ${season.status === 'active' ? 'mu-label--flame' : ''} mb-2">${statusLabel}</div>
@@ -219,6 +234,16 @@
     function renderApp(season, events, standings, scheduleEntries) {
       const completed = events.filter(e => e.status === 'completed');
       const upcoming  = events.filter(e => e.status !== 'completed');
+
+      // Upcoming season: no standings or results to show — only the tentative schedule, if the admin has planned one.
+      if (season.status === 'upcoming') {
+        return scheduleEntries.length ? `
+          <section>
+            <h2 class="mu-section-title">Coming Up</h2>
+            <p class="text-sm text-gray-400 mb-3">Tentative — formats and dates are subject to change by the admin team.</p>
+            ${scheduleEntries.map(e => scheduleCard(e)).join('')}
+          </section>` : '';
+      }
 
       return `
         <!-- Season Standings — full width -->

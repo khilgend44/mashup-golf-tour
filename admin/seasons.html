@@ -38,6 +38,7 @@
     .badge-green  { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
     .badge-gray   { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
     .badge-blue   { background: rgba(59,130,246,0.12);  color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
+    .badge-amber  { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
     input, select, textarea {
       background: #141414; border: 1px solid #2c2c2c; color: #e5e5e5;
       border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem;
@@ -124,7 +125,8 @@
           <div>
             <label>Initial Status</label>
             <select id="f-status">
-              <option value="active">Active</option>
+              <option value="upcoming">Upcoming (announced / taking registration — not live yet)</option>
+              <option value="active">Active (the live season)</option>
               <option value="completed">Completed</option>
             </select>
           </div>
@@ -241,6 +243,7 @@
     }
 
     function statusBadge(status) {
+      if (status === 'upcoming')  return `<span class="badge-amber  px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Upcoming</span>`;
       if (status === 'active')    return `<span class="badge-green  px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Active</span>`;
       if (status === 'completed') return `<span class="badge-gray   px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">Completed</span>`;
       return `<span class="badge-gray px-2 py-0.5 rounded text-xs font-heading font-600 tracking-wider">${status}</span>`;
@@ -285,6 +288,10 @@
           ? `<button data-archive="${s.id}" class="${btnCls} text-gray-500 hover:text-yellow-400 hover:border-yellow-800/40" style="transition:color 0.12s,border-color 0.12s">Archive</button>`
           : '';
         const editBtn = `<button data-edit="${s.id}" class="${btnCls} text-gray-500 hover:text-flame hover:border-flame/30" style="transition:color 0.12s,border-color 0.12s">Edit</button>`;
+        // An upcoming season gets a one-click "Go Live" (upcoming → active) instead of having to open the edit form.
+        const goLiveBtn = s.status === 'upcoming'
+          ? `<button data-golive="${s.id}" class="${btnCls} text-gray-500 hover:text-green-400 hover:border-green-800/40" style="transition:color 0.12s,border-color 0.12s">Go Live</button>`
+          : '';
         rows.push(`
           <tr class="border-b border-border/60">
             <td class="px-5 py-3 font-heading font-600 text-white">${s.name}</td>
@@ -292,7 +299,7 @@
             <td class="px-5 py-3 text-sm text-gray-400">${s.year || '—'}</td>
             <td class="px-5 py-3">${statusBadge(s.status)}</td>
             <td class="px-5 py-3 text-sm text-gray-400">${playerCount}</td>
-            <td class="px-5 py-3 text-right"><div class="flex gap-2 justify-end">${editBtn}${archiveBtn}</div></td>
+            <td class="px-5 py-3 text-right"><div class="flex gap-2 justify-end">${editBtn}${goLiveBtn}${archiveBtn}</div></td>
           </tr>`);
       }
 
@@ -521,6 +528,36 @@
       }
     }
 
+    // ── Go live (upcoming → active) ────────────────────────────
+    async function goLiveSeason(seasonId) {
+      const season = state.kvSeasons.find(s => s.id === seasonId);
+      if (!season) return;
+      // The public site treats ONE season as "current". Warn if another is still active, since two actives was
+      // exactly the situation that made the site pick the wrong one.
+      const others = [...state.kvSeasons, ...state.staticSeasons].filter(s => s.status === 'active' && s.id !== seasonId);
+      const warn = others.length
+        ? `\n\n${others.map(s => s.name).join(', ')} is still Active. You'll normally want to Archive ${others.length > 1 ? 'those' : 'it'} too, so only one season is live.`
+        : '';
+      if (!confirm(`Make "${season.name}" the live season?${warn}`)) return;
+
+      try {
+        const updated = { ...season, status: 'active' };
+        const res = await fetch(API_WRITE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-season', season: updated }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        const idx = state.kvSeasons.findIndex(s => s.id === seasonId);
+        if (idx !== -1) state.kvSeasons[idx] = data.season;
+        renderTable();
+        showStatus(`"${season.name}" is now live.`, 'success');
+      } catch (e) {
+        showStatus(`Error: ${e.message}`, 'error');
+      }
+    }
+
     // ── Event delegation ───────────────────────────────────────
     document.getElementById('toggle-form-btn').addEventListener('click', () => {
       if (document.getElementById('form-panel').classList.contains('open')) closePanel();
@@ -551,8 +588,10 @@
     document.getElementById('seasons-tbody').addEventListener('click', e => {
       const editBtn    = e.target.closest('[data-edit]');
       const archiveBtn = e.target.closest('[data-archive]');
+      const goLiveBtn  = e.target.closest('[data-golive]');
       if (editBtn)    openEdit(editBtn.dataset.edit);
       if (archiveBtn) archiveSeason(archiveBtn.dataset.archive);
+      if (goLiveBtn)  goLiveSeason(goLiveBtn.dataset.golive);
     });
 
     // Season name → auto-generate ID + description

@@ -105,6 +105,42 @@ export async function loadSeasons() {
   return [...map.values()];
 }
 
+// ── Season status ─────────────────────────────────────────────────────────────
+// A season's `status` is one of:
+//   'upcoming'  — announced / taking registration, no events yet. Never "the current season".
+//   'active'    — the live season (the one the public site features).
+//   'completed' — archived.
+// loadSeasons() returns static + KV seasons in source order (not by number), so pages must NOT use
+// `seasons.find(s => s.status === 'active')` directly — with two actives it silently returns whichever is
+// listed first. Use liveSeason() instead.
+
+// "Season 11" / "season-11" → 11. Season numbers are only an ordering key for the *list*; they are not
+// chronological for every season (Season 8 was back-filled after Season 9), so never use them to decide
+// which season is current — use status.
+export function seasonNumber(s) {
+  const m = /(\d+)\s*$/.exec((s && (s.id || s.name)) || '');
+  return m ? parseInt(m[1], 10) : -1;
+}
+
+// Newest first (Season 11, 10, 9, 8…) for display lists and pickers.
+export function sortSeasonsNewestFirst(seasons) {
+  return [...seasons].sort((a, b) => seasonNumber(b) - seasonNumber(a));
+}
+
+// The one season the public site treats as current: the active season; if (mis)configured with several,
+// the lowest-numbered one (the long-running season, not one that was flipped active early); otherwise the
+// first non-upcoming season; otherwise whatever there is.
+export function liveSeason(seasons) {
+  if (!Array.isArray(seasons) || !seasons.length) return null;
+  const active = seasons.filter(s => s.status === 'active').sort((a, b) => seasonNumber(a) - seasonNumber(b));
+  return active[0] || seasons.find(s => s.status !== 'upcoming') || seasons[0];
+}
+
+// Display label for a season's status.
+export function seasonStatusLabel(s) {
+  return s && s.status === 'upcoming' ? 'Upcoming' : s && s.status === 'active' ? 'Active' : 'Completed';
+}
+
 export async function loadEvents() {
   const [staticRes, kvRes, ovRes] = await Promise.allSettled([
     fetch('/data/events.json'),

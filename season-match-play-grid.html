@@ -89,7 +89,7 @@
   </footer>
 
   <script type="module">
-    import { loadSeasons, loadEvents, loadFormats, fetchScorecards } from '/js/api.js?v=20261103a';
+    import { loadSeasons, loadEvents, loadFormats, fetchScorecards, liveSeason } from '/js/api.js?v=20261103a';
     import { extractWeeklyPlayerCards, computeSeasonGrid, formatToPar } from '/js/scoring.js?v=20261026a';
 
     const params = new URLSearchParams(location.search);
@@ -117,7 +117,7 @@
     async function init() {
       try {
         const [seasons, events, formats] = await Promise.all([loadSeasons(), loadEvents(), loadFormats()]);
-        const season = seasonParam ? seasons.find(s => s.id === seasonParam) : seasons.find(s => s.status === 'active');
+        const season = seasonParam ? seasons.find(s => s.id === seasonParam) : liveSeason(seasons);
         if (!season) { showStatus('No season found' + (seasonParam ? ` for "${seasonParam}"` : ' (no active season)')); return; }
 
         document.getElementById('season-title').textContent = `${season.name || season.id} — Match Play Grid`;

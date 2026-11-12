@@ -115,7 +115,7 @@
 
   <script type="module">
     import { mashupForm } from './js/stats.js?v=20261103a';
-    import { loadSeasons } from './js/api.js?v=20261103a';
+    import { loadSeasons, liveSeason, sortSeasonsNewestFirst } from './js/api.js?v=20261103a';
 
     const state = { handicaps: {}, rounds: {}, seasons: [], selected: '' };
     const hcp = v => v == null || isNaN(+v) ? '—' : (+v > 0 ? `+${(+v).toFixed(1)}` : (+v).toFixed(1));
@@ -208,9 +208,9 @@
 
     function buildSeasonOptions() {
       const sel = document.getElementById('season-select');
-      const seasons = [...state.seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
-      sel.innerHTML = seasons.map(s => `<option value="${s.id}">${esc(s.name || s.id)}</option>`).join('');
-      const active = seasons.find(s => s.status === 'active') || seasons[0];
+      const seasons = sortSeasonsNewestFirst(state.seasons);
+      sel.innerHTML = seasons.map(s => `<option value="${s.id}">${esc(s.name || s.id)}${s.status === 'upcoming' ? ' (upcoming)' : ''}</option>`).join('');
+      const active = liveSeason(seasons);
       state.selected = active ? active.id : '';
       if (state.selected) sel.value = state.selected;
       sel.addEventListener('change', e => { state.selected = e.target.value; render(); });
