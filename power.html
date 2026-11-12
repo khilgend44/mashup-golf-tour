@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Hot/Cold — MashUp Golf Tour</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { theme: { extend: {
@@ -22,58 +23,90 @@
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     .text-flame { color: #f97316; }
     thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
-    tr:hover td { background: rgba(255,255,255,0.025); }
+    @media (hover: hover) { tr:hover td { background: rgba(255,255,255,0.025); } }
     .hot { color: #f97316; } .cold { color: #60a5fa; } .steady { color: #9ca3af; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
 
-  <header class="border-b border-border">
-    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Hot/Cold</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
-      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
-    <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
-      <div>
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
+
+  <main class="max-w-5xl mx-auto px-4 pt-5 sm:pt-8 pb-12 w-full flex-1">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-5">
+      <div class="min-w-0">
         <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Hot/Cold</h1>
-        <p class="text-gray-500 text-sm mt-2 max-w-xl">Who's <span class="hot">heating up</span> and who's <span class="cold">cooling off</span> — ranked by how each player's <span class="text-gray-300">last 5 MashUp rounds</span> compare to their rounds on other tours. Left of the line = playing MashUp better than their golf elsewhere.</p>
+        <p class="text-gray-400 text-sm mt-2 max-w-xl">Who's <span class="hot">heating up</span> and who's <span class="cold">cooling off</span> — ranked by how each player's <span class="text-gray-200">last 5 MashUp rounds</span> compare to their rounds on other tours. Left of the line = playing MashUp better than their golf elsewhere.</p>
       </div>
-      <select id="season-select" class="bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-lg tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer"></select>
+      <select id="season-select" class="w-full sm:w-auto min-h-[44px] bg-[#0c0c0c] border border-flame/30 rounded-lg px-4 py-2 font-heading font-700 text-lg tracking-wider text-white focus:outline-none focus:border-flame/70 cursor-pointer"></select>
     </div>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
 
-    <div class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
-      <div class="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
-        <h2 class="font-display text-2xl tracking-wider text-white">FORM GUIDE <span id="ranked-count" class="text-gray-600 text-lg"></span></h2>
-        <div class="flex items-center gap-4 text-[11px] font-heading font-600 tracking-widest uppercase">
+    <div class="card-shadow bg-card border border-border rounded-lg mu-clip">
+      <div class="px-4 sm:px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-display text-2xl tracking-wider text-white">FORM GUIDE <span id="ranked-count" class="text-gray-400 text-lg"></span></h2>
+        <div class="flex items-center gap-4 text-xs font-heading font-600 tracking-widest uppercase">
           <span class="hot">◀ Hot</span><span class="cold">Cold ▶</span>
         </div>
       </div>
-      <div class="overflow-auto" style="max-height: calc(100vh - 16rem)">
+      <div class="mu-tablewrap" style="--mu-cap:16rem">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-border">
-              <th class="text-center px-3 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">#</th>
-              <th class="text-left  px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Player</th>
-              <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase w-2/5">Form</th>
-              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">MashUp</th>
-              <th class="text-right px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Elsewhere</th>
-              <th class="text-right px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Δ</th>
+              <th class="text-center px-2 sm:px-3 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">#</th>
+              <th class="text-left  px-2 sm:px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Player</th>
+              <th class="text-center px-2 sm:px-4 py-3 text-xs font-heading font-600 tracking-widest text-flame uppercase w-[34%] sm:w-2/5">Form</th>
+              <th class="text-right px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase hidden sm:table-cell">MashUp</th>
+              <th class="text-right px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase hidden sm:table-cell">Elsewhere</th>
+              <th class="text-right px-3 sm:px-5 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Δ</th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="6" class="px-6 py-12 text-center text-gray-600 text-sm">Loading…</td></tr>
+            <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400 text-sm">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
+
+    <!-- Players without enough rounds to rank — a compact tappable list, not a wall of empty rows. -->
+    <div id="unranked" class="mt-6"></div>
   </main>
 
   <footer class="border-t border-border py-5 mt-auto">
@@ -132,9 +165,14 @@
 
       document.getElementById('ranked-count').textContent = `(${ranked.length})`;
 
+      const unrankedEl = document.getElementById('unranked');
       if (!ranked.length && !unranked.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-600 text-sm">No players in this season.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400 text-sm">No players in this season.</td></tr>`;
+        unrankedEl.innerHTML = '';
         return;
+      }
+      if (!ranked.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 text-sm">Nobody has enough rounds to rank yet.<br><span class="text-gray-500">A player needs at least 1 MashUp round and 3 rounds on other tours.</span></td></tr>`;
       }
 
       const label = { hot: '🔥 Hot', cold: '🧊 Cold', steady: '― Steady' };
@@ -142,31 +180,30 @@
       const rankedHtml = ranked.map((r, i) => {
         const f = r.form;
         const deltaStr = f.delta === 0 ? '0.0' : (f.delta > 0 ? `+${f.delta.toFixed(1)}` : f.delta.toFixed(1));
+        // Phones show 4 columns: # / player / form bar / Δ. MashUp + Elsewhere (hidden below sm) move into a
+        // small line under the name so nothing is lost.
         return `<tr class="border-b border-border/50">
-          <td class="px-3 py-3 text-center font-heading font-700 ${i === 0 ? 'text-flame' : 'text-gray-500'}">${i + 1}</td>
-          <td class="px-4 py-3">
-            <a href="player.html?name=${encodeURIComponent(r.name)}" class="font-heading font-600 tracking-wider text-white hover:text-flame" style="transition:color .12s">${esc(r.name)}</a>
-            <span class="ml-2 text-[11px] ${f.label}">${label[f.label]}</span>
+          <td class="px-2 sm:px-3 py-3 text-center font-heading font-700 text-gray-400">${i < 3 ? `<span class="mu-medal mu-medal--${i + 1}" style="margin:0 auto">${i + 1}</span>` : i + 1}</td>
+          <td class="px-2 sm:px-4 py-3 min-w-0">
+            <a href="player.html?name=${encodeURIComponent(r.name)}" class="font-heading font-600 tracking-wider text-base text-white sm:hover:text-flame break-words" style="transition:color .12s">${esc(r.name)}</a>
+            <span class="ml-1.5 sm:ml-2 text-xs whitespace-nowrap ${f.label}">${label[f.label]}</span>
+            <div class="sm:hidden text-xs text-gray-400 mt-0.5 font-mono" title="MashUp average vs. average elsewhere">${hcp(f.avg)} vs ${hcp(f.base)} elsewhere</div>
           </td>
-          <td class="px-4 py-3">${heatBar(f.delta, maxAbs)}</td>
-          <td class="px-4 py-3 text-right font-mono text-gray-300">${hcp(f.avg)}</td>
-          <td class="px-4 py-3 text-right font-mono text-gray-500">${hcp(f.base)}</td>
-          <td class="px-5 py-3 text-right font-mono font-600 ${f.label}">${deltaStr}</td>
+          <td class="px-2 sm:px-4 py-3">${heatBar(f.delta, maxAbs)}</td>
+          <td class="px-4 py-3 text-right font-mono text-gray-300 hidden sm:table-cell">${hcp(f.avg)}</td>
+          <td class="px-4 py-3 text-right font-mono text-gray-400 hidden sm:table-cell">${hcp(f.base)}</td>
+          <td class="px-3 sm:px-5 py-3 text-right font-mono font-600 text-base sm:text-sm ${f.label}">${deltaStr}</td>
         </tr>`;
       }).join('');
 
-      const unrankedHtml = unranked.length ? `
-        <tr><td colspan="6" class="px-5 pt-5 pb-2 text-[10px] font-heading font-600 tracking-widest text-gray-700 uppercase">Not enough recent rounds</td></tr>
-        ${unranked.map(r => `<tr class="border-b border-border/30 opacity-50">
-          <td class="px-3 py-2 text-center text-gray-700">—</td>
-          <td class="px-4 py-2"><a href="player.html?name=${encodeURIComponent(r.name)}" class="font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">${esc(r.name)}</a></td>
-          <td class="px-4 py-2"></td>
-          <td class="px-4 py-2 text-right font-mono text-gray-700">—</td>
-          <td class="px-4 py-2 text-right font-mono text-gray-700">—</td>
-          <td class="px-5 py-2 text-right font-mono text-gray-700">—</td>
-        </tr>`).join('')}` : '';
+      if (ranked.length) tbody.innerHTML = rankedHtml;
 
-      tbody.innerHTML = rankedHtml + unrankedHtml;
+      // Unranked players: a compact, wrapping list of tappable pills instead of one empty table row each.
+      unrankedEl.innerHTML = unranked.length ? `
+        <h3 class="font-heading font-700 text-xs tracking-widest text-gray-400 uppercase mb-1">Not enough recent rounds <span class="text-gray-500">(${unranked.length})</span></h3>
+        <div class="flex flex-wrap gap-2 mt-3">
+          ${unranked.map(r => `<a href="player.html?name=${encodeURIComponent(r.name)}" class="mu-pill">${esc(r.name)}</a>`).join('')}
+        </div>` : '';
     }
 
     function buildSeasonOptions() {
@@ -199,5 +236,6 @@
 
     init();
   </script>
+  <script src="js/nav.js"></script>
 </body>
 </html>

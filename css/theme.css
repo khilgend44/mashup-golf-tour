@@ -254,3 +254,26 @@ a.mu-ev:active { background: var(--card-hi); border-left-color: var(--flame); }
 
 /* ---------- Footer note ---------- */
 .mu-note { text-align: center; color: var(--text-3); font-size: 12px; padding: 20px 0 40px; border-top: 1px solid var(--border); }
+
+/* ---------- Tables on phones ---------- */
+/* Wrap a <table> in .mu-tablewrap (inside a .mu-clip card). On narrow OR short screens (a phone held sideways is
+   wide but only ~390px tall) the PAGE scrolls and the sticky header pins under the 56px nav. On tall wide screens
+   the table scrolls inside its own box capped at 100vh minus --mu-cap (default 12rem).
+   .mu-clip must be used instead of overflow:hidden on the card — overflow:hidden would make the card the sticky
+   header's scroll container and it would never pin to the viewport. */
+.mu-clip { overflow: visible; overflow: clip; }
+@media (max-width: 639px), (max-height: 699px) {
+  .mu-tablewrap thead th { top: 56px; }
+  .mu-tablewrap thead th:first-child { border-top-left-radius: 8px; }
+  .mu-tablewrap thead th:last-child  { border-top-right-radius: 8px; }
+}
+@media (min-width: 640px) and (min-height: 700px) {
+  .mu-tablewrap { overflow: auto; max-height: calc(100vh - var(--mu-cap, 12rem)); }
+}
+
+/* Tappable name pill (used for long lists of players). */
+.mu-pill { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  font: 600 15px var(--f-head); letter-spacing: .04em; transition: .15s; }
+.mu-pill:active { background: var(--card-hi); color: #fff; }
+@media (hover: hover) { .mu-pill:hover { color: var(--flame); border-color: rgba(249, 115, 22, .4); } }

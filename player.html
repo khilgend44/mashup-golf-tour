@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Player — MashUp Golf Tour</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -26,9 +27,9 @@
     .hover\:text-flame:hover { color: #f97316; }
     .hero-glow { background: radial-gradient(ellipse 60% 80% at 25% 0%, rgba(249,115,22,0.12) 0%, transparent 70%); }
     thead th { position: sticky; top: 0; z-index: 20; background: #1e1e1e; box-shadow: inset 0 -1px 0 #2c2c2c; }
-    tr:hover td { background: rgba(255,255,255,0.025); }
-    /* tour badges */
-    .tour { font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:0.08em; font-size:0.6rem; padding:0.1rem 0.4rem; border-radius:0.25rem; }
+    @media (hover: hover) { tr:hover td { background: rgba(255,255,255,0.025); } }
+    /* tour badges (≥12px — they were 9.6px) */
+    .tour { font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:0.08em; font-size:0.75rem; padding:0.15rem 0.5rem; border-radius:0.25rem; }
     .t-MSH{color:#f97316;background:rgba(249,115,22,.12)} .t-PRO{color:#60a5fa;background:rgba(96,165,250,.12)}
     .t-SGT{color:#34d399;background:rgba(52,211,153,.12)} .t-BLTZ{color:#a78bfa;background:rgba(167,139,250,.12)}
     .t-TIPS{color:#fbbf24;background:rgba(251,191,36,.12)} .t-DEF{color:#9ca3af;background:rgba(156,163,175,.12)}
@@ -37,17 +38,49 @@
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
 
-  <header class="border-b border-border">
-    <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Player</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
-      <a href="handicaps.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← All Players</a>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-4xl mx-auto px-4 py-8 w-full flex-1">
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
+
+  <!-- Breadcrumb bar — filled by this page's script (#breadcrumb); hidden while empty. -->
+  <div class="mu-crumb"><div class="mu-wrap"><div id="breadcrumb"></div></div></div>
+
+  <main class="max-w-4xl mx-auto px-4 pt-3 sm:pt-6 pb-12 w-full flex-1">
     <div id="loading" class="text-center py-24">
       <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
       <p class="text-gray-500 text-sm">Loading player…</p>
@@ -96,9 +129,12 @@
     // ── MashCAP trend SVG line chart (lower = better) ────────────────────────
     function trendChart(points) {
       if (!points || points.length < 2) {
-        return `<div class="text-center text-gray-600 text-sm py-10">Not enough rounds yet to chart a trend.</div>`;
+        return `<div class="text-center text-gray-400 text-sm py-10">Not enough rounds yet to chart a trend.</div>`;
       }
-      const W = 640, H = 210, axisW = 38, padT = 12, padB = 14, padR = 10;
+      // The SVG scales to its container, so a fixed 640-wide viewBox shrinks axis labels to ~6px on a phone.
+      // Use a phone-sized viewBox (~1:1 at 390px) so the labels stay readable; render() re-runs on breakpoint change.
+      const narrow = window.matchMedia('(max-width: 639px)').matches;
+      const W = narrow ? 340 : 640, H = narrow ? 190 : 210, axisW = narrow ? 44 : 38, padT = 12, padB = 14, padR = 10;
       const plotT = padT, plotB = H - padB, plotL = axisW, plotR = W - padR;
       const caps = points.map(p => p.cap);
       let min = Math.min(...caps), max = Math.max(...caps);
@@ -115,7 +151,7 @@
       const gridHtml = niceTicks(min, max, 4).map(t => {
         const yy = y(t).toFixed(1);
         return `<line x1="${plotL}" y1="${yy}" x2="${plotR}" y2="${yy}" stroke="#242424" stroke-width="1"/>
-          <text x="${plotL - 6}" y="${yy}" text-anchor="end" dominant-baseline="middle" fill="#6b7280" font-family="Inter, sans-serif" font-size="11">${hcp(t)}</text>`;
+          <text x="${plotL - 6}" y="${yy}" text-anchor="end" dominant-baseline="middle" fill="#9ca3af" font-family="Inter, sans-serif" font-size="${narrow ? 12 : 11}">${hcp(t)}</text>`;
       }).join('');
       return `
         <svg viewBox="0 0 ${W} ${H}" class="w-full" style="height:auto;display:block">
@@ -131,7 +167,7 @@
           <path d="${line}" fill="none" stroke="#f97316" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
           <circle cx="${x(points.length - 1).toFixed(1)}" cy="${y(last.cap).toFixed(1)}" r="3.5" fill="#0c0c0c" stroke="#f97316" stroke-width="2"/>
         </svg>
-        <div class="flex items-center justify-between text-[11px] text-gray-600 mt-1" style="padding-left:${(axisW / W * 100).toFixed(1)}%">
+        <div class="flex items-center justify-between text-xs text-gray-400 mt-1" style="padding-left:${(axisW / W * 100).toFixed(1)}%">
           <span>${esc(first.date)}</span>
           <span class="${better ? 'text-emerald-400' : 'text-amber-400'} font-heading font-600 tracking-wide">${better ? '▼ improving' : '▲ rising'}</span>
           <span>${esc(last.date)}</span>
@@ -141,8 +177,8 @@
     function statCard(value, label, sub) {
       return `<div class="card-shadow bg-card border border-border rounded-lg p-4 text-center min-w-0">
         <div class="font-display text-3xl text-flame leading-none truncate">${value}</div>
-        <div class="font-heading text-[11px] tracking-widest text-gray-500 uppercase mt-1 truncate">${label}</div>
-        ${sub ? `<div class="text-[11px] text-gray-600 mt-0.5 truncate">${sub}</div>` : ''}
+        <div class="font-heading text-xs tracking-widest text-gray-400 uppercase mt-1">${label}</div>
+        ${sub ? `<div class="text-xs text-gray-400 mt-0.5 break-words">${sub}</div>` : ''}
       </div>`;
     }
 
@@ -152,7 +188,7 @@
       app.classList.remove('hidden');
       app.innerHTML = `<div class="card-shadow bg-card border border-border rounded-lg px-6 py-12 text-center">
         <p class="text-gray-300 font-heading font-600 tracking-wide text-lg mb-1">${esc(msg)}</p>
-        <a href="handicaps.html" class="text-flame hover:text-flame-dim text-sm">← Back to all players</a>
+        <a href="handicaps.html" class="inline-flex items-center min-h-[44px] text-flame hover:text-flame-dim text-sm">← Back to all players</a>
       </div>`;
     }
 
@@ -251,6 +287,10 @@
       const byDate = [...d.rounds].map((r, i) => ({ ...r, _counting: bestSet.has(i) }))
         .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
+      lastData = d;
+      document.getElementById('breadcrumb').innerHTML =
+        `<a href="handicaps.html">Handicaps</a> <span class="mx-1">›</span> <span class="text-gray-300">${esc(d.display)}</span>`;
+
       app.innerHTML = `
         <!-- HERO -->
         <section class="hero-glow rounded-2xl border border-border bg-card card-shadow px-5 sm:px-6 py-6 sm:py-7 mb-6">
@@ -258,14 +298,14 @@
             <div class="min-w-0">
               <h1 class="font-display text-4xl sm:text-6xl tracking-wider text-white leading-none" style="overflow-wrap:anywhere">${esc(d.display)}</h1>
               <div class="flex flex-wrap items-center gap-2 mt-3">
-                ${d.tours.map(([t, n]) => `${tourBadge(t)}<span class="text-[11px] text-gray-600 mr-2">${n}</span>`).join('')}
+                ${d.tours.map(([t, n]) => `<span class="inline-flex items-center gap-1 mr-2 whitespace-nowrap">${tourBadge(t)}<span class="text-xs text-gray-400">${n}</span></span>`).join('')}
               </div>
             </div>
             <div class="text-left sm:text-right shrink-0">
-              <div class="text-[11px] font-heading font-600 tracking-widest text-gray-500 uppercase">MashCAP</div>
+              <div class="text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">MashCAP</div>
               <div class="font-display text-5xl sm:text-6xl text-flame leading-none ${d.h.stale ? 'opacity-60' : ''}">${hcp(d.mashCap)}</div>
-              <div class="text-[11px] text-gray-600 mt-1">
-                ${d.adjusted != null ? `adjusted <span class="text-gray-400">${d.adjusted}</span> &nbsp;·&nbsp; ` : ''}best ${d.h.mashCapCounting ?? '—'}/${d.h.mashCapRounds ?? d.rounds.length}${d.h.stale ? ' &nbsp;·&nbsp; <span class="text-gray-500" title="Last known — not in the latest SGT pull">last known</span>' : ''}
+              <div class="text-xs text-gray-400 mt-1">
+                ${d.adjusted != null ? `adjusted <span class="text-gray-200">${d.adjusted}</span> &nbsp;·&nbsp; ` : ''}best ${d.h.mashCapCounting ?? '—'}/${d.h.mashCapRounds ?? d.rounds.length}${d.h.stale ? ' &nbsp;·&nbsp; <span class="text-gray-500" title="Last known — not in the latest SGT pull">last known</span>' : ''}
               </div>
             </div>
           </div>
@@ -285,7 +325,7 @@
           <div class="lg:col-span-2 min-w-0 card-shadow bg-card border border-border rounded-lg p-5">
             <div class="flex items-center justify-between mb-3">
               <h2 class="font-display text-2xl tracking-wider text-white">MashCAP Trend</h2>
-              <span class="text-[11px] text-gray-600">lower is better</span>
+              <span class="text-xs text-gray-400">lower is better</span>
             </div>
             ${trendChart(d.trend)}
           </div>
@@ -296,57 +336,57 @@
                 <div class="font-heading font-700 text-3xl ${formColor[d.form.label]} mb-1">${formLabel[d.form.label]}</div>
                 <p class="text-sm text-gray-400">Last ${d.form.count} rounds average
                   <span class="text-gray-200">${hcp(d.form.avg)}</span></p>
-                <p class="text-xs text-gray-600 mt-1">
+                <p class="text-sm text-gray-400 mt-1">
                   ${d.form.delta === 0 ? 'right at' : (d.form.delta < 0 ? `${hcp(Math.abs(d.form.delta))} better than` : `${hcp(d.form.delta)} above`)}
                   their ${hcp(d.form.base)} average
                 </p>
-              </div>` : `<div class="flex-1 flex items-center justify-center text-gray-600 text-sm">Not enough rounds.</div>`}
+              </div>` : `<div class="flex-1 flex items-center justify-center text-gray-400 text-sm">Not enough rounds.</div>`}
           </div>
         </section>
 
         <!-- EVENT RESULTS -->
         ${finishes.length ? `
-        <section class="card-shadow bg-card border border-border rounded-lg overflow-hidden mb-6">
+        <section class="card-shadow bg-card border border-border rounded-lg mu-clip mb-6">
           <div class="px-5 py-4 border-b border-border"><h2 class="font-display text-2xl tracking-wider text-white">${eventsTitle}</h2></div>
           <div class="divide-y divide-border/60">
             ${finishes.map(f => `
-              <div class="px-5 py-3 flex items-center gap-4">
+              <div class="px-4 sm:px-5 py-3 min-h-[56px] flex items-center gap-3 sm:gap-4">
                 <div class="w-12 text-center shrink-0">
                   <div class="font-display text-2xl ${f.position === 1 ? 'text-flame' : f.position <= 3 ? 'text-amber-400' : 'text-gray-400'}">${f.position != null ? ordinal(f.position) : '—'}</div>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="font-heading font-700 text-white truncate">${esc(f.name || 'Event')}</div>
-                  <div class="text-xs text-gray-600 truncate">${esc((f.format || '').replace(/-/g,' '))}${f.date ? ' · ' + new Date(f.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''}</div>
+                  <div class="font-heading font-700 text-base text-white break-words">${esc(f.name || 'Event')}</div>
+                  <div class="text-xs text-gray-400">${esc((f.format || '').replace(/-/g,' '))}${f.date ? ' · ' + new Date(f.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''}</div>
                 </div>
-                <div class="text-right shrink-0 font-mono text-sm ${f.prize ? 'text-flame' : 'text-gray-600'}">${f.prize ? '$' + money(f.prize) : '—'}</div>
+                <div class="text-right shrink-0 font-mono text-sm ${f.prize ? 'text-flame' : 'text-gray-500'}">${f.prize ? '$' + money(f.prize) : '—'}</div>
               </div>`).join('')}
           </div>
         </section>` : ''}
 
         <!-- ROUND HISTORY -->
-        <section class="card-shadow bg-card border border-border rounded-lg overflow-hidden">
+        <section class="card-shadow bg-card border border-border rounded-lg mu-clip">
           <div class="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
-            <h2 class="font-display text-2xl tracking-wider text-white">Round History <span class="text-gray-600 text-lg">(${d.rounds.length})</span></h2>
-            <span class="text-xs text-gray-600">${updated} &nbsp;·&nbsp; <span class="count-dot"></span> counting (best ${countingN})</span>
+            <h2 class="font-display text-2xl tracking-wider text-white">Round History <span class="text-gray-400 text-lg">(${d.rounds.length})</span></h2>
+            <span class="text-xs text-gray-400">${updated} &nbsp;·&nbsp; <span class="count-dot"></span> counting (best ${countingN})</span>
           </div>
-          <div class="overflow-auto" style="max-height: calc(100vh - 12rem)">
+          <div class="mu-tablewrap">
             <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-border">
-                  <th class="text-left  px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Date</th>
-                  <th class="text-left  px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Tour</th>
-                  <th class="text-right px-5 py-3 text-[10px] font-heading font-600 tracking-widest text-flame uppercase">Differential</th>
-                  <th class="text-center px-4 py-3 text-[10px] font-heading font-600 tracking-widest text-gray-600 uppercase">Counts</th>
+                  <th class="text-left  px-4 sm:px-5 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Date</th>
+                  <th class="text-left  px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Tour</th>
+                  <th class="text-right px-4 sm:px-5 py-3 text-xs font-heading font-600 tracking-widest text-flame uppercase">Differential</th>
+                  <th class="text-center px-4 py-3 text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">Counts</th>
                 </tr>
               </thead>
               <tbody>
                 ${byDate.length ? byDate.map(r => `
                   <tr class="border-b border-border/50 ${r._counting ? '' : 'opacity-60'}">
-                    <td class="px-5 py-2.5 font-body text-gray-300">${esc(r.date)}</td>
-                    <td class="px-4 py-2.5">${tourBadge(r.tour)}</td>
-                    <td class="px-5 py-2.5 text-right font-mono ${r._counting ? 'text-flame font-600' : 'text-gray-400'}">${hcp(r.differential)}</td>
+                    <td class="px-4 sm:px-5 py-3 font-body text-gray-300">${esc(r.date)}</td>
+                    <td class="px-4 py-3">${tourBadge(r.tour)}</td>
+                    <td class="px-4 sm:px-5 py-3 text-right font-mono ${r._counting ? 'text-flame font-600' : 'text-gray-400'}">${hcp(r.differential)}</td>
                     <td class="px-4 py-2.5 text-center">${r._counting ? '<span class="count-dot"></span>' : '<span class="text-gray-700">·</span>'}</td>
-                  </tr>`).join('') : `<tr><td colspan="4" class="px-5 py-10 text-center text-gray-600 text-sm">No rounds on record.</td></tr>`}
+                  </tr>`).join('') : `<tr><td colspan="4" class="px-5 py-10 text-center text-gray-400 text-sm">No rounds on record.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -354,7 +394,13 @@
       `;
     }
 
+    // The trend chart picks its viewBox from the screen width, so re-render when crossing the phone breakpoint
+    // (e.g. rotating a tablet / resizing a window). lastData is set by render().
+    let lastData = null;
+    window.matchMedia('(max-width: 639px)').addEventListener('change', () => { if (lastData) render(lastData); });
+
     init();
   </script>
+  <script src="js/nav.js"></script>
 </body>
 </html>
