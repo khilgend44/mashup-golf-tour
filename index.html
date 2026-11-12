@@ -232,7 +232,7 @@
         <section class="mt-12">
           <h3 class="mu-section-title">All Seasons</h3>
           <div class="grid sm:grid-cols-2 sm:gap-x-3">
-            ${seasons.map(s => seasonCard(s)).join('')}
+            ${sortSeasonsNewestFirst(seasons).map(s => seasonCard(s)).join('')}
           </div>
         </section>` : ''}
       `;
@@ -290,6 +290,13 @@
             <span class="mu-btn mu-btn--live">View Leaderboard →</span>
           </div>
         </a>`;
+    }
+
+    // Newest first (Season 11, 10, 9, 8…). loadSeasons() returns static seasons then KV ones, so
+    // the raw order is by source, not by season. Sort on the trailing number in the id (season-11).
+    function sortSeasonsNewestFirst(list) {
+      const num = s => { const m = /(\d+)\s*$/.exec(s.id || s.name || ''); return m ? parseInt(m[1], 10) : -1; };
+      return [...list].sort((a, b) => num(b) - num(a));
     }
 
     function seasonCard(s) {
