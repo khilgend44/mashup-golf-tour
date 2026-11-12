@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Rules — MashUp Golf</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -47,68 +48,43 @@
 </head>
 <body class="text-gray-100 min-h-screen">
 
-  <!-- NAV -->
-  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-      <button id="menu-btn" aria-label="Menu" class="flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md border border-border bg-surface hover:border-gray-600" style="transition:border-color 0.15s">
-        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-      </button>
-      <a href="https://simulatorgolftour.com" target="_blank"
-         class="flex items-center gap-2 bg-surface border border-border rounded-full pl-1.5 pr-3 py-1 hover:border-[#d03f25]/50 group"
-         style="transition:all 0.15s">
-        <img src="brand_assets/sgt_emblem.svg" class="h-6 w-auto" alt="SGT" />
-        <div class="flex flex-col leading-none">
-          <span class="text-[8px] font-heading font-600 tracking-widest text-gray-600 uppercase group-hover:text-gray-500">Powered by</span>
-          <span class="text-[11px] font-heading font-600 tracking-wider text-gray-300 group-hover:text-white">Simulator Golf Tour</span>
-        </div>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
+      </div>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
       </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
   </nav>
 
-  <!-- NAV DROPDOWN -->
-  <div id="nav-menu" class="fixed top-14 left-0 right-0 z-40 bg-[#0c0c0c] border-b border-border hidden" style="box-shadow:0 8px 24px rgba(0,0,0,0.5)">
-    <div class="max-w-6xl mx-auto px-4 py-3">
-      <a href="index.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <span class="text-flame">⌂</span> Home
-      </a>
-      <a href="season.html?id=season-10" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> Season 10
-      </a>
-      <a href="season-match-play-grid.html?season=season-10" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><rect x="1" y="1" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.85"/><rect x="5.6" y="1" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.5"/><rect x="10.2" y="1" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.3"/><rect x="1" y="5.6" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.5"/><rect x="5.6" y="5.6" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.85"/><rect x="10.2" y="5.6" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.5"/><rect x="1" y="10.2" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.3"/><rect x="5.6" y="10.2" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.5"/><rect x="10.2" y="10.2" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.85"/></svg> Season Match Play Grid
-      </a>
-      <div class="border-t border-border my-2"></div>
-      <a href="season.html?id=season-9" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-500 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0" opacity="0.5"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> Season 9 <span class="text-[10px] text-gray-600 ml-0.5">Archive</span>
-      </a>
-      <a href="recap.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M7 1.5L8.8 5.2L13 5.8L10 8.7L10.7 13L7 11L3.3 13L4 8.7L1 5.8L5.2 5.2Z" fill="#f97316" opacity="0.7"/></svg> Season 9 Recap
-      </a>
-      <a href="handicaps.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><rect x="2.5" y="1" width="9" height="12" rx="1.5" stroke="#f97316" stroke-width="1.1"/><rect x="4.2" y="2.8" width="5.6" height="2.4" rx="0.5" fill="#f97316" opacity="0.45"/><circle cx="4.8" cy="7.8" r="0.7" fill="#f97316"/><circle cx="7" cy="7.8" r="0.7" fill="#f97316"/><circle cx="9.2" cy="7.8" r="0.7" fill="#f97316"/><circle cx="4.8" cy="10.4" r="0.7" fill="#f97316"/><circle cx="7" cy="10.4" r="0.7" fill="#f97316"/><circle cx="9.2" cy="10.4" r="0.7" fill="#f97316"/></svg> Handicaps
-      </a>
-      <a href="power.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M1.5 9.5L4.5 6L7 8L12.5 2.5" stroke="#f97316" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.5 2.5h3v3" stroke="#f97316" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.5 12.5h11" stroke="#f97316" stroke-width="1.1" stroke-linecap="round" opacity="0.4"/></svg> Hot/Cold
-      </a>
-      <a href="records.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M4 1.5h6v3a3 3 0 0 1-6 0v-3Z" stroke="#f97316" stroke-width="1.1" stroke-linejoin="round"/><path d="M4 2.5H2.2v1A1.8 1.8 0 0 0 4 5.3M10 2.5h1.8v1A1.8 1.8 0 0 1 10 5.3" stroke="#f97316" stroke-width="1.1" stroke-linecap="round"/><path d="M7 7.5v2.5M5 12.5h4M5.5 12.5l.5-2.5h2l.5 2.5" stroke="#f97316" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg> Records &amp; Hall of Fame
-      </a>
-      <a href="hole-in-one.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M3 12.5h8" stroke="#f97316" stroke-width="1.1" stroke-linecap="round"/><path d="M7 9.5V3.2" stroke="#f97316" stroke-width="1.1" stroke-linecap="round"/><path d="M7 3.2l3.4 1.1L7 5.5V3.2Z" fill="#f97316" opacity="0.7"/><circle cx="7" cy="10.6" r="1.5" fill="white"/><circle cx="6.5" cy="10.2" r="0.3" fill="#bbb"/><circle cx="7.5" cy="10.4" r="0.3" fill="#bbb"/></svg> Hole-in-One Pot
-      </a>
-      <div class="border-t border-border my-2"></div>
-      <a href="about.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> About Us
-      </a>
-      <a href="requirements.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> How to Join
-      </a>
-      <a href="rules.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> Rules
-      </a>
-    </div>
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
   </div>
 
   <!-- PAGE HEADER -->
@@ -361,22 +337,6 @@
     </div>
   </footer>
 
-  <script>
-    (function() {
-      const btn  = document.getElementById('menu-btn');
-      const menu = document.getElementById('nav-menu');
-      const bars = btn.querySelectorAll('.menu-bar');
-      let open = false;
-      function setOpen(val) {
-        open = val;
-        menu.classList.toggle('hidden', !open);
-        bars[0].style.transform = open ? 'translateY(8px) rotate(45deg)' : '';
-        bars[1].style.opacity   = open ? '0' : '1';
-        bars[2].style.transform = open ? 'translateY(-8px) rotate(-45deg)' : '';
-      }
-      btn.addEventListener('click', e => { e.stopPropagation(); setOpen(!open); });
-      document.addEventListener('click', e => { if (open && !menu.contains(e.target)) setOpen(false); });
-    })();
-  </script>
+  <script src="js/nav.js"></script>
 </body>
 </html>
