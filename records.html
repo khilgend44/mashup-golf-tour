@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Records & Hall of Fame — MashUp Golf Tour</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { theme: { extend: {
@@ -22,27 +23,57 @@
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     .text-flame { color: #f97316; }
     .hover\:text-flame:hover { color: #f97316; }
-    .rc-link { color: #fff; transition: color .12s; }
-    .rc-link:hover { color: #f97316; }
+    /* Player-name links: vertical padding gives a thumb-sized hit area without changing the text size. */
+    .rc-link { color: #fff; transition: color .12s; display: inline-block; padding: 10px 0; }
+    @media (hover: hover) { .rc-link:hover { color: #f97316; } }
     .hof-glow { background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(249,115,22,0.10) 0%, transparent 70%); }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
 
-  <header class="border-b border-border">
-    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Records</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
-      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
-    <div class="mb-8">
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
+
+  <main class="max-w-5xl mx-auto px-4 pt-5 sm:pt-8 pb-12 w-full flex-1">
+    <div class="mb-6 sm:mb-8">
       <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">Records &amp; Hall of Fame</h1>
-      <p class="text-gray-500 text-sm mt-2 max-w-xl">All-time bests across every MashUp event. Records grow each season — click any name for that player's profile.</p>
+      <p class="text-gray-400 text-sm mt-2 max-w-xl">All-time bests across every MashUp event. Records grow each season — tap any name for that player's profile.</p>
     </div>
 
     <div id="loading" class="text-center py-24">
@@ -57,7 +88,7 @@
   </footer>
 
   <script type="module">
-    import { loadSeasons, loadEvents, loadFormats } from './js/api.js?v=20261103a';
+    import { loadSeasons, loadEvents, loadFormats, sortSeasonsNewestFirst } from './js/api.js?v=20261103a';
     import { buildPlayerStats, scanScorecardRounds, buildMarginOfVictory } from './js/stats.js?v=20261103a';
 
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -69,26 +100,27 @@
     function recordCard(title, sub, entries, fmtVal) {
       if (!entries.length) {
         return `<div class="card-shadow bg-card border border-border rounded-xl p-5 min-w-0">
-          <div class="text-[10px] font-heading font-700 tracking-widest text-gray-600 uppercase mb-2">${title}</div>
-          <div class="text-sm text-gray-600">No data yet.</div></div>`;
+          <div class="text-xs font-heading font-700 tracking-widest text-gray-400 uppercase mb-2">${title}</div>
+          <div class="text-sm text-gray-400">No data yet.</div></div>`;
       }
+      // Names/event details wrap instead of truncating with "…" — on a phone the event a record was set in is half the story.
       const [top, ...rest] = entries;
       return `<div class="card-shadow bg-card border border-border rounded-xl p-5 flex flex-col min-w-0">
-        <div class="text-[10px] font-heading font-700 tracking-widest text-flame uppercase mb-3">${title}</div>
+        <div class="text-xs font-heading font-700 tracking-widest text-flame uppercase mb-3">${title}</div>
         <div class="flex items-baseline justify-between gap-3">
           <div class="min-w-0">
-            <div class="text-lg truncate">🥇 ${plink(top.name)}</div>
-            ${top.detail ? `<div class="text-[11px] text-gray-600 mt-0.5 truncate">${esc(top.detail)}</div>` : ''}
+            <div class="text-lg break-words">🥇 ${plink(top.name)}</div>
+            ${top.detail ? `<div class="text-xs text-gray-400 mt-0.5 break-words">${esc(top.detail)}</div>` : ''}
           </div>
           <div class="font-display text-3xl text-white leading-none shrink-0">${fmtVal(top.value)}</div>
         </div>
-        ${rest.length ? `<div class="mt-3 pt-3 border-t border-border/60 space-y-1.5">
-          ${rest.map((e, i) => `<div class="flex items-baseline justify-between gap-2 text-xs">
-            <div class="min-w-0 truncate"><span class="text-gray-600 mr-1.5">${i + 2}</span>${plink(e.name)}${e.detail ? `<span class="text-gray-700 ml-1.5">${esc(e.detail)}</span>` : ''}</div>
-            <span class="font-mono text-gray-400 shrink-0">${fmtVal(e.value)}</span>
+        ${rest.length ? `<div class="mt-3 pt-3 border-t border-border/60 space-y-1">
+          ${rest.map((e, i) => `<div class="flex items-baseline justify-between gap-3 text-sm">
+            <div class="min-w-0 break-words"><span class="text-gray-400 mr-1.5">${i + 2}</span>${plink(e.name)}${e.detail ? `<span class="text-gray-500 text-xs ml-1.5">${esc(e.detail)}</span>` : ''}</div>
+            <span class="font-mono text-gray-300 shrink-0">${fmtVal(e.value)}</span>
           </div>`).join('')}
         </div>` : ''}
-        ${sub ? `<div class="text-[10px] text-gray-700 mt-3">${sub}</div>` : ''}
+        ${sub ? `<div class="text-xs text-gray-500 mt-3">${sub}</div>` : ''}
       </div>`;
     }
 
@@ -184,7 +216,7 @@
       const marginCard = recordCard('Largest Margin of Victory', 'Gap between 1st and 2nd place, net strokes', topN(margins, m => m.value, 4), v => `${v}`);
 
       // Season champions: money-list leader of each season's completed events.
-      const seasonList = [...seasons].sort((a, b) => String(b.id).localeCompare(String(a.id)));
+      const seasonList = sortSeasonsNewestFirst(seasons); // (a string sort of ids puts season-9 above season-11)
       const champRows = [];
       for (const s of seasonList) {
         const sEvents = completed.filter(e => e.season === s.id);
@@ -215,36 +247,36 @@
 
         <section class="hof-glow rounded-2xl pt-6">
           <h2 class="font-display text-3xl tracking-wider text-white mb-1 text-center">🏆 Hall of Fame</h2>
-          <p class="text-center text-gray-600 text-xs mb-6">The MashUp honor roll</p>
+          <p class="text-center text-gray-400 text-sm mb-6">The MashUp honor roll</p>
 
           <div class="grid lg:grid-cols-3 gap-4">
             <div class="card-shadow bg-card border border-border rounded-xl p-5">
-              <div class="text-[10px] font-heading font-700 tracking-widest text-flame uppercase mb-3">Season Money Leaders</div>
+              <div class="text-xs font-heading font-700 tracking-widest text-flame uppercase mb-3">Season Money Leaders</div>
               ${champRows.length ? `<div class="space-y-2">${champRows.map(c => `
                 <div class="flex items-center justify-between gap-3 py-1.5 border-b border-border/40 last:border-0">
                   <div class="min-w-0">
                     <div class="font-display text-xl tracking-wide text-white">${esc(c.season)}</div>
-                    <div class="text-xs">🏆 ${plink(c.name)} <span class="text-gray-600">· ${c.wins} win${c.wins === 1 ? '' : 's'}</span></div>
+                    <div class="text-sm">🏆 ${plink(c.name)} <span class="text-gray-400 text-xs">· ${c.wins} win${c.wins === 1 ? '' : 's'}</span></div>
                   </div>
                   <div class="font-mono text-sm text-flame shrink-0">${money(c.total)}</div>
-                </div>`).join('')}</div>` : '<div class="text-sm text-gray-600">No completed seasons yet.</div>'}
+                </div>`).join('')}</div>` : '<div class="text-sm text-gray-400">No completed seasons yet.</div>'}
             </div>
 
             <div class="card-shadow bg-card border border-border rounded-xl p-5">
-              <div class="text-[10px] font-heading font-700 tracking-widest text-flame uppercase mb-3">Hole-in-One Club</div>
+              <div class="text-xs font-heading font-700 tracking-widest text-flame uppercase mb-3">Hole-in-One Club</div>
               ${ACES.length ? `<div class="space-y-2">${ACES.map(a => `
                 <div class="flex items-center gap-3 py-1.5 border-b border-border/40 last:border-0">
                   <div class="text-2xl leading-none shrink-0">🎯</div>
                   <div class="min-w-0 flex-1">
                     <div class="font-display text-xl tracking-wide text-white">${plink(a.name)}</div>
-                    <div class="text-xs text-gray-600">${esc(a.event)} <span class="text-gray-700">·</span> ${esc(a.detail)}</div>
+                    <div class="text-xs text-gray-400">${esc(a.event)} <span class="text-gray-500">·</span> ${esc(a.detail)}</div>
                   </div>
-                  ${a.video ? `<a href="${esc(a.video)}" target="_blank" rel="noopener" class="shrink-0 text-xs font-heading font-600 tracking-wider text-flame hover:text-flame-dim">▶ Watch</a>` : ''}
+                  ${a.video ? `<a href="${esc(a.video)}" target="_blank" rel="noopener" class="shrink-0 inline-flex items-center min-h-[44px] px-3 -mr-2 text-sm font-heading font-600 tracking-wider text-flame">▶ Watch</a>` : ''}
                 </div>`).join('')}</div>`
               : `<div class="flex flex-col items-center justify-center text-center py-8">
                 <div class="text-4xl mb-2">🎯</div>
                 <div class="font-heading font-600 tracking-wide text-gray-300">Awaiting the first ace</div>
-                <p class="text-xs text-gray-600 mt-1 max-w-xs">The first member to card a hole-in-one takes the entire <a href="hole-in-one.html" class="text-flame hover:text-flame-dim">pot</a> and a permanent spot here.</p>
+                <p class="text-sm text-gray-400 mt-1 max-w-xs">The first member to card a hole-in-one takes the entire <a href="hole-in-one.html" class="text-flame hover:text-flame-dim">pot</a> and a permanent spot here.</p>
               </div>`}
             </div>
 
@@ -252,12 +284,12 @@
           </div>
 
           <div class="card-shadow bg-card border border-border rounded-xl p-5 mt-4">
-            <div class="text-[10px] font-heading font-700 tracking-widest text-flame uppercase mb-3">Event Winners</div>
-            ${winnerEvents.length ? `<div class="grid sm:grid-cols-2 gap-x-6 gap-y-2">${winnerEvents.map(e => `
+            <div class="text-xs font-heading font-700 tracking-widest text-flame uppercase mb-3">Event Winners</div>
+            ${winnerEvents.length ? `<div class="grid sm:grid-cols-2 gap-x-6 gap-y-1">${winnerEvents.map(e => `
               <div class="py-1.5 border-b border-border/30 min-w-0">
-                <div class="text-sm text-gray-400 truncate">${esc(e.name || 'Event')}</div>
-                <div class="text-xs text-gray-300 mt-0.5" style="overflow-wrap:anywhere">🏆 ${e.winners.map(plink).join(', ')}</div>
-              </div>`).join('')}</div>` : '<div class="text-sm text-gray-600">No completed events yet.</div>'}
+                <div class="text-sm text-gray-400 break-words">${esc(e.name || 'Event')}</div>
+                <div class="text-sm text-gray-200 mt-0.5" style="overflow-wrap:anywhere">🏆 ${e.winners.map(plink).join(', ')}</div>
+              </div>`).join('')}</div>` : '<div class="text-sm text-gray-400">No completed events yet.</div>'}
           </div>
         </section>
       `;
@@ -265,5 +297,6 @@
 
     init();
   </script>
+  <script src="js/nav.js"></script>
 </body>
 </html>
