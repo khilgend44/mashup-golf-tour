@@ -7,11 +7,11 @@
 # server for a fresh copy). Force revalidation on every load instead — still
 # cacheable, just never trusted without checking first.
 #
-# !! CAVEAT (found 2026-11-11): this only works on https://mashup-golf-tour.pages.dev. On the real domain
-# (mashupgolf.com) a Cloudflare zone setting — most likely Caching → Configuration → "Browser Cache TTL" —
-# rewrites these to max-age=14400 (4h), so these rules do NOT protect real visitors. Until that setting is
-# changed to "Respect Existing Headers", the `?v=` label on every js/css reference is the ONLY cache-buster:
-# bump it whenever a js/ or css/ file changes (see CLAUDE.md "Cache-busting").
+# NOTE (2026-11-11): on the real domain (mashupgolf.com) a Cloudflare zone setting — Caching → Configuration →
+# "Browser Cache TTL" — used to rewrite these to max-age=14400 (4h), so these rules did NOT protect real
+# visitors (it caused a site-wide outage after a js/api.js change). It is now "Respect Existing Headers" and
+# the rules below work on the real domain. If that setting is ever reverted they silently stop working again,
+# so ALSO bump the `?v=` label on every js/css reference when a file changes (see CLAUDE.md "Cache-busting").
 /js/*
   Cache-Control: no-cache
 
