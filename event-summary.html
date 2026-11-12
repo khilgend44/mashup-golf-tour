@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Event Summary — MashUp Golf Tour</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css?v=20261112a" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { theme: { extend: {
@@ -30,17 +31,18 @@
     }
     .stat-tile { background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 0.7rem; padding: 0.9rem 1rem; }
     .stat-tile .num { font-family: 'Bebas Neue', cursive; font-size: 1.9rem; line-height: 1; letter-spacing: 0.01em; }
-    .stat-tile .lbl { font-family: 'Barlow Condensed', sans-serif; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-top: 4px; }
+    /* Small labels: 12px minimum, gray-400 (was 10.5px gray-500 — hard to read on a phone). */
+    .stat-tile .lbl { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af; margin-top: 4px; }
     .spot-card {
       background: linear-gradient(160deg, #1e1e1e 0%, #191919 100%);
       border: 1px solid #2c2c2c; border-radius: 0.9rem; padding: 1.15rem 1.25rem;
       box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 10px 26px rgba(0,0,0,0.32), 0 0 0 1px rgba(255,255,255,0.03);
       border-top: 3px solid transparent;
     }
-    .spot-card .tag { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #fb923c; }
+    .spot-card .tag { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #fb923c; }
     .spot-card .val { font-family: 'Bebas Neue', cursive; font-size: 2rem; line-height: 1; color: #fff; margin-top: 0.35rem; }
-    .spot-card .who { font-size: 0.85rem; color: #d1d5db; margin-top: 0.3rem; }
-    .spot-card .ctx { font-size: 0.72rem; color: #6b7280; margin-top: 0.15rem; }
+    .spot-card .who { font-size: 0.95rem; color: #d1d5db; margin-top: 0.3rem; overflow-wrap: anywhere; }
+    .spot-card .ctx { font-size: 0.8rem; color: #9ca3af; margin-top: 0.15rem; }
     .gross-accent { border-top: 3px solid #38bdf8; }
     .net-accent   { border-top: 3px solid #f97316; }
     .team-accent  { border-top: 3px solid #a78bfa; }
@@ -50,18 +52,50 @@
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
 
-  <header class="border-b border-border">
-    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Event Summary</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
-      <a id="back-link" href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Event</a>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
-    <div id="loading" class="text-center py-20 text-gray-500 font-heading tracking-wider">Loading…</div>
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
+
+  <!-- Back link as a breadcrumb-style bar (its href is set by the page script once the event is known). -->
+  <div class="mu-crumb"><div class="mu-wrap"><div><a id="back-link" href="index.html">← Back to Event</a></div></div></div>
+
+  <main class="max-w-5xl mx-auto px-4 pt-3 sm:pt-6 pb-12 w-full flex-1">
+    <div id="loading" class="text-center py-20 text-gray-400 font-heading tracking-wider">Loading…</div>
     <div id="error" class="hidden max-w-md mx-auto mt-16 bg-red-950/40 border border-red-800/50 rounded-xl p-6 text-center">
       <div class="text-red-400 font-heading font-700 tracking-wide">Error</div>
       <div id="error-msg" class="text-gray-400 text-sm mt-2"></div>
@@ -100,8 +134,8 @@
         <div class="stat-tile">
           <div class="lbl mb-1">${label}</div>
           ${h ? `
-            <div class="text-white font-heading font-600">Hole ${h.hole} <span class="text-gray-500 font-body font-400">(${h.par != null ? `Par ${h.par} · ` : ''}${fmtToPar(h.avgToPar)} avg)</span></div>
-            <div class="text-[11px] text-gray-500 mt-1">${h.index != null ? `Index ${h.index}` : 'Index n/a'}</div>
+            <div class="text-white font-heading font-600">Hole ${h.hole} <span class="text-gray-400 font-body font-400">(${h.par != null ? `Par ${h.par} · ` : ''}${fmtToPar(h.avgToPar)} avg)</span></div>
+            <div class="text-xs text-gray-400 mt-1">${h.index != null ? `Index ${h.index}` : 'Index n/a'}</div>
           ` : `<div class="text-white font-heading font-600">—</div>`}
         </div>`;
     }
@@ -262,7 +296,7 @@
       const section = $('pace-section');
       section.innerHTML = `
         <h2 class="section-head mb-4">Pace of Play</h2>
-        <p class="text-xs text-gray-600 mb-4 -mt-2">Estimated from submitted stream lengths — a shared team stream is split evenly across however many players are in it.</p>
+        <p class="text-sm text-gray-400 mb-4 -mt-2">Estimated from submitted stream lengths — a shared team stream is split evenly across however many players are in it.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${cards.join('')}</div>
       `;
       section.classList.remove('hidden');
@@ -367,7 +401,7 @@
       const section = $('sgt-section');
       section.innerHTML = `
         <h2 class="section-head mb-4">Event Highlights</h2>
-        <p class="text-xs text-gray-600 mb-4 -mt-2">Pulled live from SGT's own Stats and Long Drive tabs for this tournament.</p>
+        <p class="text-sm text-gray-400 mb-4 -mt-2">Pulled live from SGT's own Stats and Long Drive tabs for this tournament.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${cards.join('')}</div>
       `;
       section.classList.remove('hidden');
@@ -378,7 +412,7 @@
         <div class="stat-tile">
           <div class="num text-white">${value}</div>
           <div class="lbl">${label}</div>
-          ${sub ? `<div class="text-[11px] text-gray-500 mt-1">${sub}</div>` : ''}
+          ${sub ? `<div class="text-xs text-gray-400 mt-1">${sub}</div>` : ''}
         </div>`;
     }
 
@@ -453,7 +487,7 @@
       return `
         <div class="mt-10">
           <h2 class="section-head mb-4">Lone Ranger Contributions</h2>
-          <p class="text-xs text-gray-600 mb-4 max-w-2xl">How many holes each teammate's own score counted toward the team total on a hole that wasn't their mandatory slot — a tie for best ball credits both players.</p>
+          <p class="text-sm text-gray-400 mb-4 max-w-2xl">How many holes each teammate's own score counted toward the team total on a hole that wasn't their mandatory slot — a tie for best ball credits both players.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             ${cards}
           </div>
@@ -488,8 +522,8 @@
     }
 
     function difficultyTag(i, hardestIdx, easiestIdx) {
-      if (i === hardestIdx) return `<span class="text-[9px] font-heading font-700 tracking-widest uppercase px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 ml-1.5">Hardest</span>`;
-      if (i === easiestIdx) return `<span class="text-[9px] font-heading font-700 tracking-widest uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 ml-1.5">Easiest</span>`;
+      if (i === hardestIdx) return `<span class="text-xs font-heading font-700 tracking-widest uppercase px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 ml-1.5">Hardest</span>`;
+      if (i === easiestIdx) return `<span class="text-xs font-heading font-700 tracking-widest uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 ml-1.5">Easiest</span>`;
       return '';
     }
 
@@ -510,17 +544,17 @@
 
       const cards = buckets.map(({ gross: g, net: n }, i) => `
           <div class="stat-tile">
-            <div class="lbl mb-2">Slot ${i + 1} <span class="text-gray-600 normal-case">(holes ${SLOT_HOLES[i]})</span></div>
+            <div class="lbl mb-2">Slot ${i + 1} <span class="text-gray-400 normal-case">(holes ${SLOT_HOLES[i]})</span></div>
             <div class="grid grid-cols-2 gap-3 mt-1">
               <div>
-                <div class="text-[10px] text-gray-500 uppercase tracking-wide flex items-center">Gross${difficultyTag(i, gHardest, gEasiest)}</div>
-                <div class="text-white font-heading font-600 text-lg">${perRound(g.avgToPar)}<span class="text-gray-500 text-[11px] font-body"> /round</span></div>
-                <div class="text-[11px] text-gray-500">${perHole(g.avgToPar)} avg/hole · ${g.count} played</div>
+                <div class="text-xs text-gray-400 uppercase tracking-wide flex items-center">Gross${difficultyTag(i, gHardest, gEasiest)}</div>
+                <div class="text-white font-heading font-600 text-lg">${perRound(g.avgToPar)}<span class="text-gray-400 text-xs font-body"> /round</span></div>
+                <div class="text-xs text-gray-400">${perHole(g.avgToPar)} avg/hole · ${g.count} played</div>
               </div>
               <div>
-                <div class="text-[10px] text-gray-500 uppercase tracking-wide flex items-center">Net${difficultyTag(i, nHardest, nEasiest)}</div>
-                <div class="text-white font-heading font-600 text-lg">${perRound(n.avgToPar)}<span class="text-gray-500 text-[11px] font-body"> /round</span></div>
-                <div class="text-[11px] text-gray-500">${perHole(n.avgToPar)} avg/hole · ${n.count} played</div>
+                <div class="text-xs text-gray-400 uppercase tracking-wide flex items-center">Net${difficultyTag(i, nHardest, nEasiest)}</div>
+                <div class="text-white font-heading font-600 text-lg">${perRound(n.avgToPar)}<span class="text-gray-400 text-xs font-body"> /round</span></div>
+                <div class="text-xs text-gray-400">${perHole(n.avgToPar)} avg/hole · ${n.count} played</div>
               </div>
             </div>
           </div>`).join('');
@@ -528,7 +562,7 @@
       return `
         <div class="mt-10">
           <h2 class="section-head mb-4">Slot Difficulty</h2>
-          <p class="text-xs text-gray-600 mb-4 max-w-2xl">How each slot's 6 holes actually played across the whole field — every player who played those holes, not just whoever each team put there — to settle which slot is really easiest.</p>
+          <p class="text-sm text-gray-400 mb-4 max-w-2xl">How each slot's 6 holes actually played across the whole field — every player who played those holes, not just whoever each team put there — to settle which slot is really easiest.</p>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${cards}
           </div>
@@ -547,19 +581,19 @@
         return `
           <div class="stat-tile">
             <div class="lbl mb-2">${teamName(team.displayMembers)}</div>
-            <div class="text-xs text-gray-500">Actual: <span class="text-gray-300">${team.slots.join(' → ')}</span></div>
+            <div class="text-sm text-gray-400">Actual: <span class="text-gray-300">${team.slots.join(' → ')}</span></div>
             <div class="text-white font-heading font-600 text-lg mt-0.5">${team.total} <span class="text-gray-500 text-xs font-body">(${formatToPar(team.toPar)})</span></div>
             ${isOptimal
               ? `<div class="text-emerald-400 text-xs font-heading font-600 tracking-wide mt-2">✓ Already their best order</div>`
               : `<div class="text-amber-400 text-xs font-heading font-600 tracking-wide mt-2">Could have saved ${diff} stroke${diff === 1 ? '' : 's'}</div>
-                 <div class="text-[11px] text-gray-500 mt-1">Best order: <span class="text-gray-400">${best.slots.join(' → ')}</span> · ${best.total}</div>`}
+                 <div class="text-xs text-gray-400 mt-1">Best order: <span class="text-gray-400">${best.slots.join(' → ')}</span> · ${best.total}</div>`}
           </div>`;
       }).join('');
 
       return `
         <div class="mt-10">
           <h2 class="section-head mb-4">Optimal Slot Order</h2>
-          <p class="text-xs text-gray-600 mb-4 max-w-2xl">Replays every possible S1/S2/S3 assignment of each team's own net scores to check whether they actually picked their best order.</p>
+          <p class="text-sm text-gray-400 mb-4 max-w-2xl">Replays every possible S1/S2/S3 assignment of each team's own net scores to check whether they actually picked their best order.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             ${cards}
           </div>
@@ -580,19 +614,19 @@
         return `
           <div class="stat-tile">
             <div class="lbl mb-2">${teamName(team.displayMembers)}</div>
-            <div class="text-xs text-gray-500">Actual</div>
+            <div class="text-sm text-gray-400">Actual</div>
             <div class="text-white font-heading font-600 text-lg mt-0.5">${team.total} <span class="text-gray-500 text-xs font-body">(${formatToPar(team.toPar)})</span></div>
             ${isIdeal
               ? `<div class="text-emerald-400 text-xs font-heading font-600 tracking-wide mt-2">✓ Got the ideal draw</div>`
               : `<div class="text-amber-400 text-xs font-heading font-600 tracking-wide mt-2">${diff} stroke${diff === 1 ? '' : 's'} left on the table</div>
-                 <div class="text-[11px] text-gray-500 mt-1">Best-case: <span class="text-gray-400">${team.ideal.total}</span> (${formatToPar(team.ideal.toPar)})</div>`}
+                 <div class="text-xs text-gray-400 mt-1">Best-case: <span class="text-gray-400">${team.ideal.total}</span> (${formatToPar(team.ideal.toPar)})</div>`}
           </div>`;
       }).join('');
 
       return `
         <div class="mt-10">
           <h2 class="section-head mb-4">Best-Case Draw</h2>
-          <p class="text-xs text-gray-600 mb-4 max-w-2xl">For each team, the lowest total their own scores could've produced under any valid hole→category assignment — independent of the actual live draw.</p>
+          <p class="text-sm text-gray-400 mb-4 max-w-2xl">For each team, the lowest total their own scores could've produced under any valid hole→category assignment — independent of the actual live draw.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             ${cards}
           </div>
@@ -627,7 +661,7 @@
         <div class="mb-8">
           <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">${seasonWeekLabel}</div>
           <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none">${event.name}</h1>
-          <p class="text-gray-500 text-sm mt-2">${meta.playersCompleted} players completed &nbsp;·&nbsp; ${meta.roundsPlayed} rounds played &nbsp;·&nbsp; ${meta.numRounds}-round format</p>
+          <p class="text-gray-400 text-sm mt-2">${meta.playersCompleted} players completed &nbsp;·&nbsp; ${meta.roundsPlayed} rounds played &nbsp;·&nbsp; ${meta.numRounds}-round format</p>
         </div>
 
         <h2 class="section-head mb-4">Event Metrics</h2>
@@ -668,5 +702,6 @@
 
     init().catch(err => showError(err.message));
   </script>
+  <script src="js/nav.js?v=20261112a"></script>
 </body>
 </html>
