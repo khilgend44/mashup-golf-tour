@@ -90,18 +90,8 @@
   </header>
 
   <!-- S10 Member-Member Week 1 Standings -->
-  <div class="max-w-6xl mx-auto px-4 mb-8 mt-2">
-    <a href="mm-match-play-grid.html?e1=event-81255&e2=event-81256&top=4" class="mu-ev" style="margin-bottom:0">
-      <div>
-        <div class="mu-label" style="margin-bottom:6px">Member-Member · Week 1</div>
-        <div class="mu-ev__name">Live Match Play Grid — Best Ball + Scramble Combined</div>
-      </div>
-      <span class="mu-btn mu-btn--ghost">View →</span>
-    </a>
-  </div>
-
   <!-- CONTENT -->
-  <main id="content" class="max-w-6xl mx-auto px-4 pb-20">
+  <main id="content" class="max-w-6xl mx-auto px-4 pt-2 pb-20">
     <div id="loading" class="text-center py-20">
       <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
       <p class="text-gray-500 text-sm">Loading tour data…</p>
@@ -224,6 +214,14 @@
         <!-- Results -->
         <section>
           <h3 class="mu-section-title">Results</h3>
+          <!-- S10 Member-Member Week 1 live standings — sits at the top of Results so a live event stays the first thing on the page. -->
+          <a href="mm-match-play-grid.html?e1=event-81255&e2=event-81256&top=4" class="mu-ev">
+            <div>
+              <div class="mu-label" style="margin-bottom:6px">Member-Member · Week 1</div>
+              <div class="mu-ev__name">Live Match Play Grid — Best Ball + Scramble Combined</div>
+            </div>
+            <span class="mu-btn mu-btn--ghost">View →</span>
+          </a>
           ${completed.length
             ? completed.map(e => eventRow(e)).join('')
             : `<p class="text-gray-400 text-sm py-6">No completed events yet.</p>`}
