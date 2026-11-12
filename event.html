@@ -51,7 +51,8 @@
 
     /* Leaderboard */
     .lb-row { transition: background 0.12s, opacity 0.12s; }
-    .lb-row:hover { background: rgba(255,255,255,0.04); }
+    @media (hover: hover) { .lb-row:hover { background: rgba(255,255,255,0.04); } }
+    .lb-row:active { background: rgba(255,255,255,0.05); }
     .lb-row.expanded { background: rgba(249,115,22,0.06); }
     .lb-row td { border-bottom: 1px solid #1f1f1f; }
     .pos-col { min-width: 3rem; }
@@ -162,13 +163,27 @@
 
     /* ── Redesigned event header + leaderboard ──────────────────── */
     .num { font-variant-numeric: tabular-nums; }
-    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; letter-spacing:.09em; padding:3px 10px; border-radius:6px; }
+    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:12px; letter-spacing:.09em; padding:5px 10px; border-radius:6px; }
     .chip-live { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.3); color:#fbbf24; }
     .chip-done { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.25); color:#4ade80; }
-    .chip-fmt  { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.32); color:#fb923c; }
-    .chip-hcp  { background:rgba(148,163,184,.08); border:1px solid rgba(148,163,184,.25); color:#cbd5e1; }
+    .chip-fmt  { background:#141414; border:1px solid #2c2c2c; color:#d1d5db; }
+    .chip-hcp  { background:#141414; border:1px solid #2c2c2c; color:#b4b8c0; }
     /* Stream-submit disclosure — collapsed by default so it doesn't push the
        leaderboard below the fold, especially on mobile. */
+    /* Header action buttons: 44px tall, fill their row (so 3 buttons never wrap into a ragged mess). */
+    .ev-action { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:1 1 150px; min-height:44px; padding:0 14px;
+      font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:14px; letter-spacing:.06em; color:#b4b8c0;
+      border:1px solid #2c2c2c; border-radius:8px; background:#141414; transition:all .15s; cursor:pointer; white-space:nowrap; }
+    .ev-action:active { background:#1e1e1e; color:#fff; }
+    @media (hover: hover) { .ev-action:hover { color:#f97316; border-color:rgba(249,115,22,.4); } }
+    @media (min-width: 640px) { .ev-action { flex:0 0 auto; } }
+    /* "How it works" (format description + tiebreakers): collapsed on phones so the leaderboard rises; open on desktop (script below). */
+    .ev-info > summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:6px; min-height:44px;
+      font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:#8a8f98; }
+    .ev-info > summary::-webkit-details-marker { display:none; }
+    .ev-info > summary .ev-chev { transition:transform .15s; }
+    .ev-info[open] > summary .ev-chev { transform:rotate(180deg); }
+    .ev-info p { color:#b4b8c0; font-size:14px; line-height:1.5; max-width:42rem; }
     .stream-toggle { list-style:none; cursor:pointer; }
     .stream-toggle::-webkit-details-marker { display:none; }
     .stream-chevron { transition:transform 0.15s; }
@@ -309,7 +324,7 @@
 
   <!-- EVENT HEADER -->
   <section class="hero-glow border-b border-border">
-    <div class="max-w-6xl mx-auto px-4 py-8" id="event-header">
+    <div class="max-w-6xl mx-auto px-4 py-5 sm:py-8" id="event-header">
       <div class="h-4 bg-surface rounded w-48 mb-3 animate-pulse"></div>
       <div class="h-8 bg-surface rounded w-80 mb-4 animate-pulse"></div>
       <div class="flex gap-2">
@@ -320,10 +335,10 @@
   </section>
 
   <!-- STREAM FORM (active events only, populated by JS) -->
-  <div id="stream-form-container" class="max-w-6xl mx-auto px-4 pt-6"></div>
+  <div id="stream-form-container" class="max-w-6xl mx-auto px-4 pt-4 sm:pt-6 empty:hidden"></div>
 
   <!-- LEADERBOARD -->
-  <main class="max-w-6xl mx-auto px-4 py-8 pb-20">
+  <main class="max-w-6xl mx-auto px-4 pt-5 sm:pt-8 pb-20">
     <div id="loading" class="text-center py-20">
       <div class="inline-block w-8 h-8 border-2 border-flame border-t-transparent rounded-full animate-spin mb-4"></div>
       <p class="text-gray-500 text-sm">Fetching scorecards…</p>
@@ -622,9 +637,9 @@
             <span class="mt-0.5 shrink-0">⚠</span>
             <span><strong>Draw Pending</strong> — hole categories will be assigned after the live draw. Rankings below are by team aggregate net score. Click any row to see the Rooting Guide and scorecard.</span>
           </div>
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Pre-Draw Rankings</h2>
-            <span class="text-xs text-gray-600">${preDrawTeams.length} of ${allTeams.length} teams in &nbsp;·&nbsp; click a ranked row to expand</span>
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-3">
+            <h2 class="font-heading font-700 text-base sm:text-sm tracking-widest text-gray-300 sm:text-gray-400 uppercase">Pre-Draw Rankings</h2>
+            <span class="text-[13px] sm:text-xs text-gray-400">${preDrawTeams.length} of ${allTeams.length} teams in &nbsp;·&nbsp; click a ranked row to expand</span>
           </div>
           <div class="card-shadow rounded-xl overflow-hidden border border-border">
             <div class="overflow-x-auto">
@@ -802,21 +817,21 @@
                 ? `<a href="/api/course-scorecard?id=${linkCourseId}" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-gray-300 hover:text-white text-lg sm:text-xl font-heading font-600 tracking-wide mt-2 w-fit" style="transition:color 0.12s"><span class="text-flame">📍</span>${courseChip}<span class="text-gray-600 text-xs font-body font-500 normal-case tracking-normal">(scorecard)</span></a>`
                 : `<p class="flex items-center gap-1.5 text-gray-300 text-lg sm:text-xl font-heading font-600 tracking-wide mt-2"><span class="text-flame">📍</span>${courseChip}</p>`
             ) : ''}
-            <p class="text-gray-500 text-sm mt-2">${dateStr} &nbsp;·&nbsp; ${totalPlayers} Players${teamsLabel}${event.buyIn ? ` &nbsp;·&nbsp; $${event.buyIn} Buy-in` : ''}</p>
-            <p class="text-gray-600 text-xs mt-2 italic max-w-xl">${format.description}</p>
-            ${(format.tiebreakers && format.tiebreakers.length) ? `<p class="text-gray-600 text-xs mt-1.5 max-w-xl"><span class="text-gray-500 font-heading font-600 tracking-wide uppercase">Tiebreaker:</span> ${format.tiebreakers.map((t, i) => `${i + 1}. ${t.label}`).join(' → ')}</p>` : ''}
-            <div class="mt-4 flex flex-wrap items-center gap-2">
+            <p class="text-gray-400 text-sm mt-2">${dateStr} &nbsp;·&nbsp; ${totalPlayers} Players${teamsLabel}${event.buyIn ? ` &nbsp;·&nbsp; $${event.buyIn} Buy-in` : ''}</p>
+            <details class="ev-info mt-2" id="ev-info">
+              <summary>How it works <span class="ev-chev" aria-hidden="true">▾</span></summary>
+              <p class="mb-2">${format.description}</p>
+              ${(format.tiebreakers && format.tiebreakers.length) ? `<p><span class="font-heading font-600 tracking-wide uppercase text-gray-400">Tiebreaker:</span> ${format.tiebreakers.map((t, i) => `${i + 1}. ${t.label}`).join(' → ')}</p>` : ''}
+            </details>
+            <div class="mt-3 flex flex-wrap items-stretch gap-2">
               <a href="event-teams.html?id=${event.id}"
-                 class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
-                 style="transition:all 0.15s">👥 View Caps/Teams/Prizes</a>
+                 class="ev-action">👥 View Caps/Teams/Prizes</a>
               ${isDone && format.type !== 'invitational' ? `
               <a href="event-summary.html?id=${event.tournamentId}"
-                 class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
-                 style="transition:all 0.15s">📊 Event Summary</a>` : ''}
+                 class="ev-action">📊 Event Summary</a>` : ''}
               ${settingsPanelHtml ? `
               <button id="settings-toggle" type="button"
-                 class="inline-flex items-center gap-1.5 text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame border border-border hover:border-flame/40 rounded px-3 py-1.5 bg-surface"
-                 style="transition:all 0.15s">⚙ Round Settings <span id="settings-chevron">›</span></button>` : ''}
+                 class="ev-action">⚙ Round Settings <span id="settings-chevron">›</span></button>` : ''}
             </div>
             ${settingsPanelHtml ? `<div id="settings-panel" class="hidden mt-3">${settingsPanelHtml}</div>` : ''}
           </div>
@@ -827,18 +842,20 @@
               <span class="font-display text-2xl text-flame leading-none num">$${pool.toLocaleString()}</span>
             </div>
             ${isDone ? `
-              <div class="text-[11px] text-gray-600 mt-2">Final results</div>
+              <div class="text-xs text-gray-400 mt-2">Final results</div>
             ` : `
-              <div class="flex items-center justify-between text-[11px] text-gray-500 mb-2 mt-3">
+              <div class="flex items-center justify-between text-xs text-gray-400 mb-2 mt-3">
                 <span class="num">${completedCards} / ${expected} cards in</span><span class="num text-gray-400">${pct}%</span>
               </div>
               <div class="meter"><span style="width:${pct}%"></span></div>
-              <div class="mt-2 text-[11px] text-gray-600">Auto-refreshes ~every 10 min</div>
+              <div class="mt-2 text-xs text-gray-400">Auto-refreshes ~every 10 min</div>
             `}
           </div>` : ''}
         </div>
       `;
       document.title = `${event.name} — MashUp Golf`;
+      // Format info: open on desktop, collapsed on phones (keeps the leaderboard high on the page).
+      if (window.matchMedia('(min-width: 640px)').matches) document.getElementById('ev-info')?.setAttribute('open', '');
 
       document.getElementById('settings-toggle')?.addEventListener('click', () => {
         const panel = document.getElementById('settings-panel');
@@ -1159,9 +1176,9 @@
 
       app.innerHTML = `
         ${notesHtml}
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">NET Leaderboard</h2>
-          <span class="text-xs text-gray-600">${results.length} players &nbsp;·&nbsp; Click a row to expand scorecard</span>
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-3">
+          <h2 class="font-heading font-700 text-base sm:text-sm tracking-widest text-gray-300 sm:text-gray-400 uppercase">NET Leaderboard</h2>
+          <span class="text-[13px] sm:text-xs text-gray-400">${results.length} players &nbsp;·&nbsp; <span class="sm:hidden">Tap</span><span class="hidden sm:inline">Click</span> a row to expand</span>
         </div>
         <div class="card-shadow rounded-xl border border-border">
           <table class="lb-table w-full text-sm">
@@ -1389,9 +1406,9 @@
 
       app.innerHTML = `
         ${notesHtml}
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">${allDone ? 'Net Leaderboard' : 'Net Leaderboard — Provisional'}</h2>
-          <span class="text-xs text-gray-600">${results.length} players &nbsp;·&nbsp; ${complete.length} finished &nbsp;·&nbsp; Click a row to expand scorecard</span>
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-3">
+          <h2 class="font-heading font-700 text-base sm:text-sm tracking-widest text-gray-300 sm:text-gray-400 uppercase">${allDone ? 'Net Leaderboard' : 'Net Leaderboard — Provisional'}</h2>
+          <span class="text-[13px] sm:text-xs text-gray-400">${results.length} players &nbsp;·&nbsp; ${complete.length} finished &nbsp;·&nbsp; <span class="sm:hidden">Tap</span><span class="hidden sm:inline">Click</span> a row to expand</span>
         </div>
         ${complete.length ? `
         <div class="flex items-center gap-4 mb-3 text-xs">
@@ -1631,9 +1648,9 @@
       app.innerHTML = `
         ${notesHtml}
         ${drawSummaryHtml}
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">NET Leaderboard</h2>
-          <span class="text-xs text-gray-600">${results.length} teams &nbsp;·&nbsp; Click a row to expand scorecard</span>
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-3">
+          <h2 class="font-heading font-700 text-base sm:text-sm tracking-widest text-gray-300 sm:text-gray-400 uppercase">NET Leaderboard</h2>
+          <span class="text-[13px] sm:text-xs text-gray-400">${results.length} teams &nbsp;·&nbsp; <span class="sm:hidden">Tap</span><span class="hidden sm:inline">Click</span> a row to expand</span>
         </div>
         <div class="card-shadow rounded-xl border border-border">
           <table class="lb-table w-full text-sm">
@@ -1939,9 +1956,9 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           ${bbCard}${f9Card}${b9Card}
         </div>
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Team Standings</h2>
-          <span class="text-xs text-gray-600">${results.length} teams &nbsp;·&nbsp; sorted by 18-hole best ball · click to expand</span>
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-3">
+          <h2 class="font-heading font-700 text-base sm:text-sm tracking-widest text-gray-300 sm:text-gray-400 uppercase">Team Standings</h2>
+          <span class="text-[13px] sm:text-xs text-gray-400">${results.length} teams &nbsp;·&nbsp; sorted by 18-hole best ball · click to expand</span>
         </div>
         <div class="card-shadow rounded-xl border border-border">
           <table class="lb-table w-full text-sm">
