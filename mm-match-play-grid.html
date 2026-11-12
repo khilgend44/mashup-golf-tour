@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Member-Member Match Play Grid — MashUp Golf</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css?v=20261112a" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -35,7 +36,7 @@
     .under { color: #4ade80; }
     .over  { color: #f87171; }
     .even  { color: #f5f5f5; }
-    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; letter-spacing:.09em; padding:3px 10px; border-radius:6px; }
+    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:12px; letter-spacing:.09em; padding:5px 10px; border-radius:6px; }
     .chip-advance { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.3); color:#4ade80; }
     .rank-medal { min-width:28px; height:28px; padding:0 6px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px; }
     .medal-1 { background:linear-gradient(160deg,#fde68a,#f59e0b); color:#1a1205; box-shadow:0 4px 12px rgba(245,158,11,.35); }
@@ -44,34 +45,69 @@
     .lb-table > thead > tr > th { position: sticky; top: 56px; z-index: 30; background:#171717; box-shadow: 0 1px 0 #2c2c2c; }
     .lb-table > thead > tr > th:first-child { border-top-left-radius: 0.75rem; }
     .lb-table > thead > tr > th:last-child  { border-top-right-radius: 0.75rem; }
+    /* Leaderboard: natural column widths on phones (4 columns); fixed percentage widths from sm up (7 columns). */
+    .lb-table { table-layout: auto; }
+    @media (min-width: 640px) { .lb-table { table-layout: fixed; } }
     @media (max-width: 639px) {
       .lb-table th, .lb-table td { padding-left: 0.5rem; padding-right: 0.5rem; }
       .rank-medal { min-width: 24px; height: 24px; font-size: 13px; padding: 0 4px; }
     }
+    /* The team-vs-team matrix is genuinely wide: it scrolls sideways inside its card with the team column pinned.
+       On a short (landscape) screen 70vh would be a sliver, so never let it get shorter than 20rem. */
+    .grid-scroll { max-height: max(70vh, 20rem); -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
 
-  <header class="border-b border-border">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Member-Member Match Play Grid</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
-      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-6xl mx-auto px-4 py-8">
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4 pt-5 sm:pt-8 pb-12">
     <div class="flex items-center gap-3 mb-2 flex-wrap">
       <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none" id="page-title">MEMBER-MEMBER MATCH PLAY GRID</h1>
       <span id="advance-chip" class="chip chip-advance">TOP <span id="advance-n">4</span> ADVANCE</span>
     </div>
-    <p class="text-gray-500 text-sm mb-1" id="page-sub"></p>
-    <p class="text-gray-600 text-xs mb-6 max-w-2xl">Each team's own net score per hole, head-to-head against every other team, combined across both Week 1 events. Green rows are currently inside the cutline to advance to Week 2.</p>
+    <p class="text-gray-400 text-sm mb-1" id="page-sub"></p>
+    <p class="text-gray-400 text-sm mb-6 max-w-2xl">Each team's own net score per hole, head-to-head against every other team, combined across both Week 1 events. Green rows are currently inside the cutline to advance to Week 2.</p>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
-    <div id="loading" class="text-center py-20 text-gray-600 text-sm">Loading…</div>
+    <div id="loading" class="text-center py-20 text-gray-400 text-sm">Loading…</div>
     <div id="app" class="hidden"></div>
   </main>
 
@@ -341,24 +377,26 @@
     function render(results) {
       const app = document.getElementById('app');
       app.innerHTML = `
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Standings</h2>
-          <span class="text-xs text-gray-600">${results.length} teams</span>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-300 uppercase">Standings</h2>
+          <span class="text-sm text-gray-400">${results.length} teams</span>
         </div>
-        <div class="flex items-center gap-4 mb-3 text-xs">
-          <a href="#grid-section" class="text-gray-500 hover:text-flame transition-colors">↓ Jump to The Grid</a>
+        <div class="flex items-center gap-4 mb-2 text-sm">
+          <a href="#grid-section" class="inline-flex items-center min-h-[44px] text-flame">↓ Jump to The Grid</a>
         </div>
         <div class="card-shadow rounded-xl border border-border">
-          <table class="lb-table w-full text-sm" style="table-layout:fixed">
+          <!-- Phones: Pos / Team / Points / To Par. The per-event points and event count fold into a line under the team name
+               (they're the hidden columns below). From sm up all seven columns return, with fixed percentage widths. -->
+          <table class="lb-table w-full text-sm">
             <thead>
               <tr class="bg-surface">
-                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:7%">Pos</th>
-                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:27%">Team</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:12%" title="Sum of hole-by-hole points earned against every other team, across both Week 1 events">Points</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:12%" title="Points earned within the ${esc(bbLabel)} event only">${esc(bbLabel)} Pts</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:12%" title="Points earned within the ${esc(scrambleLabel)} event only">${esc(scrambleLabel)} Pts</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:10%">Events</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:20%">To Par (combined)</th>
+                <th class="pos-col px-2 sm:px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[7%]">Pos</th>
+                <th class="px-2 sm:px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[27%]">Team</th>
+                <th class="px-2 sm:px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase sm:w-[12%]" title="Sum of hole-by-hole points earned against every other team, across both Week 1 events">Points</th>
+                <th class="hidden sm:table-cell px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[12%]" title="Points earned within the ${esc(bbLabel)} event only">${esc(bbLabel)} Pts</th>
+                <th class="hidden sm:table-cell px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[12%]" title="Points earned within the ${esc(scrambleLabel)} event only">${esc(scrambleLabel)} Pts</th>
+                <th class="hidden sm:table-cell px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[10%]">Events</th>
+                <th class="px-2 sm:px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[20%]">To Par<span class="hidden sm:inline"> (combined)</span></th>
               </tr>
             </thead>
             <tbody id="lb-body"></tbody>
@@ -377,20 +415,22 @@
         const tr = document.createElement('tr');
         tr.className = `lb-row ${advancing ? 'advancing' : ''}`;
         tr.innerHTML = `
-          <td class="pos-col px-3 py-3.5 text-center">
+          <td class="pos-col px-2 sm:px-3 py-3.5 text-center">
             ${team.position <= 3
               ? `<span class="rank-medal medal-${team.position}">${posStr}</span>`
               : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
           </td>
-          <td class="px-4 py-3.5 font-medium text-white" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            ${esc(teamName(team.displayMembers))}
-            ${advancing ? '<span class="ml-2 text-[10px] font-heading font-700 tracking-widest text-emerald-400 uppercase">Advancing</span>' : ''}
+          <!-- Team name wraps on phones (no more "…"); it only truncates from sm up, where the column is a fixed width. -->
+          <td class="px-2 sm:px-4 py-3.5 font-medium text-white text-base sm:text-sm break-words sm:break-normal sm:max-w-0 sm:overflow-hidden sm:text-ellipsis sm:whitespace-nowrap">
+            ${advancing ? '<span class="sm:hidden text-emerald-400 font-700" aria-hidden="true">✓ </span>' : ''}${esc(teamName(team.displayMembers))}
+            ${advancing ? '<span class="sr-only sm:not-sr-only sm:ml-2 text-xs font-heading font-700 tracking-widest text-emerald-400 uppercase">Advancing</span>' : ''}
+            <div class="sm:hidden text-xs text-gray-400 font-normal mt-0.5">${esc(bbLabel)} ${fmtPts(team.bbPoints)} · ${esc(scrambleLabel)} ${fmtPts(team.scramblePoints)} · ${team.eventsPlayed} event${team.eventsPlayed === 1 ? '' : 's'}</div>
           </td>
-          <td class="px-3 py-3.5 text-center font-semibold font-mono num text-flame">${fmtPts(team.totalPoints)}</td>
-          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${fmtPts(team.bbPoints)}</td>
-          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${fmtPts(team.scramblePoints)}</td>
-          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${team.eventsPlayed}</td>
-          <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+          <td class="px-2 sm:px-3 py-3.5 text-center font-semibold font-mono num text-flame text-base sm:text-sm">${fmtPts(team.totalPoints)}</td>
+          <td class="hidden sm:table-cell px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${fmtPts(team.bbPoints)}</td>
+          <td class="hidden sm:table-cell px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${fmtPts(team.scramblePoints)}</td>
+          <td class="hidden sm:table-cell px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${team.eventsPlayed}</td>
+          <td class="px-2 sm:px-3 py-3.5 text-center font-semibold font-mono num text-base sm:text-sm ${toParCls}">${toParStr}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -426,28 +466,30 @@
     }
 
     function renderGridSection(results) {
-      const headerCells = results.map(t => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap sticky top-0 bg-surface z-10" style="min-width:90px">${esc(teamName(t.displayMembers))}</th>`).join('');
+      const headerCells = results.map(t => `<th class="px-2 py-2 text-center font-heading font-600 text-xs tracking-wide text-gray-300 whitespace-nowrap sticky top-0 bg-surface z-10" style="min-width:100px">${esc(teamName(t.displayMembers))}</th>`).join('');
       const bodyRows = results.map(row => `<tr class="border-b border-border/40">
-          <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${esc(teamName(row.displayMembers))}</td>
+          <td class="px-3 py-3 font-heading font-600 text-sm text-white sticky left-0 bg-card whitespace-nowrap">${esc(teamName(row.displayMembers))}</td>
           ${results.map(col => gridCell(row, col)).join('')}
         </tr>`).join('');
 
-      const tabBtn = (mode, label) => `<button data-grid-mode="${mode}" class="px-3 py-1.5 rounded-md text-xs font-heading font-600 tracking-wide transition-colors ${gridMode === mode ? 'bg-flame text-black' : 'text-gray-400 hover:text-white'}">${label}</button>`;
+      // Toggle: two 44px-tall halves (a thumb-sized target), equal width on a phone.
+      const tabBtn = (mode, label) => `<button data-grid-mode="${mode}" aria-pressed="${gridMode === mode}" class="flex-1 sm:flex-none min-h-[44px] px-4 rounded-md text-sm font-heading font-600 tracking-wide transition-colors ${gridMode === mode ? 'bg-flame text-black' : 'text-gray-300'}">${label}</button>`;
 
       document.getElementById('grid-section').innerHTML = `
-        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">The Grid</h2>
-          <span class="text-[11px] text-gray-600">${gridMode === 'net' ? "row's net holes won vs. column" : "row's cumulative points earned vs. column, across both events"} &nbsp;·&nbsp; ${results.length} teams</span>
+        <div class="flex items-center justify-between mb-2 flex-wrap gap-x-3 gap-y-1">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-300 uppercase">The Grid</h2>
+          <span class="text-sm text-gray-400">${gridMode === 'net' ? "row's net holes won vs. column" : "row's cumulative points earned vs. column, across both events"} &nbsp;·&nbsp; ${results.length} teams</span>
         </div>
-        <div class="inline-flex items-center gap-1 bg-[#161616] border border-border rounded-lg p-1 mb-3">
+        <div class="flex sm:inline-flex items-center gap-1 bg-[#161616] border border-border rounded-lg p-1 mb-3">
           ${tabBtn('total', 'Total Points Won')}
           ${tabBtn('net', 'Net Holes Won')}
         </div>
-        <div class="card-shadow bg-card border border-border rounded-xl overflow-auto" style="max-height: 70vh">
+        <p class="sm:hidden text-sm text-gray-400 mb-2">Swipe sideways to see every team →</p>
+        <div class="grid-scroll card-shadow bg-card border border-border rounded-xl overflow-auto">
           <table class="text-sm border-collapse">
             <thead>
               <tr class="bg-surface">
-                <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 top-0 bg-surface z-20">TEAM</th>
+                <th class="px-3 py-2 text-left font-heading font-600 text-xs tracking-wide text-gray-300 sticky left-0 top-0 bg-surface z-20">TEAM</th>
                 ${headerCells}
               </tr>
             </thead>
@@ -465,5 +507,6 @@
 
     init();
   </script>
+  <script src="js/nav.js?v=20261112a"></script>
 </body>
 </html>

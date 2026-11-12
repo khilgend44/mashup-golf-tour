@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Season Match Play Grid — MashUp Golf</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css?v=20261112a" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -29,7 +30,8 @@
     body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
     .card-shadow { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04); }
     .lb-row { transition: background 0.12s; cursor: pointer; user-select: none; }
-    .lb-row:hover { background: rgba(255,255,255,0.04); }
+    @media (hover: hover) { .lb-row:hover { background: rgba(255,255,255,0.04); } }
+    .lb-row:active { background: rgba(255,255,255,0.05); }
     .lb-row.expanded { background: rgba(249,115,22,0.06); }
     .lb-row td { border-bottom: 1px solid #1f1f1f; }
     .lb-row.leader { background: linear-gradient(90deg, rgba(249,115,22,.10), rgba(249,115,22,0) 60%); }
@@ -38,7 +40,7 @@
     .under { color: #4ade80; }
     .over  { color: #f87171; }
     .even  { color: #f5f5f5; }
-    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; letter-spacing:.09em; padding:3px 10px; border-radius:6px; }
+    .chip { display:inline-flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:12px; letter-spacing:.09em; padding:5px 10px; border-radius:6px; }
     .chip-live { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.3); color:#fbbf24; }
     .chip-done { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.25); color:#4ade80; }
     .chip-fmt  { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.32); color:#fb923c; }
@@ -51,36 +53,73 @@
     .lb-table > thead > tr > th { position: sticky; top: 56px; z-index: 30; background:#171717; box-shadow: 0 1px 0 #2c2c2c; }
     .lb-table > thead > tr > th:first-child { border-top-left-radius: 0.75rem; }
     .lb-table > thead > tr > th:last-child  { border-top-right-radius: 0.75rem; }
+    /* Leaderboard MUST stay table-layout:fixed at every width. A tapped row expands into a strip holding a ~30-column
+       matchups table; under automatic layout that strip stretched the whole standings table (page scrollWidth 2146px on a
+       390px phone). Fixed layout pins the table to 100% so the strip scrolls inside its own box instead. Column widths are
+       set per breakpoint on the <th> cells (4 visible columns on phones, 7 from sm up). */
+    .lb-table { table-layout: fixed; }
     @media (max-width: 639px) {
       .lb-table th, .lb-table td { padding-left: 0.5rem; padding-right: 0.5rem; }
       .rank-medal { min-width: 24px; height: 24px; font-size: 13px; padding: 0 4px; }
     }
+    /* The player-vs-player matrix is genuinely wide: it scrolls sideways inside its card with the player column pinned.
+       Never shorter than 20rem, so a phone held sideways doesn't get a sliver. */
+    .grid-scroll { max-height: max(70vh, 20rem); -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
 
-  <header class="border-b border-border">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="font-display text-2xl tracking-wider text-white hover:text-flame" style="transition:color .12s">MASHUP GOLF TOUR</a>
-        <span class="font-heading font-600 tracking-widest text-flame text-xs uppercase border-l border-border pl-3">Season Match Play Grid</span>
+  <!-- NAV (theme.css .mu-nav) — same markup on every page that has it; behaviour is in js/nav.js.
+       Menu link list must stay in sync across pages (see ARCHITECTURE.md "Nav rollout"). -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
       </div>
-      <a href="index.html" class="text-xs font-heading font-600 tracking-wider text-gray-400 hover:text-flame" style="transition:color .12s">← Back to Site</a>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
+      </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-6xl mx-auto px-4 py-8">
+  <!-- NAV MENU — full page list -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4 pt-5 sm:pt-8 pb-12">
     <div class="flex items-center gap-3 mb-2 flex-wrap">
       <h1 class="font-display text-4xl sm:text-5xl tracking-wider text-white leading-none" id="season-title">SEASON MATCH PLAY GRID</h1>
       <span id="mode-chip" class="chip"></span>
     </div>
-    <p class="text-gray-500 text-sm mb-1" id="season-sub"></p>
-    <p class="text-gray-600 text-xs mb-3 max-w-2xl">Every player's own net score each week, head-to-head against the whole field that week, accumulated across the season. Team boundaries don't matter — a player's own hole-by-hole net score counts whether their format that week was solo or a team event.</p>
-    <p class="text-gray-600 text-xs mb-1" id="weeks-included"></p>
-    <p class="text-xs mb-6" id="mode-toggle"></p>
+    <p class="text-gray-400 text-sm mb-1" id="season-sub"></p>
+    <p class="text-gray-400 text-sm mb-3 max-w-2xl">Every player's own net score each week, head-to-head against the whole field that week, accumulated across the season. Team boundaries don't matter — a player's own hole-by-hole net score counts whether their format that week was solo or a team event.</p>
+    <p class="text-gray-400 text-sm mb-1" id="weeks-included"></p>
+    <p class="text-sm mb-4" id="mode-toggle"></p>
 
     <div id="status" class="hidden rounded-lg px-4 py-3 text-sm font-body mb-4"></div>
-    <div id="loading" class="text-center py-20 text-gray-600 text-sm">Loading…</div>
+    <div id="loading" class="text-center py-20 text-gray-400 text-sm">Loading…</div>
     <div id="app" class="hidden"></div>
   </main>
 
@@ -128,8 +167,8 @@
         modeChip.className = `chip ${showLive ? 'chip-live' : 'chip-done'}`;
         modeChip.innerHTML = showLive ? '<span class="pulse-dot"></span>LIVE' : 'FINAL';
         document.getElementById('mode-toggle').innerHTML = showLive
-          ? `<a href="${toggleUrl(false)}" class="text-gray-500 hover:text-flame transition-colors">← Back to final standings (completed weeks only)</a>`
-          : `<a href="${toggleUrl(true)}" class="text-flame font-heading font-600 tracking-wide hover:text-flame-dim transition-colors">In Progress Leaderboard (include live weeks) →</a>`;
+          ? `<a href="${toggleUrl(false)}" class="inline-flex items-center min-h-[44px] text-gray-300">← Back to final standings (completed weeks only)</a>`
+          : `<a href="${toggleUrl(true)}" class="inline-flex items-center min-h-[44px] text-flame font-heading font-600 tracking-wide">In Progress Leaderboard (include live weeks) →</a>`;
 
         // Default view only counts weeks that have fully wrapped up — a
         // week still being played doesn't factor into the standings at
@@ -209,25 +248,25 @@
     // cell-rendering function, two places it's used, no risk of the two
     // views disagreeing about what a cell means.
     function buildMatchupsHtml(player, complete) {
-      const headerCells = complete.map(c => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap" style="min-width:52px">${esc(c.player_name)}</th>`).join('');
+      const headerCells = complete.map(c => `<th class="px-2 py-2 text-center font-heading font-600 text-xs tracking-wide text-gray-300 whitespace-nowrap" style="min-width:64px">${esc(c.player_name)}</th>`).join('');
       const cells = complete.map(c => gridCell(player, c)).join('');
       const captionHtml = gridMode === 'net'
         ? 'net holes won vs. each opponent — real match-play UP/DOWN'
         : 'season total vs. each opponent, out of 18 pts per week faced';
       return `
         <div class="mb-4">
-          <div class="text-[10px] font-heading tracking-widest text-gray-500 uppercase mb-2">Your Matchups <span class="text-gray-700 normal-case tracking-normal">— ${captionHtml}</span></div>
+          <div class="text-xs font-heading tracking-widest text-gray-400 uppercase mb-2">Your Matchups <span class="text-gray-500 normal-case tracking-normal">— ${captionHtml}</span></div>
           <div class="card-shadow bg-card border border-border rounded-xl overflow-auto">
             <table class="text-sm border-collapse">
               <thead>
                 <tr class="bg-surface">
-                  <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 bg-surface z-10">PLAYER</th>
+                  <th class="px-3 py-2 text-left font-heading font-600 text-xs tracking-wide text-gray-300 sticky left-0 bg-surface z-10">PLAYER</th>
                   ${headerCells}
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${esc(player.player_name)}</td>
+                  <td class="px-3 py-3 font-heading font-600 text-sm text-white sticky left-0 bg-card whitespace-nowrap">${esc(player.player_name)}</td>
                   ${cells}
                 </tr>
               </tbody>
@@ -241,23 +280,25 @@
 
       app.innerHTML = `
         <div class="flex items-center justify-between mb-4">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">Season Standings</h2>
-          <span class="text-xs text-gray-600">${results.length} players &nbsp;·&nbsp; Click a row to expand matchups</span>
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-300 uppercase">Season Standings</h2>
+          <span class="text-sm text-gray-400">${results.length} players &nbsp;·&nbsp; <span class="sm:hidden">Tap</span><span class="hidden sm:inline">Click</span> a row to expand matchups</span>
         </div>
-        <div class="flex items-center gap-4 mb-3 text-xs">
-          <a href="#grid-section" class="text-gray-500 hover:text-flame transition-colors">↓ Jump to The Grid</a>
+        <div class="flex items-center gap-4 mb-2 text-sm">
+          <a href="#grid-section" class="inline-flex items-center min-h-[44px] text-flame">↓ Jump to The Grid</a>
         </div>
         <div class="card-shadow rounded-xl border border-border">
-          <table class="lb-table w-full text-sm" style="table-layout:fixed">
+          <!-- Phones: Pos / Player / Season Pts / Net Holes. Move, Weeks and To Par (hidden columns below) fold into a line
+               under the player's name. From sm up all seven columns return, with fixed percentage widths. -->
+          <table class="lb-table w-full text-sm">
             <thead>
               <tr class="bg-surface">
-                <th class="pos-col px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:7%">Pos</th>
-                <th class="px-2 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:9%" title="Change in position since the standings before the most recently-included week — needs 2+ weeks to show anything">Move</th>
-                <th class="px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:24%">Player</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase" style="width:13%" title="Sum of hole-by-hole points earned across every opponent faced, every week">Season Pts</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:13%" title="Total net holes won across every opponent faced — same points, read as real match-play UP/DOWN">Net Holes</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:9%">Weeks</th>
-                <th class="px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-500 text-xs uppercase" style="width:25%">To Par</th>
+                <th class="pos-col px-2 sm:px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase w-[15%] sm:w-[7%]">Pos</th>
+                <th class="hidden sm:table-cell px-2 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[9%]" title="Change in position since the standings before the most recently-included week — needs 2+ weeks to show anything">Move</th>
+                <th class="px-2 sm:px-4 py-3 text-left font-heading font-600 tracking-widest text-gray-400 text-xs uppercase w-[39%] sm:w-[24%]">Player</th>
+                <th class="px-2 sm:px-3 py-3 text-center font-heading font-600 tracking-widest text-flame text-xs uppercase w-[18%] sm:w-[13%]" title="Sum of hole-by-hole points earned across every opponent faced, every week">Pts<span class="hidden sm:inline"> (Season)</span></th>
+                <th class="px-2 sm:px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase w-[28%] sm:w-[13%]" title="Total net holes won across every opponent faced — same points, read as real match-play UP/DOWN">Net Holes</th>
+                <th class="hidden sm:table-cell px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[9%]">Weeks</th>
+                <th class="hidden sm:table-cell px-3 py-3 text-center font-heading font-600 tracking-widest text-gray-400 text-xs uppercase sm:w-[25%]">To Par</th>
               </tr>
             </thead>
             <tbody id="lb-body"></tbody>
@@ -276,17 +317,21 @@
         const tr = document.createElement('tr');
         tr.className = `lb-row ${isLeader ? 'leader' : ''}`;
         tr.innerHTML = `
-          <td class="pos-col px-3 py-3.5 text-center">
+          <td class="pos-col px-2 sm:px-3 py-3.5 text-center">
             ${player.position <= 3
               ? `<span class="rank-medal medal-${player.position}">${posStr}</span>`
               : `<span class="font-heading font-700 text-sm text-gray-400 num">${posStr}</span>`}
           </td>
-          <td class="px-2 py-3.5 text-center font-semibold font-mono text-xs num ${moveCls(player)}">${moveLabel(player)}</td>
-          <td class="px-4 py-3.5 font-medium text-white" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(player.player_name)}</td>
-          <td class="px-3 py-3.5 text-center font-semibold font-mono num text-flame">${fmtPts(player.seasonPoints)}</td>
-          <td class="px-3 py-3.5 text-center font-semibold font-mono num ${netHolesCls(player.netHoles)}">${netHolesLabel(player.netHoles)}</td>
-          <td class="px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${player.weeksPlayed}</td>
-          <td class="px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
+          <td class="hidden sm:table-cell px-2 py-3.5 text-center font-semibold font-mono text-xs num ${moveCls(player)}">${moveLabel(player)}</td>
+          <!-- Player name wraps on phones (no "…"); truncates only from sm up where the column is a fixed width. -->
+          <td class="px-2 sm:px-4 py-3.5 font-medium text-white text-base sm:text-sm break-words sm:break-normal sm:max-w-0 sm:overflow-hidden sm:text-ellipsis sm:whitespace-nowrap">
+            ${esc(player.player_name)}
+            <div class="sm:hidden text-xs font-normal text-gray-400 mt-0.5"><span class="font-mono font-semibold ${moveCls(player)}">${moveLabel(player)}</span> · ${player.weeksPlayed} wk${player.weeksPlayed === 1 ? '' : 's'} · <span class="${toParCls}">${toParStr}</span></div>
+          </td>
+          <td class="px-2 sm:px-3 py-3.5 text-center font-semibold font-mono num text-flame text-base sm:text-sm">${fmtPts(player.seasonPoints)}</td>
+          <td class="px-2 sm:px-3 py-3.5 text-center font-semibold font-mono num text-base sm:text-sm ${netHolesCls(player.netHoles)}">${netHolesLabel(player.netHoles)}</td>
+          <td class="hidden sm:table-cell px-3 py-3.5 text-center text-gray-300 font-mono text-xs num">${player.weeksPlayed}</td>
+          <td class="hidden sm:table-cell px-3 py-3.5 text-center font-semibold font-mono num ${toParCls}">${toParStr}</td>
         `;
 
         const cardTr = document.createElement('tr');
@@ -342,7 +387,7 @@
     }
 
     function moveCls(r) {
-      if (r.priorPosition === undefined) return 'text-gray-700';
+      if (r.priorPosition === undefined) return 'text-gray-500';
       if (r.priorPosition == null) return 'text-flame';
       const delta = r.priorPosition - r.position;
       return delta === 0 ? 'even' : delta > 0 ? 'under' : 'over';
@@ -364,28 +409,30 @@
     }
 
     function renderGridSection(results) {
-      const headerCells = results.map(p => `<th class="px-2 py-2 text-center font-heading font-600 text-[10px] tracking-wide text-gray-400 whitespace-nowrap sticky top-0 bg-surface z-10" style="min-width:52px">${esc(p.player_name)}</th>`).join('');
+      const headerCells = results.map(p => `<th class="px-2 py-2 text-center font-heading font-600 text-xs tracking-wide text-gray-300 whitespace-nowrap sticky top-0 bg-surface z-10" style="min-width:64px">${esc(p.player_name)}</th>`).join('');
       const bodyRows = results.map(row => `<tr class="border-b border-border/40">
-          <td class="px-3 py-2 font-heading font-600 text-xs text-white sticky left-0 bg-card whitespace-nowrap">${esc(row.player_name)}</td>
+          <td class="px-3 py-3 font-heading font-600 text-sm text-white sticky left-0 bg-card whitespace-nowrap">${esc(row.player_name)}</td>
           ${results.map(col => gridCell(row, col)).join('')}
         </tr>`).join('');
 
-      const tabBtn = (mode, label) => `<button data-grid-mode="${mode}" class="px-3 py-1.5 rounded-md text-xs font-heading font-600 tracking-wide transition-colors ${gridMode === mode ? 'bg-flame text-black' : 'text-gray-400 hover:text-white'}">${label}</button>`;
+      // Toggle: two 44px-tall halves (a thumb-sized target), equal width on a phone.
+      const tabBtn = (mode, label) => `<button data-grid-mode="${mode}" aria-pressed="${gridMode === mode}" class="flex-1 sm:flex-none min-h-[44px] px-4 rounded-md text-sm font-heading font-600 tracking-wide transition-colors ${gridMode === mode ? 'bg-flame text-black' : 'text-gray-300'}">${label}</button>`;
 
       document.getElementById('grid-section').innerHTML = `
-        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase">The Grid</h2>
-          <span class="text-[11px] text-gray-600">${gridMode === 'net' ? "row's net holes won vs. column" : "row's cumulative points earned vs. column, all season"} &nbsp;·&nbsp; ${results.length} players</span>
+        <div class="flex items-center justify-between mb-2 flex-wrap gap-x-3 gap-y-1">
+          <h2 class="font-heading font-700 text-sm tracking-widest text-gray-300 uppercase">The Grid</h2>
+          <span class="text-sm text-gray-400">${gridMode === 'net' ? "row's net holes won vs. column" : "row's cumulative points earned vs. column, all season"} &nbsp;·&nbsp; ${results.length} players</span>
         </div>
-        <div class="inline-flex items-center gap-1 bg-[#161616] border border-border rounded-lg p-1 mb-3">
+        <div class="flex sm:inline-flex items-center gap-1 bg-[#161616] border border-border rounded-lg p-1 mb-3">
           ${tabBtn('total', 'Total Points Won')}
           ${tabBtn('net', 'Net Holes Won')}
         </div>
-        <div class="card-shadow bg-card border border-border rounded-xl overflow-auto" style="max-height: 70vh">
+        <p class="sm:hidden text-sm text-gray-400 mb-2">Swipe sideways to see every player →</p>
+        <div class="grid-scroll card-shadow bg-card border border-border rounded-xl overflow-auto">
           <table class="text-sm border-collapse">
             <thead>
               <tr class="bg-surface">
-                <th class="px-3 py-2 text-left font-heading font-600 text-[10px] tracking-wide text-gray-500 sticky left-0 top-0 bg-surface z-20">PLAYER</th>
+                <th class="px-3 py-2 text-left font-heading font-600 text-xs tracking-wide text-gray-300 sticky left-0 top-0 bg-surface z-20">PLAYER</th>
                 ${headerCells}
               </tr>
             </thead>
@@ -403,5 +450,6 @@
 
     init();
   </script>
+  <script src="js/nav.js?v=20261112a"></script>
 </body>
 </html>
