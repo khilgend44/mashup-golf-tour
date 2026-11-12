@@ -119,9 +119,10 @@ a, button { -webkit-tap-highlight-color: rgba(249, 115, 22, .18); touch-action: 
   font: 600 12px var(--f-head); letter-spacing: .08em; color: var(--text-2);
 }
 .mu-sgt img { height: 22px; }
+/* Desktop: a few primary links inline; the burger stays as "More" so every page remains reachable. */
 @media (min-width: 900px) {
   .mu-navlinks, .mu-sgt { display: flex; }
-  .mu-burger { display: none; }
+  .mu-burger { margin-left: 0; }
 }
 
 /* Phone menu: full-width sheet under the nav, 48px rows, scrolls if the list outgrows the screen. */
@@ -140,7 +141,7 @@ a, button { -webkit-tap-highlight-color: rgba(249, 115, 22, .18); touch-action: 
 .mu-menu a:active { background: var(--surface); color: #fff; }
 .mu-menu a[aria-current="page"] { color: var(--flame); }
 .mu-menu hr { border: 0; border-top: 1px solid var(--border); margin: 6px 0; }
-@media (min-width: 900px) { .mu-menu { display: none; } }
+@media (min-width: 900px) { .mu-menu { padding-left: max(16px, calc((100vw - var(--maxw)) / 2 + 16px)); padding-right: max(16px, calc((100vw - var(--maxw)) / 2 + 16px)); } }
 
 /* ---------- Hero ---------- */
 .mu-hero {
@@ -176,6 +177,7 @@ a, button { -webkit-tap-highlight-color: rgba(249, 115, 22, .18); touch-action: 
 .mu-live h2 { font: 700 30px/1.1 var(--f-head); margin: 10px 0 6px; }
 .mu-live .mu-btn { margin-top: 18px; width: 100%; justify-content: center; min-height: 48px; }
 @media (min-width: 800px) { .mu-live .mu-btn { width: auto; } }
+@media (min-width: 800px) { .mu-live.mu-live--single { grid-template-columns: 1fr; } }
 .mu-meta { color: var(--text-2); font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 10px; }
 
 .mu-pulse { position: relative; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--live); }

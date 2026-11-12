@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>MashUp Golf</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -32,109 +33,70 @@
     };
   </script>
   <style>
-    body { background: #0c0c0c; font-family: 'Inter', sans-serif; }
-    .hero-glow {
-      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34,197,94,0.18) 0%, transparent 70%),
-                  radial-gradient(ellipse 40% 30% at 50% 0%, rgba(34,197,94,0.08) 0%, transparent 60%);
-    }
-    .card-shadow {
-      box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
-    }
-    .flame-shadow {
-      box-shadow: 0 0 20px rgba(249,115,22,0.25), 0 4px 16px rgba(0,0,0,0.5);
-    }
-    .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
-    .event-card:hover { background: #252525; transform: translateY(-1px); }
-    .event-card { transition: background 0.15s, transform 0.15s; }
+    body { background: var(--bg); font-family: var(--f-body); }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
 
-  <!-- NAV -->
-  <nav class="border-b border-border bg-[#0c0c0c]/90 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-      <button id="menu-btn" aria-label="Menu" class="flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md border border-border bg-surface hover:border-gray-600" style="transition:border-color 0.15s">
-        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-        <span class="menu-bar block w-5 h-px bg-gray-300" style="transition:transform 0.2s, opacity 0.2s"></span>
-      </button>
-      <a href="https://simulatorgolftour.com" target="_blank"
-         class="flex items-center gap-2 bg-surface border border-border rounded-full pl-1.5 pr-3 py-1 hover:border-[#d03f25]/50 group"
-         style="transition:all 0.15s">
-        <img src="brand_assets/sgt_emblem.svg" class="h-6 w-auto" alt="SGT" />
-        <div class="flex flex-col leading-none">
-          <span class="text-[8px] font-heading font-600 tracking-widest text-gray-600 uppercase group-hover:text-gray-500">Powered by</span>
-          <span class="text-[11px] font-heading font-600 tracking-wider text-gray-300 group-hover:text-white">Simulator Golf Tour</span>
-        </div>
+  <!-- NAV (theme.css .mu-nav) — inline links for the primary pages; the menu button holds the full list. -->
+  <nav class="mu-nav">
+    <div class="mu-wrap">
+      <a href="index.html" class="mu-wordmark">MASHUP GOLF</a>
+      <div class="mu-navlinks">
+        <a href="index.html" aria-current="page">Home</a>
+        <a href="season.html?id=season-10">Season 10</a>
+        <a href="season-match-play-grid.html?season=season-10">Match Play Grid</a>
+        <a href="power.html">Hot/Cold</a>
+        <a href="handicaps.html">Handicaps</a>
+        <a href="rules.html">Rules</a>
+      </div>
+      <a href="https://simulatorgolftour.com" target="_blank" rel="noopener" class="mu-sgt">
+        <img src="brand_assets/sgt_emblem.svg" alt="" /> Powered by Simulator Golf Tour
       </a>
+      <button class="mu-burger" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">&#9776;</button>
     </div>
   </nav>
 
-  <!-- NAV DROPDOWN -->
-  <div id="nav-menu" class="fixed top-14 left-0 right-0 z-40 bg-[#0c0c0c] border-b border-border hidden" style="box-shadow:0 8px 24px rgba(0,0,0,0.5)">
-    <div class="max-w-6xl mx-auto px-4 py-3">
-      <a href="index.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <span class="text-flame">⌂</span> Home
-      </a>
-      <a href="season.html?id=season-10" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> Season 10
-      </a>
-      <a href="season-match-play-grid.html?season=season-10" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><rect x="1" y="1" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.85"/><rect x="5.6" y="1" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.5"/><rect x="10.2" y="1" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.3"/><rect x="1" y="5.6" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.5"/><rect x="5.6" y="5.6" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.85"/><rect x="10.2" y="5.6" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.5"/><rect x="1" y="10.2" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.3"/><rect x="5.6" y="10.2" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.5"/><rect x="10.2" y="10.2" width="3.5" height="3.5" rx="0.5" fill="#f97316" opacity="0.85"/></svg> Season Match Play Grid
-      </a>
-      <div class="border-t border-border my-2"></div>
-      <a href="season.html?id=season-9" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-500 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0" opacity="0.5"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> Season 9 <span class="text-[10px] text-gray-600 ml-0.5">Archive</span>
-      </a>
-      <a href="recap.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M7 1.5L8.8 5.2L13 5.8L10 8.7L10.7 13L7 11L3.3 13L4 8.7L1 5.8L5.2 5.2Z" fill="#f97316" opacity="0.7"/></svg> Season 9 Recap
-      </a>
-      <a href="handicaps.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><rect x="2.5" y="1" width="9" height="12" rx="1.5" stroke="#f97316" stroke-width="1.1"/><rect x="4.2" y="2.8" width="5.6" height="2.4" rx="0.5" fill="#f97316" opacity="0.45"/><circle cx="4.8" cy="7.8" r="0.7" fill="#f97316"/><circle cx="7" cy="7.8" r="0.7" fill="#f97316"/><circle cx="9.2" cy="7.8" r="0.7" fill="#f97316"/><circle cx="4.8" cy="10.4" r="0.7" fill="#f97316"/><circle cx="7" cy="10.4" r="0.7" fill="#f97316"/><circle cx="9.2" cy="10.4" r="0.7" fill="#f97316"/></svg> Handicaps
-      </a>
-      <a href="power.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M1.5 9.5L4.5 6L7 8L12.5 2.5" stroke="#f97316" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.5 2.5h3v3" stroke="#f97316" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.5 12.5h11" stroke="#f97316" stroke-width="1.1" stroke-linecap="round" opacity="0.4"/></svg> Hot/Cold
-      </a>
-      <a href="records.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M4 1.5h6v3a3 3 0 0 1-6 0v-3Z" stroke="#f97316" stroke-width="1.1" stroke-linejoin="round"/><path d="M4 2.5H2.2v1A1.8 1.8 0 0 0 4 5.3M10 2.5h1.8v1A1.8 1.8 0 0 1 10 5.3" stroke="#f97316" stroke-width="1.1" stroke-linecap="round"/><path d="M7 7.5v2.5M5 12.5h4M5.5 12.5l.5-2.5h2l.5 2.5" stroke="#f97316" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg> Records &amp; Hall of Fame
-      </a>
-      <a href="hole-in-one.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M3 12.5h8" stroke="#f97316" stroke-width="1.1" stroke-linecap="round"/><path d="M7 9.5V3.2" stroke="#f97316" stroke-width="1.1" stroke-linecap="round"/><path d="M7 3.2l3.4 1.1L7 5.5V3.2Z" fill="#f97316" opacity="0.7"/><circle cx="7" cy="10.6" r="1.5" fill="white"/><circle cx="6.5" cy="10.2" r="0.3" fill="#bbb"/><circle cx="7.5" cy="10.4" r="0.3" fill="#bbb"/></svg> Hole-in-One Pot
-      </a>
-      <div class="border-t border-border my-2"></div>
-      <a href="about.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> About Us
-      </a>
-      <a href="requirements.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> How to Join
-      </a>
-      <a href="rules.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface font-heading font-600 tracking-wider text-sm text-gray-300 hover:text-white" style="transition:background 0.12s">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="6.5" fill="white"/><circle cx="5.2" cy="5.8" r="0.85" fill="#bbb"/><circle cx="8.5" cy="5.2" r="0.85" fill="#bbb"/><circle cx="5" cy="8.8" r="0.85" fill="#bbb"/><circle cx="8.8" cy="8.5" r="0.85" fill="#bbb"/><circle cx="7" cy="6.5" r="0.85" fill="#bbb"/></svg> Rules
-      </a>
-    </div>
+  <!-- NAV MENU — full page list. Keep in sync with the other 7 pages carrying the duplicated nav (see ARCHITECTURE.md "Nav rollout"). -->
+  <div class="mu-menu" id="nav-menu" hidden>
+    <a href="index.html" aria-current="page">Home</a>
+    <a href="season.html?id=season-10">Season 10</a>
+    <a href="season-match-play-grid.html?season=season-10">Season Match Play Grid</a>
+    <hr>
+    <a href="season.html?id=season-9">Season 9 Archive</a>
+    <a href="recap.html">Season 9 Recap</a>
+    <hr>
+    <a href="handicaps.html">Handicaps</a>
+    <a href="power.html">Hot/Cold</a>
+    <a href="records.html">Records &amp; Hall of Fame</a>
+    <a href="hole-in-one.html">Hole-in-One Pot</a>
+    <hr>
+    <a href="about.html">About Us</a>
+    <a href="requirements.html">How to Join</a>
+    <a href="rules.html">Rules</a>
   </div>
 
   <!-- HERO -->
-  <section class="hero-glow pt-8 pb-8 sm:pt-16 sm:pb-12 px-4 text-center">
-    <div class="max-w-2xl mx-auto">
-      <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf" class="h-20 sm:h-36 w-auto mx-auto mb-3 sm:mb-6 drop-shadow-2xl" />
-      <h1 class="font-display text-4xl sm:text-6xl lg:text-7xl tracking-widest text-white mb-2 sm:mb-3">MASHUP GOLF</h1>
-      <p class="text-gray-400 font-body text-sm sm:text-base tracking-wide">Simulator golf. Custom formats. Real competition.</p>
+  <header class="mu-hero">
+    <div class="mu-wrap">
+      <div class="mu-hero__top">
+        <img src="brand_assets/mashup_transparent_png.webp" alt="MashUp Golf" />
+        <div>
+          <h1>MASHUP GOLF</h1>
+          <p>Simulator golf. Custom formats. Real competition.</p>
+        </div>
+      </div>
     </div>
-  </section>
+  </header>
 
   <!-- S10 Member-Member Week 1 Standings -->
-  <div class="max-w-6xl mx-auto px-4 mb-8">
-    <a href="mm-match-play-grid.html?e1=event-81255&e2=event-81256&top=4"
-       class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border bg-card/60 px-5 py-3.5 hover:border-flame/40 group"
-       style="transition:all .15s">
+  <div class="max-w-6xl mx-auto px-4 mb-8 mt-2">
+    <a href="mm-match-play-grid.html?e1=event-81255&e2=event-81256&top=4" class="mu-ev" style="margin-bottom:0">
       <div>
-        <span class="text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase">Member-Member · Week 1</span>
-        <div class="font-heading font-600 text-base text-white">Live Match Play Grid — Best Ball + Scramble Combined</div>
+        <div class="mu-label" style="margin-bottom:6px">Member-Member · Week 1</div>
+        <div class="mu-ev__name">Live Match Play Grid — Best Ball + Scramble Combined</div>
       </div>
-      <span class="inline-flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg border border-border text-gray-300 text-xs font-heading font-600 tracking-wider group-hover:text-flame group-hover:border-flame/40 whitespace-nowrap" style="transition:all .15s">
-        View Standings <span aria-hidden="true">→</span>
-      </span>
+      <span class="mu-btn mu-btn--ghost">View →</span>
     </a>
   </div>
 
@@ -220,186 +182,126 @@
         .filter(e => !scheduledWeeks.has(e.week))
         .sort((a, b) => a.week - b.week);
 
+      const stat = (n, label) => n ? `<div class="mu-stat"><b>${n}</b><span>${label}</span></div>` : ''; // zero counts are omitted, not shown
+
       return `
-        <!-- Live Now — deliberately first, above the season header, so it's
-             the first thing visible on mobile without scrolling past the
-             season blurb + stats to find it. -->
+        <!-- Live Now — deliberately first so it's the first thing visible on a phone. -->
         ${live.length ? `
-        <section class="mb-10">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="relative flex h-2.5 w-2.5">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-            </span>
-            <h2 class="font-heading font-700 text-sm tracking-widest text-amber-400 uppercase">Live Now</h2>
-          </div>
-          <div class="space-y-3">
-            ${live.map(e => liveEventCard(e)).join('')}
-          </div>
+        <section class="mb-8">
+          <div class="space-y-3">${live.map(e => liveEventCard(e)).join('')}</div>
         </section>` : ''}
 
         <!-- Season header -->
-        <section id="seasons" class="mb-10">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <div>
-              <div class="text-xs font-heading font-600 tracking-widest text-flame uppercase mb-1">Active Season</div>
+        <section id="seasons" class="mb-8">
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="mu-label mu-label--flame mb-1">Active Season</div>
               <h2 class="font-display text-4xl tracking-wider text-white">${activeSeason.name}</h2>
-              <p class="text-gray-500 text-sm mt-1">${activeSeason.description}</p>
+              <p class="text-gray-400 text-sm mt-1">${activeSeason.description}</p>
             </div>
-            <a href="season.html?id=${activeSeason.id}"
-               class="inline-flex self-start sm:self-auto shrink-0 items-center gap-2 border border-border px-4 py-2 rounded text-sm font-heading font-600 tracking-wider text-gray-300 hover:border-flame hover:text-flame transition-colors whitespace-nowrap">
-              SEASON STANDINGS →
-            </a>
+            <a href="season.html?id=${activeSeason.id}" class="mu-btn mu-btn--ghost shrink-0">Standings →</a>
           </div>
-
-          <!-- Stats -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-            ${statCard(seasonEvents.length, 'Events')}
-            ${statCard(live.length, 'Live')}
-            ${statCard(completed.length, 'Completed')}
-            ${statCard(upcoming.length, 'Upcoming')}
+          <div class="mu-statline">
+            ${stat(seasonEvents.length, 'Events')}${stat(live.length, 'Live')}${stat(completed.length, 'Completed')}${stat(upcoming.length, 'Upcoming')}
           </div>
         </section>
 
         <!-- Upcoming -->
         ${upcoming.length ? `
-        <section class="mb-10">
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Upcoming</h3>
-          <div class="space-y-2">
-            ${upcoming.map(e => eventRow(e, true)).join('')}
-          </div>
+        <section class="mb-8">
+          <h3 class="mu-section-title">Upcoming</h3>
+          ${upcoming.map(e => eventRow(e)).join('')}
         </section>` : ''}
 
         <!-- Coming up — planned formats with no real event yet -->
         ${coming.length ? `
-        <section class="mb-10">
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-1">Coming Up</h3>
-          <p class="text-xs text-gray-600 mb-3">Tentative — formats and dates are subject to change by the admin team.</p>
-          <div class="space-y-2">
-            ${coming.map(e => scheduleRow(e)).join('')}
-          </div>
+        <section class="mb-8">
+          <h3 class="mu-section-title">Coming Up</h3>
+          <p class="text-sm text-gray-400 mb-3">Tentative — formats and dates are subject to change by the admin team.</p>
+          ${coming.map(e => scheduleRow(e)).join('')}
         </section>` : ''}
 
         <!-- Results -->
         <section>
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">Results</h3>
+          <h3 class="mu-section-title">Results</h3>
           ${completed.length
-            ? `<div class="space-y-2">${completed.map(e => eventRow(e, true)).join('')}</div>`
-            : `<p class="text-gray-600 text-sm py-6">No completed events yet.</p>`}
+            ? completed.map(e => eventRow(e)).join('')
+            : `<p class="text-gray-400 text-sm py-6">No completed events yet.</p>`}
         </section>
 
         <!-- All seasons -->
         ${seasons.length > 1 ? `
-        <section class="mt-14">
-          <h3 class="font-heading font-700 text-sm tracking-widest text-gray-400 uppercase mb-3">All Seasons</h3>
-          <div class="grid sm:grid-cols-2 gap-3">
+        <section class="mt-12">
+          <h3 class="mu-section-title">All Seasons</h3>
+          <div class="grid sm:grid-cols-2 sm:gap-x-3">
             ${seasons.map(s => seasonCard(s)).join('')}
           </div>
         </section>` : ''}
       `;
     }
 
-    function statCard(value, label) {
+    const formatName = f => (f || '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const eventDate = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
+    const eventHref = e => `event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}`;
+
+    // Neutral card; the format is a text tag (not a color) so color keeps one meaning per theme.css.
+    function eventRow(e) {
+      const right = e.status === 'upcoming'
+        ? '<span class="mu-tag">Upcoming</span>'
+        : '<span style="color:var(--flame)" aria-hidden="true">→</span>';
       return `
-        <div class="card-shadow bg-card rounded-lg p-4 text-center border border-border">
-          <div class="font-display text-3xl text-flame">${value}</div>
-          <div class="font-heading text-xs tracking-widest text-gray-500 uppercase mt-1">${label}</div>
-        </div>`;
-    }
-
-    function eventRow(e, showLink) {
-      const statusDot = e.status === 'completed'
-        ? '<span class="status-dot bg-emerald-500"></span>'
-        : e.status === 'active'
-          ? '<span class="status-dot bg-amber-500 animate-pulse"></span>'
-          : '<span class="status-dot bg-gray-500"></span>';
-      const statusLabel = e.status === 'completed' ? 'Completed' : e.status === 'active' ? 'Live' : 'Upcoming';
-      const dateStr = e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
-
-      const inner = `
-        <div class="card-shadow event-card bg-card border border-border rounded-lg px-5 py-4 flex items-center gap-4">
-          <div class="flex-1 min-w-0">
-            <div class="font-heading font-700 text-base text-white truncate">${e.name}</div>
-            <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
-              <span>${dateStr}</span>
-              <span>·</span>
-              <span>${e.format.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
-              ${e.buyIn ? `<span>·</span><span>$${e.buyIn} buy-in</span>` : ''}
+        <a href="${eventHref(e)}" class="mu-ev">
+          <div>
+            <div class="mu-ev__name">${e.name}</div>
+            <div class="mu-ev__sub">
+              <span class="mu-fmt">${formatName(e.format)}</span>
+              <span>${eventDate(e.date)}</span>
+              ${e.buyIn ? `<span>$${e.buyIn} buy-in</span>` : ''}
             </div>
           </div>
-          <div class="flex items-center gap-2 text-xs font-heading tracking-wider text-gray-400 shrink-0">
-            ${statusDot} ${statusLabel}
-          </div>
-          ${showLink ? '<span class="text-flame text-sm shrink-0">→</span>' : ''}
-        </div>`;
-
-      return showLink
-        ? `<a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="block">${inner}</a>`
-        : `<div>${inner}</div>`;
+          ${right}
+        </a>`;
     }
 
-    // A planned week — not a real event yet, so no link, no scores, just a
-    // heads-up. Dashed border deliberately distinguishes it from eventRow()
-    // so nobody mistakes "planned" for "scheduled and locked." Same card as
-    // season.html's scheduleCard().
+    // A planned week — not a real event yet, so no link and no scores. The dashed border
+    // (mu-ev--planned) deliberately distinguishes it so nobody mistakes "planned" for "locked".
+    // Same card as season.html's scheduleCard().
     function scheduleRow(e) {
       return `
-        <div class="border border-dashed border-border/60 rounded-lg px-5 py-4 flex items-center gap-4">
-          <div class="flex-1 min-w-0">
-            <div class="font-heading font-700 text-base text-gray-300 truncate">Week ${e.week} — ${e.formatName}</div>
-            <div class="flex flex-wrap items-center gap-2 mt-1.5">
-              ${e.dateLabel ? `<span class="text-xs text-gray-500">${e.dateLabel}</span>` : ''}
-              ${e.note ? `<span class="text-xs text-gray-600">${e.note}</span>` : ''}
+        <div class="mu-ev mu-ev--planned">
+          <div>
+            <div class="mu-ev__name">Week ${e.week} — ${e.formatName}</div>
+            <div class="mu-ev__sub">
+              ${e.dateLabel ? `<span>${e.dateLabel}</span>` : ''}
+              ${e.note ? `<span style="color:var(--text-3)">${e.note}</span>` : ''}
             </div>
           </div>
-          <span class="text-xs font-heading tracking-wider text-gray-600 shrink-0 uppercase">Planned</span>
+          <span class="mu-tag">Planned</span>
         </div>`;
     }
 
-    // Deliberately louder than eventRow() — a live event is the single most
-    // time-sensitive thing on the page, so it gets a glow, a radar-style
-    // pulsing dot, and its own CTA instead of blending in with the rest of
-    // the event list.
+    // Louder than eventRow() — a live event is the most time-sensitive thing on the page.
+    // (No mini-leaderboard yet: that needs live scores loaded on this page.)
     function liveEventCard(e) {
-      const dateStr = e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
-      const formatStr = e.format.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
       return `
-        <a href="event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}" class="group block no-underline rounded-xl px-5 py-5 sm:px-6 sm:py-6"
-           style="border:1px solid rgba(251,191,36,0.4); background:radial-gradient(ellipse 120% 100% at 0% 0%, rgba(251,191,36,0.14) 0%, transparent 60%), #1e1e1e; box-shadow:0 0 30px rgba(251,191,36,0.14), 0 8px 24px rgba(0,0,0,0.3); transition:box-shadow 0.15s">
-          <div class="flex items-center justify-between gap-4 flex-wrap">
-            <div class="min-w-0">
-              <div class="flex items-center gap-1.5 mb-1">
-                <span class="relative flex h-2 w-2">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                </span>
-                <span class="text-[10px] font-heading font-700 tracking-widest text-amber-400 uppercase">Live Now</span>
-              </div>
-              <div class="font-heading font-700 text-lg sm:text-xl text-white truncate">${e.name}</div>
-              <div class="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                <span>${dateStr}</span>
-                <span>·</span>
-                <span>${formatStr}</span>
-                ${e.buyIn ? `<span>·</span><span>$${e.buyIn} buy-in</span>` : ''}
-              </div>
-            </div>
-            <span class="shrink-0 inline-flex items-center gap-1.5 bg-amber-500 group-hover:bg-amber-400 text-black font-heading font-700 text-xs tracking-widest uppercase px-4 py-2.5 rounded-lg" style="transition:background 0.15s">
-              View Leaderboard →
-            </span>
+        <a href="${eventHref(e)}" class="mu-live mu-live--single">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px"><span class="mu-pulse"></span><span class="mu-label mu-label--live">Live now</span></div>
+            <h2>${e.name}</h2>
+            <div class="mu-meta"><span>${eventDate(e.date)}</span>·<span>${formatName(e.format)}</span>${e.buyIn ? `·<span>$${e.buyIn} buy-in</span>` : ''}</div>
+            <span class="mu-btn mu-btn--live">View Leaderboard →</span>
           </div>
         </a>`;
     }
 
     function seasonCard(s) {
-      const dot = s.status === 'active' ? '<span class="status-dot bg-flame"></span>' : '<span class="status-dot bg-gray-600"></span>';
       return `
-        <a href="season.html?id=${s.id}" class="card-shadow event-card bg-card border border-border rounded-lg px-5 py-4 block">
-          <div class="flex items-center gap-2 mb-1">
-            ${dot}
-            <span class="font-heading font-700 text-white">${s.name}</span>
+        <a href="season.html?id=${s.id}" class="mu-ev" style="margin-bottom:8px">
+          <div>
+            <div class="mu-ev__name">${s.name}</div>
+            <div class="mu-ev__sub"><span style="white-space:normal">${s.description}</span></div>
           </div>
-          <p class="text-xs text-gray-500">${s.description}</p>
+          ${s.status === 'active' ? '<span class="mu-tag" style="color:var(--flame);border-color:rgba(249,115,22,.4)">Active</span>' : '<span style="color:var(--flame)" aria-hidden="true">→</span>'}
         </a>`;
     }
 
@@ -412,17 +314,14 @@
     (function() {
       const btn  = document.getElementById('menu-btn');
       const menu = document.getElementById('nav-menu');
-      const bars = btn.querySelectorAll('.menu-bar');
-      let open = false;
-      function setOpen(val) {
-        open = val;
-        menu.classList.toggle('hidden', !open);
-        bars[0].style.transform = open ? 'translateY(8px) rotate(45deg)' : '';
-        bars[1].style.opacity   = open ? '0' : '1';
-        bars[2].style.transform = open ? 'translateY(-8px) rotate(-45deg)' : '';
+      function setOpen(open) {
+        menu.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.innerHTML = open ? '&#10005;' : '&#9776;';
       }
-      btn.addEventListener('click', e => { e.stopPropagation(); setOpen(!open); });
-      document.addEventListener('click', e => { if (open && !menu.contains(e.target)) setOpen(false); });
+      btn.addEventListener('click', e => { e.stopPropagation(); setOpen(menu.hidden); });
+      document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) setOpen(false); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); });
     })();
   </script>
 </body>
