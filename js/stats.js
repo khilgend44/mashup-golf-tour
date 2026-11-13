@@ -15,7 +15,7 @@
 // fine), so a stale cached scoring.js from before this season's format
 // fixes (Lone Ranger, Escalator, Nassau) was the next most likely cause.
 import { fetchScorecards } from './api.js?v=20261112a';
-import { applyFormat, applyPayouts, resolveSidePots } from './scoring.js?v=20261026a';
+import { applyFormat, applyPayouts, resolveSidePots } from './scoring.js?v=20261113a';
 
 // SGT's COMBO log caps at the most-recent 48 rounds; mirror it when a stored
 // comboRoundsCount isn't available. (Stored player rounds are already trimmed,

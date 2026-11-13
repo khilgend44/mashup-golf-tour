@@ -1750,6 +1750,16 @@ function calcAltShot2Man(scorecards, format, event) {
 
   const results = [];
   for (const team of Object.values(teams)) {
+    // One shared ball: once either teammate's card is final, the team's
+    // round is done. SGT leaves the other teammate's card "In Progress"
+    // (confirmed quirk — whoever holes the last putt gets finalized), so
+    // mirror the finished card onto any non-complete teammate.
+    const done = [...team.memberStatus.values()].find(m => m.status === 'complete');
+    if (done) {
+      for (const [k, m] of team.memberStatus) {
+        if (m.status !== 'complete') team.memberStatus.set(k, { ...done, name: m.name });
+      }
+    }
     const members = [...team.memberStatus.values()];
     const completePlayers = members.filter(m => m.status === 'complete');
 
