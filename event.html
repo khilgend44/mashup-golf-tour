@@ -751,8 +751,19 @@
         || new Set(scorecards.map(c => c.player_name?.toLowerCase()).filter(Boolean)).size
         || playerCount;
       const numRounds = event.rounds?.length || 1;
-      const expected  = totalPlayers * numRounds;
-      const completedCards = scorecards.filter(isCardComplete).length;
+      let expected  = totalPlayers * numRounds;
+      let completedCards = scorecards.filter(isCardComplete).length;
+      let progressUnit = 'cards';
+      // Alt shot / scramble: one ball, one shared score — a team's round is
+      // done when ANY teammate's card is complete (SGT can leave the other
+      // teammate's card "In Progress" even with all 18 holes entered), and
+      // the unit is teams, not players.
+      if ((format.type === 'alt-shot-2man' || format.type === 'scramble-2man') && event.teams?.length) {
+        const doneNames = new Set(scorecards.filter(isCardComplete).map(c => c.player_name?.toLowerCase()));
+        expected = event.teams.length * numRounds;
+        completedCards = event.teams.filter(t => t.some(n => doneNames.has(String(n).toLowerCase()))).length;
+        progressUnit = 'team cards';
+      }
       const pct = expected ? Math.min(100, Math.round(completedCards / expected * 100)) : 0;
 
       // Chips
@@ -845,7 +856,7 @@
               <div class="text-xs text-gray-400 mt-2">Final results</div>
             ` : `
               <div class="flex items-center justify-between text-xs text-gray-400 mb-2 mt-3">
-                <span class="num">${completedCards} / ${expected} cards in</span><span class="num text-gray-400">${pct}%</span>
+                <span class="num">${completedCards} / ${expected} ${progressUnit} in</span><span class="num text-gray-400">${pct}%</span>
               </div>
               <div class="meter"><span style="width:${pct}%"></span></div>
               <div class="mt-2 text-xs text-gray-400">Auto-refreshes ~every 10 min</div>
