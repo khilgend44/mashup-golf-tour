@@ -19,6 +19,13 @@ and its distance value (now in a `<div class='hole-leader-value'>`).
 Patterns below were rewritten against the new markup and verified to
 reproduce a known-good sample exactly (S10W3, tournament 76662).
 
+SGT changed it again by 2026-11-15 (S11, tournament 82608): the hole
+header is no longer an `<h5>HOLE N</h5>` — it is now
+`<div class='stat-leader-title'>HOLE N<span class='stat-leader-subtitle'>
+FIELD AVG <span>X FT</span>...`, so hole_pattern anchors on
+`HOLE N<span ...>FIELD AVG` instead. Round headers (`<h3>`) and the
+player/leader rows were unchanged.
+
 Usage: parse_ctp.py <path-to-fetched-html>  ->  JSON on stdout
 """
 import re
@@ -29,8 +36,8 @@ def parse(html):
     round_pattern = re.compile(
         r"<h3[^>]*>ROUND\s+(\d+)</h3>(.*?)(?=<h3[^>]*>ROUND\s+\d+</h3>|$)", re.S)
     hole_pattern = re.compile(
-        r"<h5[^>]*>HOLE\s+(\d+)</h5>.*?FIELD AVG\s*<span[^>]*>([\d.]+)\s*FT</span>(.*?)"
-        r"(?=<h5[^>]*>HOLE\s+\d+</h5>|$)", re.S)
+        r"HOLE\s+(\d+)\s*<span[^>]*>FIELD AVG\s*<span[^>]*>([\d.]+)\s*FT</span>(.*?)"
+        r"(?=HOLE\s+\d+\s*<span[^>]*>FIELD AVG|$)", re.S)
     # SGT's own markup mislabels the profile href for every leader after the
     # first on a hole (all point at the first player's profile) — so we
     # don't trust `profile` for anything; the display name is reliable.
