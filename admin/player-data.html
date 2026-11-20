@@ -21,8 +21,17 @@
     tr:hover td { background: rgba(255,255,255,0.02); }
     .field { background: #141414; border: 1px solid #2c2c2c; border-radius: 0.4rem; padding: 0.3rem 0.5rem; color: #e5e7eb; font-size: 0.8rem; }
     .field:focus { outline: none; border-color: rgba(249,115,22,0.6); }
-    tr.unpaid-row { background: rgba(239,68,68,0.055); box-shadow: inset 3px 0 0 rgba(239,68,68,0.55); }
+    tr.unpaid-row { background: rgba(239,68,68,0.055); }
     tr.unpaid-row:hover td { background: rgba(239,68,68,0.03); }
+    /* Freeze the Player column so you keep your place while scrolling right. Sticky cells need an
+       OPAQUE background (the row tints are translucent), so the tints are layered on top of the card
+       colour as gradients, and the unpaid marker moves from the <tr> (it would be hidden) to this cell. */
+    tbody td:first-child, thead th:first-child { position: sticky; left: 0; background-color: #1e1e1e; box-shadow: inset -1px 0 0 #2c2c2c; }
+    thead th:first-child { z-index: 30; }
+    tbody td:first-child { z-index: 10; }
+    tr:hover td:first-child { background-image: linear-gradient(rgba(255,255,255,0.02), rgba(255,255,255,0.02)); }
+    tr.unpaid-row td:first-child { background-image: linear-gradient(rgba(239,68,68,0.055), rgba(239,68,68,0.055)); box-shadow: inset 3px 0 0 rgba(239,68,68,0.55), inset -1px 0 0 #2c2c2c; }
+    tr.unpaid-row:hover td:first-child { background-image: linear-gradient(rgba(239,68,68,0.03), rgba(239,68,68,0.03)); }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col">
