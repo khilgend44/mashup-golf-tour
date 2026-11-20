@@ -149,7 +149,7 @@
 
     async function init() {
       if (!playerParam) { showStatus('No player specified.'); return; }
-      let rounds = [], lastRefresh = null;
+      let rounds = [], lastRefresh = null, adjusted = false;
       try {
         const [rRes, pRes] = await Promise.all([
           fetch(`/api/player-rounds?player=${encodeURIComponent(playerParam)}`),
@@ -159,6 +159,7 @@
         rounds = Array.isArray(rData.rounds) ? rData.rounds : [];
         const pData = await pRes.json().catch(() => ({}));
         lastRefresh = pData.lastRefresh || null;
+        adjusted = !!(pData.handicaps && pData.handicaps[playerParam.toLowerCase()] && pData.handicaps[playerParam.toLowerCase()].mashCapAdjusted);
       } catch (e) {
         showStatus('Could not load rounds: ' + e.message);
         return;
@@ -202,6 +203,7 @@
           </div>
         </div>
         <p class="text-gray-400 text-sm mt-4 max-w-xl">MashCAP is the average of the best <span class="text-gray-200">40%</span> of rounds (the lowest differentials). The <span class="text-flame">${counting}</span> highlighted rounds below count toward it.</p>
+        ${adjusted ? `<p class="text-sm text-gray-300 mt-2 max-w-xl"><span class="text-gray-100">†</span> This player's MashCAP has been manually adjusted by the tour admins, so the figure above (computed from these rounds) may differ from the MashCAP used for events.</p>` : ''}
         ${updated ? `<p class="text-xs text-gray-400 mt-2">${updated}</p>` : ''}`;
 
       const tbody = document.getElementById('tbody');

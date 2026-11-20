@@ -140,6 +140,7 @@
         </table>
       </div>
     </div>
+    <p id="adj-note" class="hidden mt-3 text-xs font-body text-gray-400"><span class="text-gray-300">†</span> MashCAP manually adjusted by the tour admins.</p>
   </main>
 
   <footer class="border-t border-border py-5 mt-auto">
@@ -185,7 +186,7 @@
       const rows = roster.map(name => {
         const h = state.handicaps[name.toLowerCase()] || {};
         const mc = (h.mashCap !== undefined && h.mashCap !== null) ? parseFloat(h.mashCap) : null;
-        return { name, mc, rounds: h.mashCapRounds, counting: h.mashCapCounting, stale: !!h.stale };
+        return { name, mc, rounds: h.mashCapRounds, counting: h.mashCapCounting, stale: !!h.stale, adj: !!h.mashCapAdjusted };
       });
 
       // Adjusted baseline = lowest MashCAP among players who have one.
@@ -201,6 +202,7 @@
       });
 
       document.getElementById('player-count').textContent = `(${rows.length})`;
+      document.getElementById('adj-note').classList.toggle('hidden', !rows.some(r => r.adj));
 
       if (rows.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400 font-body text-sm">No players in this season.</td></tr>`;
@@ -224,7 +226,7 @@
           : ((r.rounds != null || r.counting != null) ? `<div class="sm:hidden text-sm font-body text-gray-400 py-1">${statsText}</div>` : '');
         const phoneLink = '';
         return `<tr class="border-b border-border/50 ${isBaseline ? 'baseline-row' : ''}">
-          <td class="px-2 sm:px-4 py-3 text-center font-body text-base sm:text-sm text-flame font-600 ${r.stale ? 'opacity-60' : ''}">${hasMc ? hcpDisplay(r.mc) + (r.stale ? `<span class="text-gray-400 font-normal" title="Last known — this player wasn't in the latest SGT handicap pull">*</span>` : '') : '<span class="text-gray-500">—</span>'}</td>
+          <td class="px-2 sm:px-4 py-3 text-center font-body text-base sm:text-sm text-flame font-600 ${r.stale ? 'opacity-60' : ''}">${hasMc ? hcpDisplay(r.mc) + (r.adj ? `<sup class="text-gray-300 font-normal ml-0.5" title="Manually adjusted by the tour admins" aria-label="manually adjusted by the tour admins">†</sup>` : '') + (r.stale ? `<span class="text-gray-400 font-normal" title="Last known — this player wasn't in the latest SGT handicap pull">*</span>` : '') : '<span class="text-gray-500">—</span>'}</td>
           <td class="px-2 sm:px-4 py-3 font-heading font-600 tracking-wider text-base sm:text-sm min-w-0">
             <a href="player.html?name=${encodeURIComponent(r.name)}" class="inline-block py-1 text-white sm:hover:text-flame break-words" style="transition:color .12s">${r.name}</a>
             ${phoneStats}${phoneLink}

@@ -186,7 +186,7 @@
     const API = '/api/players';            // public reads (roster/handicaps)
     const API_WRITE = '/admin/api/players'; // Access-protected writes
     const EVENTS_WRITE = '/admin/api/events'; // Access-protected writes (events + MashCAP trend backfill)
-    let state = { roster: [], handicaps: {}, lastRefresh: null, seasons: [], selectedSeason: '', discord: {} };
+    let state = { roster: [], handicaps: {}, lastRefresh: null, seasons: [], selectedSeason: '', discord: {}, mashcapOverrides: {} };
 
     function getSeasonRoster() {
       if (!state.selectedSeason) return state.roster;
@@ -211,6 +211,10 @@
     function formatDate(str) {
       if (!str) return '—';
       return str.slice(0, 10);
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
     function hcpDisplay(val) {
@@ -257,13 +261,25 @@
       });
     }
 
-    function mashCapCellHtml(r, nd) {
+    // opts.editable (live table only, never the PNG export) adds the ✎ override
+    // button. An override is a CEILING: effective = min(computed, override), so a
+    // 🔒 marks a player whose MashCAP is currently being held down by it.
+    function mashCapCellHtml(r, nd, opts = {}) {
+      const ov = state.mashcapOverrides[r.name.toLowerCase()];
+      const editBtn = opts.editable
+        ? ` <button type="button" class="mc-override-btn text-gray-600 hover:text-flame text-xs" data-player="${esc(r.name)}" title="Set a manual MashCAP override for ${esc(r.name)}">✎</button>`
+        : '';
+      if (ov && opts.editable) {
+        const active = ov.computed == null || Number(ov.value) < Number(ov.computed);
+        const tip = `Manual override ${hcpDisplay(ov.value)} (ceiling) · real MashCAP ${ov.computed == null ? 'none' : hcpDisplay(ov.computed)} · ${active ? 'override is in effect' : 'real MashCAP is already better, so it is being used'}${ov.note ? ' · ' + ov.note : ''}`;
+        return `<td class="px-4 py-3 text-center font-body text-sm ${active ? 'text-amber-400' : 'text-flame'} font-600" title="${esc(tip)}">${active ? '🔒 ' : ''}${hcpDisplay(r.hcp && r.hcp.mashCap)}${editBtn}</td>`;
+      }
       // flame when real; amber ⚠ + the Raw value being used when falling back.
       return r.hasMash
-        ? `<td class="px-4 py-3 text-center font-body text-sm text-flame font-600" title="best ${r.hcp.mashCapCounting} of ${r.hcp.mashCapRounds} rounds">${hcpDisplay(r.hcp.mashCap)}</td>`
+        ? `<td class="px-4 py-3 text-center font-body text-sm text-flame font-600" title="best ${r.hcp.mashCapCounting} of ${r.hcp.mashCapRounds} rounds">${hcpDisplay(r.hcp.mashCap)}${editBtn}</td>`
         : r.fallback
-          ? `<td class="px-4 py-3 text-center font-body text-sm text-amber-400" title="No MashCAP yet — using SGT Raw (${hcpDisplay(r.hcp.rawCap)}) for registration &amp; scoring">⚠ ${hcpDisplay(r.hcp.rawCap)}</td>`
-          : `<td class="px-4 py-3 text-center font-body text-sm text-gray-600">${nd}</td>`;
+          ? `<td class="px-4 py-3 text-center font-body text-sm text-amber-400" title="No MashCAP yet — using SGT Raw (${hcpDisplay(r.hcp.rawCap)}) for registration &amp; scoring">⚠ ${hcpDisplay(r.hcp.rawCap)}${editBtn}</td>`
+          : `<td class="px-4 py-3 text-center font-body text-sm text-gray-600">${nd}${editBtn}</td>`;
     }
 
     function renderTable(roster, handicaps, filter = '') {
@@ -294,7 +310,7 @@
 
       tbody.innerHTML = rows.map((r, i) => `<tr class="border-b border-border/50 ${r.isBaseline ? 'baseline-row' : ''}" data-player="${r.name}">
           <td class="px-6 py-3 text-gray-700 text-xs font-body">${i + 1}</td>
-          ${mashCapCellHtml(r, nd)}
+          ${mashCapCellHtml(r, nd, { editable: true })}
           <td class="px-4 py-3 font-heading font-600 tracking-wider text-white text-sm">${r.name}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-white">${r.adjusted !== null ? r.adjusted : nd}</td>
           <td class="px-4 py-3 text-center font-body text-sm text-gray-400">${r.hcp ? hcpDisplay(r.hcp.rawCap) : nd}</td>
@@ -312,6 +328,9 @@
 
       tbody.querySelectorAll('.remove-btn').forEach(btn => {
         btn.addEventListener('click', () => removePlayer(btn.dataset.player));
+      });
+      tbody.querySelectorAll('.mc-override-btn').forEach(btn => {
+        btn.addEventListener('click', () => setMashCapOverride(btn.dataset.player));
       });
       tbody.querySelectorAll('.discord-input').forEach(inp => {
         inp.addEventListener('change', () => saveDiscord(inp.dataset.player, inp.value));
@@ -387,6 +406,42 @@
       }
     }
 
+    // Prompt for an override and save it. Blank clears an existing one.
+    async function setMashCapOverride(name) {
+      const k = name.toLowerCase();
+      const ov = state.mashcapOverrides[k];
+      const h = state.handicaps[k] || {};
+      const computed = ov ? ov.computed : h.mashCap;
+      const input = prompt(
+        `${name} — MashCAP override (lower = better).\n` +
+        `Real MashCAP: ${computed == null ? 'none' : hcpDisplay(computed)}${ov ? `   ·   current override: ${hcpDisplay(ov.value)}` : ''}\n\n` +
+        `This is a ceiling: if their real MashCAP is ever better than this, the real one is used.\n` +
+        `Enter a number${ov ? ', or leave blank to remove the override' : ''}:`,
+        ov ? String(ov.value) : '');
+      if (input == null) return;                       // cancelled
+      const value = input.trim();
+      if (value === '' && !ov) return;                 // nothing to clear
+      let note = '';
+      if (value !== '') {
+        if (!Number.isFinite(Number(value))) return showStatus('Enter a valid number.', 'error');
+        note = prompt('Reason / note (optional, admin-only):', ov ? (ov.note || '') : '') ?? '';
+      }
+      try {
+        const res = await fetch(API_WRITE, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set-mashcap-override', player: name, value, note }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        await loadData();   // re-read handicaps + overrides so every cell/sort/adjusted value updates
+        showStatus(data.cleared
+          ? `Removed MashCAP override for ${name} (back to ${hcpDisplay(data.effective)}).`
+          : `${name}: override ${hcpDisplay(data.override.value)} saved — MashCAP is now ${hcpDisplay(data.effective)} (real: ${hcpDisplay(data.computed)}).`, 'success');
+      } catch (e) {
+        showStatus('Error saving override: ' + e.message, 'error');
+      }
+    }
+
     async function saveDiscord(name, discordId) {
       try {
         const res = await fetch(API_WRITE, {
@@ -426,7 +481,9 @@
         }
 
         if (discordRes.status === 'fulfilled' && discordRes.value.ok) {
-          state.discord = (await discordRes.value.json()).discord || {};
+          const adm = await discordRes.value.json();
+          state.discord = adm.discord || {};
+          state.mashcapOverrides = adm.mashcapOverrides || {};
         }
 
         const kvSeasons     = kvSeasonsRes.status === 'fulfilled'     && kvSeasonsRes.value.ok     ? await kvSeasonsRes.value.json()     : [];
@@ -582,6 +639,10 @@
 
         state.handicaps   = result.handicaps;
         state.lastRefresh = result.lastRefresh;
+        try { // refresh the override summary (real vs effective MashCAP) too
+          const r = await fetch(API_WRITE);
+          if (r.ok) state.mashcapOverrides = (await r.json()).mashcapOverrides || {};
+        } catch { /* cosmetic only */ }
         renderTable(getSeasonRoster(), state.handicaps, document.getElementById('search-input').value);
         updateRefreshLabel();
         showStatus(`Updated ${result.count} player handicaps.`, 'success');

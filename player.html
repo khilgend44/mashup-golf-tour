@@ -305,7 +305,7 @@
               <div class="text-xs font-heading font-600 tracking-widest text-gray-400 uppercase">MashCAP</div>
               <div class="font-display text-5xl sm:text-6xl text-flame leading-none ${d.h.stale ? 'opacity-60' : ''}">${hcp(d.mashCap)}</div>
               <div class="text-xs text-gray-400 mt-1">
-                ${d.adjusted != null ? `adjusted <span class="text-gray-200">${d.adjusted}</span> &nbsp;·&nbsp; ` : ''}best ${d.h.mashCapCounting ?? '—'}/${d.h.mashCapRounds ?? d.rounds.length}${d.h.stale ? ' &nbsp;·&nbsp; <span class="text-gray-500" title="Last known — not in the latest SGT pull">last known</span>' : ''}
+                ${d.adjusted != null ? `adjusted <span class="text-gray-200">${d.adjusted}</span> &nbsp;·&nbsp; ` : ''}best ${d.h.mashCapCounting ?? '—'}/${d.h.mashCapRounds ?? d.rounds.length}${d.h.mashCapAdjusted ? ' &nbsp;·&nbsp; <span class="text-gray-200">manually adjusted by tour admins</span>' : ''}${d.h.stale ? ' &nbsp;·&nbsp; <span class="text-gray-500" title="Last known — not in the latest SGT pull">last known</span>' : ''}
               </div>
             </div>
           </div>

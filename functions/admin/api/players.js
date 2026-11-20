@@ -22,6 +22,59 @@ function computeMashCap(diffs) {
   return { cap: Math.round(cap * 100) / 100, rounds: n, counting };
 }
 
+// ── Admin MashCAP override (added 2026-11) ──────────────────────────────────
+// Some players are deliberately given a better (lower) MashCAP than their
+// rounds produce. Stored as ONE small blob, `players:mashcap-overrides` →
+// { [lowercaseName]: { value, note, setAt } } (low write frequency, same class
+// as admin:events), separate from players:handicaps so a refresh — which
+// rewrites that whole blob — can never lose it.
+//
+// Semantics: the override is a CEILING, not a lock. effective = min(computed,
+// override) — lower is better — so if a player's real MashCAP later beats the
+// override, the real number wins automatically ("until or unless their cap
+// gets better"). Every consumer already reads `handicaps[k].mashCap`, so that
+// field becomes the effective value; the real one is kept as `mashCapComputed`
+// and the override as `mashCapOverride` / `mashCapOverrideNote` (admin-only —
+// the public /api/players strips all three).
+const OVERRIDES_KEY = 'players:mashcap-overrides';
+const OVERRIDE_FIELDS = ['mashCapComputed', 'mashCapOverride', 'mashCapOverrideNote'];
+
+// Undo applyMashCapOverrides on one entry: mashCap goes back to the computed value.
+function stripMashCapOverride(h) {
+  if (!h || h.mashCapOverride == null) return h;
+  const out = { ...h };
+  if (out.mashCapComputed != null) out.mashCap = out.mashCapComputed;
+  else delete out.mashCap;
+  for (const f of OVERRIDE_FIELDS) delete out[f];
+  return out;
+}
+
+// Returns a new handicaps object with every override applied. Idempotent: it
+// strips first, so it is safe to run over already-overridden entries.
+function applyMashCapOverrides(handicaps, overrides) {
+  const out = {};
+  for (const k of Object.keys(handicaps || {})) out[k] = stripMashCapOverride(handicaps[k]);
+  for (const k of Object.keys(overrides || {})) {
+    const h = out[k];
+    const v = Number(overrides[k] && overrides[k].value);
+    if (!h || !Number.isFinite(v)) continue;
+    const computed = h.mashCap != null ? Number(h.mashCap) : null;
+    out[k] = {
+      ...h,
+      mashCap: computed == null ? v : Math.min(computed, v),
+      mashCapComputed: computed,
+      mashCapOverride: v,
+      ...(overrides[k].note ? { mashCapOverrideNote: overrides[k].note } : {}),
+    };
+  }
+  return out;
+}
+
+async function loadMashCapOverrides(accountId, apiToken) {
+  const raw = await kvGet(accountId, apiToken, OVERRIDES_KEY);
+  try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+}
+
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
@@ -46,8 +99,21 @@ export async function onRequestGet(context) {
     return Response.json({ trail: raw ? JSON.parse(raw) : [] }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
   }
 
-  const raw = await kvGet(accountId, apiToken, 'players:discord');
-  return Response.json({ discord: raw ? JSON.parse(raw) : {} }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+  const [raw, overrides, hcRaw] = await Promise.all([
+    kvGet(accountId, apiToken, 'players:discord'),
+    loadMashCapOverrides(accountId, apiToken),
+    kvGet(accountId, apiToken, 'players:handicaps'),
+  ]);
+  // Per-override summary for admin/players.html: the real (computed) MashCAP and
+  // the effective one, since the public /api/players hides the computed value.
+  let hc = {};
+  try { hc = hcRaw ? JSON.parse(hcRaw) : {}; } catch { /* leave empty */ }
+  const mashcapOverrides = {};
+  for (const k of Object.keys(overrides)) {
+    const h = hc[k] || {};
+    mashcapOverrides[k] = { ...overrides[k], computed: h.mashCapComputed ?? h.mashCap ?? null, effective: h.mashCap ?? null };
+  }
+  return Response.json({ discord: raw ? JSON.parse(raw) : {}, mashcapOverrides }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
 }
 
 export async function onRequestPost(context) {
@@ -97,6 +163,40 @@ async function handlePost(context) {
     if (id) map[key] = id; else delete map[key];
     await kvPut(accountId, apiToken, 'players:discord', JSON.stringify(map));
     return Response.json({ ok: true, discord: map }, { headers: CORS });
+  }
+
+  // Set or clear one player's MashCAP override (see the block comment above
+  // applyMashCapOverrides). `value` empty/null clears it. Takes effect
+  // immediately on players:handicaps — no refresh needed.
+  if (action === 'set-mashcap-override') {
+    const { player, value, note } = body;
+    if (!player) return Response.json({ error: 'No player provided' }, { status: 400, headers: CORS });
+    const key = String(player).trim().toLowerCase();
+    const clearing = value === '' || value == null;
+    const num = Number(value);
+    if (!clearing && (!Number.isFinite(num) || num < -20 || num > 60))
+      return Response.json({ error: 'MashCAP override must be a number between -20 and 60.' }, { status: 400, headers: CORS });
+
+    const [overrides, hcRaw] = await Promise.all([
+      loadMashCapOverrides(accountId, apiToken),
+      kvGet(accountId, apiToken, 'players:handicaps'),
+    ]);
+    const handicaps = hcRaw ? JSON.parse(hcRaw) : {};
+    if (!handicaps[key])
+      return Response.json({ error: `${player} has no handicap entry yet — run Refresh Handicaps first.` }, { status: 404, headers: CORS });
+
+    if (clearing) delete overrides[key];
+    else overrides[key] = { value: Math.round(num * 100) / 100, note: String(note || '').trim().slice(0, 200), setAt: new Date().toISOString() };
+
+    const updated = applyMashCapOverrides(handicaps, overrides);
+    await kvPut(accountId, apiToken, OVERRIDES_KEY, JSON.stringify(overrides));
+    await kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(updated));
+    const h = updated[key];
+    return Response.json({
+      ok: true, player: key, cleared: clearing,
+      computed: h.mashCapComputed ?? h.mashCap ?? null, effective: h.mashCap ?? null,
+      override: overrides[key] || null,
+    }, { headers: CORS });
   }
 
   if (action === 'add') {
@@ -387,7 +487,10 @@ async function handlePost(context) {
         // any player this pull didn't cover — a partial refresh must never erase good
         // data. Core caps (rawCap, comboCap, …) come fresh from the reliable player-check.
         const existingRaw = await kvGet(accountId, apiToken, 'players:handicaps');
-        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        // Normalize: existing entries may carry an applied admin override — put them back
+        // to their real computed MashCAP so the carry-over/stale logic below only ever
+        // sees real numbers. Overrides are re-applied just before saving.
+        const existing = applyMashCapOverrides(existingRaw ? JSON.parse(existingRaw) : {}, {});
         for (const k of Object.keys(fetched)) {
           if (fetched[k].mashCap == null && existing[k] && existing[k].mashCap != null) {
             fetched[k].mashCap         = existing[k].mashCap;
@@ -423,7 +526,8 @@ async function handlePost(context) {
           };
         }
 
-        const finalHandicaps = scopedPlayers ? { ...existing, ...fetched } : fetched;
+        const overrides = await loadMashCapOverrides(accountId, apiToken);
+        const finalHandicaps = applyMashCapOverrides(scopedPlayers ? { ...existing, ...fetched } : fetched, overrides);
 
         await Promise.all([
           kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(finalHandicaps)),
@@ -541,7 +645,8 @@ async function handlePost(context) {
     if (Object.keys(rosterFetched).length) {
       const existingRaw = await kvGet(accountId, apiToken, 'players:handicaps');
       const existing = existingRaw ? JSON.parse(existingRaw) : {};
-      await kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify({ ...existing, ...rosterFetched }));
+      const overrides = await loadMashCapOverrides(accountId, apiToken);
+      await kvPut(accountId, apiToken, 'players:handicaps', JSON.stringify(applyMashCapOverrides({ ...applyMashCapOverrides(existing, {}), ...rosterFetched }, overrides)));
       await kvPut(accountId, apiToken, 'players:last_refresh', new Date().toISOString());
     }
     if (Object.keys(rosterRounds).length) {

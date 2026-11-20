@@ -40,9 +40,21 @@ export async function onRequestGet(context) {
       kvGet(accountId, apiToken, 'players:handicaps'),
       kvGet(accountId, apiToken, 'players:last_refresh'),
     ]);
+    // mashCap here is already the effective value (admin override applied — see
+    // functions/admin/api/players.js). Hide the admin-only override fields so the
+    // public site never sees the real number or the admin's note — only a boolean
+    // `mashCapAdjusted` so pages can mark the player as manually adjusted.
+    const handicaps = handicapsRaw ? JSON.parse(handicapsRaw) : {};
+    for (const k of Object.keys(handicaps)) {
+      const { mashCapComputed, mashCapOverride, mashCapOverrideNote, ...pub } = handicaps[k] || {};
+      // Public marker only — a boolean, never the real number or the note. True only
+      // while the override is actually holding the cap down (not when the real cap is already better).
+      if (mashCapOverride != null && (mashCapComputed == null || Number(mashCapOverride) < Number(mashCapComputed))) pub.mashCapAdjusted = true;
+      handicaps[k] = pub;
+    }
     return Response.json({
       roster: rosterRaw ? JSON.parse(rosterRaw) : [],
-      handicaps: handicapsRaw ? JSON.parse(handicapsRaw) : {},
+      handicaps,
       lastRefresh: lastRefreshRaw || null,
     }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
   } catch (e) {
