@@ -99,7 +99,7 @@
       <div class="text-3xl leading-none">🎯</div>
       <div class="flex-1 min-w-[200px]">
         <div class="font-heading font-700 text-xs tracking-widest text-amber-400 uppercase">Hole-in-One!</div>
-        <div class="text-white font-body text-sm mt-0.5">Jonty aced Hole 17 — Season 10, Week 1, Round 2.</div>
+        <div class="text-white font-body text-sm mt-0.5">Jonty aced Hole 17 — Season 10, Week 1, Round 2 — and took the $573.60 pot.</div>
       </div>
       <!-- Full-width 48px button on phones (it wraps onto its own row), compact from sm up. -->
       <span class="w-full sm:w-auto justify-center shrink-0 inline-flex items-center gap-2 min-h-[48px] bg-amber-500 group-hover:bg-amber-400 text-black font-heading font-700 text-sm tracking-widest uppercase px-5 rounded-lg" style="transition:background 0.15s">
@@ -143,7 +143,7 @@
     <section class="card-shadow bg-card border border-border rounded-lg mu-clip mb-8 sm:mb-10">
       <div class="px-4 sm:px-5 py-4 border-b border-border">
         <h2 class="font-display text-2xl tracking-wider text-white">How the Pot Was Built</h2>
-        <p class="text-sm text-gray-400 mt-1">Every contribution since the pot started, season by season.</p>
+        <p class="text-sm text-gray-400 mt-1">Every contribution since the pot restarted after Jonty's ace.</p>
       </div>
       <div class="mu-tablewrap">
         <table class="w-full text-sm">
@@ -169,7 +169,7 @@
     </section>
 
     <p class="text-sm text-gray-400 font-body text-center mb-2">
-      The pot grows each season — check back after Season 11 closes to see the new total.
+      The pot restarted at $100 after Jonty's ace. Season 11's $3-per-player pool gets added when registration closes, and it keeps growing every season after that.
     </p>
 
   </main>
@@ -183,12 +183,9 @@
     // Add a new row here each season. Totals are computed automatically.
     // `perPlayer: null` = a flat/seed contribution (no per-player math).
     const CONTRIBUTIONS = [
-      { source: 'Admin Team Donation', players: null, perPlayer: null, amount: 100.00, note: 'Seed' },
-      { source: 'Season 6 Pool', players: 36, perPlayer: 2.20 },
-      { source: 'Season 7 Pool', players: 32, perPlayer: 2.20 },
-      { source: 'Season 8 Pool', players: 36, perPlayer: 3.00 },
-      { source: 'Season 9 Pool', players: 42, perPlayer: 3.00 },
-      { source: 'Season 10 Pool', players: 30, perPlayer: 3.00 },
+      { source: 'Restart — donated by Jonty', players: null, perPlayer: null, amount: 100.00, note: 'Seed' },
+      // Season 11 Pool ($3 × each registrant) is added when Season 11 registration closes:
+      // { source: 'Season 11 Pool', players: <count>, perPlayer: 3.00 },
     ];
 
     const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
