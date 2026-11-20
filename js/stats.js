@@ -324,6 +324,36 @@ export async function buildMarginOfVictory(completedEvents, formats) {
   return out;
 }
 
+// ── Event winners (home page "Results" rows) ──────────────────────────────────
+// { [event.id]: { names: [..], tied: bool } } — who finished 1st, per the scoring engine.
+// Deliberately NO score: what "the score" means differs per format (strokes to par, points,
+// Nassau's three pots…), and a wrongly-labelled number is worse than none. Formats with no single
+// overall winner are skipped (no entry → the row just shows its arrow): Nassau pays three
+// independent pots, the match-play grid is a multi-week bracket, and the Invitational is scored
+// outside the system (no scorecards). Events are processed in parallel; a failure on one event
+// only drops that event's winner.
+const NO_SINGLE_WINNER_FORMATS = new Set(['nassau-2man', 'match-play-grid', 'invitational']);
+
+export async function buildEventWinners(completedEvents, formats) {
+  const out = {};
+  await Promise.all(completedEvents.map(async e => {
+    const fmt = formats[e.format];
+    if (!fmt || e.tournamentId == null || NO_SINGLE_WINNER_FORMATS.has(fmt.type)) return;
+    try {
+      const scorecards = await fetchScorecards(e.tournamentId);
+      if (!scorecards || !scorecards.length) return;
+      const results = applyFormat(scorecards, fmt, e);
+      if (!results) return;
+      const firsts = results.filter(r => !r.inProgress && r.position === 1);
+      if (!firsts.length) return;
+      const namesOf = r => (r.isTeam ? r.displayMembers : [r.player_name]).filter(Boolean).map(stripSub);
+      const names = namesOf(firsts[0]);
+      if (names.length) out[e.id] = { names, tied: firsts.length > 1 };
+    } catch { /* unscored / no cached scorecards — leave this event without a winner */ }
+  }));
+  return out;
+}
+
 // Convenience: pull a single player's record (case-insensitive) from a stats map.
 export function playerRecord(statsMap, name) {
   const rec = statsMap[String(name).toLowerCase()];

@@ -125,7 +125,8 @@
   </footer>
 
   <script type="module">
-    import { loadSeasons, loadEvents, liveSeason, sortSeasonsNewestFirst } from './js/api.js?v=20261112a';
+    import { loadSeasons, loadEvents, loadFormats, liveSeason, sortSeasonsNewestFirst } from './js/api.js?v=20261112a';
+    import { buildEventWinners } from './js/stats.js?v=20261120a';
 
     async function loadSchedule(seasonId) {
       try {
@@ -146,6 +147,34 @@
       loading.classList.add('hidden');
       app.classList.remove('hidden');
       app.innerHTML = renderApp(seasons, events, scheduleEntries);
+      fillWinners(events, activeSeason);   // not awaited — the page is already usable; winners appear as they resolve
+    }
+
+    // Winners need the scoring engine + each event's scorecards, so they load AFTER first paint and
+    // drop into the result rows' [data-winner] slots. Any failure just leaves the row's arrow.
+    async function fillWinners(events, activeSeason) {
+      try {
+        const done = events.filter(e => e.season === activeSeason?.id && e.status === 'completed');
+        if (!done.length) return;
+        const winners = await buildEventWinners(done, await loadFormats());
+        for (const [id, w] of Object.entries(winners)) {
+          const slot = document.querySelector(`[data-winner="${CSS.escape(id)}"]`);
+          if (!slot) continue;
+          const wrap = document.createElement('div');
+          wrap.className = 'mu-ev__winner';
+          const nameBox = document.createElement('div');
+          nameBox.className = 'mu-ev__winner-name';
+          const name = document.createElement('span');
+          name.textContent = w.tied ? 'Tied for 1st' : w.names.join(' / ');   // textContent: names are user data
+          // A 3-man team's names don't fit one 130px line — let them wrap instead of ellipsis-clipping a teammate.
+          name.style.whiteSpace = 'normal';
+          name.style.overflowWrap = 'anywhere';
+          wrap.style.maxWidth = '170px';
+          nameBox.appendChild(name);
+          wrap.appendChild(nameBox);
+          slot.replaceChildren(wrap);
+        }
+      } catch { /* winners are an enhancement */ }
     }
 
     function renderApp(seasons, events, scheduleEntries) {
@@ -238,6 +267,9 @@
       `;
     }
 
+    // Escape for innerHTML/attributes (CLAUDE.md: never put a value into innerHTML raw).
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     const formatName = f => (f || '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const eventDate = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
     const eventHref = e => `event.html?id=${e.tournamentId != null ? e.tournamentId : e.id}`;
@@ -246,7 +278,7 @@
     function eventRow(e) {
       const right = e.status === 'upcoming'
         ? '<span class="mu-tag">Upcoming</span>'
-        : '<span style="color:var(--flame)" aria-hidden="true">→</span>';
+        : `<span data-winner="${esc(e.id)}"><span style="color:var(--flame)" aria-hidden="true">→</span></span>`;
       return `
         <a href="${eventHref(e)}" class="mu-ev">
           <div>
