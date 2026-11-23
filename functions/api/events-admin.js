@@ -50,7 +50,8 @@ export async function onRequestGet(context) {
       const result = { name: null, startDate: null, endDate: null, rounds: [] };
 
       // ── Name ───────────────────────────────────────────
-      const h1Match = html.match(/<h1[^>]*text-sgt-white[^>]*text-uppercase[^>]*>\s*([^<]+)\s*<\/h1>/i);
+      const h1Match = html.match(/<h1[^>]*text-sgt-white[^>]*text-uppercase[^>]*>\s*([^<]+)\s*<\/h1>/i)
+                   || html.match(/<h1 class='sgt-hero-title'>\s*([^<]+?)\s*<\/h1>/i);
       if (h1Match) {
         result.name = h1Match[1].trim().replace(/\s+/g, ' ');
       } else {
@@ -60,7 +61,9 @@ export async function onRequestGet(context) {
 
       // ── Dates ──────────────────────────────────────────
       const MONTHS = { January:'01',February:'02',March:'03',April:'04',May:'05',June:'06',July:'07',August:'08',September:'09',October:'10',November:'11',December:'12' };
-      const dateDiv = html.match(/<div class='text-nowrap'>([^<]*(?:January|February|March|April|May|June|July|August|September|October|November|December)[^<]*\d{4}[^<]*)<\/div>/i);
+      // SGT's 2026-11 redesign moved the dates into <span class='text-nowrap'>
+      // (hero meta); the old layout used <div class='text-nowrap'>. Accept both.
+      const dateDiv = html.match(/<(?:div|span) class='text-nowrap'>([^<]*(?:January|February|March|April|May|June|July|August|September|October|November|December)[^<]*\d{4}[^<]*)<\/(?:div|span)>/i);
       if (dateDiv) {
         const ds = dateDiv[1].trim();
         // Pattern 1: "December 21, 2025 - January 5, 2026" (year after each date)
@@ -92,6 +95,14 @@ export async function onRequestGet(context) {
       while ((rm = roundHeaderRe.exec(html)) !== null) {
         roundStarts.push({ pos: rm.index, end: rm.index + rm[0].length, round: parseInt(rm[1]), course: rm[2].trim() });
       }
+      // New (2026-11) SGT layout: <h3 class='sgt-card-title'>Round N</h3> then a
+      // meta line with the course, then <dl class='round-settings'> of <dt>/<dd>.
+      if (!roundStarts.length) {
+        const newRoundRe = /<h3 class='sgt-card-title'>\s*Round\s+(\d+)\s*<\/h3>\s*<div class='sgt-meta-line[^>]*>\s*<span>\s*([^<]+?)\s*<\/span>/gi;
+        while ((rm = newRoundRe.exec(html)) !== null) {
+          roundStarts.push({ pos: rm.index, end: rm.index + rm[0].length, round: parseInt(rm[1]), course: rm[2].trim() });
+        }
+      }
       for (let i = 0; i < roundStarts.length; i++) {
         const start = roundStarts[i].end;
         const end   = i + 1 < roundStarts.length ? roundStarts[i + 1].pos : Math.min(start + 5000, html.length);
@@ -101,6 +112,10 @@ export async function onRequestGet(context) {
         let sm;
         while ((sm = settingRe.exec(chunk)) !== null) {
           settings[sm[1].trim().toUpperCase()] = sm[2].trim();
+        }
+        const dlRe = /<dt>\s*([^<]+?)\s*<\/dt>\s*<dd>\s*([^<]*?)\s*<\/dd>/gi;
+        while ((sm = dlRe.exec(chunk)) !== null) {
+          if (sm[2]) settings[sm[1].trim().toUpperCase()] = sm[2].trim();
         }
         result.rounds.push({
           round:    roundStarts[i].round,

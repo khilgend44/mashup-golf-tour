@@ -454,7 +454,6 @@
 
       const meta = [];
       if (dateStr) meta.push(`📅 ${dateStr}`);
-      if (course)  meta.push(`⛳ ${course}`);
       if (teamCount > 0) meta.push(`👥 ${playerCount} Players · ${teamCount} Teams`);
       if (meta.length) lines.push(meta.join('  ·  '));
 
@@ -475,15 +474,16 @@
         lines.push('');
       }
 
-      if (settingParts.length) {
-        lines.push(`⚙️ **Course:** ${settingParts.join(' · ')}`);
-        const r2 = rounds[1];
-        if (r2) {
-          const r2Parts = [r2.course || null, ...roundSettingParts(r2)].filter(Boolean);
-          if (r2Parts.length) lines.push(`⚙️ **Round 2:** ${r2Parts.join(' · ')}`);
-        }
-        lines.push('');
-      }
+      // Course name and settings on their own labelled lines, per round
+      // ("Round N" prefix only when the event has more than one round).
+      let courseLines = 0;
+      rounds.slice(0, 2).forEach((r, i) => {
+        const tag = rounds.length > 1 ? `Round ${i + 1} ` : '';
+        const parts = roundSettingParts(r);
+        if (r.course) { lines.push(`⛳ **${tag}Course:** ${r.course}`); courseLines++; }
+        if (parts.length) { lines.push(`⚙️ **${tag}Settings:** ${parts.join(' · ')}`); courseLines++; }
+      });
+      if (courseLines) lines.push('');
 
       // Payouts and player handicaps are both already on the poster image
       // itself — repeating the full per-place breakdown here just duplicates
@@ -500,6 +500,7 @@
           ? `Teams are set — check the poster for your team breakdown, load up the course, and let's go!`
           : `The event is ready — load up the course and let's go!`);
       lines.push('');
+      lines.push(`🔴 Live leaderboard: https://${SITE_URL}/event.html?id=${encodeURIComponent(event.id)}`);
       lines.push(`📺 Submit your stream: https://${SITE_URL}`);
 
       return lines.join('\n');
@@ -670,6 +671,15 @@
             ${teamCount > 0 ? `<div class="p-meta-i">👥 <span>${playerCount} Players · ${teamCount} Teams</span></div>` : ''}
             ${allowancePct != null ? `<div class="p-meta-i">🎯 <span>${allowancePct}% Handicap Allowance</span></div>` : ''}
           </div>
+          ${(() => {
+            const rs = rounds.slice(0, 2);
+            const rows = rs.map((r, i) => {
+              const parts = roundSettingParts(r);
+              if (!parts.length) return '';
+              return `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.06em;color:#9ca3af;margin-top:6px">⚙️ ${rs.length > 1 ? `ROUND ${i + 1}: ` : ''}${parts.join(' · ')}</div>`;
+            }).join('');
+            return rows;
+          })()}
           ${fmt.description ? `<div class="p-desc">${fmt.description}</div>` : ''}
           ${(fmt.tiebreakers && fmt.tiebreakers.length) ? `<div class="p-tiebreak"><span class="p-tiebreak-label">Tiebreaker:</span> ${fmt.tiebreakers.map((t, i) => `${i + 1}. ${t.label}`).join(' → ')}</div>` : ''}
         </div>
