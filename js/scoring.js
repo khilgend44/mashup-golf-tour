@@ -84,6 +84,15 @@ function applyManualOverrides(scorecards, event) {
 // separate stuck-on-Pending case above.
 export function isCardComplete(card) {
   if (card.status === 'Completed') return true;
+  // SGT can leave a fully played round on 'In Progress' (activeHole 19, all 18
+  // holes recorded) instead of flipping it to Pending/Completed — confirmed
+  // 2026-11, S11W1: StalcupFarms13 finished round 1 but got no score on the
+  // leaderboard. activeHole > 18 plus every hole actually recorded (>0) is
+  // the same "truly done" signal the Pending branch below relies on.
+  if (card.status === 'In Progress' && card.activeHole != null && card.activeHole > 18) {
+    for (let i = 1; i <= 18; i++) if (!(card[`hole${i}_net`] > 0)) return false;
+    return true;
+  }
   if (card.status !== 'Pending') return false;
   if (card.activeHole != null && card.activeHole <= 18) return false;
   for (let i = 1; i <= 18; i++) {
