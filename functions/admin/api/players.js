@@ -111,7 +111,7 @@ export async function onRequestGet(context) {
   const mashcapOverrides = {};
   for (const k of Object.keys(overrides)) {
     const h = hc[k] || {};
-    mashcapOverrides[k] = { ...overrides[k], computed: h.mashCapComputed ?? h.mashCap ?? null, effective: h.mashCap ?? null };
+    mashcapOverrides[k] = { ...overrides[k], computed: 'mashCapComputed' in h ? h.mashCapComputed : (h.mashCap ?? null), effective: h.mashCap ?? null };
   }
   return Response.json({ discord: raw ? JSON.parse(raw) : {}, mashcapOverrides }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
 }
@@ -194,7 +194,7 @@ async function handlePost(context) {
     const h = updated[key];
     return Response.json({
       ok: true, player: key, cleared: clearing,
-      computed: h.mashCapComputed ?? h.mashCap ?? null, effective: h.mashCap ?? null,
+      computed: 'mashCapComputed' in h ? h.mashCapComputed : (h.mashCap ?? null), effective: h.mashCap ?? null,
       override: overrides[key] || null,
     }, { headers: CORS });
   }
