@@ -464,7 +464,7 @@ A PNG "poster" version of an event's final results, generated in the same **Post
 
 Event course data has two different shapes depending on season:
 - **Season 9** (static `data/events.json`): flat top-level fields — `course`, `courseId`, `teeType`, `rating`, `slope`.
-- **Season 8 / Season 10** (KV-backed, `admin/events.html` form): a `rounds[]` array per event, each round carrying `course`, `courseId`, `stimp`, `fairways`, `greens`, `tees`, `slope`, `rating`, `pins`, `weather`, `wind`, `gimmies`, `putting` — this is the schema going forward.
+- **Season 8 / Season 10** (KV-backed, `admin/events.html` form): a `rounds[]` array per event, each round carrying `course`, `courseId`, `stimp`, `fairways`, `greens`, `courseType` (SGT's "COURSE TYPE", e.g. "Bentgrass Soft"; added 2026-11), `tees`, `slope`, `rating`, `pins`, `weather`, `wind`, `gimmies`, `putting` — this is the schema going forward. NOTE: SGT redesigned its tournament page in 2026-11 (dates in `<span class='text-nowrap'>`, rounds as `<h3 class='sgt-card-title'>` + `<dl class='round-settings'>`); `?type=scrape` in `functions/api/events-admin.js` handles both layouts — if a new event syncs with empty rounds, check that first.
 
 `event.html` reads both shapes (flat first, falls back to `rounds[]`) for the course-name display and the expandable "⚙ Round Settings" panel — a Season 9 event's panel is sparse (tees/rating/slope only), a Season 8/10 event's is full. Intentional, not a gap to backfill into Season 9's static data.
 

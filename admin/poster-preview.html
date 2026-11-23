@@ -262,6 +262,7 @@
         round.tees ? `Tees ${round.tees}` : null,
         round.fairways ? `Fairways ${round.fairways}` : null,
         round.greens ? `Greens ${round.greens}` : null,
+        round.courseType ? `Course Type ${round.courseType}` : null,
         round.pins ? `Pins ${round.pins}` : null,
         round.wind ? `Wind ${round.wind}` : null,
         round.gimmies ? `Gimmies ${round.gimmies}` : null,
@@ -676,7 +677,7 @@
             const rows = rs.map((r, i) => {
               const parts = roundSettingParts(r);
               if (!parts.length) return '';
-              return `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.06em;color:#9ca3af;margin-top:6px">⚙️ ${rs.length > 1 ? `ROUND ${i + 1}: ` : ''}${parts.join(' · ')}</div>`;
+              return `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.06em;color:#9ca3af;margin-top:6px;max-width:calc(100% - 190px)">⚙️ ${rs.length > 1 ? `ROUND ${i + 1}: ` : ''}${parts.join(' · ')}</div>`;
             }).join('');
             return rows;
           })()}

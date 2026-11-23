@@ -123,6 +123,7 @@ export async function onRequestGet(context) {
           stimp:    settings.STIMP    ? parseFloat(settings.STIMP)  : null,
           fairways: settings.FAIRWAYS || null,
           greens:   settings.GREENS   || null,
+          courseType: settings['COURSE TYPE'] || null,
           tees:     settings.TEES     || null,
           slope:    settings.SLOPE    ? parseInt(settings.SLOPE)    : null,
           rating:   settings.RATING   ? parseFloat(settings.RATING) : null,

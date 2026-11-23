@@ -1470,6 +1470,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       { key:'stimp',    label:'Stimp',    type:'number', step:'1'   },
       { key:'fairways', label:'Fairways', type:'text'               },
       { key:'greens',   label:'Greens',   type:'text'               },
+      { key:'courseType', label:'Course Type', type:'text'           },
       { key:'tees',     label:'Tees',     type:'text'               },
       { key:'slope',    label:'Slope',    type:'number'             },
       { key:'rating',   label:'Rating',   type:'number', step:'0.1' },
@@ -1520,6 +1521,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         stimp:    parseFloat(document.getElementById(`r${i}-stimp`)?.value)        || null,
         fairways: document.getElementById(`r${i}-fairways`)?.value.trim()          || null,
         greens:   document.getElementById(`r${i}-greens`)?.value.trim()            || null,
+        courseType: document.getElementById(`r${i}-courseType`)?.value.trim()      || null,
         tees:     document.getElementById(`r${i}-tees`)?.value.trim()              || null,
         slope:    parseInt(document.getElementById(`r${i}-slope`)?.value)          || null,
         rating:   parseFloat(document.getElementById(`r${i}-rating`)?.value)       || null,
@@ -1534,7 +1536,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
     function addRound() {
       if (formRounds.length >= 2) return;
       const current = formRounds.length > 0 ? readCurrentRounds() : [];
-      formRounds = [...current, { round: current.length + 1, course:null, stimp:null, fairways:null, greens:null, tees:null, slope:null, rating:null, pins:null, weather:null, wind:null, gimmies:null, putting:null }];
+      formRounds = [...current, { round: current.length + 1, course:null, stimp:null, fairways:null, greens:null, courseType:null, tees:null, slope:null, rating:null, pins:null, weather:null, wind:null, gimmies:null, putting:null }];
       renderRoundsSection();
     }
 
@@ -2107,7 +2109,7 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       const roundsHtml = (e.rounds || []).map(r => {
         const parts = [r.course, r.stimp != null ? `Stimp ${r.stimp}` : null, r.slope != null ? `Slope ${r.slope}` : null,
           r.rating != null ? `Rating ${r.rating}` : null, r.tees, r.fairways ? `Fairways ${r.fairways}` : null,
-          r.greens ? `Greens ${r.greens}` : null, r.pins ? `Pins ${r.pins}` : null,
+          r.greens ? `Greens ${r.greens}` : null, r.courseType ? `Course Type ${r.courseType}` : null, r.pins ? `Pins ${r.pins}` : null,
           r.wind, r.weather, r.gimmies ? `Gimmies ${r.gimmies}` : null].filter(Boolean);
         return `<div class="py-1.5 border-b border-[#2c2c2c]/40">
           <div class="text-gray-500 mb-0.5">Round ${r.round}</div>
