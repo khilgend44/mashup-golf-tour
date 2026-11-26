@@ -54,9 +54,9 @@ jobs:
           # field hasn't linked a stream at all.
           resolve_video() {
             local tid="$1" hole="$2" player="$3" shot_num="$4" expected_value="$5"
-            local lbhtml="$6" sgt_streams="$7" mashup_streams="$8"
+            local lbhtml="$6" sgt_streams="$7" mashup_streams="$8" round="${9:-1}"
             local player_lower owns_stream slug scpage pidteam pid team
-            local scdefault streamvideo streamid videoid scstream offset
+            local scdefault streams_list nstreams streamid cand_vid stream_round videoid scstream offset
 
             player_lower=$(echo "$player" | tr '[:upper:]' '[:lower:]')
             owns_stream=$(jq -r --arg p "$player_lower" '[.[] | select(.player == $p)] | length' "$sgt_streams" 2>/dev/null || echo 0)
@@ -88,21 +88,37 @@ jobs:
             scdefault=$(mktemp)
             curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
               "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; return; }
-            streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault" "$player")
+            streams_list=$(python3 .github/scripts/ctp_video_link.py streams "$scdefault" "$player")
             rm -f "$scdefault"
-            [ -z "$streamvideo" ] && return
-            streamid=$(echo "$streamvideo" | cut -d' ' -f1)
-            videoid=$(echo "$streamvideo" | cut -d' ' -f2)
+            [ -z "$streams_list" ] && return
+            nstreams=$(echo "$streams_list" | wc -l | tr -d ' ')
 
-            scstream=$(mktemp)
-            curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
-              "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; return; }
-            if [ -z "$shot_num" ] || [ "$shot_num" = "null" ]; then
-              offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
-            else
-              offset=$(python3 .github/scripts/ctp_video_link.py shotoffset "$scstream" "$hole" "$shot_num" "$expected_value")
-            fi
-            rm -f "$scstream"
+            # A multi-round event links one stream (one YouTube video) per
+            # round on the same scorecard. Use the stream whose own replay is
+            # THIS shot's round — taking the first one (always round 1) sent
+            # a round 2 shot to the round 1 video at the same hole number
+            # (same bug as the CTP links, fixed 2026-11-26 in
+            # fetch-scorecards.yml). An unreadable round is trusted only for
+            # a lone stream on a round-1 shot; anything else is skipped.
+            videoid=""
+            offset=""
+            while read -r streamid cand_vid; do
+              [ -z "$streamid" ] && continue
+              scstream=$(mktemp)
+              curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+                "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; continue; }
+              stream_round=$(python3 .github/scripts/ctp_video_link.py round "$scstream")
+              if [ "$stream_round" = "$round" ] || { [ -z "$stream_round" ] && [ "$nstreams" = "1" ] && [ "$round" = "1" ]; }; then
+                if [ -z "$shot_num" ] || [ "$shot_num" = "null" ]; then
+                  offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
+                else
+                  offset=$(python3 .github/scripts/ctp_video_link.py shotoffset "$scstream" "$hole" "$shot_num" "$expected_value")
+                fi
+                videoid="$cand_vid"
+              fi
+              rm -f "$scstream"
+              [ -n "$offset" ] && break
+            done <<< "$streams_list"
             [ -z "$offset" ] && return
 
             echo "https://www.youtube.com/watch?v=${videoid}&t=${offset}s"
@@ -236,6 +252,7 @@ jobs:
                 entry=$(echo "$RESULT" | jq --arg c "$category" --argjson i "$i" '.[$c][$i]')
                 hole=$(echo "$entry" | jq -r '.hole')
                 player=$(echo "$entry" | jq -r '.player')
+                round=$(echo "$entry" | jq -r '.round // 1')
                 # A drive is always a hole's first shot — the hole-level
                 # offset (shot_num left empty) already covers it, same as
                 # CTP. An approach/putt is never shot 1, so it needs its
@@ -250,7 +267,7 @@ jobs:
                   shot_num=$(echo "$entry" | jq -r '.shotNum')
                   expected_value=$(echo "$entry" | jq -r '.lengthFt')
                 fi
-                video=$(resolve_video "$tid" "$hole" "$player" "$shot_num" "$expected_value" "$lbhtml" "$sgt_streams" "$mashup_streams")
+                video=$(resolve_video "$tid" "$hole" "$player" "$shot_num" "$expected_value" "$lbhtml" "$sgt_streams" "$mashup_streams" "$round")
                 if [ -n "$video" ]; then
                   RESULT=$(echo "$RESULT" | jq --arg c "$category" --argjson i "$i" --arg video "$video" '.[$c][$i].video = $video')
                 fi

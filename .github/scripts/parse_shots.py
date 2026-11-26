@@ -47,9 +47,14 @@ that specific shot's own offset (`ctp_video_link.py`'s `shotoffset` step)
 keyed by hole *and* shot number, not just hole.
 
 Usage: parse_shots.py <shots_fragment_html_path>
-  -> {"drives": [{"player","hole","par","distanceYds","shotNum"}],
-      "approaches": [{"player","hole","par","proximityFt","shotNum"}],
-      "putts": [{"player","hole","lengthFt","shotNum"}]} on stdout
+  -> {"drives": [{"player","round","hole","par","distanceYds","shotNum"}],
+      "approaches": [{"player","round","hole","par","proximityFt","shotNum"}],
+      "putts": [{"player","round","hole","lengthFt","shotNum"}]} on stdout
+
+`round` is read from the fragment's own "ROUND N" headings (a multi-round
+event repeats holes 1-18 once per round, each under its own heading) — 1
+when there are none. Needed so the video resolver can pick that round's
+stream instead of always taking round 1's.
 """
 import re
 import sys
@@ -89,6 +94,20 @@ def parse_remaining_ft(detail_text):
     return value * 3.0 if unit == 'yds' else value
 
 
+ROUND_HEADING_RE = re.compile(r"<h2[^>]*>\s*ROUND\s+(\d+)\s*</h2>")
+
+
+def round_at(round_marks, pos):
+    """The round whose heading most recently precedes `pos` (1 if none)."""
+    rnd = 1
+    for mark_pos, mark_round in round_marks:
+        if mark_pos <= pos:
+            rnd = mark_round
+        else:
+            break
+    return rnd
+
+
 MADE_PUTT_RE = re.compile(r"Made\s+([\d.]+)\s*ft putt$")
 HOLED_OUT_RE = re.compile(r"Holed out$")
 
@@ -98,6 +117,7 @@ def parse(html):
     approaches = []
     putts = []
 
+    round_marks = [(m.start(), int(m.group(1))) for m in ROUND_HEADING_RE.finditer(html)]
     player_matches = list(PLAYER_RE.finditer(html))
     for i, pm in enumerate(player_matches):
         player = pm.group(1).strip()
@@ -107,6 +127,7 @@ def parse(html):
         hole_matches = list(re.finditer(r"<div data-hole='(\d+)'", section))
         for j, hm in enumerate(hole_matches):
             hole = int(hm.group(1))
+            rnd = round_at(round_marks, pm.end() + hm.start())
             hole_end = hole_matches[j + 1].start() if j + 1 < len(hole_matches) else len(section)
             chunk = section[hm.start():hole_end]
 
@@ -124,7 +145,7 @@ def parse(html):
 
                 made_putt_m = MADE_PUTT_RE.match(main_text.strip())
                 if made_putt_m:
-                    putts.append({"player": player, "hole": hole, "lengthFt": float(made_putt_m.group(1)), "shotNum": shot_num})
+                    putts.append({"player": player, "round": rnd, "hole": hole, "lengthFt": float(made_putt_m.group(1)), "shotNum": shot_num})
                     break  # holing out always ends the hole — nothing follows
 
                 # "Holed out" / "from {N} yds" — a non-putt shot holed from
@@ -148,14 +169,14 @@ def parse(html):
                 remaining_ft = parse_remaining_ft(detail_text)
 
                 if is_first_shot and par in (4, 5) and lie == 'fairway' and distance_yds is not None:
-                    drives.append({"player": player, "hole": hole, "par": par, "distanceYds": distance_yds, "shotNum": shot_num})
+                    drives.append({"player": player, "round": rnd, "hole": hole, "par": par, "distanceYds": distance_yds, "shotNum": shot_num})
 
                 is_eligible_approach = (
                     not is_first_shot and par in (4, 5) and
                     prior_remaining_yds is not None and prior_remaining_yds > 100
                 )
                 if is_eligible_approach and (distance_yds is not None or is_holed_out):
-                    approaches.append({"player": player, "hole": hole, "par": par, "proximityFt": remaining_ft, "shotNum": shot_num})
+                    approaches.append({"player": player, "round": rnd, "hole": hole, "par": par, "proximityFt": remaining_ft, "shotNum": shot_num})
                     if is_holed_out:
                         break  # holing out always ends the hole — nothing follows
 
