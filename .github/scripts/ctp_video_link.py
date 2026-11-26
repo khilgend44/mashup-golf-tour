@@ -31,6 +31,11 @@ calls, since each URL depends on the previous step's output):
   ctp_video_link.py stream <default_fragment_html> <player>    -> "<streamId> <videoId>", or nothing
                                                                     (see cmd_stream for why <player>
                                                                     is required, not optional)
+  ctp_video_link.py streams <default_fragment_html> <player>   -> every "<streamId> <videoId>" this player
+                                                                    linked, one per line (one per round
+                                                                    in a multi-round event)
+  ctp_video_link.py round  <stream_fragment_html>               -> the round number that stream's replay
+                                                                    covers, or nothing
   ctp_video_link.py offset <stream_fragment_html> <hole>        -> hole-level time offset in seconds
                                                                     — really just shot 1's own offset,
                                                                     correct for a tee shot (CTP),
@@ -87,6 +92,44 @@ def cmd_pid(scorecard_page_html_path):
     team_m = re.search(r"data-is-team=[\"']([^\"']*)[\"']", tag)
     if pid_m:
         print(f"{pid_m.group(1)} {team_m.group(1) if team_m else ''}")
+
+
+def _player_streams(default_fragment_html_path, player):
+    """Every (streamId, videoId) linked to this player on the scorecard, in
+    document order. Same named-vs-unnamed rules as cmd_stream below: with
+    named per-teammate buttons only this player's own are returned (never a
+    teammate's, never a guess)."""
+    html = read(default_fragment_html_path)
+    player_lower = player.strip().lower()
+
+    named = re.findall(
+        r"data-stream-id='(\d+)'\s+data-video-id='([\w-]+)'[^>]*>.*?<span class='text-uppercase'>([^<]+)</span>",
+        html, re.S)
+    if named:
+        return [(s, v) for s, v, owner in named if owner.strip().lower() == player_lower]
+
+    return re.findall(r"data-stream-id='(\d+)'\s+data-video-id='([\w-]+)'", html)
+
+
+def cmd_streams(default_fragment_html_path, player):
+    """All of this player's linked streams, one "<streamId> <videoId>" per
+    line. A multi-round event gets one stream per round (S11W1: round 1 and
+    round 2 are separate YouTube videos on the same scorecard), and `stream`
+    below only ever returns the FIRST — i.e. round 1 — so a round 2 CTP
+    resolved against it landed on the round 1 video at the same hole number.
+    Callers pick the right one with `round`."""
+    for stream_id, video_id in _player_streams(default_fragment_html_path, player):
+        print(f"{stream_id} {video_id}")
+
+
+def cmd_round(stream_fragment_html_path):
+    """Which round a stream fragment's replay covers, read from its own
+    title (`data-title="ROUND 2 &middot; player &middot; 67 (-3)"`). Prints
+    nothing when the title isn't there, so the caller can fail closed."""
+    html = read(stream_fragment_html_path)
+    m = re.search(r"id='stream-title'[^>]*data-title=[\"']ROUND\s+(\d+)", html)
+    if m:
+        print(m.group(1))
 
 
 def cmd_stream(default_fragment_html_path, player):
@@ -265,6 +308,10 @@ if __name__ == "__main__":
         cmd_pid(sys.argv[2])
     elif step == "stream":
         cmd_stream(sys.argv[2], sys.argv[3])
+    elif step == "streams":
+        cmd_streams(sys.argv[2], sys.argv[3])
+    elif step == "round":
+        cmd_round(sys.argv[2])
     elif step == "offset":
         cmd_offset(sys.argv[2], sys.argv[3])
     elif step == "shotoffset":

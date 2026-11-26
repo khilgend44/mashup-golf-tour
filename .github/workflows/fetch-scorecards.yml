@@ -476,17 +476,34 @@ jobs:
                   scdefault=$(mktemp)
                   curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
                     "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; continue; }
-                  streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault" "$player")
+                  streams_list=$(python3 .github/scripts/ctp_video_link.py streams "$scdefault" "$player")
                   rm -f "$scdefault"
-                  [ -z "$streamvideo" ] && continue
-                  streamid=$(echo "$streamvideo" | cut -d' ' -f1)
-                  videoid=$(echo "$streamvideo" | cut -d' ' -f2)
+                  [ -z "$streams_list" ] && continue
+                  nstreams=$(echo "$streams_list" | wc -l | tr -d ' ')
 
-                  scstream=$(mktemp)
-                  curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
-                    "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; continue; }
-                  offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
-                  rm -f "$scstream"
+                  # A multi-round event links one stream (one YouTube video)
+                  # per round, all on the same scorecard. Pick the stream
+                  # whose own replay is THIS CTP's round — taking the first
+                  # one (always round 1) sent a round 2 CTP to the round 1
+                  # video at the same hole number (S11W1, StalcupFarms13
+                  # hole 12). If a stream's round can't be read, only a
+                  # lone stream on a round-1 CTP is trusted; anything else
+                  # is skipped rather than guessed.
+                  videoid=""
+                  offset=""
+                  while read -r streamid cand_vid; do
+                    [ -z "$streamid" ] && continue
+                    scstream=$(mktemp)
+                    curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+                      "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; continue; }
+                    stream_round=$(python3 .github/scripts/ctp_video_link.py round "$scstream")
+                    if [ "$stream_round" = "$round" ] || { [ -z "$stream_round" ] && [ "$nstreams" = "1" ] && [ "$round" = "1" ]; }; then
+                      offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
+                      videoid="$cand_vid"
+                    fi
+                    rm -f "$scstream"
+                    [ -n "$offset" ] && break
+                  done <<< "$streams_list"
                   [ -z "$offset" ] && continue
 
                   video="https://www.youtube.com/watch?v=${videoid}&t=${offset}s"
