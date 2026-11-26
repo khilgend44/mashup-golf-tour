@@ -1220,6 +1220,12 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
       const resolvePlayer = name => playerByLower.get(String(name || '').toLowerCase()) || name;
       const fmtSuggested = s => s.ace ? 'ACE' : `${s.distance_ft.toFixed(2)} ft`;
 
+      // A multi-round event's CTP winner can have hit their shot in any round
+      // (the contest is per hole, best across rounds) — the round says which
+      // stream/video the shot is in, so auto-linking never lands on round 1's.
+      const numRounds = Math.max(ev.rounds?.length || 1, ...suggestions.map(x => x.round || 1), ...existing.map(x => x.round || 1));
+      const multiRound = numRounds > 1;
+
       const optsFor = sel => ['<option value="">— select player —</option>',
         ...players.map(p => `<option value="${p}"${p.toLowerCase() === String(sel || '').toLowerCase() ? ' selected' : ''}>${p}</option>`)].join('');
 
@@ -1230,13 +1236,19 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         const player   = ex.player ?? (suggestion ? resolvePlayer(suggestion.player) : '');
         const distance = ex.distance ?? (suggestion ? fmtSuggested(suggestion) : '');
         const video    = ex.video ?? '';
+        const round    = ex.round ?? suggestion?.round ?? 1;
+        const roundSel = multiRound ? `
+            <div class="col-span-2">
+              <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Round</label>
+              <select class="ctp-round w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame">${Array.from({ length: numRounds }, (_, r) => `<option value="${r + 1}"${r + 1 === Number(round) ? ' selected' : ''}>${r + 1}</option>`).join('')}</select>
+            </div>` : '';
         return `
           <div class="grid grid-cols-12 gap-2 items-end" data-ctp-row="${i}">
-            <div class="col-span-3">
+            <div class="${multiRound ? 'col-span-2' : 'col-span-3'}">
               <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Hole</label>
               <input type="number" min="1" max="18" class="ctp-hole w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame" value="${hole}" />
-            </div>
-            <div class="col-span-5">
+            </div>${roundSel}
+            <div class="${multiRound ? 'col-span-4' : 'col-span-5'}">
               <label class="block text-[10px] font-heading font-600 tracking-widest text-gray-500 uppercase mb-1">Player</label>
               <select class="ctp-player w-full bg-surface border border-border rounded px-2 py-2 text-sm text-gray-200 focus:outline-none focus:border-flame">${optsFor(player)}</select>
             </div>
@@ -1272,7 +1284,9 @@ ${isKv ? `<button class="details-btn text-xs font-heading font-600 tracking-wide
         const distance = row.querySelector('.ctp-dist').value.trim();
         const video    = row.querySelector('.ctp-video').value.trim();
         if (!player || !hole) { showStatus('Each CTP needs a hole number and a player.', 'error'); return; }
-        const entry = { hole, player, distance, amount: amountEach };
+        const roundEl = row.querySelector('.ctp-round');
+        const round   = roundEl ? parseInt(roundEl.value) || 1 : (existing[i]?.round ?? 1);
+        const entry = { hole, round, player, distance, amount: amountEach };
         if (video) {
           entry.video = video;
           // Only keep the auto-linked tag if the link wasn't touched — any

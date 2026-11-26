@@ -196,7 +196,7 @@ jobs:
               shots=$(mktemp)
               curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
                 "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/shots" -o "$shots" || { rm -f "$shots"; continue; }
-              python3 .github/scripts/parse_shots.py "$shots" >> "$fragments"
+              python3 .github/scripts/parse_shots.py "$shots" "$player" >> "$fragments"
               rm -f "$shots"
             done
 

@@ -46,7 +46,8 @@ instead). So resolving a timestamp for anything but a drive must look up
 that specific shot's own offset (`ctp_video_link.py`'s `shotoffset` step)
 keyed by hole *and* shot number, not just hole.
 
-Usage: parse_shots.py <shots_fragment_html_path>
+Usage: parse_shots.py <shots_fragment_html_path> [<player>]
+  (<player> only matters for a solo scorecard, whose fragment has no player header)
   -> {"drives": [{"player","round","hole","par","distanceYds","shotNum"}],
       "approaches": [{"player","round","hole","par","proximityFt","shotNum"}],
       "putts": [{"player","round","hole","lengthFt","shotNum"}]} on stdout
@@ -112,22 +113,34 @@ MADE_PUTT_RE = re.compile(r"Made\s+([\d.]+)\s*ft putt$")
 HOLED_OUT_RE = re.compile(r"Holed out$")
 
 
-def parse(html):
+def parse(html, solo_player=None):
     drives = []
     approaches = []
     putts = []
 
     round_marks = [(m.start(), int(m.group(1))) for m in ROUND_HEADING_RE.finditer(html)]
+    # A team scorecard's fragment names each player in an h5 header and holds
+    # one section per teammate. A SOLO scorecard has no such header at all —
+    # the whole fragment is that one player's — so with no headers found, treat
+    # the document as a single section for `solo_player` (the caller already
+    # knows who it fetched, from the leaderboard). Before this, a solo event
+    # (Solo Ringer, Match Play Grid) silently produced zero candidates, so its
+    # Drive/Approach/Putt of the Week was always empty (S11W1, S10W1).
     player_matches = list(PLAYER_RE.finditer(html))
+    sections = []
     for i, pm in enumerate(player_matches):
-        player = pm.group(1).strip()
-        section_end = player_matches[i + 1].start() if i + 1 < len(player_matches) else len(html)
-        section = html[pm.end():section_end]
+        end = player_matches[i + 1].start() if i + 1 < len(player_matches) else len(html)
+        sections.append((pm.group(1).strip(), pm.end(), end))
+    if not sections and solo_player:
+        sections.append((solo_player.strip(), 0, len(html)))
+
+    for player, section_start, section_end in sections:
+        section = html[section_start:section_end]
 
         hole_matches = list(re.finditer(r"<div data-hole='(\d+)'", section))
         for j, hm in enumerate(hole_matches):
             hole = int(hm.group(1))
-            rnd = round_at(round_marks, pm.end() + hm.start())
+            rnd = round_at(round_marks, section_start + hm.start())
             hole_end = hole_matches[j + 1].start() if j + 1 < len(hole_matches) else len(section)
             chunk = section[hm.start():hole_end]
 
@@ -188,4 +201,4 @@ def parse(html):
 if __name__ == "__main__":
     with open(sys.argv[1], encoding="utf-8") as f:
         html = f.read()
-    print(json.dumps(parse(html)))
+    print(json.dumps(parse(html, sys.argv[2] if len(sys.argv) > 2 else None)))

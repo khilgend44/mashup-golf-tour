@@ -335,7 +335,7 @@ jobs:
               # shots are actually in a given broadcast isn't reliably
               # derivable from play data alone.
               EVENT_CTP=$(echo "$ALL_EVENTS" | jq -c --argjson tid "$tid" '[.[] | select(.tournamentId == $tid)][0].ctp // []')
-              NEEDED=$(echo "$EVENT_CTP" | jq -c '[.[] | select((.video // "") == "") | {hole, player}]')
+              NEEDED=$(echo "$EVENT_CTP" | jq -c '[.[] | select((.video // "") == "") | {hole, player, round: (.round // 1)}]')
               nc=$(echo "$NEEDED" | jq 'length')
 
               if [ "$nc" != "0" ] && [ -n "$STREAM_IMPORT_SECRET" ]; then
@@ -344,6 +344,7 @@ jobs:
                 for row in $(echo "$NEEDED" | jq -c '.[]'); do
                   hole=$(echo "$row" | jq -r '.hole')
                   player=$(echo "$row" | jq -r '.player')
+                  round=$(echo "$row" | jq -r '.round')
 
                   # This player must have linked their OWN stream, OR be
                   # registered on MashUp's own stream data to the exact same
@@ -382,21 +383,35 @@ jobs:
                   scdefault=$(mktemp)
                   curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
                     "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}" -o "$scdefault" || { rm -f "$scdefault"; continue; }
-                  streamvideo=$(python3 .github/scripts/ctp_video_link.py stream "$scdefault" "$player")
+                  streams_list=$(python3 .github/scripts/ctp_video_link.py streams "$scdefault" "$player")
                   rm -f "$scdefault"
-                  [ -z "$streamvideo" ] && continue
-                  streamid=$(echo "$streamvideo" | cut -d' ' -f1)
-                  videoid=$(echo "$streamvideo" | cut -d' ' -f2)
+                  [ -z "$streams_list" ] && continue
+                  nstreams=$(echo "$streams_list" | wc -l | tr -d ' ')
 
-                  scstream=$(mktemp)
-                  curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
-                    "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; continue; }
-                  offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
-                  rm -f "$scstream"
+                  # One stream per round on a multi-round scorecard — use the
+                  # one for this CTP's round (admin ctp[] entries carry
+                  # `round` since 2026-11-26; older ones count as round 1).
+                  # Same pick-by-round / fail-closed rules as the live path
+                  # below.
+                  videoid=""
+                  offset=""
+                  while read -r streamid cand_vid; do
+                    [ -z "$streamid" ] && continue
+                    scstream=$(mktemp)
+                    curl -sf -H "Referer: https://simulatorgolftour.com/" -H "User-Agent: Mozilla/5.0" \
+                      "https://simulatorgolftour.com/sgt-api/scorecard/${tid}/${pid}/${team}/stream/${streamid}" -o "$scstream" || { rm -f "$scstream"; continue; }
+                    stream_round=$(python3 .github/scripts/ctp_video_link.py round "$scstream")
+                    if [ "$stream_round" = "$round" ] || { [ -z "$stream_round" ] && [ "$nstreams" = "1" ] && [ "$round" = "1" ]; }; then
+                      offset=$(python3 .github/scripts/ctp_video_link.py offset "$scstream" "$hole")
+                      videoid="$cand_vid"
+                    fi
+                    rm -f "$scstream"
+                    [ -n "$offset" ] && break
+                  done <<< "$streams_list"
                   [ -z "$offset" ] && continue
 
                   video="https://www.youtube.com/watch?v=${videoid}&t=${offset}s"
-                  CTP_VIDEOS=$(echo "$CTP_VIDEOS" | jq -c --argjson hole "$hole" --arg player "$player" --arg video "$video" '. + [{hole: $hole, player: $player, video: $video}]')
+                  CTP_VIDEOS=$(echo "$CTP_VIDEOS" | jq -c --argjson hole "$hole" --argjson round "$round" --arg player "$player" --arg video "$video" '. + [{hole: $hole, round: $round, player: $player, video: $video}]')
                 done
 
                 vcount=$(echo "$CTP_VIDEOS" | jq 'length')

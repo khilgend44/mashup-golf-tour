@@ -73,7 +73,11 @@ export async function onRequestPost(context) {
       const video = item.video;
       if (!hole || !player || !video) { skipped.push(item); continue; }
 
-      const ci = ctp.findIndex(c => c.hole === hole && String(c.player || '').toLowerCase() === player);
+      // `round` says which round's stream the shot is in. An entry or item
+      // with no round (every event completed before this existed, and every
+      // single-round event) counts as round 1, so old data still matches.
+      const round = item.round ?? 1;
+      const ci = ctp.findIndex(c => c.hole === hole && (c.round ?? 1) === round && String(c.player || '').toLowerCase() === player);
       if (ci === -1) { skipped.push(item); continue; }
       if (ctp[ci].video) { skipped.push(item); continue; }
 
