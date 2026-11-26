@@ -879,6 +879,19 @@
       });
     }
 
+    // Season 11 onward (S11W1 was the first): a nudge under the stream banner
+    // to also link the stream on SGT itself — that's what lets the site
+    // auto-index a player's great shots (CTP / Drive / Approach / Putt of the
+    // Week; see fetch-scorecards.yml). Built from the numeric tournamentId, not
+    // event.url, so nothing unvalidated lands in the href. Empty for older
+    // seasons and events with no SGT tournament yet.
+    function sgtStreamNoteHtml(event) {
+      const m = /^season-(\d+)$/.exec(event?.season || '');
+      const tid = Number(event?.tournamentId);
+      if (!m || Number(m[1]) < 11 || !Number.isInteger(tid) || tid <= 0) return '';
+      return `<div class="text-xs text-gray-400 mt-1.5 leading-snug">For auto indexing of your great shots, <a href="https://simulatorgolftour.com/tournament/${tid}" target="_blank" rel="noopener" class="text-flame hover:text-flame-dim underline">click this link</a> to head to the SGT event (log in) and add your stream there.</div>`;
+    }
+
     function renderStreamForm(event, players, format, streams = {}) {
       const container = document.getElementById('stream-form-container');
       if (!container) return;
@@ -905,6 +918,7 @@
               <div class="flex-1 min-w-0">
                 <div class="font-heading font-700 text-white tracking-wide">Submit Your Stream Links</div>
                 <div class="text-xs text-gray-500 mt-0.5 truncate">Solo Ringer — select your username and submit a link for each round you've completed.</div>
+                ${sgtStreamNoteHtml(event)}
               </div>
               <span class="stream-chevron text-gray-500 text-xs shrink-0">▾</span>
             </summary>
@@ -1024,6 +1038,7 @@
               <div class="flex-1 min-w-0">
                 <div class="font-heading font-700 text-white tracking-wide">Submit Your Stream Link</div>
                 <div class="text-xs text-gray-500 mt-0.5 truncate">Select all players in your stream, then paste your YouTube URL.</div>
+                ${sgtStreamNoteHtml(event)}
               </div>
               <span class="stream-chevron text-gray-500 text-xs shrink-0">▾</span>
             </summary>
