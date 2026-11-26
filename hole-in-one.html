@@ -170,7 +170,7 @@
     </section>
 
     <p class="text-sm text-gray-400 font-body text-center mb-2">
-      The pot restarted at $100 after Jonty's ace. Season 11's $3-per-player pool gets added when registration closes, and it keeps growing every season after that.
+      The pot restarted at $100 after Jonty's ace. Season 11's $3-per-player pool is in, and it keeps growing every season after that.
     </p>
 
   </main>
@@ -185,8 +185,7 @@
     // `perPlayer: null` = a flat/seed contribution (no per-player math).
     const CONTRIBUTIONS = [
       { source: 'Restart — donated by Jonty', players: null, perPlayer: null, amount: 100.00, note: 'Seed' },
-      // Season 11 Pool ($3 × each registrant) is added when Season 11 registration closes:
-      // { source: 'Season 11 Pool', players: <count>, perPlayer: 3.00 },
+      { source: 'Season 11 Pool', players: 33, perPlayer: 3.00 },
     ];
 
     const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
