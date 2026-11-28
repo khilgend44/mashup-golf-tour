@@ -1,6 +1,6 @@
 {
   "tournamentId": 85486,
-  "generatedAt": "2026-11-27T17:09:18Z",
+  "generatedAt": "2026-11-28T00:58:19Z",
   "driveOfWeek": [
     {
       "player": "StalcupFarms13",
@@ -12,6 +12,14 @@
       "video": "https://www.youtube.com/watch?v=eU0RLz2jhRM&t=870s"
     },
     {
+      "player": "boilertimmay",
+      "round": 1,
+      "hole": 16,
+      "par": 4,
+      "distanceYds": 328.0,
+      "shotNum": 1
+    },
+    {
       "player": "Tigerstew84",
       "round": 1,
       "hole": 3,
@@ -19,15 +27,6 @@
       "distanceYds": 324.0,
       "shotNum": 1,
       "video": "https://www.youtube.com/watch?v=2wxYnO3x7uc&t=349s"
-    },
-    {
-      "player": "StalcupFarms13",
-      "round": 1,
-      "hole": 13,
-      "par": 5,
-      "distanceYds": 320.0,
-      "shotNum": 1,
-      "video": "https://www.youtube.com/watch?v=BtdKukb5CzM&t=1794s"
     }
   ],
   "approachOfWeek": [
@@ -41,48 +40,45 @@
       "video": "https://www.youtube.com/watch?v=BtdKukb5CzM&t=101s"
     },
     {
-      "player": "Tigerstew84",
+      "player": "betteri",
       "round": 1,
-      "hole": 7,
-      "par": 5,
-      "proximityFt": 12.0,
-      "shotNum": 3,
-      "video": "https://www.youtube.com/watch?v=2wxYnO3x7uc&t=897s"
-    },
-    {
-      "player": "StalcupFarms13",
-      "round": 2,
       "hole": 8,
       "par": 4,
-      "proximityFt": 12.0,
-      "shotNum": 2,
-      "video": "https://www.youtube.com/watch?v=eU0RLz2jhRM&t=1116s"
+      "proximityFt": 9.0,
+      "shotNum": 2
+    },
+    {
+      "player": "toursauce86",
+      "round": 1,
+      "hole": 13,
+      "par": 5,
+      "proximityFt": 11.0,
+      "shotNum": 3,
+      "video": "https://www.youtube.com/watch?v=XuLabR4ExLk&t=1834s"
     }
   ],
   "puttOfWeek": [
     {
-      "player": "Tigerstew84",
+      "player": "boilertimmay",
+      "round": 2,
+      "hole": 6,
+      "lengthFt": 24.0,
+      "shotNum": 2
+    },
+    {
+      "player": "boilertimmay",
+      "round": 1,
+      "hole": 9,
+      "lengthFt": 18.0,
+      "shotNum": 4
+    },
+    {
+      "player": "toursauce86",
       "round": 1,
       "hole": 16,
       "lengthFt": 18.0,
       "shotNum": 3,
-      "video": "https://www.youtube.com/watch?v=2wxYnO3x7uc&t=2082s"
-    },
-    {
-      "player": "StalcupFarms13",
-      "round": 2,
-      "hole": 18,
-      "lengthFt": 17.0,
-      "shotNum": 3,
-      "video": "https://www.youtube.com/watch?v=eU0RLz2jhRM&t=2378s"
-    },
-    {
-      "player": "Tigerstew84",
-      "round": 1,
-      "hole": 17,
-      "lengthFt": 17.0,
-      "shotNum": 2,
-      "video": "https://www.youtube.com/watch?v=2wxYnO3x7uc&t=2182s"
+      "video": "https://www.youtube.com/watch?v=XuLabR4ExLk&t=2312s"
     }
   ]
 }
